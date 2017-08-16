@@ -74,6 +74,7 @@ export declare abstract class AbstractControlDirective {
     readonly path: string[] | null;
     readonly pending: boolean | null;
     readonly pristine: boolean | null;
+    readonly status: string | null;
     readonly statusChanges: Observable<any> | null;
     readonly touched: boolean | null;
     readonly untouched: boolean | null;
@@ -424,6 +425,7 @@ export declare class NgModel extends NgControl implements OnChanges, OnDestroy {
     options: {
         name?: string;
         standalone?: boolean;
+        updateOn?: FormHooks;
     };
     readonly path: string[];
     update: EventEmitter<{}>;
