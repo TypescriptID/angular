@@ -5,16 +5,16 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-import {CompileQueryMetadata, CompilerConfig, JitReflector, ProxyClass, StaticSymbol, preserveWhitespacesDefault} from '@angular/compiler';
+import {CompileQueryMetadata, CompilerConfig, ProxyClass, StaticSymbol, preserveWhitespacesDefault} from '@angular/compiler';
 import {CompileAnimationEntryMetadata, CompileDiDependencyMetadata, CompileDirectiveMetadata, CompileDirectiveSummary, CompilePipeMetadata, CompilePipeSummary, CompileProviderMetadata, CompileTemplateMetadata, CompileTokenMetadata, CompileTypeMetadata, tokenReference} from '@angular/compiler/src/compile_metadata';
 import {DomElementSchemaRegistry} from '@angular/compiler/src/schema/dom_element_schema_registry';
 import {ElementSchemaRegistry} from '@angular/compiler/src/schema/element_schema_registry';
 import {AttrAst, BoundDirectivePropertyAst, BoundElementPropertyAst, BoundEventAst, BoundTextAst, DirectiveAst, ElementAst, EmbeddedTemplateAst, NgContentAst, PropertyBindingType, ProviderAstType, ReferenceAst, TemplateAst, TemplateAstVisitor, TextAst, VariableAst, templateVisitAll} from '@angular/compiler/src/template_parser/template_ast';
-import {TEMPLATE_TRANSFORMS, TemplateParser, splitClasses} from '@angular/compiler/src/template_parser/template_parser';
-import {TEST_COMPILER_PROVIDERS} from '@angular/compiler/testing/src/test_bindings';
+import {TemplateParser, splitClasses} from '@angular/compiler/src/template_parser/template_parser';
 import {ChangeDetectionStrategy, ComponentFactory, RendererType2, SchemaMetadata, SecurityContext, ViewEncapsulation} from '@angular/core';
 import {Console} from '@angular/core/src/console';
 import {TestBed, inject} from '@angular/core/testing';
+import {JitReflector} from '@angular/platform-browser-dynamic/src/compiler_reflector';
 
 import {CompileEntryComponentMetadata, CompileStylesheetMetadata} from '../../src/compile_metadata';
 import {Identifiers, createTokenForExternalReference, createTokenForReference} from '../../src/identifiers';
@@ -22,6 +22,7 @@ import {DEFAULT_INTERPOLATION_CONFIG, InterpolationConfig} from '../../src/ml_pa
 import {noUndefined} from '../../src/util';
 import {MockSchemaRegistry} from '../../testing';
 import {unparse} from '../expression_parser/unparser';
+import {TEST_COMPILER_PROVIDERS} from '../test_bindings';
 
 const someModuleUrl = 'package:someModule';
 
@@ -37,29 +38,28 @@ function createTypeMeta({reference, diDeps}: {reference: any, diDeps?: any[]}):
   return {reference: reference, diDeps: diDeps || [], lifecycleHooks: []};
 }
 
-function compileDirectiveMetadataCreate(
-    {isHost, type, isComponent, selector, exportAs, changeDetection, inputs, outputs, host,
-     providers, viewProviders, queries, viewQueries, entryComponents, template, componentViewType,
-     rendererType, componentFactory}: {
-      isHost?: boolean,
-      type?: CompileTypeMetadata,
-      isComponent?: boolean,
-      selector?: string | null,
-      exportAs?: string | null,
-      changeDetection?: ChangeDetectionStrategy | null,
-      inputs?: string[],
-      outputs?: string[],
-      host?: {[key: string]: string},
-      providers?: CompileProviderMetadata[] | null,
-      viewProviders?: CompileProviderMetadata[] | null,
-      queries?: CompileQueryMetadata[] | null,
-      viewQueries?: CompileQueryMetadata[],
-      entryComponents?: CompileEntryComponentMetadata[],
-      template?: CompileTemplateMetadata,
-      componentViewType?: StaticSymbol | ProxyClass | null,
-      rendererType?: StaticSymbol | RendererType2 | null,
-      componentFactory?: StaticSymbol | ComponentFactory<any>
-    }) {
+function compileDirectiveMetadataCreate({isHost, type, isComponent, selector, exportAs,
+                                         changeDetection, inputs, outputs, host, providers,
+                                         viewProviders, queries, viewQueries, entryComponents,
+                                         template, componentViewType, rendererType}: {
+  isHost?: boolean,
+  type?: CompileTypeMetadata,
+  isComponent?: boolean,
+  selector?: string | null,
+  exportAs?: string | null,
+  changeDetection?: ChangeDetectionStrategy | null,
+  inputs?: string[],
+  outputs?: string[],
+  host?: {[key: string]: string},
+  providers?: CompileProviderMetadata[] | null,
+  viewProviders?: CompileProviderMetadata[] | null,
+  queries?: CompileQueryMetadata[] | null,
+  viewQueries?: CompileQueryMetadata[],
+  entryComponents?: CompileEntryComponentMetadata[],
+  template?: CompileTemplateMetadata,
+  componentViewType?: StaticSymbol | ProxyClass | null,
+  rendererType?: StaticSymbol | RendererType2 | null,
+}) {
   return CompileDirectiveMetadata.create({
     isHost: !!isHost,
     type: noUndefined(type) !,
@@ -78,7 +78,7 @@ function compileDirectiveMetadataCreate(
     template: noUndefined(template) !,
     componentViewType: noUndefined(componentViewType),
     rendererType: noUndefined(rendererType),
-    componentFactory: noUndefined(componentFactory),
+    componentFactory: null,
   });
 }
 
@@ -271,38 +271,6 @@ export function main() {
       ];
       const result = templateVisitAll(visitor, nodes, null);
       expect(result).toEqual(new Array(nodes.length).fill(true));
-    });
-  });
-
-  describe('TemplateParser template transform', () => {
-    beforeEach(() => { TestBed.configureCompiler({providers: TEST_COMPILER_PROVIDERS}); });
-
-    beforeEach(() => {
-      TestBed.configureCompiler({
-        providers:
-            [{provide: TEMPLATE_TRANSFORMS, useValue: new FooAstTransformer(), multi: true}]
-      });
-    });
-
-    describe('single', () => {
-      commonBeforeEach();
-      it('should transform TemplateAST', () => {
-        expect(humanizeTplAst(parse('<div>', []))).toEqual([[ElementAst, 'foo']]);
-      });
-    });
-
-    describe('multiple', () => {
-      beforeEach(() => {
-        TestBed.configureCompiler({
-          providers:
-              [{provide: TEMPLATE_TRANSFORMS, useValue: new BarAstTransformer(), multi: true}]
-        });
-      });
-
-      commonBeforeEach();
-      it('should compose transformers', () => {
-        expect(humanizeTplAst(parse('<div>', []))).toEqual([[ElementAst, 'bar']]);
-      });
     });
   });
 
@@ -1209,6 +1177,24 @@ Binding to attribute 'onEvent' is disallowed for security reasons ("<my-componen
           ]);
         });
 
+        it('should assign references to directives via exportAs with multiple names', () => {
+          const pizzaTestDirective =
+              compileDirectiveMetadataCreate({
+                selector: 'pizza-test',
+                type: createTypeMeta({reference: {filePath: someModuleUrl, name: 'Pizza'}}),
+                exportAs: 'pizza, cheeseSauceBread'
+              }).toSummary();
+
+          const template = '<pizza-test #food="pizza" #yum="cheeseSauceBread"></pizza-test>';
+
+          expect(humanizeTplAst(parse(template, [pizzaTestDirective]))).toEqual([
+            [ElementAst, 'pizza-test'],
+            [ReferenceAst, 'food', createTokenForReference(pizzaTestDirective.type.reference)],
+            [ReferenceAst, 'yum', createTokenForReference(pizzaTestDirective.type.reference)],
+            [DirectiveAst, pizzaTestDirective],
+          ]);
+        });
+
         it('should report references with values that dont match a directive as errors', () => {
           expect(() => parse('<div #a="dirA"></div>', [])).toThrowError(`Template parse errors:
 There is no directive with "exportAs" set to "dirA" ("<div [ERROR ->]#a="dirA"></div>"): TestComp@0:5`);
@@ -1229,6 +1215,31 @@ There is no directive with "exportAs" set to "dirA" ("<div [ERROR ->]#a="dirA"><
               .toThrowError(`Template parse errors:
 Reference "#a" is defined several times ("<div #a></div><div [ERROR ->]#a></div>"): TestComp@0:19`);
 
+        });
+
+        it('should report duplicate reference names when using mutliple exportAs names', () => {
+          const pizzaDirective =
+              compileDirectiveMetadataCreate({
+                selector: '[dessert-pizza]',
+                type: createTypeMeta({reference: {filePath: someModuleUrl, name: 'Pizza'}}),
+                exportAs: 'dessertPizza, chocolate'
+              }).toSummary();
+
+          const chocolateDirective =
+              compileDirectiveMetadataCreate({
+                selector: '[chocolate]',
+                type: createTypeMeta({reference: {filePath: someModuleUrl, name: 'Chocolate'}}),
+                exportAs: 'chocolate'
+              }).toSummary();
+
+          const template = '<div dessert-pizza chocolate #snack="chocolate"></div>';
+          const compileTemplate = () => parse(template, [pizzaDirective, chocolateDirective]);
+          const duplicateReferenceError = 'Template parse errors:\n' +
+              'Reference "#snack" is defined several times ' +
+              '("<div dessert-pizza chocolate [ERROR ->]#snack="chocolate"></div>")' +
+              ': TestComp@0:29';
+
+          expect(compileTemplate).toThrowError(duplicateReferenceError);
         });
 
         it('should not throw error when there is same reference name in different templates',

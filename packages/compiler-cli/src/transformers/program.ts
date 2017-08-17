@@ -6,15 +6,14 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {AotCompiler, AotCompilerOptions, GeneratedFile, NgAnalyzedModules, createAotCompiler, getParseErrors, isSyntaxError, toTypeScript} from '@angular/compiler';
-import {MissingTranslationStrategy} from '@angular/core';
+import {AotCompiler, AotCompilerHost, AotCompilerOptions, GeneratedFile, NgAnalyzedModules, core, createAotCompiler, getParseErrors, isSyntaxError, toTypeScript} from '@angular/compiler';
 import {createBundleIndexHost} from '@angular/tsc-wrapped';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as tsickle from 'tsickle';
 import * as ts from 'typescript';
 
-import {CompilerHost as AotCompilerHost} from '../compiler_host';
+import {BaseAotCompilerHost} from '../compiler_host';
 import {TypeChecker} from '../diagnostics/check_types';
 
 import {CompilerHost, CompilerOptions, Diagnostic, EmitFlags, EmitResult, Program} from './api';
@@ -73,11 +72,8 @@ class AngularCompilerProgram implements Program {
             .map(sf => sf.fileName)
             .filter(f => !f.match(/\.ngfactory\.[\w.]+$|\.ngstyle\.[\w.]+$|\.ngsummary\.[\w.]+$/));
     this.metadataCache = new LowerMetadataCache({quotedNames: true}, !!options.strictMetadataEmit);
-    this.aotCompilerHost = new AotCompilerHost(
-        this.tsProgram, options, host, /* collectorOptions */ undefined, this.metadataCache);
-    if (host.readResource) {
-      this.aotCompilerHost.loadResource = host.readResource.bind(host);
-    }
+    this.aotCompilerHost =
+        new AotCompilerHostImpl(this.tsProgram, options, host, this.metadataCache);
 
     const aotOptions = getAotCompilerOptions(options);
     this.compiler = createAotCompiler(this.aotCompilerHost, aotOptions).compiler;
@@ -309,6 +305,28 @@ class AngularCompilerProgram implements Program {
   }
 }
 
+class AotCompilerHostImpl extends BaseAotCompilerHost<CompilerHost> {
+  moduleNameToFileName(m: string, containingFile: string): string|null {
+    return this.context.moduleNameToFileName(m, containingFile);
+  }
+
+  fileNameToModuleName(importedFile: string, containingFile: string): string|null {
+    return this.context.fileNameToModuleName(importedFile, containingFile);
+  }
+
+  resourceNameToFileName(resourceName: string, containingFile: string): string|null {
+    return this.context.resourceNameToFileName(resourceName, containingFile);
+  }
+
+  toSummaryFileName(fileName: string, referringSrcFileName: string): string {
+    return this.context.toSummaryFileName(fileName, referringSrcFileName);
+  }
+
+  fromSummaryFileName(fileName: string, referringLibFileName: string): string {
+    return this.context.fromSummaryFileName(fileName, referringLibFileName);
+  }
+}
+
 export function createProgram(
     {rootNames, options, host, oldProgram}:
         {rootNames: string[], options: CompilerOptions, host: CompilerHost, oldProgram?: Program}):
@@ -318,14 +336,14 @@ export function createProgram(
 
 // Compute the AotCompiler options
 function getAotCompilerOptions(options: CompilerOptions): AotCompilerOptions {
-  let missingTranslation = MissingTranslationStrategy.Warning;
+  let missingTranslation = core.MissingTranslationStrategy.Warning;
 
   switch (options.i18nInMissingTranslations) {
     case 'ignore':
-      missingTranslation = MissingTranslationStrategy.Ignore;
+      missingTranslation = core.MissingTranslationStrategy.Ignore;
       break;
     case 'error':
-      missingTranslation = MissingTranslationStrategy.Error;
+      missingTranslation = core.MissingTranslationStrategy.Error;
       break;
   }
 
@@ -339,7 +357,7 @@ function getAotCompilerOptions(options: CompilerOptions): AotCompilerOptions {
   } else {
     // No translations are provided, ignore any errors
     // We still go through i18n to remove i18n attributes
-    missingTranslation = MissingTranslationStrategy.Ignore;
+    missingTranslation = core.MissingTranslationStrategy.Ignore;
   }
 
   return {
