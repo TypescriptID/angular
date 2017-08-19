@@ -195,7 +195,6 @@ export declare abstract class CompilerFactory {
 
 /** @experimental */
 export declare type CompilerOptions = {
-    /** @deprecated */ useDebug?: boolean;
     useJit?: boolean;
     defaultEncapsulation?: ViewEncapsulation;
     providers?: StaticProvider[];
@@ -325,7 +324,6 @@ export declare class DebugNode {
     readonly references: {
         [key: string]: any;
     };
-    /** @deprecated */ readonly source: string;
     constructor(nativeNode: any, parent: DebugNode | null, _debugContext: DebugContext);
 }
 
@@ -381,8 +379,6 @@ export declare function enableProdMode(): void;
 
 /** @stable */
 export declare class ErrorHandler {
-    constructor(
-        deprecatedParameter?: boolean);
     handleError(error: any): void;
 }
 
@@ -516,7 +512,6 @@ export interface IterableDiffer<V> {
 /** @stable */
 export interface IterableDifferFactory {
     create<V>(trackByFn?: TrackByFunction<V>): IterableDiffer<V>;
-    /** @deprecated */ create<V>(_cdr?: ChangeDetectorRef | TrackByFunction<V>, trackByFn?: TrackByFunction<V>): IterableDiffer<V>;
     supports(objects: any): boolean;
 }
 
@@ -559,7 +554,6 @@ export interface KeyValueDiffer<K, V> {
 /** @stable */
 export interface KeyValueDifferFactory {
     create<K, V>(): KeyValueDiffer<K, V>;
-    /** @deprecated */ create<K, V>(_cdr?: ChangeDetectorRef): KeyValueDiffer<K, V>;
     supports(objects: any): boolean;
 }
 
@@ -973,7 +967,6 @@ export declare abstract class TemplateRef<C> {
 export declare class Testability implements PublicTestability {
     constructor(_ngZone: NgZone);
     decreasePendingRequestCount(): number;
-    /** @deprecated */ findBindings(using: any, provider: string, exactMatch: boolean): any[];
     findProviders(using: any, provider: string, exactMatch: boolean): any[];
     getPendingRequestCount(): number;
     increasePendingRequestCount(): number;
@@ -989,11 +982,6 @@ export declare class TestabilityRegistry {
     getAllTestabilities(): Testability[];
     getTestability(elem: any): Testability | null;
     registerApplication(token: any, testability: Testability): void;
-}
-
-/** @deprecated */
-export interface TrackByFn {
-    (index: number, item: any): any;
 }
 
 /** @stable */
