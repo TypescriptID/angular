@@ -2330,7 +2330,7 @@ export function main() {
             trigger('child', [
               transition(':enter', [
                 style({ opacity: 0 }),
-                animate(1500, style({ opactiy: 1 }))
+                animate(1500, style({ opacity: 1 }))
               ])
             ])
           ]
@@ -2729,7 +2729,7 @@ export function main() {
           fixture.detectChanges();
           expect(getLog().length).toEqual(0);
         });
-        
+
         it('should respect parent/sub animations when the respective area in the DOM is disabled',
            fakeAsync(() => {
              @Component({

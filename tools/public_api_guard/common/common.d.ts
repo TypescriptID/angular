@@ -138,7 +138,7 @@ export declare class NgClass implements DoCheck {
     ngClass: string | string[] | Set<string> | {
         [klass: string]: any;
     };
-    constructor(_iterableDiffers: IterableDiffers, _keyValueDiffers: KeyValueDiffers, _ngEl: ElementRef, _renderer: Renderer);
+    constructor(_iterableDiffers: IterableDiffers, _keyValueDiffers: KeyValueDiffers, _ngEl: ElementRef, _renderer: Renderer2);
     ngDoCheck(): void;
 }
 
@@ -152,9 +152,6 @@ export declare class NgComponentOutlet implements OnChanges, OnDestroy {
     ngOnChanges(changes: SimpleChanges): void;
     ngOnDestroy(): void;
 }
-
-/** @deprecated */
-export declare const NgFor: typeof NgForOf;
 
 /** @stable */
 export declare class NgForOf<T> implements DoCheck, OnChanges {
@@ -223,7 +220,7 @@ export declare class NgStyle implements DoCheck {
     ngStyle: {
         [key: string]: string;
     };
-    constructor(_differs: KeyValueDiffers, _ngEl: ElementRef, _renderer: Renderer);
+    constructor(_differs: KeyValueDiffers, _ngEl: ElementRef, _renderer: Renderer2);
     ngDoCheck(): void;
 }
 
