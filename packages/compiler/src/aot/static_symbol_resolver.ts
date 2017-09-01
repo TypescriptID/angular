@@ -250,18 +250,39 @@ export class StaticSymbolResolver {
     return this.staticSymbolCache.get(declarationFile, name, members);
   }
 
+  /**
+   * hasDecorators checks a file's metadata for the presense of decorators without evalutating the
+   * metada.
+   *
+   * @param filePath the absolute path to examine for decorators.
+   * @returns true if any class in the file has a decorator.
+   */
+  hasDecorators(filePath: string): boolean {
+    const metadata = this.getModuleMetadata(filePath);
+    if (metadata['metadata']) {
+      return Object.keys(metadata['metadata']).some((metadataKey) => {
+        const entry = metadata['metadata'][metadataKey];
+        return entry && entry.__symbolic === 'class' && entry.decorators;
+      });
+    }
+    return false;
+  }
+
   getSymbolsOf(filePath: string): StaticSymbol[] {
+    const summarySymbols = this.summaryResolver.getSymbolsOf(filePath);
+    if (summarySymbols) {
+      return summarySymbols;
+    }
     // Note: Some users use libraries that were not compiled with ngc, i.e. they don't
-    // have summaries, only .d.ts files. So we always need to check both, the summary
-    // and metadata.
-    let symbols = new Set<StaticSymbol>(this.summaryResolver.getSymbolsOf(filePath));
+    // have summaries, only .d.ts files, but `summaryResolver.isLibraryFile` returns true.
     this._createSymbolsOf(filePath);
+    const metadataSymbols: StaticSymbol[] = [];
     this.resolvedSymbols.forEach((resolvedSymbol) => {
       if (resolvedSymbol.symbol.filePath === filePath) {
-        symbols.add(resolvedSymbol.symbol);
+        metadataSymbols.push(resolvedSymbol.symbol);
       }
     });
-    return Array.from(symbols);
+    return metadataSymbols;
   }
 
   private _createSymbolsOf(filePath: string) {
