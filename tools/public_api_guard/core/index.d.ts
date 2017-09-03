@@ -465,8 +465,9 @@ export interface InjectDecorator {
 }
 
 /** @stable */
-export declare class InjectionToken<T> extends OpaqueToken {
-    constructor(desc: string);
+export declare class InjectionToken<T> {
+    protected _desc: string;
+    constructor(_desc: string);
     toString(): string;
 }
 
@@ -661,13 +662,6 @@ export interface OnInit {
     ngOnInit(): void;
 }
 
-/** @deprecated */
-export declare class OpaqueToken {
-    protected _desc: string;
-    constructor(_desc: string);
-    toString(): string;
-}
-
 /** @stable */
 export declare const Optional: OptionalDecorator;
 
@@ -729,6 +723,7 @@ export declare class QueryList<T> {
     readonly first: T;
     readonly last: T;
     readonly length: number;
+    destroy(): void;
     filter(fn: (item: T, index: number, array: T[]) => boolean): T[];
     find(fn: (item: T, index: number, array: T[]) => boolean): T | undefined;
     forEach(fn: (item: T, index: number, array: T[]) => void): void;
