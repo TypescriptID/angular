@@ -11,7 +11,7 @@ import {ChangeDetectionStrategy, Component, Injectable, NgModule, NgModuleFactor
 import {ComponentFixture, TestBed, fakeAsync, inject, tick} from '@angular/core/testing';
 import {By} from '@angular/platform-browser/src/dom/debug/by';
 import {expect} from '@angular/platform-browser/testing/src/matchers';
-import {ActivatedRoute, ActivatedRouteSnapshot, CanActivate, CanDeactivate, ChildActivationEnd, ChildActivationStart, DetachedRouteHandle, Event, GuardsCheckEnd, GuardsCheckStart, NavigationCancel, NavigationEnd, NavigationError, NavigationStart, PRIMARY_OUTLET, ParamMap, Params, PreloadAllModules, PreloadingStrategy, Resolve, ResolveEnd, ResolveStart, RouteConfigLoadEnd, RouteConfigLoadStart, RouteEvent, RouteReuseStrategy, Router, RouterModule, RouterPreloader, RouterStateSnapshot, RoutesRecognized, RunGuardsAndResolvers, UrlHandlingStrategy, UrlSegmentGroup, UrlTree} from '@angular/router';
+import {ActivatedRoute, ActivatedRouteSnapshot, CanActivate, CanDeactivate, ChildActivationEnd, ChildActivationStart, DetachedRouteHandle, Event, GuardsCheckEnd, GuardsCheckStart, NavigationCancel, NavigationEnd, NavigationError, NavigationStart, PRIMARY_OUTLET, ParamMap, Params, PreloadAllModules, PreloadingStrategy, Resolve, ResolveEnd, ResolveStart, RouteConfigLoadEnd, RouteConfigLoadStart, RouteReuseStrategy, Router, RouterEvent, RouterModule, RouterPreloader, RouterStateSnapshot, RoutesRecognized, RunGuardsAndResolvers, UrlHandlingStrategy, UrlSegmentGroup, UrlTree} from '@angular/router';
 import {Observable} from 'rxjs/Observable';
 import {Observer} from 'rxjs/Observer';
 import {of } from 'rxjs/observable/of';
@@ -428,7 +428,7 @@ describe('Integration', () => {
        }]);
 
        const recordedEvents: any[] = [];
-       router.events.forEach(e => e instanceof RouteEvent || recordedEvents.push(e));
+       router.events.forEach(e => e instanceof RouterEvent && recordedEvents.push(e));
 
        router.navigateByUrl('/team/22/user/victor');
        advance(fixture);
@@ -705,15 +705,18 @@ describe('Integration', () => {
        expect(user.recordedParams).toEqual([{name: 'init'}, {name: 'fedor'}]);
 
        expectEvents(recordedEvents, [
-         [NavigationStart, '/user/init'], [RoutesRecognized, '/user/init'],
-         [GuardsCheckStart, '/user/init'], [GuardsCheckEnd, '/user/init'],
-         [ResolveStart, '/user/init'], [ResolveEnd, '/user/init'], [NavigationEnd, '/user/init'],
+         [NavigationStart, '/user/init'],   [RoutesRecognized, '/user/init'],
+         [GuardsCheckStart, '/user/init'],  [ChildActivationStart],
+         [GuardsCheckEnd, '/user/init'],    [ResolveStart, '/user/init'],
+         [ResolveEnd, '/user/init'],        [ChildActivationEnd],
+         [NavigationEnd, '/user/init'],
 
          [NavigationStart, '/user/victor'], [NavigationCancel, '/user/victor'],
 
-         [NavigationStart, '/user/fedor'], [RoutesRecognized, '/user/fedor'],
-         [GuardsCheckStart, '/user/fedor'], [GuardsCheckEnd, '/user/fedor'],
-         [ResolveStart, '/user/fedor'], [ResolveEnd, '/user/fedor'],
+         [NavigationStart, '/user/fedor'],  [RoutesRecognized, '/user/fedor'],
+         [GuardsCheckStart, '/user/fedor'], [ChildActivationStart],
+         [GuardsCheckEnd, '/user/fedor'],   [ResolveStart, '/user/fedor'],
+         [ResolveEnd, '/user/fedor'],       [ChildActivationEnd],
          [NavigationEnd, '/user/fedor']
        ]);
      })));
@@ -740,8 +743,8 @@ describe('Integration', () => {
          [NavigationStart, '/invalid'], [NavigationError, '/invalid'],
 
          [NavigationStart, '/user/fedor'], [RoutesRecognized, '/user/fedor'],
-         [GuardsCheckStart, '/user/fedor'], [GuardsCheckEnd, '/user/fedor'],
-         [ResolveStart, '/user/fedor'], [ResolveEnd, '/user/fedor'],
+         [GuardsCheckStart, '/user/fedor'], [ChildActivationStart], [GuardsCheckEnd, '/user/fedor'],
+         [ResolveStart, '/user/fedor'], [ResolveEnd, '/user/fedor'], [ChildActivationEnd],
          [NavigationEnd, '/user/fedor']
        ]);
      })));
@@ -986,7 +989,7 @@ describe('Integration', () => {
              [{path: 'simple', component: SimpleCmp, resolve: {error: 'resolveError'}}]);
 
          const recordedEvents: any[] = [];
-         router.events.subscribe(e => e instanceof RouteEvent || recordedEvents.push(e));
+         router.events.subscribe(e => e instanceof RouterEvent && recordedEvents.push(e));
 
          let e: any = null;
          router.navigateByUrl('/simple') !.catch(error => e = error);
@@ -1463,10 +1466,10 @@ describe('Integration', () => {
              expect(location.path()).toEqual('/');
              expectEvents(recordedEvents, [
                [NavigationStart, '/team/22'], [RoutesRecognized, '/team/22'],
-               [GuardsCheckStart, '/team/22'], [GuardsCheckEnd, '/team/22'],
+               [GuardsCheckStart, '/team/22'], [ChildActivationStart], [GuardsCheckEnd, '/team/22'],
                [NavigationCancel, '/team/22']
              ]);
-             expect((recordedEvents[3] as GuardsCheckEnd).shouldActivate).toBe(false);
+             expect((recordedEvents[4] as GuardsCheckEnd).shouldActivate).toBe(false);
            })));
       });
 
@@ -2389,9 +2392,11 @@ describe('Integration', () => {
                  [RoutesRecognized, '/lazyTrue/loaded'],
                  [GuardsCheckStart, '/lazyTrue/loaded'],
                  [ChildActivationStart],
+                 [ChildActivationStart],
                  [GuardsCheckEnd, '/lazyTrue/loaded'],
                  [ResolveStart, '/lazyTrue/loaded'],
                  [ResolveEnd, '/lazyTrue/loaded'],
+                 [ChildActivationEnd],
                  [ChildActivationEnd],
                  [NavigationEnd, '/lazyTrue/loaded'],
                ]);
@@ -2423,8 +2428,9 @@ describe('Integration', () => {
              [NavigationCancel, '/lazyFalse/loaded'],
 
              [NavigationStart, '/blank'], [RoutesRecognized, '/blank'],
-             [GuardsCheckStart, '/blank'], [GuardsCheckEnd, '/blank'], [ResolveStart, '/blank'],
-             [ResolveEnd, '/blank'], [NavigationEnd, '/blank']
+             [GuardsCheckStart, '/blank'], [ChildActivationStart], [GuardsCheckEnd, '/blank'],
+             [ResolveStart, '/blank'], [ResolveEnd, '/blank'], [ChildActivationEnd],
+             [NavigationEnd, '/blank']
            ]);
          })));
 
@@ -3344,7 +3350,7 @@ describe('Integration', () => {
            }]);
 
            const events: any[] = [];
-           router.events.subscribe(e => e instanceof RouteEvent || events.push(e));
+           router.events.subscribe(e => e instanceof RouterEvent && events.push(e));
 
            // supported URL
            router.navigateByUrl('/include/user/kate');
@@ -3408,7 +3414,7 @@ describe('Integration', () => {
            }]);
 
            const events: any[] = [];
-           router.events.subscribe(e => e instanceof RouteEvent || events.push(e));
+           router.events.subscribe(e => e instanceof RouterEvent && events.push(e));
 
            location.go('/include/user/kate(aux:excluded)');
            advance(fixture);
