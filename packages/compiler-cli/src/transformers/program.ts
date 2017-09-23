@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {AotCompiler, AotCompilerHost, AotCompilerOptions, EmitterVisitorContext, GeneratedFile, MessageBundle, NgAnalyzedFile, NgAnalyzedModules, ParseSourceSpan, Serializer, StubEmitFlags, TypeScriptEmitter, Xliff, Xliff2, Xmb, core, createAotCompiler, getParseErrors, isSyntaxError} from '@angular/compiler';
+import {AotCompiler, AotCompilerHost, AotCompilerOptions, EmitterVisitorContext, GeneratedFile, MessageBundle, NgAnalyzedFile, NgAnalyzedModules, ParseSourceSpan, Serializer, TypeScriptEmitter, Xliff, Xliff2, Xmb, core, createAotCompiler, getParseErrors, isSyntaxError} from '@angular/compiler';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as ts from 'typescript';
@@ -15,7 +15,7 @@ import {TypeCheckHost, translateDiagnostics} from '../diagnostics/translate_diag
 import {ModuleMetadata, createBundleIndexHost} from '../metadata/index';
 
 import {CompilerHost, CompilerOptions, CustomTransformers, DEFAULT_ERROR_CODE, Diagnostic, EmitFlags, Program, SOURCE, TsEmitArguments, TsEmitCallback} from './api';
-import {TsCompilerAotCompilerTypeCheckHostAdapter} from './compiler_host';
+import {TsCompilerAotCompilerTypeCheckHostAdapter, getOriginalReferences} from './compiler_host';
 import {LowerMetadataCache, getExpressionLoweringTransformFactory} from './lower_expressions';
 import {getAngularEmitterTransformFactory} from './node_emitter_transform';
 import {GENERATED_FILES, StructureIsReused, tsStructureIsReused} from './util';
@@ -63,7 +63,6 @@ class AngularCompilerProgram implements Program {
           ({content, fileName}) => this.summariesFromPreviousCompilations.set(fileName, content));
     }
 
-    this.rootNames = rootNames = rootNames.filter(r => !GENERATED_FILES.test(r));
     if (options.flatModuleOutFile) {
       const {host: bundleHost, indexName, errors} = createBundleIndexHost(options, rootNames, host);
       if (errors) {
@@ -133,14 +132,15 @@ class AngularCompilerProgram implements Program {
     if (this._analyzedModules) {
       throw new Error('Angular structure already loaded');
     }
-    const {tmpProgram, analyzedFiles, hostAdapter} = this._createProgramWithBasicStubs();
+    const {tmpProgram, analyzedFiles, hostAdapter, rootNames} = this._createProgramWithBasicStubs();
     return this._compiler.loadFilesAsync(analyzedFiles)
         .catch(this.catchAnalysisError.bind(this))
         .then(analyzedModules => {
           if (this._analyzedModules) {
             throw new Error('Angular structure loaded both synchronously and asynchronsly');
           }
-          this._updateProgramWithTypeCheckStubs(tmpProgram, analyzedModules, hostAdapter);
+          this._updateProgramWithTypeCheckStubs(
+              tmpProgram, analyzedModules, hostAdapter, rootNames);
         });
   }
 
@@ -173,15 +173,34 @@ class AngularCompilerProgram implements Program {
       };
     }
 
-    const emitResult = emitCallback({
-      program: this.tsProgram,
-      host: this.host,
-      options: this.options,
-      writeFile: createWriteFileCallback(emitFlags, this.host, outSrcMapping),
-      emitOnlyDtsFiles: (emitFlags & (EmitFlags.DTS | EmitFlags.JS)) == EmitFlags.DTS,
-      customTransformers: this.calculateTransforms(genFiles, customTransformers)
-    });
+    // Restore the original references before we emit so TypeScript doesn't emit
+    // a reference to the .d.ts file.
+    const augmentedReferences = new Map<ts.SourceFile, ts.FileReference[]>();
+    for (const sourceFile of this.tsProgram.getSourceFiles()) {
+      const originalReferences = getOriginalReferences(sourceFile);
+      if (originalReferences) {
+        augmentedReferences.set(sourceFile, sourceFile.referencedFiles);
+        sourceFile.referencedFiles = originalReferences;
+      }
+    }
 
+    let emitResult: ts.EmitResult;
+    try {
+      emitResult = emitCallback({
+        program: this.tsProgram,
+        host: this.host,
+        options: this.options,
+        writeFile: createWriteFileCallback(genFiles, this.host, outSrcMapping),
+        emitOnlyDtsFiles: (emitFlags & (EmitFlags.DTS | EmitFlags.JS)) == EmitFlags.DTS,
+        customTransformers: this.calculateTransforms(genFiles, customTransformers)
+      });
+    } finally {
+      // Restore the references back to the augmented value to ensure that the
+      // checks that TypeScript makes for project structure reuse will succeed.
+      for (const [sourceFile, references] of Array.from(augmentedReferences)) {
+        sourceFile.referencedFiles = references;
+      }
+    }
 
     if (!outSrcMapping.length) {
       // if no files were emitted by TypeScript, also don't emit .json files
@@ -291,20 +310,21 @@ class AngularCompilerProgram implements Program {
     if (this._analyzedModules) {
       return;
     }
-    const {tmpProgram, analyzedFiles, hostAdapter} = this._createProgramWithBasicStubs();
+    const {tmpProgram, analyzedFiles, hostAdapter, rootNames} = this._createProgramWithBasicStubs();
     let analyzedModules: NgAnalyzedModules;
     try {
       analyzedModules = this._compiler.loadFilesSync(analyzedFiles);
     } catch (e) {
       analyzedModules = this.catchAnalysisError(e);
     }
-    this._updateProgramWithTypeCheckStubs(tmpProgram, analyzedModules, hostAdapter);
+    this._updateProgramWithTypeCheckStubs(tmpProgram, analyzedModules, hostAdapter, rootNames);
   }
 
   private _createProgramWithBasicStubs(): {
     tmpProgram: ts.Program,
     analyzedFiles: NgAnalyzedFile[],
-    hostAdapter: TsCompilerAotCompilerTypeCheckHostAdapter
+    hostAdapter: TsCompilerAotCompilerTypeCheckHostAdapter,
+    rootNames: string[],
   } {
     if (this._analyzedModules) {
       throw new Error(`Internal Error: already initalized!`);
@@ -330,17 +350,31 @@ class AngularCompilerProgram implements Program {
     this._typeCheckHost = hostAdapter;
     this._structuralDiagnostics = [];
 
-    const tmpProgram = ts.createProgram(this.rootNames, this.options, hostAdapter, oldTsProgram);
-    return {tmpProgram, analyzedFiles, hostAdapter};
+    let rootNames =
+        this.rootNames.filter(fn => !GENERATED_FILES.test(fn) || !hostAdapter.isSourceFile(fn));
+    if (this.options.noResolve) {
+      this.rootNames.forEach(rootName => {
+        const sf =
+            hostAdapter.getSourceFile(rootName, this.options.target || ts.ScriptTarget.Latest);
+        sf.referencedFiles.forEach((fileRef) => {
+          if (GENERATED_FILES.test(fileRef.fileName)) {
+            rootNames.push(fileRef.fileName);
+          }
+        });
+      });
+    }
+
+    const tmpProgram = ts.createProgram(rootNames, this.options, hostAdapter, oldTsProgram);
+    return {tmpProgram, analyzedFiles, hostAdapter, rootNames};
   }
 
   private _updateProgramWithTypeCheckStubs(
       tmpProgram: ts.Program, analyzedModules: NgAnalyzedModules,
-      hostAdapter: TsCompilerAotCompilerTypeCheckHostAdapter) {
+      hostAdapter: TsCompilerAotCompilerTypeCheckHostAdapter, rootNames: string[]) {
     this._analyzedModules = analyzedModules;
     const genFiles = this._compiler.emitTypeCheckStubs(analyzedModules);
     genFiles.forEach(gf => hostAdapter.updateGeneratedFile(gf));
-    this._tsProgram = ts.createProgram(this.rootNames, this.options, hostAdapter, tmpProgram);
+    this._tsProgram = ts.createProgram(rootNames, this.options, hostAdapter, tmpProgram);
     // Note: the new ts program should be completely reusable by TypeScript as:
     // - we cache all the files in the hostAdapter
     // - new new stubs use the exactly same imports/exports as the old once (we assert that in
@@ -449,21 +483,29 @@ function getAotCompilerOptions(options: CompilerOptions): AotCompilerOptions {
     enableSummariesForJit: true,
     preserveWhitespaces: options.preserveWhitespaces,
     fullTemplateTypeCheck: options.fullTemplateTypeCheck,
+    rootDir: options.rootDir,
   };
 }
 
 function createWriteFileCallback(
-    emitFlags: EmitFlags, host: ts.CompilerHost,
+    generatedFiles: GeneratedFile[], host: ts.CompilerHost,
     outSrcMapping: Array<{sourceFile: ts.SourceFile, outFileName: string}>) {
+  const genFileByFileName = new Map<string, GeneratedFile>();
+  generatedFiles.forEach(genFile => genFileByFileName.set(genFile.genFileUrl, genFile));
   return (fileName: string, data: string, writeByteOrderMark: boolean,
           onError?: (message: string) => void, sourceFiles?: ts.SourceFile[]) => {
     const sourceFile = sourceFiles && sourceFiles.length == 1 ? sourceFiles[0] : null;
-    const isGenerated = GENERATED_FILES.test(fileName);
     if (sourceFile) {
       outSrcMapping.push({outFileName: fileName, sourceFile});
     }
-    if (isGenerated && !(emitFlags & EmitFlags.Codegen)) {
-      return;
+    const isGenerated = GENERATED_FILES.test(fileName);
+    if (isGenerated && sourceFile) {
+      // Filter out generated files for which we didn't generate code.
+      // This can happen as the stub caclulation is not completely exact.
+      const genFile = genFileByFileName.get(sourceFile.fileName);
+      if (!genFile || !genFile.stmts || genFile.stmts.length === 0) {
+        return;
+      }
     }
     host.writeFile(fileName, data, writeByteOrderMark, onError, sourceFiles);
   };

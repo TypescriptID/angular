@@ -8,6 +8,7 @@
 
 import * as ng from '@angular/compiler-cli';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import * as ts from 'typescript';
 
@@ -141,6 +142,12 @@ describe('ng type checker', () => {
           '<div>{{"hello" | aPipe}}</div>',
           `Argument of type '"hello"' is not assignable to parameter of type 'number'.`, '0:5');
     });
+    it('should report an index into a map expression', () => {
+      rejectOnlyWithFullTemplateTypeCheck(
+          '<div>{{ {a: 1}[name] }}</div>',
+          `Element implicitly has an 'any' type because type '{ a: number; }' has no index signature.`,
+          '0:5');
+    });
     it('should report an invalid property on an exportAs directive', () => {
       rejectOnlyWithFullTemplateTypeCheck(
           '<div aDir #aDir="aDir">{{aDir.fname}}</div>',
@@ -241,3 +248,12 @@ const LOWERING_QUICKSTART = {
     export class AppModule { }
   `
 };
+
+const tmpdir = process.env.TEST_TMPDIR || os.tmpdir();
+
+function makeTempDir(): string {
+  const id = (Math.random() * 1000000).toFixed(0);
+  const dir = path.join(tmpdir, `tmp.${id}`);
+  fs.mkdirSync(dir);
+  return dir;
+}
