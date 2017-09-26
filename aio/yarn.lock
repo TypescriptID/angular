@@ -1085,7 +1085,7 @@ chalk@^1.0.0, chalk@^1.1.0, chalk@^1.1.1, chalk@^1.1.3:
     strip-ansi "^3.0.0"
     supports-color "^2.0.0"
 
-chalk@^2.0.0, chalk@^2.0.1:
+chalk@^2.0.0, chalk@^2.0.1, chalk@^2.1.0:
   version "2.1.0"
   resolved "https://registry.yarnpkg.com/chalk/-/chalk-2.1.0.tgz#ac5becf14fa21b99c6c92ca7a7d7cfd5b17e743e"
   dependencies:
@@ -2002,9 +2002,9 @@ devtools-timeline-model@1.1.6:
     chrome-devtools-frontend "1.0.401423"
     resolve "1.1.7"
 
-dgeni-packages@^0.21.2:
-  version "0.21.2"
-  resolved "https://registry.yarnpkg.com/dgeni-packages/-/dgeni-packages-0.21.2.tgz#b031194176507b7c7d1c9735ea14664970763866"
+dgeni-packages@^0.21.3:
+  version "0.21.3"
+  resolved "https://registry.yarnpkg.com/dgeni-packages/-/dgeni-packages-0.21.3.tgz#49d5264400cdd8c8a2f66040267e38c099d540f4"
   dependencies:
     canonical-path "0.0.2"
     catharsis "^0.8.1"

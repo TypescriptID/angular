@@ -66,9 +66,12 @@ export interface CompilerHost extends ts.CompilerHost {
 export enum EmitFlags {
   DTS = 1 << 0,
   JS = 1 << 1,
+  Metadata = 1 << 2,
+  I18nBundle = 1 << 3,
   Codegen = 1 << 4,
 
-  Default = DTS | JS | Codegen
+  Default = DTS | JS | Codegen,
+  All = DTS | JS | Metadata | I18nBundle | Codegen,
 }
 
 export interface CustomTransformers {
@@ -89,6 +92,12 @@ export interface TsEmitArguments {
 
 export interface TsEmitCallback { (args: TsEmitArguments): ts.EmitResult; }
 
+export interface LibrarySummary {
+  fileName: string;
+  text: string;
+  sourceFile?: ts.SourceFile;
+}
+
 export interface Program {
   getTsProgram(): ts.Program;
   getTsOptionDiagnostics(cancellationToken?: ts.CancellationToken): ts.Diagnostic[];
@@ -107,7 +116,7 @@ export interface Program {
     customTransformers?: CustomTransformers,
     emitCallback?: TsEmitCallback
   }): ts.EmitResult;
-  getLibrarySummaries(): {fileName: string, content: string}[];
+  getLibrarySummaries(): LibrarySummary[];
 }
 
 // Wrapper for createProgram.

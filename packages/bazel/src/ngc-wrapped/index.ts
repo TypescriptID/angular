@@ -8,7 +8,7 @@
 // TODO(tbosch): figure out why we need this as it breaks node code within ngc-wrapped
 /// <reference types="node" />
 import * as ng from '@angular/compiler-cli';
-import {BazelOptions, CachedFileLoader, CompilerHost, FileCache, FileLoader, UncachedFileLoader, constructManifest, debug, parseTsconfig, runAsWorker, runWorkerLoop} from '@bazel/typescript';
+import {BazelOptions, CachedFileLoader, CompilerHost, FileCache, FileLoader, UncachedFileLoader, constructManifest, debug, fixUmdModuleDeclarations, parseTsconfig, runAsWorker, runWorkerLoop} from '@bazel/typescript';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as tsickle from 'tsickle';
@@ -40,24 +40,21 @@ function runOneBuild(args: string[], inputs?: {[path: string]: string}): boolean
   if (args[0] === '-p') args.shift();
   // Strip leading at-signs, used to indicate a params file
   const project = args[0].replace(/^@+/, '');
-  let fileLoader: FileLoader;
-  if (inputs) {
-    fileLoader = new CachedFileLoader(fileCache, ALLOW_NON_HERMETIC_READS);
-    // Resolve the inputs to absolute paths to match TypeScript internals
-    const resolvedInputs: {[path: string]: string} = {};
-    for (const key of Object.keys(inputs)) {
-      resolvedInputs[path.resolve(key)] = inputs[key];
-    }
-    fileCache.updateCache(resolvedInputs);
-  } else {
-    fileLoader = new UncachedFileLoader();
-  }
   const [{options: tsOptions, bazelOpts, files, config}] = parseTsconfig(project);
   const expectedOuts = config['angularCompilerOptions']['expectedOut'];
 
   const {basePath} = ng.calcProjectFileAndBasePath(project);
   const compilerOpts = ng.createNgCompilerOptions(basePath, config, tsOptions);
-  const {diagnostics} = compile({fileLoader, compilerOpts, bazelOpts, files, expectedOuts});
+  const tsHost = ts.createCompilerHost(compilerOpts, true);
+  const {diagnostics} = compile({
+    allowNonHermeticReads: ALLOW_NON_HERMETIC_READS,
+    compilerOpts,
+    tsHost,
+    bazelOpts,
+    files,
+    inputs,
+    expectedOuts
+  });
   return diagnostics.every(d => d.category !== ts.DiagnosticCategory.Error);
 }
 
@@ -71,14 +68,28 @@ export function relativeToRootDirs(filePath: string, rootDirs: string[]): string
   return filePath;
 }
 
-export function compile(
-    {fileLoader, compilerOpts, bazelOpts, files, expectedOuts, gatherDiagnostics}: {
-      fileLoader: FileLoader,
-      compilerOpts: ng.CompilerOptions,
-      bazelOpts: BazelOptions,
-      files: string[],
-      expectedOuts: string[], gatherDiagnostics?: (program: ng.Program) => ng.Diagnostics
-    }): {diagnostics: ng.Diagnostics, program: ng.Program} {
+export function compile({allowNonHermeticReads, compilerOpts, tsHost, bazelOpts, files, inputs,
+                         expectedOuts, gatherDiagnostics}: {
+  allowNonHermeticReads: boolean,
+  compilerOpts: ng.CompilerOptions,
+  tsHost: ts.CompilerHost, inputs?: {[path: string]: string},
+  bazelOpts: BazelOptions,
+  files: string[],
+  expectedOuts: string[], gatherDiagnostics?: (program: ng.Program) => ng.Diagnostics
+}): {diagnostics: ng.Diagnostics, program: ng.Program} {
+  let fileLoader: FileLoader;
+  if (inputs) {
+    fileLoader = new CachedFileLoader(fileCache, ALLOW_NON_HERMETIC_READS);
+    // Resolve the inputs to absolute paths to match TypeScript internals
+    const resolvedInputs: {[path: string]: string} = {};
+    for (const key of Object.keys(inputs)) {
+      resolvedInputs[path.resolve(key)] = inputs[key];
+    }
+    fileCache.updateCache(resolvedInputs);
+  } else {
+    fileLoader = new UncachedFileLoader();
+  }
+
   if (!bazelOpts.es5Mode) {
     compilerOpts.annotateForClosureCompiler = true;
     compilerOpts.annotationsAs = 'static fields';
@@ -89,7 +100,6 @@ export function compile(
   }
 
   const writtenExpectedOuts = [...expectedOuts];
-  const tsHost = ts.createCompilerHost(compilerOpts, true);
 
   const originalWriteFile = tsHost.writeFile.bind(tsHost);
   tsHost.writeFile =
@@ -163,7 +173,10 @@ export function compile(
           program, bazelHost, bazelHost, compilerOpts, targetSourceFile, writeFile,
           cancellationToken, emitOnlyDtsFiles, {
             beforeTs: customTransformers.before,
-            afterTs: customTransformers.after,
+            afterTs: [
+              ...(customTransformers.after || []),
+              fixUmdModuleDeclarations((sf: ts.SourceFile) => bazelHost.amdModuleName(sf)),
+            ],
           });
 
   const {diagnostics, emitResult, program} = ng.performCompilation(

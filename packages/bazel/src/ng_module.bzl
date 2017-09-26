@@ -6,6 +6,7 @@
 load(":rules_typescript.bzl",
     "tsc_wrapped_tsconfig",
     "COMMON_ATTRIBUTES",
+    "COMMON_OUTPUTS",
     "compile_ts",
     "DEPS_ASPECTS",
     "ts_providers_dict_to_struct",
@@ -66,6 +67,7 @@ def _ngc_tsconfig(ctx, files, srcs, **kwargs):
   return dict(tsc_wrapped_tsconfig(ctx, files, srcs, **kwargs), **{
       "angularCompilerOptions": {
           "generateCodeForLibraries": False,
+          "allowEmptyCodegenFiles": True,
           # FIXME: wrong place to de-dupe
           "expectedOut": depset([o.path for o in expected_outs]).to_list()
       }
@@ -189,4 +191,5 @@ ng_module = rule(
             default = Label("@//:node_modules")
         ),
     },
+    outputs = COMMON_OUTPUTS,
 )
