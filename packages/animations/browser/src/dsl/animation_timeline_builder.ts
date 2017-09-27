@@ -556,7 +556,12 @@ export class AnimationTimelineContext {
     }
     if (selector.length > 0) {  // if :self is only used then the selector is empty
       const multi = limit != 1;
-      results.push(...this._driver.query(this.element, selector, multi));
+      let elements = this._driver.query(this.element, selector, multi);
+      if (limit !== 0) {
+        elements = limit < 0 ? elements.slice(elements.length + limit, elements.length) :
+                               elements.slice(0, limit);
+      }
+      results.push(...elements);
     }
 
     if (!optional && results.length == 0) {
