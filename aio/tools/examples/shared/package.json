@@ -6,7 +6,8 @@
   "scripts": {
     "http-server": "http-server",
     "protractor": "protractor",
-    "webdriver:update": "webdriver-manager update --standalone false --gecko false"
+    "webdriver:update": "webdriver-manager update --standalone false --gecko false",
+    "postinstall": "yarn webdriver:update"
   },
   "keywords": [],
   "author": "",
@@ -65,7 +66,7 @@
     "rollup-plugin-node-resolve": "2.0.0",
     "rollup-plugin-uglify": "^1.0.1",
     "source-map-explorer": "^1.3.2",
-    "ts-node": "~3.0.4",
+    "ts-node": "^3.3.0",
     "tslint": "^3.15.1",
     "typescript": "~2.3.2"
   },
