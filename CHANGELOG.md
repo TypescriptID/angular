@@ -1,3 +1,37 @@
+<a name="5.0.0-rc.2"></a>
+# [5.0.0-rc.2](https://github.com/angular/angular/compare/5.0.0-rc.1...5.0.0-rc.2) (2017-10-12)
+
+
+### Bug Fixes
+
+* **animations:** properly support boolean-based transitions and state changes ([#19279](https://github.com/angular/angular/issues/19279)) ([a8920eb](https://github.com/angular/angular/commit/a8920eb)), closes [#9396](https://github.com/angular/angular/issues/9396) [#12337](https://github.com/angular/angular/issues/12337)
+* **compiler:** correctly calculate the out path on windows ([#19601](https://github.com/angular/angular/issues/19601)) ([d30ce19](https://github.com/angular/angular/commit/d30ce19)), closes [#19543](https://github.com/angular/angular/issues/19543)
+* **compiler-cli:** produce smaller source maps for templates ([#19578](https://github.com/angular/angular/issues/19578)) ([f83989b](https://github.com/angular/angular/commit/f83989b))
+
+
+### Performance Improvements
+
+* **animations:** reduce size of bundle by removing AST classes ([#19539](https://github.com/angular/angular/issues/19539)) ([d5c9c5f](https://github.com/angular/angular/commit/d5c9c5f))
+* **compiler:** only type check input files when using bazel ([#19581](https://github.com/angular/angular/issues/19581)) ([0b06ea1](https://github.com/angular/angular/commit/0b06ea1))
+* **compiler:** skip type check and emit in bazel in some cases. ([#19646](https://github.com/angular/angular/issues/19646)) ([a22121d](https://github.com/angular/angular/commit/a22121d))
+* **compiler:** speed up loading of summaries for bazel. ([#19581](https://github.com/angular/angular/issues/19581)) ([81167d9](https://github.com/angular/angular/commit/81167d9))
+
+
+
+<a name="4.4.5"></a>
+## [4.4.5](https://github.com/angular/angular/compare/4.4.4...4.4.5) (2017-10-12)
+
+
+### Bug Fixes
+
+* **compiler:** `TestBed.overrideProvider` should keep imported `NgModule`s eager ([#19624](https://github.com/angular/angular/issues/19624)) ([734378c](https://github.com/angular/angular/commit/734378c))
+* **compiler:** correctly instantiate eager providers that are used via `Injector.get` ([#19558](https://github.com/angular/angular/issues/19558)) ([e292548](https://github.com/angular/angular/commit/e292548)), closes [#15501](https://github.com/angular/angular/issues/15501)
+* **compiler:** disallow references for select and index evaluation ([95f3b1d](https://github.com/angular/angular/commit/95f3b1d))
+* **core:** make dynamic & inline code checking behave the same ([#19189](https://github.com/angular/angular/issues/19189)) ([6c66031](https://github.com/angular/angular/commit/6c66031))
+* **platform-browser:** support customEqualityTesters when overriding Jasmine toEqual ([cc8ae32](https://github.com/angular/angular/commit/cc8ae32))
+* **tsc-wrapped:** don't rewrite imports when annotating for closure ([#19579](https://github.com/angular/angular/issues/19579)) ([c9f8718](https://github.com/angular/angular/commit/c9f8718))
+
+
 <a name="5.0.0-rc.1"></a>
 # [5.0.0-rc.1](https://github.com/angular/angular/compare/5.0.0-rc.0...5.0.0-rc.1) (2017-10-06)
 
@@ -87,6 +121,8 @@
 
 * **compiler:** The method `ngGetConentSelectors()`, deprecated in Angular 4.0, has been removed.
   Use `ComponentFactory.ngContentSelectors` instead.
+
+
 
 <a name="4.4.4"></a>
 ## [4.4.4](https://github.com/angular/angular/compare/4.4.3...4.4.4) (2017-09-28)
