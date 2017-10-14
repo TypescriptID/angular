@@ -12,6 +12,7 @@ describe('NgPackagesInstaller', () => {
   const nodeModulesDir = path.resolve(absoluteRootDir, 'node_modules');
   const packageJsonPath = path.resolve(absoluteRootDir, 'package.json');
   const packagesDir = path.resolve(path.resolve(__dirname, '../../../dist/packages-dist'));
+  const toolsDir = path.resolve(path.resolve(__dirname, '../../../dist/tools/@angular'));
   let installer;
 
   beforeEach(() => {
@@ -46,6 +47,7 @@ describe('NgPackagesInstaller', () => {
   });
 
   describe('installLocalDependencies()', () => {
+    const copyJsonObj = obj => JSON.parse(JSON.stringify(obj));
     let dummyNgPackages, dummyPackage, dummyPackageJson, expectedModifiedPackage, expectedModifiedPackageJson;
 
     beforeEach(() => {
@@ -53,12 +55,39 @@ describe('NgPackagesInstaller', () => {
 
       // These are the packages that are "found" in the dist directory
       dummyNgPackages = {
-        '@angular/core': { peerDependencies: { rxjs: '5.0.1' } },
-        '@angular/common': { peerDependencies: { '@angular/core': '4.4.1' } },
-        '@angular/compiler': { },
-        '@angular/compiler-cli': { peerDependencies: { typescript: '^2.4.2', '@angular/compiler': '4.3.2' } }
+        '@angular/core': {
+          parentDir: packagesDir,
+          packageJsonPath: `${packagesDir}/core/package.json`,
+          config: { peerDependencies: { rxjs: '5.0.1' } }
+        },
+        '@angular/common': {
+          parentDir: packagesDir,
+          packageJsonPath: `${packagesDir}/common/package.json`,
+          config: { peerDependencies: { '@angular/core': '4.4.4-1ab23cd4' } }
+        },
+        '@angular/compiler': {
+          parentDir: packagesDir,
+          packageJsonPath: `${packagesDir}/compiler/package.json`,
+          config: { peerDependencies: { '@angular/common': '4.4.4-1ab23cd4' } }
+        },
+        '@angular/compiler-cli': {
+          parentDir: toolsDir,
+          packageJsonPath: `${toolsDir}/compiler-cli/package.json`,
+          config: {
+            dependencies: { '@angular/tsc-wrapped': '4.4.4-1ab23cd4' },
+            peerDependencies: { typescript: '^2.4.2', '@angular/compiler': '4.4.4-1ab23cd4' }
+          }
+        },
+        '@angular/tsc-wrapped': {
+          parentDir: toolsDir,
+          packageJsonPath: `${toolsDir}/tsc-wrapped/package.json`,
+          config: {
+            devDependencies: { '@angular/common': '4.4.4-1ab23cd4' },
+            peerDependencies: { tsickle: '^1.4.0' }
+          }
+        }
       };
-      spyOn(installer, '_getDistPackages').and.returnValue(dummyNgPackages);
+      spyOn(installer, '_getDistPackages').and.callFake(() => copyJsonObj(dummyNgPackages));
 
       // This is the package.json in the "test" folder
       dummyPackage = {
@@ -82,7 +111,7 @@ describe('NgPackagesInstaller', () => {
           '@angular/common': `file:${packagesDir}/common`
         },
         devDependencies: {
-          '@angular/compiler-cli': `file:${packagesDir}/compiler-cli`,
+          '@angular/compiler-cli': `file:${toolsDir}/compiler-cli`,
           rxjs: '5.0.1',
           typescript: '^2.4.2'
         },
@@ -115,6 +144,33 @@ describe('NgPackagesInstaller', () => {
       it('should get the dist packages', () => {
         expect(installer._checkLocalMarker).toHaveBeenCalled();
         expect(installer._getDistPackages).toHaveBeenCalled();
+      });
+
+      it('should temporarily overwrite the package.json files of local Angular packages', () => {
+        const pkgJsonFor = pkgName => dummyNgPackages[`@angular/${pkgName}`].packageJsonPath;
+        const pkgConfigFor = pkgName => copyJsonObj(dummyNgPackages[`@angular/${pkgName}`].config);
+        const overwriteConfigFor = (pkgName, newProps) => Object.assign(pkgConfigFor(pkgName), newProps);
+
+        const allArgs = fs.writeFileSync.calls.allArgs();
+        const firstFiveArgs = allArgs.slice(0, 5);
+        const lastFiveArgs = allArgs.slice(-5);
+
+        expect(firstFiveArgs).toEqual([
+          [pkgJsonFor('core'), JSON.stringify(overwriteConfigFor('core', {private: true}))],
+          [pkgJsonFor('common'), JSON.stringify(overwriteConfigFor('common', {private: true}))],
+          [pkgJsonFor('compiler'), JSON.stringify(overwriteConfigFor('compiler', {private: true}))],
+          [pkgJsonFor('compiler-cli'), JSON.stringify(overwriteConfigFor('compiler-cli', {
+            private: true,
+            dependencies: { '@angular/tsc-wrapped': `file:${toolsDir}/tsc-wrapped` }
+          }))],
+          [pkgJsonFor('tsc-wrapped'), JSON.stringify(overwriteConfigFor('tsc-wrapped', {
+            private: true,
+            devDependencies: { '@angular/common': `file:${packagesDir}/common` }
+          }))],
+        ]);
+
+        expect(lastFiveArgs).toEqual(['core', 'common', 'compiler', 'compiler-cli', 'tsc-wrapped']
+            .map(pkgName => [pkgJsonFor(pkgName), JSON.stringify(pkgConfigFor(pkgName))]));
       });
 
       it('should load the package.json', () => {
@@ -151,25 +207,38 @@ describe('NgPackagesInstaller', () => {
     });
   });
 
-  describe('_getDistPackages', () => {
+  describe('_getDistPackages()', () => {
     it('should include top level Angular packages', () => {
+      const ngPackages = installer._getDistPackages();
+      const expectedValue = jasmine.objectContaining({
+        parentDir: jasmine.any(String),
+        packageJsonPath: jasmine.any(String),
+        config: jasmine.any(Object),
+      });
+
+      // For example...
+      expect(ngPackages['@angular/common']).toEqual(expectedValue);
+      expect(ngPackages['@angular/core']).toEqual(expectedValue);
+      expect(ngPackages['@angular/router']).toEqual(expectedValue);
+      expect(ngPackages['@angular/upgrade']).toEqual(expectedValue);
+
+      expect(ngPackages['@angular/upgrade/static']).not.toBeDefined();
+    });
+
+    it('should store each package\'s parent directory', () => {
       const ngPackages = installer._getDistPackages();
 
       // For example...
+      expect(ngPackages['@angular/core'].parentDir).toBe(packagesDir);
+      expect(ngPackages['@angular/router'].parentDir).toBeDefined(toolsDir);
+    });
+
+    it('should not include packages that have been ignored', () => {
+      installer = new NgPackagesInstaller(rootDir, { ignorePackages: ['@angular/router'] });
+      const ngPackages = installer._getDistPackages();
+
       expect(ngPackages['@angular/common']).toBeDefined();
-      expect(ngPackages['@angular/core']).toBeDefined();
-      expect(ngPackages['@angular/router']).toBeDefined();
-      expect(ngPackages['@angular/upgrade']).toBeDefined();
-
-      expect(ngPackages['@angular/upgrade/static']).not.toBeDefined();
-
-      it('should not include packages that have been ignored', () => {
-        installer = new NgPackagesInstaller(rootDir, { ignorePackages: ['@angular/router'] });
-        const ngPackages = installer._getDistPackages();
-
-        expect(ngPackages['@angular/common']).toBeDefined();
-        expect(ngPackages['@angular/router']).toBeUndefined();
-      });
+      expect(ngPackages['@angular/router']).toBeUndefined();
     });
   });
 
@@ -195,7 +264,7 @@ describe('NgPackagesInstaller', () => {
     });
   });
 
-  describe('_printWarning', () => {
+  describe('_printWarning()', () => {
     it('should mention the message passed in the warning', () => {
       installer._printWarning();
       expect(console.warn.calls.argsFor(0)[0]).toContain('is running against the local Angular build');
@@ -218,7 +287,7 @@ describe('NgPackagesInstaller', () => {
     });
   });
 
-  describe('_installDeps', () => {
+  describe('_installDeps()', () => {
     it('should run yarn install with the given options', () => {
       installer._installDeps('option-1', 'option-2');
       expect(shelljs.exec).toHaveBeenCalledWith('yarn install option-1 option-2', { cwd: absoluteRootDir });
