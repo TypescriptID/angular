@@ -113,7 +113,7 @@ export class AotCompiler {
       compMeta.template !.styleUrls.forEach((styleUrl) => {
         const normalizedUrl = this._host.resourceNameToFileName(styleUrl, file.fileName);
         if (!normalizedUrl) {
-          throw new Error(`Couldn't resolve resource ${styleUrl} relative to ${file.fileName}`);
+          throw syntaxError(`Couldn't resolve resource ${styleUrl} relative to ${file.fileName}`);
         }
         const needsShim = (compMeta.template !.encapsulation ||
                            this._config.defaultEncapsulation) === ViewEncapsulation.Emulated;
@@ -204,8 +204,8 @@ export class AotCompiler {
       // and they also cause TypeScript to include these files into the program too,
       // which will make them part of the analyzedFiles.
       const externalReferences: StaticSymbol[] = [
-        ...ngModuleMeta.declaredDirectives.map(d => d.reference),
-        ...ngModuleMeta.declaredPipes.map(d => d.reference),
+        ...ngModuleMeta.transitiveModule.directives.map(d => d.reference),
+        ...ngModuleMeta.transitiveModule.pipes.map(d => d.reference),
         ...ngModuleMeta.importedModules.map(m => m.type.reference),
         ...ngModuleMeta.exportedModules.map(m => m.type.reference),
       ];
