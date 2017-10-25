@@ -386,7 +386,7 @@ class AngularCompilerProgram implements Program {
       customTransformers?: CustomTransformers): ts.CustomTransformers {
     const beforeTs: ts.TransformerFactory<ts.SourceFile>[] = [];
     if (!this.options.disableExpressionLowering) {
-      beforeTs.push(getExpressionLoweringTransformFactory(this.metadataCache));
+      beforeTs.push(getExpressionLoweringTransformFactory(this.metadataCache, this.tsProgram));
     }
     beforeTs.push(getAngularEmitterTransformFactory(genFiles));
     if (customTransformers && customTransformers.beforeTs) {
@@ -422,14 +422,15 @@ class AngularCompilerProgram implements Program {
         this.oldProgramLibrarySummaries);
     const aotOptions = getAotCompilerOptions(this.options);
     this._structuralDiagnostics = [];
-    const errorCollector = (err: any) => {
-      this._structuralDiagnostics !.push({
-        messageText: err.toString(),
-        category: ts.DiagnosticCategory.Error,
-        source: SOURCE,
-        code: DEFAULT_ERROR_CODE
-      });
-    };
+    const errorCollector =
+        (this.options.collectAllErrors || this.options.fullTemplateTypeCheck) ? (err: any) => {
+          this._structuralDiagnostics !.push({
+            messageText: err.toString(),
+            category: ts.DiagnosticCategory.Error,
+            source: SOURCE,
+            code: DEFAULT_ERROR_CODE
+          });
+        } : undefined;
     this._compiler = createAotCompiler(this._hostAdapter, aotOptions, errorCollector).compiler;
   }
 
@@ -706,6 +707,10 @@ function getNgOptionDiagnostics(options: CompilerOptions): Diagnostic[] {
   return [];
 }
 
+function normalizeSeparators(path: string): string {
+  return path.replace(/\\/g, '/');
+}
+
 /**
  * Returns a function that can adjust a path from source path to out path,
  * based on an existing mapping from source to out path.
@@ -727,18 +732,19 @@ export function createSrcToOutPathMapper(
     } = path): (srcFileName: string) => string {
   let srcToOutPath: (srcFileName: string) => string;
   if (outDir) {
+    let path: {} = {};  // Ensure we error if we use `path` instead of `host`.
     if (sampleSrcFileName == null || sampleOutFileName == null) {
       throw new Error(`Can't calculate the rootDir without a sample srcFileName / outFileName. `);
     }
-    const srcFileDir = host.dirname(sampleSrcFileName).replace(/\\/g, '/');
-    const outFileDir = host.dirname(sampleOutFileName).replace(/\\/g, '/');
+    const srcFileDir = normalizeSeparators(host.dirname(sampleSrcFileName));
+    const outFileDir = normalizeSeparators(host.dirname(sampleOutFileName));
     if (srcFileDir === outFileDir) {
       return (srcFileName) => srcFileName;
     }
     // calculate the common suffix, stopping
     // at `outDir`.
     const srcDirParts = srcFileDir.split('/');
-    const outDirParts = path.relative(outDir, outFileDir).split('/');
+    const outDirParts = normalizeSeparators(host.relative(outDir, outFileDir)).split('/');
     let i = 0;
     while (i < Math.min(srcDirParts.length, outDirParts.length) &&
            srcDirParts[srcDirParts.length - 1 - i] === outDirParts[outDirParts.length - 1 - i])
@@ -754,7 +760,7 @@ export function createSrcToOutPathMapper(
 export function i18nExtract(
     formatName: string | null, outFile: string | null, host: ts.CompilerHost,
     options: CompilerOptions, bundle: MessageBundle): string[] {
-  formatName = formatName || 'null';
+  formatName = formatName || 'xlf';
   // Checks the format and returns the extension
   const ext = i18nGetExtension(formatName);
   const content = i18nSerialize(bundle, formatName, options);
@@ -788,7 +794,7 @@ export function i18nSerialize(
 }
 
 export function i18nGetExtension(formatName: string): string {
-  const format = (formatName || 'xlf').toLowerCase();
+  const format = formatName.toLowerCase();
 
   switch (format) {
     case 'xmb':
