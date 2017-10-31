@@ -456,13 +456,13 @@ class AngularCompilerProgram implements Program {
     };
 
 
-    let rootNames = this.rootNames;
+    let rootNames = [...this.rootNames];
     if (this.options.generateCodeForLibraries !== false) {
       // if we should generateCodeForLibraries, never include
       // generated files in the program as otherwise we will
       // ovewrite them and typescript will report the error
       // TS5055: Cannot write file ... because it would overwrite input file.
-      rootNames = this.rootNames.filter(fn => !GENERATED_FILES.test(fn));
+      rootNames = rootNames.filter(fn => !GENERATED_FILES.test(fn));
     }
     if (this.options.noResolve) {
       this.rootNames.forEach(rootName => {
@@ -600,7 +600,8 @@ class AngularCompilerProgram implements Program {
 
   private writeFile(
       outFileName: string, outData: string, writeByteOrderMark: boolean,
-      onError?: (message: string) => void, genFile?: GeneratedFile, sourceFiles?: ts.SourceFile[]) {
+      onError?: (message: string) => void, genFile?: GeneratedFile,
+      sourceFiles?: ReadonlyArray<ts.SourceFile>) {
     // collect emittedLibrarySummaries
     let baseFile: ts.SourceFile|undefined;
     if (genFile) {
@@ -647,7 +648,8 @@ class AngularCompilerProgram implements Program {
     if (baseFile) {
       sourceFiles = sourceFiles ? [...sourceFiles, baseFile] : [baseFile];
     }
-    this.host.writeFile(outFileName, outData, writeByteOrderMark, onError, sourceFiles);
+    // TODO: remove any when TS 2.4 support is removed.
+    this.host.writeFile(outFileName, outData, writeByteOrderMark, onError, sourceFiles as any);
   }
 }
 
