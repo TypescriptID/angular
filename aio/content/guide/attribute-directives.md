@@ -171,7 +171,7 @@ element that hosts an attribute directive, the `<p>` in this case.
 
 <div class="l-sub-section">
 
-Of course you could reach into the DOM with standard JavaScript and and attach event listeners manually.
+Of course you could reach into the DOM with standard JavaScript and attach event listeners manually.
 There are at least three problems with _that_ approach:
 
 1. You have to write the listeners correctly.
@@ -353,7 +353,7 @@ You can also experience and download the <live-example title="Attribute Directiv
 
 ### Appendix: Why add _@Input_?
 
-In this demo, the `hightlightColor` property is an ***input*** property of
+In this demo, the `highlightColor` property is an ***input*** property of
 the `HighlightDirective`. You've seen it applied without an alias:
 
 <code-example path="attribute-directives/src/app/highlight.directive.2.ts" linenums="false" title="src/app/highlight.directive.ts (color)" region="color"></code-example>
