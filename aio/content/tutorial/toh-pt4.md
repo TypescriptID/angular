@@ -30,7 +30,7 @@ Using the Angular CLI, create a service called `hero`.
   ng generate service hero
 </code-example>
 
-The command generates skeleton `HeroService` class in `src/app.hero.service.ts`
+The command generates skeleton `HeroService` class in `src/app/hero.service.ts`
 The `HeroService` class should look like the below.
 
 <code-example path="toh-pt4/src/app/hero.service.1.ts" region="new"
@@ -44,7 +44,7 @@ the class with the `@Injectable()` decorator.
 
 The `@Injectable()` decorator tells Angular that this service _might_ itself
 have injected dependencies.
-It doesn't have dependencies now but [it will soon](#inject-message-service}.
+It doesn't have dependencies now but [it will soon](#inject-message-service).
 Whether it does or it doesn't, it's good practice to keep the decorator.
 
 <div class="l-sub-section">
@@ -106,7 +106,9 @@ and inject into any class that asks for it.
 The `HeroService` is now ready to plug into the `HeroesComponent`.
 
 <div class="alert is-helpful">
+
   Learn more about _providers_ in the [NgModules](guide/ngmodule#providers) guide.
+
 </div>
 
 ## Update `HeroesComponent`

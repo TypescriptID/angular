@@ -1392,6 +1392,42 @@ describe('ngc transformer command-line', () => {
   });
 
   describe('regressions', () => {
+    //#19544
+    it('should recognize @NgModule() directive with a redundant @Injectable()', () => {
+      write('src/tsconfig.json', `{
+        "extends": "../tsconfig-base.json",
+        "compilerOptions": {
+          "outDir": "../dist",
+          "rootDir": ".",
+          "rootDirs": [
+            ".",
+            "../dist"
+          ]
+        },
+        "files": ["test-module.ts"]
+      }`);
+      write('src/test.component.ts', `
+        import {Component} from '@angular/core';
+
+        @Component({
+          template: '<p>hello</p>',
+        })
+        export class TestComponent {}
+      `);
+      write('src/test-module.ts', `
+        import {Injectable, NgModule} from '@angular/core';
+        import {TestComponent} from './test.component';
+
+        @NgModule({declarations: [TestComponent]})
+        @Injectable()
+        export class TestModule {}
+      `);
+      const messages: string[] = [];
+      const exitCode =
+          main(['-p', path.join(basePath, 'src/tsconfig.json')], message => messages.push(message));
+      expect(exitCode).toBe(0, 'Compile failed unexpectedly.\n  ' + messages.join('\n  '));
+    });
+
     // #19765
     it('should not report an error when the resolved .css file is in outside rootDir', () => {
       write('src/tsconfig.json', `{
@@ -1466,6 +1502,36 @@ describe('ngc transformer command-line', () => {
           main(['-p', path.join(basePath, 'src/tsconfig.json')], message => messages.push(message));
       expect(exitCode).toBe(1, 'Compile was expected to fail');
       expect(messages[0]).toContain(['Tagged template expressions are not supported in metadata']);
+    });
+
+    // Regression: #20076
+    it('should report template error messages', () => {
+      write('src/tsconfig.json', `{
+        "extends": "../tsconfig-base.json",
+        "files": ["test-module.ts"]
+      }`);
+      write('src/lib/test.component.ts', `
+        import {Component} from '@angular/core';
+
+        @Component({
+          template: '{{thing.?stuff}}'
+        })
+        export class TestComponent {
+          thing: string;
+        }
+      `);
+      write('src/test-module.ts', `
+        import {NgModule} from '@angular/core';
+        import {TestComponent} from './lib/test.component';
+
+        @NgModule({declarations: [TestComponent]})
+        export class TestModule {}
+      `);
+      const messages: string[] = [];
+      const exitCode =
+          main(['-p', path.join(basePath, 'src/tsconfig.json')], message => messages.push(message));
+      expect(exitCode).toBe(1, 'Compile was expected to fail');
+      expect(messages[0]).toContain('Parser Error: Unexpected token');
     });
 
     it('should allow using 2 classes with the same name in declarations with noEmitOnError=true',
