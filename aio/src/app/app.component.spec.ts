@@ -6,12 +6,14 @@ import { HttpClient } from '@angular/common/http';
 import { MatProgressBar, MatSidenav } from '@angular/material';
 import { By } from '@angular/platform-browser';
 
+import { Observable } from 'rxjs/Observable';
 import { of } from 'rxjs/observable/of';
 
 import { AppComponent } from './app.component';
 import { AppModule } from './app.module';
 import { DocViewerComponent } from 'app/layout/doc-viewer/doc-viewer.component';
 import { Deployment } from 'app/shared/deployment.service';
+import { EmbedComponentsService } from 'app/embed-components/embed-components.service';
 import { GaService } from 'app/shared/ga.service';
 import { LocationService } from 'app/shared/location.service';
 import { Logger } from 'app/shared/logger.service';
@@ -24,7 +26,7 @@ import { SearchBoxComponent } from 'app/search/search-box/search-box.component';
 import { SearchResultsComponent } from 'app/shared/search-results/search-results.component';
 import { SearchService } from 'app/search/search.service';
 import { SelectComponent } from 'app/shared/select/select.component';
-import { TocComponent } from 'app/embedded/toc/toc.component';
+import { TocComponent } from 'app/layout/toc/toc.component';
 import { TocItem, TocService } from 'app/shared/toc.service';
 
 const sideBySideBreakPoint = 992;
@@ -55,12 +57,17 @@ describe('AppComponent', () => {
     tocService = de.injector.get(TocService);
   };
 
+
   describe('with proper DocViewer', () => {
 
     beforeEach(() => {
+      DocViewerComponent.animationsEnabled = false;
+
       createTestingModule('a/b');
       initializeTest();
     });
+
+    afterEach(() => DocViewerComponent.animationsEnabled = true);
 
     it('should create', () => {
       expect(component).toBeDefined();
@@ -246,25 +253,25 @@ describe('AppComponent', () => {
           const sidenavBackdrop = fixture.debugElement.query(By.css('.mat-drawer-backdrop')).nativeElement;
           sidenavBackdrop.click();
           fixture.detectChanges();
-        expect(sidenav.opened).toBe(false);
+          expect(sidenav.opened).toBe(false);
         });
 
         it('should close when nav to another guide page', () => {
           locationService.go('guide/bags');
           fixture.detectChanges();
-        expect(sidenav.opened).toBe(false);
+          expect(sidenav.opened).toBe(false);
         });
 
         it('should close when nav to api page', () => {
           locationService.go('api');
           fixture.detectChanges();
-        expect(sidenav.opened).toBe(false);
+          expect(sidenav.opened).toBe(false);
         });
 
         it('should close again when nav to market page', () => {
           locationService.go('features');
           fixture.detectChanges();
-        expect(sidenav.opened).toBe(false);
+          expect(sidenav.opened).toBe(false);
         });
 
       });
@@ -375,20 +382,27 @@ describe('AppComponent', () => {
         checkHostClass('view', '');
       });
 
-      it('should set the css class of the host container based on the open/closed state of the side nav', () => {
+      it('should set the css class of the host container based on the open/closed state of the side nav', async () => {
         locationService.go('guide/pipes');
         fixture.detectChanges();
         checkHostClass('sidenav', 'open');
 
         sidenav.close();
-        sidenav.onClose.next();
+        await waitForEmit(sidenav.onClose);
         fixture.detectChanges();
         checkHostClass('sidenav', 'closed');
 
         sidenav.open();
-        sidenav.onOpen.next();
+        await waitForEmit(sidenav.onOpen);
         fixture.detectChanges();
         checkHostClass('sidenav', 'open');
+
+        function waitForEmit(emitter: Observable<void>): Promise<void> {
+          return new Promise(resolve => {
+            emitter.subscribe(resolve);
+            fixture.detectChanges();
+          });
+        }
       });
 
       it('should set the css class of the host container based on the initial deployment mode', () => {
@@ -407,7 +421,6 @@ describe('AppComponent', () => {
     });
 
     describe('currentDocument', () => {
-
       it('should display a guide page (guide/pipes)', () => {
         locationService.go('guide/pipes');
         fixture.detectChanges();
@@ -447,16 +460,19 @@ describe('AppComponent', () => {
       const scrollDelay = 500;
       let scrollService: ScrollService;
       let scrollSpy: jasmine.Spy;
+      let scrollToTopSpy: jasmine.Spy;
 
       beforeEach(() => {
         scrollService = fixture.debugElement.injector.get(ScrollService);
         scrollSpy = spyOn(scrollService, 'scroll');
+        scrollToTopSpy = spyOn(scrollService, 'scrollToTop');
       });
 
       it('should not scroll immediately when the docId (path) changes', () => {
         locationService.go('guide/pipes');
-        // deliberately not calling `fixture.detectChanges` because don't want `onDocRendered`
+        // deliberately not calling `fixture.detectChanges` because don't want `onDocInserted`
         expect(scrollSpy).not.toHaveBeenCalled();
+        expect(scrollToTopSpy).not.toHaveBeenCalled();
       });
 
       it('should scroll when just the hash changes (# alone)', () => {
@@ -486,7 +502,7 @@ describe('AppComponent', () => {
         expect(scrollSpy).toHaveBeenCalledTimes(1);
       });
 
-      it('should scroll when e-nav to the empty path', () => {
+      it('should scroll when re-nav to the empty path', () => {
         locationService.go('');
         scrollSpy.calls.reset();
 
@@ -494,17 +510,29 @@ describe('AppComponent', () => {
         expect(scrollSpy).toHaveBeenCalledTimes(1);
       });
 
-      it('should scroll after a delay when call onDocRendered directly', fakeAsync(() => {
-        component.onDocRendered();
+      it('should scroll to top when call `onDocRemoved` directly', () => {
+        scrollToTopSpy.calls.reset();
+
+        component.onDocRemoved();
+        expect(scrollToTopSpy).toHaveBeenCalled();
+      });
+
+      it('should scroll after a delay when call `onDocInserted` directly', fakeAsync(() => {
+        component.onDocInserted();
         expect(scrollSpy).not.toHaveBeenCalled();
+
         tick(scrollDelay);
         expect(scrollSpy).toHaveBeenCalled();
       }));
 
-      it('should scroll (via onDocRendered) when finish navigating to a new doc', fakeAsync(() => {
+      it('should scroll (via `onDocInserted`) when finish navigating to a new doc', fakeAsync(() => {
+        expect(scrollToTopSpy).not.toHaveBeenCalled();
+
         locationService.go('guide/pipes');
-        fixture.detectChanges(); // triggers the event that calls onDocRendered
+        fixture.detectChanges(); // triggers the event that calls `onDocInserted`
+        expect(scrollToTopSpy).toHaveBeenCalled();
         expect(scrollSpy).not.toHaveBeenCalled();
+
         tick(scrollDelay);
         expect(scrollSpy).toHaveBeenCalled();
       }));
@@ -867,7 +895,7 @@ describe('AppComponent', () => {
 
   describe('with mocked DocViewer', () => {
     const getDocViewer = () => fixture.debugElement.query(By.css('aio-doc-viewer'));
-    const triggerDocRendered = () => getDocViewer().triggerEventHandler('docRendered', {});
+    const triggerDocReady = () => getDocViewer().triggerEventHandler('docReady', undefined);
 
     beforeEach(() => {
       createTestingModule('a/b');
@@ -879,7 +907,7 @@ describe('AppComponent', () => {
     });
 
     describe('initial rendering', () => {
-      it('should initially add the starting class until the first document is rendered', fakeAsync(() => {
+      it('should initially add the starting class until the first document is ready', fakeAsync(() => {
         const getSidenavContainer = () => fixture.debugElement.query(By.css('mat-sidenav-container'));
 
         initializeTest();
@@ -887,7 +915,7 @@ describe('AppComponent', () => {
         expect(component.isStarting).toBe(true);
         expect(getSidenavContainer().classes['starting']).toBe(true);
 
-        triggerDocRendered();
+        triggerDocReady();
         fixture.detectChanges();
         expect(component.isStarting).toBe(true);
         expect(getSidenavContainer().classes['starting']).toBe(true);
@@ -910,7 +938,7 @@ describe('AppComponent', () => {
       const getProgressBar = () => fixture.debugElement.query(By.directive(MatProgressBar));
       const initializeAndCompleteNavigation = () => {
         initializeTest();
-        triggerDocRendered();
+        triggerDocReady();
         tick(HIDE_DELAY);
       };
 
@@ -947,7 +975,7 @@ describe('AppComponent', () => {
       it('should not be shown when re-navigating to the empty path', fakeAsync(() => {
         initializeAndCompleteNavigation();
         locationService.urlSubject.next('');
-        triggerDocRendered();
+        triggerDocReady();
 
         locationService.urlSubject.next('');
 
@@ -958,12 +986,12 @@ describe('AppComponent', () => {
         tick(HIDE_DELAY);   // Fire the remaining timer or `fakeAsync()` complains.
       }));
 
-      it('should not be shown if the doc is rendered quickly', fakeAsync(() => {
+      it('should not be shown if the doc is prepared quickly', fakeAsync(() => {
         initializeAndCompleteNavigation();
         locationService.urlSubject.next('c/d');
 
         tick(SHOW_DELAY - 1);
-        triggerDocRendered();
+        triggerDocReady();
 
         tick(1);
         fixture.detectChanges();
@@ -972,12 +1000,12 @@ describe('AppComponent', () => {
         tick(HIDE_DELAY);   // Fire the remaining timer or `fakeAsync()` complains.
       }));
 
-      it('should be shown if rendering the doc takes too long', fakeAsync(() => {
+      it('should be shown if preparing the doc takes too long', fakeAsync(() => {
         initializeAndCompleteNavigation();
         locationService.urlSubject.next('c/d');
 
         tick(SHOW_DELAY);
-        triggerDocRendered();
+        triggerDocReady();
 
         fixture.detectChanges();
         expect(getProgressBar()).toBeTruthy();
@@ -985,12 +1013,12 @@ describe('AppComponent', () => {
         tick(HIDE_DELAY);   // Fire the remaining timer or `fakeAsync()` complains.
       }));
 
-      it('should be hidden (after a delay) once the doc is rendered', fakeAsync(() => {
+      it('should be hidden (after a delay) once the doc has been prepared', fakeAsync(() => {
         initializeAndCompleteNavigation();
         locationService.urlSubject.next('c/d');
 
         tick(SHOW_DELAY);
-        triggerDocRendered();
+        triggerDocReady();
 
         fixture.detectChanges();
         expect(getProgressBar()).toBeTruthy();
@@ -1007,10 +1035,10 @@ describe('AppComponent', () => {
       it('should only take the latest request into account', fakeAsync(() => {
         initializeAndCompleteNavigation();
         locationService.urlSubject.next('c/d');   // The URL changes.
-        locationService.urlSubject.next('e/f');   // The URL changes again before `onDocRendered()`.
+        locationService.urlSubject.next('e/f');   // The URL changes again before `onDocReady()`.
 
-        tick(SHOW_DELAY - 1);   // `onDocRendered()` is triggered (for the last doc),
-        triggerDocRendered();   // before the progress bar is shown.
+        tick(SHOW_DELAY - 1);   // `onDocReady()` is triggered (for the last doc),
+        triggerDocReady();      // before the progress bar is shown.
 
         tick(1);
         fixture.detectChanges();
@@ -1033,6 +1061,7 @@ function createTestingModule(initialUrl: string, mode: string = 'stable') {
     imports: [ AppModule ],
     providers: [
       { provide: APP_BASE_HREF, useValue: '/' },
+      { provide: EmbedComponentsService, useClass: TestEmbedComponentsService },
       { provide: GaService, useClass: TestGaService },
       { provide: HttpClient, useClass: TestHttpClient },
       { provide: LocationService, useFactory: () => mockLocationService },
@@ -1045,6 +1074,10 @@ function createTestingModule(initialUrl: string, mode: string = 'stable') {
       }},
     ]
   });
+}
+
+class TestEmbedComponentsService {
+  embedInto = jasmine.createSpy('embedInto').and.returnValue(of([]));
 }
 
 class TestGaService {

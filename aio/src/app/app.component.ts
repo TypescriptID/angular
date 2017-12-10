@@ -1,6 +1,6 @@
 import { Component, ElementRef, HostBinding, HostListener, OnInit,
          QueryList, ViewChild, ViewChildren } from '@angular/core';
-import { MatSidenav } from '@angular/material';
+import { MatSidenav } from '@angular/material/sidenav';
 
 import { CurrentNodes, NavigationService, NavigationNode, VersionInfo } from 'app/navigation/navigation.service';
 import { DocumentService, DocumentContents } from 'app/documents/document.service';
@@ -203,20 +203,27 @@ export class AppComponent implements OnInit {
     this.scrollService.scroll();
   }
 
-  onDocRendered() {
+  onDocReady() {
     // Stop fetching timeout (which, when render is fast, means progress bar never shown)
     clearTimeout(this.isFetchingTimeout);
 
-    // Put page in a clean visual state
-    this.scrollService.scrollToTop();
-
-    // Scroll 500ms after the doc-viewer has finished rendering the new doc
-    // The delay is to allow time for async layout to complete
+    // If progress bar has been shown, keep it for at least 500ms (to avoid flashing).
     setTimeout(() => {
-      this.autoScroll();
       this.isStarting = false;
       this.isFetching = false;
     }, 500);
+  }
+
+  onDocRemoved() {
+    // The previous document has been removed.
+    // Scroll to top to restore a clean visual state for the new document.
+    this.scrollService.scrollToTop();
+  }
+
+  onDocInserted() {
+    // Scroll 500ms after the new document has been inserted into the doc-viewer.
+    // The delay is to allow time for async layout to complete.
+    setTimeout(() => this.autoScroll(), 500);
   }
 
   onDocVersionChange(versionIndex: number) {
@@ -291,7 +298,7 @@ export class AppComponent implements OnInit {
       const el = this.hostElement.nativeElement as Element;
       this.tocMaxHeightOffset =
           el.querySelector('footer').clientHeight +
-          el.querySelector('mat-toolbar.app-toolbar').clientHeight +
+          el.querySelector('.app-toolbar').clientHeight +
           24; //  fudge margin
     }
 

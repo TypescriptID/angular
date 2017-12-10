@@ -255,6 +255,45 @@ export function main() {
         ]);
       });
 
+      it('should allow a transition to use a function to determine what method to run', () => {
+        let valueToMatch = '';
+        const transitionFn =
+            (fromState: string, toState: string) => { return toState == valueToMatch; };
+
+        @Component({
+          selector: 'if-cmp',
+          template: '<div [@myAnimation]="exp"></div>',
+          animations: [
+            trigger('myAnimation', [transition(
+                                       transitionFn,
+                                       [style({opacity: 0}), animate(1234, style({opacity: 1}))])]),
+          ]
+        })
+        class Cmp {
+          exp: any = '';
+        }
+
+        TestBed.configureTestingModule({declarations: [Cmp]});
+
+        const fixture = TestBed.createComponent(Cmp);
+        const cmp = fixture.componentInstance;
+        valueToMatch = cmp.exp = 'something';
+        fixture.detectChanges();
+
+        let players = getLog();
+        expect(players.length).toEqual(1);
+        let [p1] = players;
+        expect(p1.totalTime).toEqual(1234);
+        resetLog();
+
+        valueToMatch = 'something-else';
+        cmp.exp = 'this-wont-match';
+        fixture.detectChanges();
+
+        players = getLog();
+        expect(players.length).toEqual(0);
+      });
+
       it('should allow a state value to be `0`', () => {
         @Component({
           selector: 'if-cmp',
@@ -3308,6 +3347,52 @@ export function main() {
 
       expect(() => { TestBed.createComponent(Cmp); }).not.toThrowError();
     });
+
+    it('should continue to clean up DOM-related animation artificats even if a compiler-level error is thrown midway',
+       () => {
+         @Component({
+           selector: 'if-cmp',
+           animations: [
+             trigger(
+                 'foo',
+                 [
+                   transition('* => something', []),
+                 ]),
+           ],
+           template: `
+          value = {{ foo[bar] }}
+          <div #contents>
+            <div *ngIf="exp">1</div>
+            <div *ngIf="exp" @foo>2</div>
+            <div *ngIf="exp" [@foo]="'123'">3</div>
+          </div>
+        `,
+         })
+         class Cmp {
+           exp: any = false;
+
+           @ViewChild('contents') public contents: any;
+         }
+
+         TestBed.configureTestingModule({declarations: [Cmp]});
+
+         const engine = TestBed.get(ɵAnimationEngine);
+         const fixture = TestBed.createComponent(Cmp);
+
+         const runCD = () => fixture.detectChanges();
+         const cmp = fixture.componentInstance;
+
+         cmp.exp = true;
+         expect(runCD).toThrow();
+
+         const contents = cmp.contents.nativeElement;
+         expect(contents.innerText.replace(/\s+/gm, '')).toEqual('123');
+
+         cmp.exp = false;
+         expect(runCD).toThrow();
+
+         expect(contents.innerText.trim()).toEqual('');
+       });
 
     describe('errors for not using the animation module', () => {
       beforeEach(() => {
