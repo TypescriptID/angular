@@ -15,6 +15,9 @@ import { Logger } from 'app/shared/logger.service';
 import { TocService } from 'app/shared/toc.service';
 
 
+// Constants
+export const NO_ANIMATIONS = 'no-animations';
+
 // Initialization prevents flicker once pre-rendering is on
 const initialDocViewerElement = document.querySelector('aio-doc-viewer');
 const initialDocViewerContent = initialDocViewerElement ? initialDocViewerElement.innerHTML : '';
@@ -77,8 +80,6 @@ export class DocViewerComponent implements DoCheck, OnDestroy {
 
     if (this.hostElement.firstElementChild) {
       this.currViewContainer = this.hostElement.firstElementChild as HTMLElement;
-    } else {
-      this.hostElement.appendChild(this.currViewContainer);
     }
 
     this.onDestroy$.subscribe(() => this.destroyEmbeddedComponents());
@@ -185,9 +186,12 @@ export class DocViewerComponent implements DoCheck, OnDestroy {
       return 1000 * seconds;
     };
     const animateProp =
-        (elem: HTMLElement, prop: string, from: string, to: string, duration = 333) => {
+        (elem: HTMLElement, prop: string, from: string, to: string, duration = 200) => {
+          const animationsDisabled = !DocViewerComponent.animationsEnabled
+                                     || this.hostElement.classList.contains(NO_ANIMATIONS);
+
           elem.style.transition = '';
-          return !DocViewerComponent.animationsEnabled
+          return animationsDisabled
               ? this.void$.do(() => elem.style[prop] = to)
               : this.void$
                     // In order to ensure that the `from` value will be applied immediately (i.e.
@@ -200,8 +204,8 @@ export class DocViewerComponent implements DoCheck, OnDestroy {
                     .switchMap(() => timer(getActualDuration(elem))).switchMap(() => this.void$);
         };
 
-    const animateLeave = (elem: HTMLElement) => animateProp(elem, 'opacity', '1', '0.25');
-    const animateEnter = (elem: HTMLElement) => animateProp(elem, 'opacity', '0.25', '1');
+    const animateLeave = (elem: HTMLElement) => animateProp(elem, 'opacity', '1', '0.1');
+    const animateEnter = (elem: HTMLElement) => animateProp(elem, 'opacity', '0.1', '1');
 
     let done$ = this.void$;
 
