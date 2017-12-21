@@ -1474,6 +1474,26 @@ describe('ngc transformer command-line', () => {
   });
 
   describe('regressions', () => {
+    //#20479
+    it('should not generate an invalid metadata file', () => {
+      write('src/tsconfig.json', `{
+        "extends": "../tsconfig-base.json",
+        "files": ["lib.ts"],
+        "angularCompilerOptions": {
+          "skipTemplateCodegen": true
+        }
+      }`);
+      write('src/lib.ts', `
+        export namespace A{
+          export class C1 {
+          }
+          export interface I1{
+          }
+        }`);
+      expect(main(['-p', path.join(basePath, 'src/tsconfig.json')])).toBe(0);
+      shouldNotExist('src/lib.metadata.json');
+    });
+
     //#19544
     it('should recognize @NgModule() directive with a redundant @Injectable()', () => {
       write('src/tsconfig.json', `{
@@ -1616,6 +1636,68 @@ describe('ngc transformer command-line', () => {
       expect(messages[0]).toContain('Parser Error: Unexpected token');
     });
 
+    // Regression test for #19979
+    it('should not stack overflow on a recursive module export', () => {
+      write('src/tsconfig.json', `{
+        "extends": "../tsconfig-base.json",
+        "files": ["test-module.ts"]
+      }`);
+
+      write('src/test-module.ts', `
+        import {Component, NgModule} from '@angular/core';
+
+        @Component({
+          template: 'Hello'
+        })
+        export class MyFaultyComponent {}
+
+        @NgModule({
+          exports: [MyFaultyModule],
+          declarations: [MyFaultyComponent],
+          providers: [],
+        })
+        export class MyFaultyModule { }
+      `);
+      const messages: string[] = [];
+      expect(
+          main(['-p', path.join(basePath, 'src/tsconfig.json')], message => messages.push(message)))
+          .toBe(1, 'Compile was expected to fail');
+      expect(messages[0]).toContain(`module 'MyFaultyModule' is exported recursively`);
+    });
+
+    // Regression test for #19979
+    it('should not stack overflow on a recursive module import', () => {
+      write('src/tsconfig.json', `{
+        "extends": "../tsconfig-base.json",
+        "files": ["test-module.ts"]
+      }`);
+
+      write('src/test-module.ts', `
+        import {Component, NgModule, forwardRef} from '@angular/core';
+
+        @Component({
+          template: 'Hello'
+        })
+        export class MyFaultyComponent {}
+
+        @NgModule({
+          imports: [forwardRef(() => MyFaultyModule)]
+        })
+        export class MyFaultyImport {}
+
+        @NgModule({
+          imports: [MyFaultyImport],
+          declarations: [MyFaultyComponent]
+        })
+        export class MyFaultyModule { }
+      `);
+      const messages: string[] = [];
+      expect(
+          main(['-p', path.join(basePath, 'src/tsconfig.json')], message => messages.push(message)))
+          .toBe(1, 'Compile was expected to fail');
+      expect(messages[0]).toContain(`is imported recursively by the module 'MyFaultyImport`);
+    });
+
     it('should allow using 2 classes with the same name in declarations with noEmitOnError=true',
        () => {
          write('src/tsconfig.json', `{
@@ -1647,6 +1729,38 @@ describe('ngc transformer command-line', () => {
       `);
          expect(main(['-p', path.join(basePath, 'src/tsconfig.json')])).toBe(0);
        });
+
+    it('should not type check a .js files from node_modules with allowJs', () => {
+      write('src/tsconfig.json', `{
+        "extends": "../tsconfig-base.json",
+        "compilerOptions": {
+          "noEmitOnError": true,
+          "allowJs": true,
+          "declaration": false
+        },
+        "files": ["test-module.ts"]
+      }`);
+      write('src/test-module.ts', `
+        import {Component, NgModule} from '@angular/core';
+        import 'my-library';
+
+        @Component({
+          template: 'hello'
+        })
+        export class HelloCmp {}
+
+        @NgModule({
+          declarations: [HelloCmp],
+        })
+        export class MyModule {}
+      `);
+      write('src/node_modules/t.txt', ``);
+      write('src/node_modules/my-library/index.js', `
+        export someVar = 1;
+        export someOtherVar = undefined + 1;
+      `);
+      expect(main(['-p', path.join(basePath, 'src/tsconfig.json')])).toBe(0);
+    });
   });
 
   describe('formatted messages', () => {
