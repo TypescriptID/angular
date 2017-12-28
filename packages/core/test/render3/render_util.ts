@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ComponentTemplate, ComponentType, PublicFeature, defineComponent, renderComponent as _renderComponent} from '../../src/render3/index';
+import {ComponentTemplate, ComponentType, DirectiveType, PublicFeature, defineComponent, defineDirective, renderComponent as _renderComponent} from '../../src/render3/index';
 import {NG_HOST_SYMBOL, createLNode, createViewState, renderTemplate} from '../../src/render3/instructions';
 import {LElement, LNodeFlags} from '../../src/render3/interfaces';
 import {RElement, RText, Renderer3, RendererFactory3, domRendererFactory3} from '../../src/render3/renderer';
@@ -15,7 +15,8 @@ import {getRendererFactory2} from './imported_renderer2';
 export const document = ((global || window) as any).document;
 export let containerEl: HTMLElement = null !;
 let host: LElement|null;
-const isRenderer2 = process.argv[3] && process.argv[3] === '--r=renderer2';
+const isRenderer2 =
+    typeof process == 'object' && process.argv[3] && process.argv[3] === '--r=renderer2';
 // tslint:disable-next-line:no-console
 console.log(`Running tests with ${!isRenderer2 ? 'document' : 'Renderer2'} renderer...`);
 const testRendererFactory: RendererFactory3 =
@@ -80,6 +81,15 @@ export function createComponent(
   };
 }
 
+export function createDirective(): DirectiveType<any> {
+  return class Directive {
+    static ngDirectiveDef = defineDirective({
+      type: Directive,
+      factory: () => new Directive(),
+      features: [PublicFeature],
+    });
+  };
+}
 
 
 // Verify that DOM is a type of render. This is here for error checking only and has no use.
