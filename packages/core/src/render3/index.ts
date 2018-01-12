@@ -39,8 +39,7 @@ export {
 
   componentRefresh as r,
 
-  containerStart as C,
-  containerEnd as c,
+  container as C,
   containerRefreshStart as cR,
   containerRefreshEnd as cr,
 
@@ -84,3 +83,4 @@ export {
   defineDirective,
 };
 export {createComponentRef, detectChanges, getHostElement, markDirty, renderComponent};
+export {InjectFlags} from './di';

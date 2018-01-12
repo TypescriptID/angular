@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {C, D, E, P, T, V, c, cR, cr, detectChanges, e, m, pD, v} from '../../src/render3/index';
+import {C, D, E, P, T, V, cR, cr, detectChanges, e, m, pD, v} from '../../src/render3/index';
 
 import {createComponent, renderComponent, toHtml} from './render_util';
 
@@ -30,11 +30,8 @@ describe('content projection', () => {
      */
     const Parent = createComponent('parent', function(ctx: any, cm: boolean) {
       if (cm) {
-        E(0, Child.ngComponentDef);
-        {
-          D(1, Child.ngComponentDef.n(), Child.ngComponentDef);
-          T(2, 'content');
-        }
+        E(0, Child);
+        { T(2, 'content'); }
         e();
       }
       Child.ngComponentDef.h(1, 0);
@@ -53,11 +50,8 @@ describe('content projection', () => {
     });
     const Parent = createComponent('parent', function(ctx: any, cm: boolean) {
       if (cm) {
-        E(0, Child.ngComponentDef);
-        {
-          D(1, Child.ngComponentDef.n(), Child.ngComponentDef);
-          T(2, 'content');
-        }
+        E(0, Child);
+        { T(2, 'content'); }
         e();
       }
       Child.ngComponentDef.h(1, 0);
@@ -79,11 +73,8 @@ describe('content projection', () => {
     const Child = createComponent('child', function(ctx: any, cm: boolean) {
       if (cm) {
         m(0, pD());
-        E(1, GrandChild.ngComponentDef);
-        {
-          D(2, GrandChild.ngComponentDef.n(), GrandChild.ngComponentDef);
-          P(3, 0);
-        }
+        E(1, GrandChild);
+        { P(3, 0); }
         e();
         GrandChild.ngComponentDef.h(2, 1);
         GrandChild.ngComponentDef.r(2, 1);
@@ -91,9 +82,8 @@ describe('content projection', () => {
     });
     const Parent = createComponent('parent', function(ctx: any, cm: boolean) {
       if (cm) {
-        E(0, Child.ngComponentDef);
+        E(0, Child);
         {
-          D(1, Child.ngComponentDef.n(), Child.ngComponentDef);
           E(2, 'b');
           T(3, 'Hello');
           e();
@@ -120,12 +110,10 @@ describe('content projection', () => {
     });
     const Parent = createComponent('parent', function(ctx: {value: any}, cm: boolean) {
       if (cm) {
-        E(0, Child.ngComponentDef);
+        E(0, Child);
         {
-          D(1, Child.ngComponentDef.n(), Child.ngComponentDef);
           T(2, '(');
           C(3);
-          c();
           T(4, ')');
         }
         e();
@@ -162,12 +150,8 @@ describe('content projection', () => {
     });
     const Parent = createComponent('parent', function(ctx: {value: any}, cm: boolean) {
       if (cm) {
-        E(0, Child.ngComponentDef);
-        {
-          D(1, Child.ngComponentDef.n(), Child.ngComponentDef);
-          C(2);
-          c();
-        }
+        E(0, Child);
+        { C(2); }
         e();
       }
       cR(2);
@@ -206,12 +190,10 @@ describe('content projection', () => {
     });
     const Parent = createComponent('parent', function(ctx: {value: any}, cm: boolean) {
       if (cm) {
-        E(0, Child.ngComponentDef);
+        E(0, Child);
         {
-          D(1, Child.ngComponentDef.n(), Child.ngComponentDef);
           T(2, '(');
           C(3);
-          c();
           T(4, ')');
         }
         e();
@@ -260,10 +242,7 @@ describe('content projection', () => {
       if (cm) {
         m(0, pD());
         E(1, 'div');
-        {
-          C(2);
-          c();
-        }
+        { C(2); }
         e();
       }
       cR(2);
@@ -285,9 +264,9 @@ describe('content projection', () => {
      */
     const Parent = createComponent('parent', function(ctx: any, cm: boolean) {
       if (cm) {
-        E(0, Child.ngComponentDef);
+        E(0, Child);
         {
-          D(1, childCmptInstance = Child.ngComponentDef.n(), Child.ngComponentDef);
+          childCmptInstance = D(1);
           T(2, 'content');
         }
         e();
@@ -318,10 +297,7 @@ describe('content projection', () => {
          if (cm) {
            m(0, pD());
            E(1, 'div');
-           {
-             C(2);
-             c();
-           }
+           { C(2); }
            e();
          }
          cR(2);
@@ -341,9 +317,9 @@ describe('content projection', () => {
         */
        const Parent = createComponent('parent', function(ctx: any, cm: boolean) {
          if (cm) {
-           E(0, Child.ngComponentDef);
+           E(0, Child);
            {
-             D(1, childCmptInstance = Child.ngComponentDef.n(), Child.ngComponentDef);
+             childCmptInstance = D(1);
              T(2, 'content');
            }
            e();
@@ -381,11 +357,8 @@ describe('content projection', () => {
      */
     const Parent = createComponent('parent', function(ctx: any, cm: boolean) {
       if (cm) {
-        E(0, Child.ngComponentDef);
-        {
-          D(1, Child.ngComponentDef.n(), Child.ngComponentDef);
-          T(2, 'content');
-        }
+        E(0, Child);
+        { T(2, 'content'); }
         e();
       }
       Child.ngComponentDef.h(1, 0);
@@ -419,10 +392,7 @@ describe('content projection', () => {
         m(0, pD());
         P(1, 0);
         E(2, 'div');
-        {
-          C(3);
-          c();
-        }
+        { C(3); }
         e();
       }
       cR(3);
@@ -442,9 +412,9 @@ describe('content projection', () => {
      */
     const Parent = createComponent('parent', function(ctx: any, cm: boolean) {
       if (cm) {
-        E(0, Child.ngComponentDef);
+        E(0, Child);
         {
-          D(1, childCmptInstance = Child.ngComponentDef.n(), Child.ngComponentDef);
+          childCmptInstance = D(1);
           T(2, 'content');
         }
         e();
@@ -488,9 +458,8 @@ describe('content projection', () => {
        */
       const Parent = createComponent('parent', function(ctx: any, cm: boolean) {
         if (cm) {
-          E(0, Child.ngComponentDef);
+          E(0, Child);
           {
-            D(1, Child.ngComponentDef.n(), Child.ngComponentDef);
             E(2, 'span', ['title', 'toFirst']);
             { T(3, '1'); }
             e();
@@ -536,9 +505,8 @@ describe('content projection', () => {
        */
       const Parent = createComponent('parent', function(ctx: any, cm: boolean) {
         if (cm) {
-          E(0, Child.ngComponentDef);
+          E(0, Child);
           {
-            D(1, Child.ngComponentDef.n(), Child.ngComponentDef);
             E(2, 'span', ['class', 'toFirst']);
             { T(3, '1'); }
             e();
@@ -584,9 +552,8 @@ describe('content projection', () => {
        */
       const Parent = createComponent('parent', function(ctx: any, cm: boolean) {
         if (cm) {
-          E(0, Child.ngComponentDef);
+          E(0, Child);
           {
-            D(1, Child.ngComponentDef.n(), Child.ngComponentDef);
             E(2, 'span', ['class', 'other toFirst']);
             { T(3, '1'); }
             e();
@@ -631,9 +598,8 @@ describe('content projection', () => {
        */
       const Parent = createComponent('parent', function(ctx: any, cm: boolean) {
         if (cm) {
-          E(0, Child.ngComponentDef);
+          E(0, Child);
           {
-            D(1, Child.ngComponentDef.n(), Child.ngComponentDef);
             E(2, 'span', ['class', 'toFirst']);
             { T(3, '1'); }
             e();
@@ -678,9 +644,8 @@ describe('content projection', () => {
        */
       const Parent = createComponent('parent', function(ctx: any, cm: boolean) {
         if (cm) {
-          E(0, Child.ngComponentDef);
+          E(0, Child);
           {
-            D(1, Child.ngComponentDef.n(), Child.ngComponentDef);
             E(2, 'span', ['class', 'toFirst']);
             { T(3, '1'); }
             e();
@@ -727,9 +692,8 @@ describe('content projection', () => {
        */
       const Parent = createComponent('parent', function(ctx: any, cm: boolean) {
         if (cm) {
-          E(0, Child.ngComponentDef);
+          E(0, Child);
           {
-            D(1, Child.ngComponentDef.n(), Child.ngComponentDef);
             E(2, 'span');
             { T(3, '1'); }
             e();
@@ -780,9 +744,8 @@ describe('content projection', () => {
       const Child = createComponent('child', function(ctx: any, cm: boolean) {
         if (cm) {
           m(0, pD());
-          E(1, GrandChild.ngComponentDef);
+          E(1, GrandChild);
           {
-            D(2, GrandChild.ngComponentDef.n(), GrandChild.ngComponentDef);
             P(3, 0);
             E(4, 'span');
             { T(5, 'in child template'); }
@@ -803,9 +766,8 @@ describe('content projection', () => {
        */
       const Parent = createComponent('parent', function(ctx: any, cm: boolean) {
         if (cm) {
-          E(0, Child.ngComponentDef);
+          E(0, Child);
           {
-            D(1, Child.ngComponentDef.n(), Child.ngComponentDef);
             E(2, 'span');
             { T(3, 'parent content'); }
             e();
@@ -845,12 +807,8 @@ describe('content projection', () => {
        */
       const Parent = createComponent('parent', function(ctx: {value: any}, cm: boolean) {
         if (cm) {
-          E(0, Child.ngComponentDef);
-          {
-            D(1, Child.ngComponentDef.n(), Child.ngComponentDef);
-            C(2, undefined, 'div');
-            c();
-          }
+          E(0, Child);
+          { C(2, undefined, undefined, 'div'); }
           e();
         }
         cR(2);

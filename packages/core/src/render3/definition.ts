@@ -32,7 +32,6 @@ import {ComponentDef, ComponentDefArgs, DirectiveDef, DirectiveDefArgs} from './
  */
 export function defineComponent<T>(componentDefinition: ComponentDefArgs<T>): ComponentDef<T> {
   const def = <ComponentDef<any>>{
-    type: componentDefinition.type,
     diPublic: null,
     n: componentDefinition.factory,
     tag: (componentDefinition as ComponentDefArgs<T>).tag || null !,
@@ -44,6 +43,7 @@ export function defineComponent<T>(componentDefinition: ComponentDefArgs<T>): Co
     outputs: invertObject(componentDefinition.outputs),
     methods: invertObject(componentDefinition.methods),
     rendererType: resolveRendererType2(componentDefinition.rendererType) || null,
+    exportAs: componentDefinition.exportAs,
   };
   const feature = componentDefinition.features;
   feature && feature.forEach((fn) => fn(def));

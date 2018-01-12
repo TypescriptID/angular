@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ɵC as C, ɵD as D, ɵE as E, ɵT as T, ɵV as V, ɵb as b, ɵb1 as b1, ɵc as c, ɵcR as cR, ɵcr as cr, ɵdefineComponent as defineComponent, ɵdetectChanges as _detectChanges, ɵe as e, ɵp as p, ɵs as s, ɵt as t, ɵv as v} from '@angular/core';
+import {ɵC as C, ɵD as D, ɵE as E, ɵT as T, ɵV as V, ɵb as b, ɵb1 as b1, ɵcR as cR, ɵcr as cr, ɵdefineComponent as defineComponent, ɵdetectChanges as _detectChanges, ɵe as e, ɵp as p, ɵs as s, ɵt as t, ɵv as v} from '@angular/core';
 import {ComponentDef} from '@angular/core/src/render3/interfaces/definition';
 
 import {TreeNode, buildTree, emptyTree} from '../util';
@@ -36,7 +36,6 @@ export class TreeComponent {
 
   /** @nocollapse */
   static ngComponentDef: ComponentDef<TreeComponent> = defineComponent({
-    type: TreeComponent,
     tag: 'tree',
     template: function(ctx: TreeComponent, cm: boolean) {
       if (cm) {
@@ -44,9 +43,7 @@ export class TreeComponent {
         { T(1); }
         e();
         C(2);
-        c();
         C(3);
-        c();
       }
       s(0, 'background-color', b(ctx.data.depth % 2 ? '' : 'grey'));
       t(1, b1(' ', ctx.data.value, ' '));
@@ -56,8 +53,7 @@ export class TreeComponent {
           let cm0 = V(0);
           {
             if (cm0) {
-              E(0, TreeComponent.ngComponentDef);
-              { D(1, TreeComponent.ngComponentDef.n(), TreeComponent.ngComponentDef); }
+              E(0, TreeComponent);
               e();
             }
             p(0, 'data', b(ctx.data.left));
@@ -74,8 +70,7 @@ export class TreeComponent {
           let cm0 = V(0);
           {
             if (cm0) {
-              E(0, TreeComponent.ngComponentDef);
-              { D(1, TreeComponent.ngComponentDef.n(), TreeComponent.ngComponentDef); }
+              E(0, TreeComponent);
               e();
             }
             p(0, 'data', b(ctx.data.right));
@@ -97,7 +92,6 @@ export class TreeFunction extends TreeComponent {
 
   /** @nocollapse */
   static ngComponentDef: ComponentDef<TreeFunction> = defineComponent({
-    type: TreeFunction,
     tag: 'tree',
     template: function(ctx: TreeFunction, cm: boolean) {
       // bit of a hack
@@ -114,9 +108,7 @@ export function TreeTpl(ctx: TreeNode, cm: boolean) {
     { T(1); }
     e();
     C(2);
-    c();
     C(3);
-    c();
   }
   s(0, 'background-color', b(ctx.depth % 2 ? '' : 'grey'));
   t(1, b1(' ', ctx.value, ' '));

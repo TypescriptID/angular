@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {C, D, E, NC, T, V, a, b, b1, b2, b3, b4, b5, b6, b7, b8, bV, c, cR, cr, defineComponent, e, k, p, r, s, t, v} from '../../src/render3/index';
+import {C, D, E, NC, T, V, a, b, b1, b2, b3, b4, b5, b6, b7, b8, bV, cR, cr, defineComponent, e, k, p, r, s, t, v} from '../../src/render3/index';
 import {NO_CHANGE} from '../../src/render3/instructions';
 
 import {containerEl, renderToHtml} from './render_util';
@@ -210,7 +210,6 @@ describe('render3 integration test', () => {
       value = ' one';
 
       static ngComponentDef = defineComponent({
-        type: TodoComponent,
         tag: 'todo',
         template: function TodoTemplate(ctx: any, cm: boolean) {
           if (cm) {
@@ -230,8 +229,7 @@ describe('render3 integration test', () => {
     it('should support a basic component template', () => {
       function Template(ctx: any, cm: boolean) {
         if (cm) {
-          E(0, TodoComponent.ngComponentDef);
-          { D(1, TodoComponent.ngComponentDef.n(), TodoComponent.ngComponentDef); }
+          E(0, TodoComponent);
           e();
         }
         TodoComponent.ngComponentDef.h(1, 0);
@@ -244,8 +242,7 @@ describe('render3 integration test', () => {
     it('should support a component template with sibling', () => {
       function Template(ctx: any, cm: boolean) {
         if (cm) {
-          E(0, TodoComponent.ngComponentDef);
-          { D(1, TodoComponent.ngComponentDef.n(), TodoComponent.ngComponentDef); }
+          E(0, TodoComponent);
           e();
           T(2, 'two');
         }
@@ -262,11 +259,9 @@ describe('render3 integration test', () => {
        */
       function Template(ctx: any, cm: boolean) {
         if (cm) {
-          E(0, TodoComponent.ngComponentDef);
-          { D(1, TodoComponent.ngComponentDef.n(), TodoComponent.ngComponentDef); }
+          E(0, TodoComponent);
           e();
-          E(2, TodoComponent.ngComponentDef);
-          { D(3, TodoComponent.ngComponentDef.n(), TodoComponent.ngComponentDef); }
+          E(2, TodoComponent);
           e();
         }
         TodoComponent.ngComponentDef.h(1, 0);
@@ -284,7 +279,6 @@ describe('render3 integration test', () => {
       class TodoComponentHostBinding {
         title = 'one';
         static ngComponentDef = defineComponent({
-          type: TodoComponentHostBinding,
           tag: 'todo',
           template: function TodoComponentHostBindingTemplate(
               ctx: TodoComponentHostBinding, cm: boolean) {
@@ -303,11 +297,7 @@ describe('render3 integration test', () => {
 
       function Template(ctx: any, cm: boolean) {
         if (cm) {
-          E(0, TodoComponentHostBinding.ngComponentDef);
-          {
-            D(1, TodoComponentHostBinding.ngComponentDef.n(),
-              TodoComponentHostBinding.ngComponentDef);
-          }
+          E(0, TodoComponentHostBinding);
           e();
         }
         TodoComponentHostBinding.ngComponentDef.h(1, 0);
@@ -324,7 +314,6 @@ describe('render3 integration test', () => {
       class MyComp {
         name = 'Bess';
         static ngComponentDef = defineComponent({
-          type: MyComp,
           tag: 'comp',
           template: function MyCompTemplate(ctx: any, cm: boolean) {
             if (cm) {
@@ -340,8 +329,7 @@ describe('render3 integration test', () => {
 
       function Template(ctx: any, cm: boolean) {
         if (cm) {
-          E(0, MyComp.ngComponentDef);
-          { D(1, MyComp.ngComponentDef.n(), MyComp.ngComponentDef); }
+          E(0, MyComp);
           e();
         }
         MyComp.ngComponentDef.h(1, 0);
@@ -360,12 +348,10 @@ describe('render3 integration test', () => {
       class MyComp {
         condition: boolean;
         static ngComponentDef = defineComponent({
-          type: MyComp,
           tag: 'comp',
           template: function MyCompTemplate(ctx: any, cm: boolean) {
             if (cm) {
               C(0);
-              c();
             }
             cR(0);
             {
@@ -388,8 +374,7 @@ describe('render3 integration test', () => {
       /** <comp [condition]="condition"></comp> */
       function Template(ctx: any, cm: boolean) {
         if (cm) {
-          E(0, MyComp.ngComponentDef);
-          { D(1, MyComp.ngComponentDef.n(), MyComp.ngComponentDef); }
+          E(0, MyComp);
           e();
         }
         p(0, 'condition', b(ctx.condition));
@@ -488,7 +473,6 @@ describe('render3 integration test', () => {
           if (cm) {
             E(0, 'span');
             C(1);
-            c();
             e();
           }
           a(0, 'title', b(ctx.title));
@@ -605,7 +589,6 @@ describe('render3 integration test', () => {
       function Template(ctx: any, cm: boolean) {
         if (cm) {
           C(0);
-          c();
         }
         cR(0);
         {

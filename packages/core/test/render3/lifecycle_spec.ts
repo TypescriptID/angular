@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {C, ComponentDef, ComponentTemplate, D, E, L, LifecycleHook, T, V, b, c, cR, cr, defineComponent, e, l, p, r, v} from '../../src/render3/index';
+import {C, ComponentDef, ComponentTemplate, D, E, L, LifecycleHook, T, V, b, cR, cr, defineComponent, e, l, p, r, v} from '../../src/render3/index';
 
 import {containerEl, renderToHtml} from './render_util';
 
@@ -15,8 +15,7 @@ describe('lifecycles', () => {
   function getParentTemplate(type: any) {
     return (ctx: any, cm: boolean) => {
       if (cm) {
-        E(0, type.ngComponentDef);
-        { D(1, type.ngComponentDef.n(), type.ngComponentDef); }
+        E(0, type);
         e();
       }
       p(0, 'val', b(ctx.val));
@@ -39,7 +38,6 @@ describe('lifecycles', () => {
         ngOnInit() { events.push(`${name}${this.val}`); }
 
         static ngComponentDef = defineComponent({
-          type: Component,
           tag: name,
           factory: () => new Component(),
           hostBindings: function(directiveIndex: number, elementIndex: number):
@@ -54,8 +52,7 @@ describe('lifecycles', () => {
          /** <comp [val]="val"></comp> */
          function Template(ctx: any, cm: boolean) {
            if (cm) {
-             E(0, Comp.ngComponentDef);
-             { D(1, Comp.ngComponentDef.n(), Comp.ngComponentDef); }
+             E(0, Comp);
              e();
            }
            p(0, 'val', b(ctx.val));
@@ -78,8 +75,7 @@ describe('lifecycles', () => {
 
       function Template(ctx: any, cm: boolean) {
         if (cm) {
-          E(0, Parent.ngComponentDef);
-          { D(1, Parent.ngComponentDef.n(), Parent.ngComponentDef); }
+          E(0, Parent);
           e();
         }
         Parent.ngComponentDef.h(1, 0);
@@ -100,11 +96,9 @@ describe('lifecycles', () => {
 
       function Template(ctx: any, cm: boolean) {
         if (cm) {
-          E(0, Parent.ngComponentDef);
-          { D(1, Parent.ngComponentDef.n(), Parent.ngComponentDef); }
+          E(0, Parent);
           e();
-          E(2, Parent.ngComponentDef);
-          { D(3, Parent.ngComponentDef.n(), Parent.ngComponentDef); }
+          E(2, Parent);
           e();
         }
         p(0, 'val', 1);
@@ -130,14 +124,12 @@ describe('lifecycles', () => {
       function Template(ctx: any, cm: boolean) {
         if (cm) {
           C(0);
-          c();
         }
         cR(0);
         {
           if (ctx.condition) {
             if (V(0)) {
-              E(0, Comp.ngComponentDef);
-              { D(1, Comp.ngComponentDef.n(), Comp.ngComponentDef); }
+              E(0, Comp);
               e();
             }
             Comp.ngComponentDef.h(1, 0);
@@ -169,13 +161,10 @@ describe('lifecycles', () => {
 
       function Template(ctx: any, cm: boolean) {
         if (cm) {
-          E(0, Comp.ngComponentDef);
-          { D(1, Comp.ngComponentDef.n(), Comp.ngComponentDef); }
+          E(0, Comp);
           e();
           C(2);
-          c();
-          E(3, Comp.ngComponentDef);
-          { D(4, Comp.ngComponentDef.n(), Comp.ngComponentDef); }
+          E(3, Comp);
           e();
         }
         p(0, 'val', 1);
@@ -186,8 +175,7 @@ describe('lifecycles', () => {
         {
           for (let j = 2; j < 5; j++) {
             if (V(0)) {
-              E(0, Comp.ngComponentDef);
-              { D(1, Comp.ngComponentDef.n(), Comp.ngComponentDef); }
+              E(0, Comp);
               e();
             }
             p(0, 'val', j);
@@ -219,13 +207,10 @@ describe('lifecycles', () => {
 
       function Template(ctx: any, cm: boolean) {
         if (cm) {
-          E(0, Parent.ngComponentDef);
-          { D(1, Parent.ngComponentDef.n(), Parent.ngComponentDef); }
+          E(0, Parent);
           e();
           C(2);
-          c();
-          E(3, Parent.ngComponentDef);
-          { D(4, Parent.ngComponentDef.n(), Parent.ngComponentDef); }
+          E(3, Parent);
           e();
         }
         p(0, 'val', 1);
@@ -236,8 +221,7 @@ describe('lifecycles', () => {
         {
           for (let j = 2; j < 5; j++) {
             if (V(0)) {
-              E(0, Parent.ngComponentDef);
-              { D(1, Parent.ngComponentDef.n(), Parent.ngComponentDef); }
+              E(0, Parent);
               e();
             }
             p(0, 'val', j);
@@ -286,7 +270,6 @@ describe('lifecycles', () => {
         ngOnInit() { allEvents.push('ngOnInit ' + name); }
 
         static ngComponentDef = defineComponent({
-          type: Component,
           tag: name,
           factory: () => new Component(),
           hostBindings: function(
@@ -303,8 +286,7 @@ describe('lifecycles', () => {
       /** <comp></comp> */
       function Template(ctx: any, cm: boolean) {
         if (cm) {
-          E(0, Comp.ngComponentDef);
-          { D(1, Comp.ngComponentDef.n(), Comp.ngComponentDef); }
+          E(0, Comp);
           e();
         }
         Comp.ngComponentDef.h(1, 0);
@@ -326,8 +308,7 @@ describe('lifecycles', () => {
 
       function Template(ctx: any, cm: boolean) {
         if (cm) {
-          E(0, Parent.ngComponentDef);
-          { D(1, Parent.ngComponentDef.n(), Parent.ngComponentDef); }
+          E(0, Parent);
           e();
         }
         Parent.ngComponentDef.h(1, 0);
@@ -342,8 +323,7 @@ describe('lifecycles', () => {
       /** <comp></comp> */
       function Template(ctx: any, cm: boolean) {
         if (cm) {
-          E(0, Comp.ngComponentDef);
-          { D(1, Comp.ngComponentDef.n(), Comp.ngComponentDef); }
+          E(0, Comp);
           e();
         }
         Comp.ngComponentDef.h(1, 0);
@@ -381,7 +361,6 @@ describe('lifecycles', () => {
         ngAfterViewChecked() { allEvents.push(`${name}${this.val} check`); }
 
         static ngComponentDef = defineComponent({
-          type: Component,
           tag: name,
           factory: () => new Component(),
           refresh: (directiveIndex: number, elementIndex: number) => {
@@ -400,8 +379,7 @@ describe('lifecycles', () => {
       /** <comp></comp> */
       function Template(ctx: any, cm: boolean) {
         if (cm) {
-          E(0, Comp.ngComponentDef);
-          { D(1, Comp.ngComponentDef.n(), Comp.ngComponentDef); }
+          E(0, Comp);
           e();
         }
         Comp.ngComponentDef.h(1, 0);
@@ -424,14 +402,12 @@ describe('lifecycles', () => {
       function Template(ctx: any, cm: boolean) {
         if (cm) {
           C(0);
-          c();
         }
         cR(0);
         {
           if (ctx.condition) {
             if (V(0)) {
-              E(0, Comp.ngComponentDef);
-              { D(1, Comp.ngComponentDef.n(), Comp.ngComponentDef); }
+              E(0, Comp);
               e();
             }
             Comp.ngComponentDef.h(1, 0);
@@ -461,8 +437,7 @@ describe('lifecycles', () => {
        */
       function Template(ctx: any, cm: boolean) {
         if (cm) {
-          E(0, Parent.ngComponentDef);
-          { D(1, Parent.ngComponentDef.n(), Parent.ngComponentDef); }
+          E(0, Parent);
           e();
         }
         Parent.ngComponentDef.h(1, 0);
@@ -483,11 +458,9 @@ describe('lifecycles', () => {
        */
       function Template(ctx: any, cm: boolean) {
         if (cm) {
-          E(0, Parent.ngComponentDef);
-          { D(1, Parent.ngComponentDef.n(), Parent.ngComponentDef); }
+          E(0, Parent);
           e();
-          E(2, Parent.ngComponentDef);
-          { D(3, Parent.ngComponentDef.n(), Parent.ngComponentDef); }
+          E(2, Parent);
           e();
         }
         p(0, 'val', 1);
@@ -512,13 +485,10 @@ describe('lifecycles', () => {
        */
       function Template(ctx: any, cm: boolean) {
         if (cm) {
-          E(0, Comp.ngComponentDef);
-          { D(1, Comp.ngComponentDef.n(), Comp.ngComponentDef); }
+          E(0, Comp);
           e();
           C(2);
-          c();
-          E(3, Comp.ngComponentDef);
-          { D(4, Comp.ngComponentDef.n(), Comp.ngComponentDef); }
+          E(3, Comp);
           e();
         }
         p(0, 'val', 1);
@@ -529,8 +499,7 @@ describe('lifecycles', () => {
         {
           for (let i = 2; i < 4; i++) {
             if (V(0)) {
-              E(0, Comp.ngComponentDef);
-              { D(1, Comp.ngComponentDef.n(), Comp.ngComponentDef); }
+              E(0, Comp);
               e();
             }
             p(0, 'val', i);
@@ -559,13 +528,10 @@ describe('lifecycles', () => {
        */
       function Template(ctx: any, cm: boolean) {
         if (cm) {
-          E(0, Parent.ngComponentDef);
-          { D(1, Parent.ngComponentDef.n(), Parent.ngComponentDef); }
+          E(0, Parent);
           e();
           C(2);
-          c();
-          E(3, Parent.ngComponentDef);
-          { D(4, Parent.ngComponentDef.n(), Parent.ngComponentDef); }
+          E(3, Parent);
           e();
         }
         p(0, 'val', 1);
@@ -576,8 +542,7 @@ describe('lifecycles', () => {
         {
           for (let i = 2; i < 4; i++) {
             if (V(0)) {
-              E(0, Parent.ngComponentDef);
-              { D(1, Parent.ngComponentDef.n(), Parent.ngComponentDef); }
+              E(0, Parent);
               e();
             }
             p(0, 'val', i);
@@ -604,8 +569,7 @@ describe('lifecycles', () => {
         /** <comp></comp> */
         function Template(ctx: any, cm: boolean) {
           if (cm) {
-            E(0, Comp.ngComponentDef);
-            { D(1, Comp.ngComponentDef.n(), Comp.ngComponentDef); }
+            E(0, Comp);
             e();
           }
           Comp.ngComponentDef.h(1, 0);
@@ -623,8 +587,7 @@ describe('lifecycles', () => {
         /** <comp [val]="myVal"></comp> */
         function Template(ctx: any, cm: boolean) {
           if (cm) {
-            E(0, Comp.ngComponentDef);
-            { D(1, Comp.ngComponentDef.n(), Comp.ngComponentDef); }
+            E(0, Comp);
             e();
           }
           p(0, 'val', b(ctx.myVal));
@@ -649,13 +612,10 @@ describe('lifecycles', () => {
          */
         function Template(ctx: any, cm: boolean) {
           if (cm) {
-            E(0, Parent.ngComponentDef);
-            { D(1, Parent.ngComponentDef.n(), Parent.ngComponentDef); }
+            E(0, Parent);
             e();
             C(2);
-            c();
-            E(3, Parent.ngComponentDef);
-            { D(4, Parent.ngComponentDef.n(), Parent.ngComponentDef); }
+            E(3, Parent);
             e();
           }
           p(0, 'val', 1);
@@ -666,8 +626,7 @@ describe('lifecycles', () => {
           {
             for (let i = 2; i < 4; i++) {
               if (V(0)) {
-                E(0, Parent.ngComponentDef);
-                { D(1, Parent.ngComponentDef.n(), Parent.ngComponentDef); }
+                E(0, Parent);
                 e();
               }
               p(0, 'val', i);
@@ -708,7 +667,6 @@ describe('lifecycles', () => {
         ngOnDestroy() { events.push(`${name}${this.val}`); }
 
         static ngComponentDef = defineComponent({
-          type: Component,
           tag: name,
           factory: () => {
             const comp = new Component();
@@ -731,14 +689,12 @@ describe('lifecycles', () => {
       function Template(ctx: any, cm: boolean) {
         if (cm) {
           C(0);
-          c();
         }
         cR(0);
         {
           if (ctx.condition) {
             if (V(0)) {
-              E(0, Comp.ngComponentDef);
-              { D(1, Comp.ngComponentDef.n(), Comp.ngComponentDef); }
+              E(0, Comp);
               e();
             }
             Comp.ngComponentDef.h(1, 0);
@@ -765,17 +721,14 @@ describe('lifecycles', () => {
       function Template(ctx: any, cm: boolean) {
         if (cm) {
           C(0);
-          c();
         }
         cR(0);
         {
           if (ctx.condition) {
             if (V(0)) {
-              E(0, Comp.ngComponentDef);
-              { D(1, Comp.ngComponentDef.n(), Comp.ngComponentDef); }
+              E(0, Comp);
               e();
-              E(2, Comp.ngComponentDef);
-              { D(3, Comp.ngComponentDef.n(), Comp.ngComponentDef); }
+              E(2, Comp);
               e();
             }
             p(0, 'val', b('1'));
@@ -807,14 +760,12 @@ describe('lifecycles', () => {
       function Template(ctx: any, cm: boolean) {
         if (cm) {
           C(0);
-          c();
         }
         cR(0);
         {
           if (ctx.condition) {
             if (V(0)) {
-              E(0, Parent.ngComponentDef);
-              { D(1, Parent.ngComponentDef.n(), Parent.ngComponentDef); }
+              E(0, Parent);
               e();
             }
             Parent.ngComponentDef.h(1, 0);
@@ -842,8 +793,7 @@ describe('lifecycles', () => {
 
       let Grandparent = createOnDestroyComponent('grandparent', function(ctx: any, cm: boolean) {
         if (cm) {
-          E(0, Parent.ngComponentDef);
-          { D(1, Parent.ngComponentDef.n(), Parent.ngComponentDef); }
+          E(0, Parent);
           e();
         }
         Parent.ngComponentDef.h(1, 0);
@@ -853,14 +803,12 @@ describe('lifecycles', () => {
       function Template(ctx: any, cm: boolean) {
         if (cm) {
           C(0);
-          c();
         }
         cR(0);
         {
           if (ctx.condition) {
             if (V(0)) {
-              E(0, Grandparent.ngComponentDef);
-              { D(1, Grandparent.ngComponentDef.n(), Grandparent.ngComponentDef); }
+              E(0, Grandparent);
               e();
             }
             Grandparent.ngComponentDef.h(1, 0);
@@ -891,19 +839,15 @@ describe('lifecycles', () => {
       function Template(ctx: any, cm: boolean) {
         if (cm) {
           C(0);
-          c();
         }
         cR(0);
         {
           if (ctx.condition) {
             if (V(0)) {
-              E(0, Comp.ngComponentDef);
-              { D(1, Comp.ngComponentDef.n(), Comp.ngComponentDef); }
+              E(0, Comp);
               e();
               C(2);
-              c();
-              E(3, Comp.ngComponentDef);
-              { D(4, Comp.ngComponentDef.n(), Comp.ngComponentDef); }
+              E(3, Comp);
               e();
             }
             p(0, 'val', b('1'));
@@ -914,8 +858,7 @@ describe('lifecycles', () => {
             {
               if (ctx.condition2) {
                 if (V(0)) {
-                  E(0, Comp.ngComponentDef);
-                  { D(1, Comp.ngComponentDef.n(), Comp.ngComponentDef); }
+                  E(0, Comp);
                   e();
                 }
                 p(0, 'val', b('2'));
@@ -972,19 +915,15 @@ describe('lifecycles', () => {
       function Template(ctx: any, cm: boolean) {
         if (cm) {
           C(0);
-          c();
         }
         cR(0);
         {
           if (ctx.condition) {
             if (V(0)) {
-              E(0, Comp.ngComponentDef);
-              { D(1, Comp.ngComponentDef.n(), Comp.ngComponentDef); }
+              E(0, Comp);
               e();
               C(2);
-              c();
-              E(3, Comp.ngComponentDef);
-              { D(4, Comp.ngComponentDef.n(), Comp.ngComponentDef); }
+              E(3, Comp);
               e();
             }
             p(0, 'val', b('1'));
@@ -995,8 +934,7 @@ describe('lifecycles', () => {
             {
               for (let j = 2; j < ctx.len; j++) {
                 if (V(0)) {
-                  E(0, Comp.ngComponentDef);
-                  { D(1, Comp.ngComponentDef.n(), Comp.ngComponentDef); }
+                  E(0, Comp);
                   e();
                 }
                 p(0, 'val', b(j));
@@ -1055,7 +993,6 @@ describe('lifecycles', () => {
       function Template(ctx: any, cm: boolean) {
         if (cm) {
           C(0);
-          c();
         }
         cR(0);
         {
@@ -1067,8 +1004,7 @@ describe('lifecycles', () => {
                 T(1, 'Click me');
               }
               e();
-              E(2, Comp.ngComponentDef);
-              { D(3, Comp.ngComponentDef.n(), Comp.ngComponentDef); }
+              E(2, Comp);
               e();
               E(4, 'button');
               {
