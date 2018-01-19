@@ -5,10 +5,11 @@ A basic understanding of the following:
 * [Feature Modules](guide/feature-modules).
 * [JavaScript Modules vs. NgModules](guide/ngmodule-vs-jsmodule).
 * [Frequently Used Modules](guide/frequent-ngmodules).
-* [Types of Modules](guide/module-types).
+* [Types of Feature Modules](guide/module-types).
 * [Routing and Navigation](guide/router).
 
-For the final sample app with two lazy loaded modules that this page describes, see the <live-example></live-example>.
+For the final sample app with two lazy loaded modules that this page describes, see the
+<live-example></live-example>.
 
 <hr>
 
@@ -33,7 +34,7 @@ ng new customer-app --routing
 
 This creates an app called `customer-app` and the `--routing` flag
 generates a file called `app-routing.module.ts`, which is one of
-the files you need for setting up lazy loading for your feature module. 
+the files you need for setting up lazy loading for your feature module.
 Navigate into the project by issuing the command `cd customer-app`.
 
 ## Create a feature module with routing
@@ -64,7 +65,7 @@ ng generate component customers/customer-list
 ```
 
 This creates a folder inside of `customers` called `customer-list`
-with the four files that make up the component. 
+with the four files that make up the component.
 
 <!-- For more information
 about components, see [Components](). -->
@@ -92,12 +93,12 @@ ng generate component orders/order-list
 ## Set up the UI
 
 Though you can type the URL into the address bar, a nav
-is easier for the user and more common. Replace the default 
-placeholder markup in `app.component.html` with a custom nav 
+is easier for the user and more common. Replace the default
+placeholder markup in `app.component.html` with a custom nav
 so you can easily navigate to your modules in the browser:
 
 
-<code-example path="lazy-loading/src/app/app.component.html" region="app-component-template" title="src/app/app.component.html" linenums="false">
+<code-example path="lazy-loading-ngmodules/src/app/app.component.html" region="app-component-template" title="src/app/app.component.html" linenums="false">
 
 </code-example>
 
@@ -137,7 +138,7 @@ Each feature module acts as a doorway via the router. In the `AppRoutingModule`,
 In `AppRoutingModule`, update the `routes` array with the following:
 
 
-<code-example path="lazy-loading/src/app/app-routing.module.ts" region="const-routes" title="src/app/app-routing.module.ts" linenums="false">
+<code-example path="lazy-loading-ngmodules/src/app/app-routing.module.ts" region="const-routes" title="src/app/app-routing.module.ts" linenums="false">
 
 </code-example>
 
@@ -149,7 +150,7 @@ The import statements stay the same. The first two paths are the routes to the `
 Next, take a look at `customers.module.ts`. If you’re using the CLI and following the steps outlined in this page, you don’t have to do anything here. The feature module is like a connector between the `AppRoutingModule` and the feature routing module. The `AppRoutingModule` imports the feature module, `CustomersModule`, and `CustomersModule` in turn imports the `CustomersRoutingModule`.
 
 
-<code-example path="lazy-loading/src/app/customers/customers.module.ts" region="customers-module" title="src/app/customers/customers.module.ts" linenums="false">
+<code-example path="lazy-loading-ngmodules/src/app/customers/customers.module.ts" region="customers-module" title="src/app/customers/customers.module.ts" linenums="false">
 
 </code-example>
 
@@ -162,7 +163,7 @@ The `customers.module.ts` file imports the `CustomersRoutingModule` and `Custome
 
 The next step is in `customers-routing.module.ts`. First, import the component at the top of the file with the other JavaScript import statements. Then, add the route to `CustomerListComponent`.
 
-<code-example path="lazy-loading/src/app/customers/customers-routing.module.ts" region="customers-routing-module" title="src/app/customers/customers-routing.module.ts" linenums="false">
+<code-example path="lazy-loading-ngmodules/src/app/customers/customers-routing.module.ts" region="customers-routing-module" title="src/app/customers/customers-routing.module.ts" linenums="false">
 
 </code-example>
 
@@ -171,7 +172,7 @@ Notice that the `path` is set to an empty string. This is because the path in `A
 
 Repeat this last step of importing the `OrdersListComponent` and configuring the Routes array for the `orders-routing.module.ts`:
 
-<code-example path="lazy-loading/src/app/orders/orders-routing.module.ts" region="orders-routing-module-detail" title="src/app/orders/orders-routing.module.ts (excerpt)" linenums="false">
+<code-example path="lazy-loading-ngmodules/src/app/orders/orders-routing.module.ts" region="orders-routing-module-detail" title="src/app/orders/orders-routing.module.ts (excerpt)" linenums="false">
 
 </code-example>
 
@@ -224,7 +225,4 @@ knows that the route list is only responsible for providing additional routes an
 You may also be interested in the following:
 * [Routing and Navigation](guide/router).
 * [Providers](guide/providers).
-* [Types of NgModules](guide/module-types).
-
-
-
+* [Types of Feature Modules](guide/module-types).
