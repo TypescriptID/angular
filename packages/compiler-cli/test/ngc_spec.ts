@@ -898,12 +898,12 @@ describe('ngc transformer command-line', () => {
 
           export * from './util';
 
-          // Note: the lamda will be lowered into an exported expression
+          // Note: the lambda will be lowered into an exported expression
           @NgModule({providers: [{provide: 'aToken', useValue: () => 2}]})
           export class MyModule {}
         `);
         write('util.ts', `
-          // Note: The lamda will be lowered into an exported expression
+          // Note: The lambda will be lowered into an exported expression
           const x = () => 2;
 
           export const y = x;
@@ -1144,7 +1144,7 @@ describe('ngc transformer command-line', () => {
       shouldExist('app/main.js');
     });
 
-    it('shoud be able to compile libraries with summaries and flat modules', () => {
+    it('should be able to compile libraries with summaries and flat modules', () => {
       writeFiles();
       compile();
 
@@ -1466,7 +1466,7 @@ describe('ngc transformer command-line', () => {
         `);
        }));
 
-    it('should recomiple when the html file changes',
+    it('should recompile when the html file changes',
        expectRecompile(() => { write('greet.html', '<p> Hello {{name}} again!</p>'); }));
 
     it('should recompile when the css file changes',
@@ -1696,6 +1696,40 @@ describe('ngc transformer command-line', () => {
           main(['-p', path.join(basePath, 'src/tsconfig.json')], message => messages.push(message)))
           .toBe(1, 'Compile was expected to fail');
       expect(messages[0]).toContain(`is imported recursively by the module 'MyFaultyImport`);
+    });
+
+    // Regression test for #21273
+    it('should not report errors for unknown property annotations', () => {
+      write('src/tsconfig.json', `{
+        "extends": "../tsconfig-base.json",
+        "files": ["test-module.ts"]
+      }`);
+
+      write('src/test-decorator.ts', `
+        export function Convert(p: any): any {
+          // Make sur this doesn't look like a macro function
+          var r = p;
+          return r;
+        }
+      `);
+      write('src/test-module.ts', `
+        import {Component, Input, NgModule} from '@angular/core';
+        import {Convert} from './test-decorator';
+
+        @Component({template: '{{name}}'})
+        export class TestComponent {
+          @Input() @Convert(convert) name: string;
+        }
+
+        function convert(n: any) { return n; }
+
+        @NgModule({declarations: [TestComponent]})
+        export class TestModule {}
+      `);
+      const messages: string[] = [];
+      expect(
+          main(['-p', path.join(basePath, 'src/tsconfig.json')], message => messages.push(message)))
+          .toBe(0, `Compile failed:\n ${messages.join('\n    ')}`);
     });
 
     it('should allow using 2 classes with the same name in declarations with noEmitOnError=true',
