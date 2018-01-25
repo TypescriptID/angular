@@ -11,7 +11,7 @@ import {LContainer, unusedValueExportToPlacateAjd as unused1} from './interfaces
 import {LContainerNode, LElementNode, LNode, LNodeFlags, LProjectionNode, LTextNode, LViewNode, unusedValueExportToPlacateAjd as unused2} from './interfaces/node';
 import {LProjection, unusedValueExportToPlacateAjd as unused3} from './interfaces/projection';
 import {ProceduralRenderer3, RComment, RElement, RNode, RText, unusedValueExportToPlacateAjd as unused4} from './interfaces/renderer';
-import {LView, LViewOrLContainer, unusedValueExportToPlacateAjd as unused5} from './interfaces/view';
+import {HookData, LView, LViewOrLContainer, TView, unusedValueExportToPlacateAjd as unused5} from './interfaces/view';
 import {assertNodeType} from './node_assert';
 
 const unusedValueToPlacateAjd = unused1 + unused2 + unused3 + unused4 + unused5;
@@ -222,8 +222,6 @@ export function insertView(
         container, newView, true, findBeforeNode(index, state, container.native));
   }
 
-  // Notify query that view has been inserted
-  container.query && container.query.insertView(container, newView, index);
   return newView;
 }
 
@@ -248,7 +246,7 @@ export function removeView(container: LContainerNode, removeIndex: number): LVie
   destroyViewTree(viewNode.data);
   addRemoveViewFromContainer(container, viewNode, false);
   // Notify query that view has been removed
-  container.query && container.query.removeView(container, viewNode, removeIndex);
+  container.data.query && container.data.query.removeView(removeIndex);
   return viewNode;
 }
 
@@ -295,17 +293,36 @@ export function getParentState(state: LViewOrLContainer, rootView: LView): LView
  * @param view The LView to clean up
  */
 function cleanUpView(view: LView): void {
-  if (!view.cleanup) return;
+  removeListeners(view);
+  executeOnDestroys(view);
+}
+
+/** Removes listeners and unsubscribes from output subscriptions */
+function removeListeners(view: LView): void {
   const cleanup = view.cleanup !;
-  for (let i = 0; i < cleanup.length - 1; i += 2) {
-    if (typeof cleanup[i] === 'string') {
-      cleanup ![i + 1].removeEventListener(cleanup[i], cleanup[i + 2], cleanup[i + 3]);
-      i += 2;
-    } else {
-      cleanup[i].call(cleanup[i + 1]);
+  if (cleanup != null) {
+    for (let i = 0; i < cleanup.length - 1; i += 2) {
+      if (typeof cleanup[i] === 'string') {
+        cleanup ![i + 1].removeEventListener(cleanup[i], cleanup[i + 2], cleanup[i + 3]);
+        i += 2;
+      } else {
+        cleanup[i].call(cleanup[i + 1]);
+      }
+    }
+    view.cleanup = null;
+  }
+}
+
+/** Calls onDestroy hooks for this view */
+function executeOnDestroys(view: LView): void {
+  const tView = view.tView;
+  let destroyHooks: HookData|null;
+  if (tView != null && (destroyHooks = tView.destroyHooks) != null) {
+    for (let i = 0; i < destroyHooks.length; i += 2) {
+      const instance = view.data[destroyHooks[i] as number];
+      (destroyHooks[i | 1] as() => void).call(instance);
     }
   }
-  view.cleanup = null;
 }
 
 /**
