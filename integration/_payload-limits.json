@@ -25,7 +25,16 @@
   "hello_world__render3__rollup": {
     "master": {
       "uncompressed": {
-        "bundle": 34304
+        "bundle": 34694
+      }
+    }
+  },
+  "hello_world__render3__cli": {
+    "master": {
+      "uncompressed": {
+        "inline": 1447,
+        "main": 40513,
+        "polyfills": 61085
       }
     }
   }

@@ -21,7 +21,7 @@ import {isNodeMatchingSelector} from './node_selector_matcher';
 import {ComponentDef, ComponentTemplate, ComponentType, DirectiveDef, DirectiveType} from './interfaces/definition';
 import {RElement, RText, Renderer3, RendererFactory3, ProceduralRenderer3, ObjectOrientedRenderer3, RendererStyleFlags3} from './interfaces/renderer';
 import {isDifferent, stringify} from './util';
-import {executeViewHooks, executeContentHooks, queueLifecycleHooks, queueInitHooks, executeInitHooks} from './hooks';
+import {executeHooks, executeContentHooks, queueLifecycleHooks, queueInitHooks, executeInitHooks} from './hooks';
 
 
 /**
@@ -151,7 +151,9 @@ export function enterView(newView: LView, host: LElementNode | LViewNode | null)
  * the direction of traversal (up or down the view tree) a bit clearer.
  */
 export function leaveView(newView: LView): void {
-  executeViewHooks(currentView);
+  executeHooks(
+      currentView.data, currentView.tView.viewHooks, currentView.tView.viewCheckHooks,
+      creationMode);
   currentView.creationMode = false;
   currentView.lifecycleStage = LifecycleStage.INIT;
   currentView.tView.firstTemplatePass = false;
@@ -487,8 +489,11 @@ export function createTView(): TView {
     data: [],
     firstTemplatePass: true,
     initHooks: null,
+    checkHooks: null,
     contentHooks: null,
+    contentCheckHooks: null,
     viewHooks: null,
+    viewCheckHooks: null,
     destroyHooks: null
   };
 }
@@ -1045,7 +1050,7 @@ export function containerRefreshStart(index: number): void {
 
   // We need to execute init hooks here so ngOnInit hooks are called in top level views
   // before they are called in embedded views (for backwards compatibility).
-  executeInitHooks(currentView);
+  executeInitHooks(currentView, currentView.tView, creationMode);
 }
 
 /**
@@ -1176,8 +1181,8 @@ export function viewEnd(): void {
  * @param elementIndex
  */
 export function componentRefresh<T>(directiveIndex: number, elementIndex: number): void {
-  executeInitHooks(currentView);
-  executeContentHooks(currentView);
+  executeInitHooks(currentView, currentView.tView, creationMode);
+  executeContentHooks(currentView, currentView.tView, creationMode);
   const template = (tData[directiveIndex] as ComponentDef<T>).template;
   if (template != null) {
     ngDevMode && assertDataInRange(elementIndex);
@@ -1185,7 +1190,7 @@ export function componentRefresh<T>(directiveIndex: number, elementIndex: number
     ngDevMode && assertNodeType(element, LNodeFlags.Element);
     ngDevMode && assertNotEqual(element.data, null, 'isComponent');
     ngDevMode && assertDataInRange(directiveIndex);
-    const directive = data[directiveIndex];
+    const directive = getDirectiveInstance<T>(data[directiveIndex]);
     const hostView = element.data !;
     ngDevMode && assertNotEqual(hostView, null, 'hostView');
     const oldView = enterView(hostView, element);
@@ -1856,6 +1861,12 @@ export function getPreviousOrParentNode(): LNode {
 
 export function getRenderer(): Renderer3 {
   return renderer;
+}
+
+export function getDirectiveInstance<T>(instanceOrArray: T | [T]): T {
+  // Directives with content queries store an array in data[directiveIndex]
+  // with the instance as the first index
+  return Array.isArray(instanceOrArray) ? instanceOrArray[0] : instanceOrArray;
 }
 
 export function assertPreviousIsParent() {
