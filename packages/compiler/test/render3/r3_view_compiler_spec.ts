@@ -100,6 +100,35 @@ describe('r3_view_compiler', () => {
     expect(result.source).toContain('@angular/core');
   });
 
+  describe('interpolations', () => {
+    // Regression #21927
+    it('should generate a correct call to bV with more than 8 interpolations', () => {
+      const files: MockDirectory = {
+        app: {
+          'example.ts': `
+          import {Component, NgModule} from '@angular/core';
+
+          @Component({
+            selector: 'my-app',
+            template: ' {{list[0]}} {{list[1]}} {{list[2]}} {{list[3]}} {{list[4]}} {{list[5]}} {{list[6]}} {{list[7]}} {{list[8]}} '
+          })
+          export class MyApp implements OnInit {
+            list: any[] = [];
+          }
+
+          @NgModule({declarations: [MyApp]})
+          export class MyModule {}`
+        }
+      };
+
+      const bV_call = `IDENT.ɵbV([' ',ctx.list[0],' ',ctx.list[1],' ',ctx.list[2],' ',ctx.list[3],
+        ' ',ctx.list[4],' ',ctx.list[5],' ',ctx.list[6],' ',ctx.list[7],' ',ctx.list[8],
+        ' '])`;
+      const result = compile(files, angularFiles);
+      expectEmit(result.source, bV_call, 'Incorrect bV call');
+    });
+  });
+
   /* These tests are codified version of the tests in compiler_canonical_spec.ts. Every
    * test in compiler_canonical_spec.ts should have a corresponding test here.
    */
@@ -208,6 +237,8 @@ describe('r3_view_compiler', () => {
               IDENT.ɵe();
               IDENT.ɵT(3, '!');
             }
+            ChildComponent.ngComponentDef.h(1, 0);
+            SomeDirective.ngDirectiveDef.h(2, 0);
             IDENT.ɵr(1, 0);
             IDENT.ɵr(2, 0);
           }
@@ -271,6 +302,7 @@ describe('r3_view_compiler', () => {
               IDENT.ɵe();
             }
             const IDENT = IDENT.ɵm(1);
+            IfDirective.ngDirectiveDef.h(3,2);
             IDENT.ɵcR(2);
             IDENT.ɵr(3,2);
             IDENT.ɵcr();
@@ -414,6 +446,90 @@ describe('r3_view_compiler', () => {
       expectEmit(source, locals, 'Incorrect locals constant definition');
     });
 
+    describe('lifecycle hooks', () => {
+      const files = {
+        app: {
+          'spec.ts': `
+            import {Component, Input, NgModule} from '@angular/core';
+
+            let events: string[] = [];
+
+            @Component({selector: 'lifecycle-comp', template: ''})
+            export class LifecycleComp {
+              @Input('name') nameMin: string;
+
+              ngOnChanges() { events.push('changes' + this.nameMin); }
+
+              ngOnInit() { events.push('init' + this.nameMin); }
+              ngDoCheck() { events.push('check' + this.nameMin); }
+
+              ngAfterContentInit() { events.push('content init' + this.nameMin); }
+              ngAfterContentChecked() { events.push('content check' + this.nameMin); }
+
+              ngAfterViewInit() { events.push('view init' + this.nameMin); }
+              ngAfterViewChecked() { events.push('view check' + this.nameMin); }
+
+              ngOnDestroy() { events.push(this.nameMin); }
+            }
+
+            @Component({
+              selector: 'simple-layout',
+              template: \`
+                <lifecycle-comp [name]="name1"></lifecycle-comp>
+                <lifecycle-comp [name]="name2"></lifecycle-comp>
+              \`
+            })
+            export class SimpleLayout {
+              name1 = '1';
+              name2 = '2';
+            }
+
+            @NgModule({declarations: [LifecycleComp, SimpleLayout]}
+            export class LifecycleModule {}
+          `
+        }
+      };
+
+      it('should gen hooks with a few simple components', () => {
+        const LifecycleCompDefinition = `
+          static ngComponentDef = IDENT.ɵdefineComponent({
+            type: LifecycleComp,
+            tag: 'lifecycle-comp',
+            factory: function LifecycleComp_Factory() { return new LifecycleComp(); },
+            template: function LifecycleComp_Template(ctx: any, cm: boolean) {},
+            inputs: {nameMin: 'name'},
+            features: [IDENT.ɵNgOnChangesFeature(LifecycleComp)]
+          });`;
+
+        const SimpleLayoutDefinition = `
+          static ngComponentDef = IDENT.ɵdefineComponent({
+            type: SimpleLayout,
+            tag: 'simple-layout',
+            factory: function SimpleLayout_Factory() { return new SimpleLayout(); },
+            template: function SimpleLayout_Template(ctx: any, cm: boolean) {
+              if (cm) {
+                IDENT.ɵE(0, LifecycleComp);
+                IDENT.ɵe();
+                IDENT.ɵE(2, LifecycleComp);
+                IDENT.ɵe();
+              }
+              IDENT.ɵp(0, 'name', IDENT.ɵb(ctx.name1));
+              IDENT.ɵp(2, 'name', IDENT.ɵb(ctx.name2));
+              IDENT.h(1, 0);
+              IDENT.h(3, 2);
+              IDENT.ɵr(1, 0);
+              IDENT.ɵr(3, 2);
+            }
+          });`;
+
+        const result = compile(files, angularFiles);
+        const source = result.source;
+
+        expectEmit(source, LifecycleCompDefinition, 'Invalid LifecycleComp definition');
+        expectEmit(source, SimpleLayoutDefinition, 'Invalid SimpleLayout definition');
+      });
+    });
+
     describe('template variables', () => {
       const shared = {
         shared: {
@@ -516,6 +632,7 @@ describe('r3_view_compiler', () => {
                 IDENT.ɵe();
               }
               IDENT.ɵp(1, 'forOf', IDENT.ɵb(ctx.items));
+              ForOfDirective.ngDirectiveDef.h(2, 1);
               IDENT.ɵcR(1);
               IDENT.ɵr(2, 1);
               IDENT.ɵcr();
@@ -590,6 +707,7 @@ describe('r3_view_compiler', () => {
                 IDENT.ɵe();
               }
               IDENT.ɵp(1, 'forOf', IDENT.ɵb(ctx.items));
+              IDENT.h(2,1);
               IDENT.ɵcR(1);
               IDENT.ɵr(2, 1);
               IDENT.ɵcr();
@@ -607,6 +725,7 @@ describe('r3_view_compiler', () => {
                 }
                 const IDENT = ctx0.$implicit;
                 IDENT.ɵp(4, 'forOf', IDENT.ɵb(IDENT.infos));
+                IDENT.h(5,4);
                 IDENT.ɵt(2, IDENT.ɵb1('', IDENT.name, ''));
                 IDENT.ɵcR(4);
                 IDENT.ɵr(5, 4);
@@ -696,7 +815,7 @@ function expectEmit(source: string, emitted: string, description: string) {
       }
     }
     fail(
-        'Test helper failure: Expected expression failed but the reporting logic could not find where it failed');
+        `Test helper failure: Expected expression failed but the reporting logic could not find where it failed in: ${source}`);
   }
 }
 
