@@ -125,7 +125,25 @@ import {beforeEach, describe, expect, it} from '@angular/core/testing/src/testin
           expect(pipe.transform(5.1234, 'CAD', 'symbol-narrow', '5.2-2')).toEqual('$00,005.12');
           expect(pipe.transform(5.1234, 'CAD', 'symbol-narrow', '5.2-2', 'fr'))
               .toEqual('00 005,12 $');
-          expect(pipe.transform(5.1234, 'FAKE', 'symbol')).toEqual('FAKE5.12');
+          expect(pipe.transform(5, 'USD', 'symbol', '', 'fr')).toEqual('5,00 $US');
+        });
+
+        it('should support any currency code name', () => {
+          // currency code is unknown, default formatting options will be used
+          expect(pipe.transform(5.1234, 'unexisting_ISO_code', 'symbol'))
+              .toEqual('unexisting_ISO_code5.12');
+          // currency code is USD, the pipe will format based on USD but will display "Custom name"
+          expect(pipe.transform(5.1234, 'USD', 'Custom name')).toEqual('Custom name5.12');
+        });
+
+        it('should round to the default number of digits if no digitsInfo', () => {
+          // IDR has a default number of digits of 0
+          expect(pipe.transform(5.1234, 'IDR')).toEqual('IDR5');
+          expect(pipe.transform(5.1234, 'IDR', 'symbol', '.2')).toEqual('IDR5.12');
+          expect(pipe.transform(5.1234, 'IDR', 'Custom name')).toEqual('Custom name5');
+          // BHD has a default number of digits of 3
+          expect(pipe.transform(5.1234, 'BHD')).toEqual('BHD5.123');
+          expect(pipe.transform(5.1234, 'BHD', 'symbol', '.1-2')).toEqual('BHD5.12');
         });
 
         it('should not support other objects', () => {
