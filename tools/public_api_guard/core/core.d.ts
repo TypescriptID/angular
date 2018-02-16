@@ -113,6 +113,9 @@ export declare const APP_ID: InjectionToken<string>;
 export declare const APP_INITIALIZER: InjectionToken<(() => void)[]>;
 
 /** @experimental */
+export declare const APP_ROOT_SCOPE: Type<any>;
+
+/** @experimental */
 export declare class ApplicationInitStatus {
     readonly done: boolean;
     readonly donePromise: Promise<any>;
@@ -489,7 +492,8 @@ export declare class InjectionToken<T> {
     readonly ngInjectableDef: Injectable | undefined;
     constructor(_desc: string, options?: {
         scope: Type<any>;
-    } & InjectionTokenProvider);
+        factory: () => T;
+    });
     toString(): string;
 }
 

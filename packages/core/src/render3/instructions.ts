@@ -8,7 +8,7 @@
 
 import './ng_dev_mode';
 
-import {assertEqual, assertLessThan, assertNotEqual, assertNotNull} from './assert';
+import {assertEqual, assertLessThan, assertNotEqual, assertNotNull, assertNull, assertSame} from './assert';
 import {LContainer, TContainer} from './interfaces/container';
 import {CssSelector, LProjection} from './interfaces/projection';
 import {LQueries} from './interfaces/query';
@@ -22,7 +22,6 @@ import {ComponentDef, ComponentTemplate, ComponentType, DirectiveDef, DirectiveT
 import {RElement, RText, Renderer3, RendererFactory3, ProceduralRenderer3, ObjectOrientedRenderer3, RendererStyleFlags3, isProceduralRenderer} from './interfaces/renderer';
 import {isDifferent, stringify} from './util';
 import {executeHooks, executeContentHooks, queueLifecycleHooks, queueInitHooks, executeInitHooks} from './hooks';
-
 
 /**
  * Directive (D) sets a property on all component instances using this constant as a key and the
@@ -233,7 +232,7 @@ export function createLNode(
   if ((type & LNodeFlags.ViewOrElement) === LNodeFlags.ViewOrElement && isState) {
     // Bit of a hack to bust through the readonly because there is a circular dep between
     // LView and LNode.
-    ngDevMode && assertEqual((state as LView).node, null, 'lView.node');
+    ngDevMode && assertNull((state as LView).node, 'LView.node should not have been initialized');
     (state as LView as{node: LNode}).node = node;
   }
   if (index != null) {
@@ -254,13 +253,17 @@ export function createLNode(
       if (previousOrParentNode.view === currentView ||
           (previousOrParentNode.flags & LNodeFlags.TYPE_MASK) === LNodeFlags.View) {
         // We are in the same view, which means we are adding content node to the parent View.
-        ngDevMode && assertEqual(previousOrParentNode.child, null, 'previousNode.child');
+        ngDevMode && assertNull(
+                         previousOrParentNode.child,
+                         `previousOrParentNode's child should not have been set.`);
         previousOrParentNode.child = node;
       } else {
         // We are adding component view, so we don't link parent node child to this node.
       }
     } else if (previousOrParentNode) {
-      ngDevMode && assertEqual(previousOrParentNode.next, null, 'previousNode.next');
+      ngDevMode && assertNull(
+                       previousOrParentNode.next,
+                       `previousOrParentNode's next property should not have been set.`);
       previousOrParentNode.next = node;
     }
   }
@@ -300,7 +303,7 @@ export function renderTemplate<T>(
             -1, providedRendererFactory.createRenderer(null, null), getOrCreateTView(template)));
   }
   const hostView = host.data !;
-  ngDevMode && assertNotEqual(hostView, null, 'hostView');
+  ngDevMode && assertNotNull(hostView, 'Host node should have an LView defined in host.data.');
   renderComponentOrTemplate(host, hostView, context, template);
   return host;
 }
@@ -381,7 +384,8 @@ export function elementStart(
     const node = data[index] !;
     native = node && (node as LElementNode).native;
   } else {
-    ngDevMode && assertEqual(currentView.bindingStartIndex, null, 'bindingStartIndex');
+    ngDevMode &&
+        assertNull(currentView.bindingStartIndex, 'elements should be created before any bindings');
     const isHostElement = typeof nameOrComponentType !== 'string';
     // MEGAMORPHIC: `ngComponentDef` is a megamorphic property access here.
     // This is OK, since we will refactor this code and store the result in `TView.data`
@@ -504,7 +508,7 @@ export function createTView(): TView {
 }
 
 function setUpAttributes(native: RElement, attrs: string[]): void {
-  ngDevMode && assertEqual(attrs.length % 2, 0, 'attrs.length % 2');
+  ngDevMode && assertEqual(attrs.length % 2, 0, 'each attribute should have a key and a value');
 
   const isProc = isProceduralRenderer(renderer);
   for (let i = 0; i < attrs.length; i += 2) {
@@ -809,7 +813,8 @@ export function elementStyle<T>(
  *   If value is not provided than the actual creation of the text node is delayed.
  */
 export function text(index: number, value?: any): void {
-  ngDevMode && assertEqual(currentView.bindingStartIndex, null, 'bindingStartIndex');
+  ngDevMode &&
+      assertNull(currentView.bindingStartIndex, 'text nodes should be created before bindings');
   const textNode = value != null ?
       (isProceduralRenderer(renderer) ? renderer.createText(stringify(value)) :
                                         renderer.createTextNode(stringify(value))) :
@@ -865,7 +870,8 @@ export function textBinding<T>(index: number, value: T | NO_CHANGE): void {
 export function directiveCreate<T>(
     index: number, directive: T, directiveDef: DirectiveDef<T>, queryName?: string | null): T {
   let instance;
-  ngDevMode && assertEqual(currentView.bindingStartIndex, null, 'bindingStartIndex');
+  ngDevMode &&
+      assertNull(currentView.bindingStartIndex, 'directives should be created before any bindings');
   ngDevMode && assertPreviousIsParent();
   let flags = previousOrParentNode !.flags;
   let size = flags & LNodeFlags.SIZE_MASK;
@@ -984,10 +990,12 @@ function generateInitialInputs(
 export function container(
     index: number, directiveTypes?: DirectiveType<any>[], template?: ComponentTemplate<any>,
     tagName?: string, attrs?: string[], localRefs?: string[] | null): void {
-  ngDevMode && assertEqual(currentView.bindingStartIndex, null, 'bindingStartIndex');
+  ngDevMode &&
+      assertNull(
+          currentView.bindingStartIndex, 'container nodes should be created before any bindings');
 
   const currentParent = isParent ? previousOrParentNode : previousOrParentNode.parent !;
-  ngDevMode && assertNotEqual(currentParent, null, 'currentParent');
+  ngDevMode && assertNotNull(currentParent, 'containers should have a parent');
 
   const lContainer = <LContainer>{
     views: [],
@@ -1037,9 +1045,9 @@ export function containerRefreshStart(index: number): void {
   ngDevMode && assertNodeType(previousOrParentNode, LNodeFlags.Container);
   isParent = true;
   (previousOrParentNode as LContainerNode).data.nextIndex = 0;
-  ngDevMode && assertEqual(
-                   (previousOrParentNode as LContainerNode).native === undefined, true,
-                   'previousOrParentNode.native === undefined');
+  ngDevMode && assertSame(
+                   (previousOrParentNode as LContainerNode).native, undefined,
+                   `the container's native element should not have been set yet.`);
 
   // We need to execute init hooks here so ngOnInit hooks are called in top level views
   // before they are called in embedded views (for backwards compatibility).
@@ -1181,11 +1189,11 @@ export function componentRefresh<T>(directiveIndex: number, elementIndex: number
     ngDevMode && assertDataInRange(elementIndex);
     const element = data ![elementIndex] as LElementNode;
     ngDevMode && assertNodeType(element, LNodeFlags.Element);
-    ngDevMode && assertNotEqual(element.data, null, 'isComponent');
+    ngDevMode &&
+        assertNotNull(element.data, `Component's host node should have an LView attached.`);
     ngDevMode && assertDataInRange(directiveIndex);
     const directive = getDirectiveInstance<T>(data[directiveIndex]);
     const hostView = element.data !;
-    ngDevMode && assertNotEqual(hostView, null, 'hostView');
     const oldView = enterView(hostView, element);
     try {
       template(directive, creationMode);
@@ -1243,9 +1251,9 @@ function appendToProjectionNode(
     projectionNode: LProjectionNode,
     appendedFirst: LElementNode | LTextNode | LContainerNode | null,
     appendedLast: LElementNode | LTextNode | LContainerNode | null) {
-  // appendedFirst can be null if and only if appendedLast is also null
-  ngDevMode &&
-      assertEqual(!appendedFirst === !appendedLast, true, '!appendedFirst === !appendedLast');
+  ngDevMode && assertEqual(
+                   !!appendedFirst, !!appendedLast,
+                   'appendedFirst can be null if and only if appendedLast is also null');
   if (!appendedLast) {
     // nothing to append
     return;
@@ -1347,9 +1355,9 @@ export function addToViewTree<T extends LView|LContainer>(state: T): T {
   return state;
 }
 
-//////////////////////////
-//// Bindings
-//////////////////////////
+///////////////////////////////
+//// Bindings & interpolations
+///////////////////////////////
 
 export interface NO_CHANGE {
   // This is a brand that ensures that this type can never match anything else
@@ -1360,16 +1368,53 @@ export interface NO_CHANGE {
 export const NO_CHANGE = {} as NO_CHANGE;
 
 /**
- * Create interpolation bindings with variable number of arguments.
+ *  Initializes the binding start index. Will get inlined.
  *
- * If any of the arguments change, then the interpolation is concatenated
- * and causes an update.
+ *  This function must be called before any binding related function is called
+ *  (ie `bind()`, `interpolationX()`, `pureFunctionX()`)
+ */
+function initBindings() {
+  // `bindingIndex` is initialized when the view is first entered when not in creation mode
+  ngDevMode &&
+      assertEqual(
+          creationMode, true, 'should only be called in creationMode for performance reasons');
+  if (currentView.bindingStartIndex == null) {
+    bindingIndex = currentView.bindingStartIndex = data.length;
+  }
+}
+
+/**
+ * Creates a single value binding.
+ *
+ * @param value Value to diff
+ */
+export function bind<T>(value: T | NO_CHANGE): T|NO_CHANGE {
+  if (creationMode) {
+    initBindings();
+    return data[bindingIndex++] = value;
+  }
+
+  const changed: boolean = value !== NO_CHANGE && isDifferent(data[bindingIndex], value);
+  if (changed) {
+    data[bindingIndex] = value;
+  }
+  bindingIndex++;
+  return changed ? value : NO_CHANGE;
+}
+
+/**
+ * Create interpolation bindings with a variable number of expressions.
+ *
+ * If there are 1 to 7 expressions `interpolation1()` to `interpolation7` should be used instead.
+ * Those are faster because there is no need to create an array of expressions and loop over it.
  *
  * `values`:
  * - has static text at even indexes,
  * - has evaluated expressions at odd indexes (could be NO_CHANGE).
+ *
+ * Returns the concatenated string when any of the arguments changes, `NO_CHANGE` otherwise.
  */
-export function bindV(values: any[]): string|NO_CHANGE {
+export function interpolationV(values: any[]): string|NO_CHANGE {
   ngDevMode && assertLessThan(2, values.length, 'should have at least 3 values');
   ngDevMode && assertEqual(values.length % 2, 1, 'should have an odd number of values');
 
@@ -1405,51 +1450,20 @@ export function bindV(values: any[]): string|NO_CHANGE {
   return NO_CHANGE;
 }
 
-// For bindings that have 0 - 7 dynamic values to watch, we can use a bind function that
-// matches the number of interpolations. This is faster than using the bindV function above
-// because we know ahead of time how many interpolations we'll have and don't need to
-// accept the values as an array that will need to be copied and looped over.
-
-// Initializes the binding start index. Will get inlined.
-function initBindings() {
-  if (currentView.bindingStartIndex == null) {
-    bindingIndex = currentView.bindingStartIndex = data.length;
-  }
-}
-
 /**
- * Creates a single value binding without interpolation.
- *
- * @param value Value to diff
- */
-export function bind<T>(value: T | NO_CHANGE): T|NO_CHANGE {
-  if (creationMode) {
-    initBindings();
-    return data[bindingIndex++] = value;
-  }
-
-  const changed: boolean = value !== NO_CHANGE && isDifferent(data[bindingIndex], value);
-  if (changed) {
-    data[bindingIndex] = value;
-  }
-  bindingIndex++;
-  return changed ? value : NO_CHANGE;
-}
-
-/**
- * Creates an interpolation bindings with 1 argument.
+ * Creates an interpolation binding with 1 expression.
  *
  * @param prefix static value used for concatenation only.
  * @param value value checked for change.
  * @param suffix static value used for concatenation only.
  */
-export function bind1(prefix: string, value: any, suffix: string): string|NO_CHANGE {
+export function interpolation1(prefix: string, value: any, suffix: string): string|NO_CHANGE {
   return bind(value) === NO_CHANGE ? NO_CHANGE : prefix + stringify(value) + suffix;
 }
 
-/** Creates an interpolation bindings with 2 arguments. */
-export function bind2(prefix: string, v0: any, i0: string, v1: any, suffix: string): string|
-    NO_CHANGE {
+/** Creates an interpolation binding with 2 expressions. */
+export function interpolation2(
+    prefix: string, v0: any, i0: string, v1: any, suffix: string): string|NO_CHANGE {
   let different: boolean;
   if (different = creationMode) {
     initBindings();
@@ -1468,8 +1482,8 @@ export function bind2(prefix: string, v0: any, i0: string, v1: any, suffix: stri
   return different ? prefix + stringify(v0) + i0 + stringify(v1) + suffix : NO_CHANGE;
 }
 
-/** Creates an interpolation bindings with 3 arguments. */
-export function bind3(
+/** Creates an interpolation bindings with 3 expressions. */
+export function interpolation3(
     prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, suffix: string): string|
     NO_CHANGE {
   let different: boolean;
@@ -1495,8 +1509,8 @@ export function bind3(
                      NO_CHANGE;
 }
 
-/** Create an interpolation binding with 4 arguments. */
-export function bind4(
+/** Create an interpolation binding with 4 expressions. */
+export function interpolation4(
     prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, i2: string, v3: any,
     suffix: string): string|NO_CHANGE {
   let different: boolean;
@@ -1530,8 +1544,8 @@ export function bind4(
       NO_CHANGE;
 }
 
-/** Creates an interpolation binding with 5 arguments. */
-export function bind5(
+/** Creates an interpolation binding with 5 expressions. */
+export function interpolation5(
     prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, i2: string, v3: any,
     i3: string, v4: any, suffix: string): string|NO_CHANGE {
   let different: boolean;
@@ -1570,8 +1584,8 @@ export function bind5(
       NO_CHANGE;
 }
 
-/** Creates an interpolation binding with 6 arguments. */
-export function bind6(
+/** Creates an interpolation binding with 6 expressions. */
+export function interpolation6(
     prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, i2: string, v3: any,
     i3: string, v4: any, i4: string, v5: any, suffix: string): string|NO_CHANGE {
   let different: boolean;
@@ -1614,8 +1628,8 @@ export function bind6(
       NO_CHANGE;
 }
 
-/** Creates an interpolation binding with 7 arguments. */
-export function bind7(
+/** Creates an interpolation binding with 7 expressions. */
+export function interpolation7(
     prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, i2: string, v3: any,
     i3: string, v4: any, i4: string, v5: any, i5: string, v6: any, suffix: string): string|
     NO_CHANGE {
@@ -1663,8 +1677,8 @@ export function bind7(
       NO_CHANGE;
 }
 
-/** Creates an interpolation binding with 8 arguments. */
-export function bind8(
+/** Creates an interpolation binding with 8 expressions. */
+export function interpolation8(
     prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, i2: string, v3: any,
     i3: string, v4: any, i4: string, v5: any, i5: string, v6: any, i6: string, v7: any,
     suffix: string): string|NO_CHANGE {
@@ -1760,18 +1774,18 @@ export function getDirectiveInstance<T>(instanceOrArray: T | [T]): T {
 }
 
 export function assertPreviousIsParent() {
-  assertEqual(isParent, true, 'isParent');
+  assertEqual(isParent, true, 'previousOrParentNode should be a parent');
 }
 
 function assertHasParent() {
-  assertNotEqual(previousOrParentNode.parent, null, 'isParent');
+  assertNotNull(previousOrParentNode.parent, 'previousOrParentNode should have a parent');
 }
 
 function assertDataInRange(index: number, arr?: any[]) {
   if (arr == null) arr = data;
-  assertLessThan(index, arr ? arr.length : 0, 'data.length');
+  assertLessThan(index, arr ? arr.length : 0, 'index expected to be a valid data index');
 }
 
 function assertDataNext(index: number) {
-  assertEqual(data.length, index, 'data.length not in sequence');
+  assertEqual(data.length, index, 'index expected to be at the end of data');
 }
