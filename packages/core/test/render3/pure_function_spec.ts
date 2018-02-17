@@ -6,8 +6,8 @@
  * found in the LICENSE file at https://angular.io/license
  */
 import {defineComponent} from '../../src/render3/index';
-import {componentRefresh, container, containerRefreshEnd, containerRefreshStart, elementEnd, elementProperty, elementStart, embeddedViewEnd, embeddedViewStart, memory} from '../../src/render3/instructions';
-import {objectLiteral1, objectLiteral2, objectLiteral3, objectLiteral4, objectLiteral5, objectLiteral6, objectLiteral7, objectLiteral8, objectLiteralV} from '../../src/render3/object_literal';
+import {bind, componentRefresh, container, containerRefreshEnd, containerRefreshStart, elementEnd, elementProperty, elementStart, embeddedViewEnd, embeddedViewStart, memory} from '../../src/render3/instructions';
+import {pureFunction1, pureFunction2, pureFunction3, pureFunction4, pureFunction5, pureFunction6, pureFunction7, pureFunction8, pureFunctionV} from '../../src/render3/pure_function';
 import {renderToHtml} from '../../test/render3/render_util';
 
 describe('array literals', () => {
@@ -26,18 +26,18 @@ describe('array literals', () => {
   }
 
   it('should support an array literal with a binding', () => {
+    const e0_ff = (v: any) => ['Nancy', v, 'Bess'];
+
     /** <my-comp [names]="['Nancy', customName, 'Bess']"></my-comp> */
     function Template(ctx: any, cm: boolean) {
       if (cm) {
         elementStart(0, MyComp);
         elementEnd();
       }
-      elementProperty(0, 'names', objectLiteral1(e0_ff, ctx.customName));
+      elementProperty(0, 'names', bind(pureFunction1(e0_ff, ctx.customName)));
       MyComp.ngComponentDef.h(1, 0);
       componentRefresh(1, 0);
     }
-
-    const e0_ff = (v: any) => ['Nancy', v, 'Bess'];
 
     renderToHtml(Template, {customName: 'Carson'});
     const firstArray = myComp !.names;
@@ -52,6 +52,12 @@ describe('array literals', () => {
 
     // Identity must change if binding changes
     expect(firstArray).not.toBe(myComp !.names);
+
+    // The property should not be set if the exp value is the same, so artificially
+    // setting the property to ensure it's not overwritten.
+    myComp !.names = ['should not be overwritten'];
+    renderToHtml(Template, {customName: 'Hannah'});
+    expect(myComp !.names).toEqual(['should not be overwritten']);
   });
 
   it('should support multiple array literals passed through to one node', () => {
@@ -70,6 +76,9 @@ describe('array literals', () => {
       });
     }
 
+    const e0_ff = (v: any) => ['Nancy', v];
+    const e0_ff_1 = (v: any) => [v];
+
     /**
      * <many-prop-comp [names1]="['Nancy', customName]" [names2]="[customName2]">
      * </many-prop-comp>
@@ -79,14 +88,11 @@ describe('array literals', () => {
         elementStart(0, ManyPropComp);
         elementEnd();
       }
-      elementProperty(0, 'names1', objectLiteral1(e0_ff, ctx.customName));
-      elementProperty(0, 'names2', objectLiteral1(e0_ff_1, ctx.customName2));
+      elementProperty(0, 'names1', bind(pureFunction1(e0_ff, ctx.customName)));
+      elementProperty(0, 'names2', bind(pureFunction1(e0_ff_1, ctx.customName2)));
       ManyPropComp.ngComponentDef.h(1, 0);
       componentRefresh(1, 0);
     }
-
-    const e0_ff = (v: any) => ['Nancy', v];
-    const e0_ff_1 = (v: any) => [v];
 
     renderToHtml(Template, {customName: 'Carson', customName2: 'George'});
     expect(manyPropComp !.names1).toEqual(['Nancy', 'Carson']);
@@ -97,20 +103,77 @@ describe('array literals', () => {
     expect(manyPropComp !.names2).toEqual(['Carson']);
   });
 
+  it('should support an array literals inside fn calls', () => {
+    let myComps: MyComp[] = [];
+
+    const e0_ff = (v: any) => ['Nancy', v];
+
+    /** <my-comp [names]="someFn(['Nancy', customName])"></my-comp> */
+    class ParentComp {
+      customName = 'Bess';
+
+      someFn(arr: string[]): string[] {
+        arr[0] = arr[0].toUpperCase();
+        return arr;
+      }
+
+      static ngComponentDef = defineComponent({
+        type: ParentComp,
+        tag: 'parent-comp',
+        factory: () => new ParentComp(),
+        template: function(ctx: any, cm: boolean) {
+          if (cm) {
+            elementStart(0, MyComp);
+            myComps.push(memory(1));
+            elementEnd();
+          }
+          elementProperty(0, 'names', bind(ctx.someFn(pureFunction1(e0_ff, ctx.customName))));
+          MyComp.ngComponentDef.h(1, 0);
+          componentRefresh(1, 0);
+        }
+      });
+    }
+
+    function Template(ctx: any, cm: boolean) {
+      if (cm) {
+        elementStart(0, ParentComp);
+        elementEnd();
+        elementStart(2, ParentComp);
+        elementEnd();
+      }
+      ParentComp.ngComponentDef.h(1, 0);
+      ParentComp.ngComponentDef.h(3, 2);
+      componentRefresh(1, 0);
+      componentRefresh(3, 2);
+    }
+
+    renderToHtml(Template, {});
+    const firstArray = myComps[0].names;
+    const secondArray = myComps[1].names;
+    expect(firstArray).toEqual(['NANCY', 'Bess']);
+    expect(secondArray).toEqual(['NANCY', 'Bess']);
+    expect(firstArray).not.toBe(secondArray);
+
+    renderToHtml(Template, {});
+    expect(firstArray).toEqual(['NANCY', 'Bess']);
+    expect(secondArray).toEqual(['NANCY', 'Bess']);
+    expect(firstArray).toBe(myComps[0].names);
+    expect(secondArray).toBe(myComps[1].names);
+  });
 
   it('should support an array literal with more than 1 binding', () => {
+    const e0_ff = (v1: any, v2: any) => ['Nancy', v1, 'Bess', v2];
+
     /** <my-comp [names]="['Nancy', customName, 'Bess', customName2]"></my-comp> */
     function Template(ctx: any, cm: boolean) {
       if (cm) {
         elementStart(0, MyComp);
         elementEnd();
       }
-      elementProperty(0, 'names', objectLiteral2(e0_ff, ctx.customName, ctx.customName2));
+      elementProperty(0, 'names', bind(pureFunction2(e0_ff, ctx.customName, ctx.customName2)));
       MyComp.ngComponentDef.h(1, 0);
       componentRefresh(1, 0);
     }
-
-    const e0_ff = (v1: any, v2: any) => ['Nancy', v1, 'Bess', v2];
 
     renderToHtml(Template, {customName: 'Carson', customName2: 'Hannah'});
     const firstArray = myComp !.names;
@@ -126,57 +189,22 @@ describe('array literals', () => {
 
     renderToHtml(Template, {customName: 'Frank', customName2: 'Ned'});
     expect(myComp !.names).toEqual(['Nancy', 'Frank', 'Bess', 'Ned']);
+
+    // The property should not be set if the exp value is the same, so artificially
+    // setting the property to ensure it's not overwritten.
+    myComp !.names = ['should not be overwritten'];
+    renderToHtml(Template, {customName: 'Frank', customName2: 'Ned'});
+    expect(myComp !.names).toEqual(['should not be overwritten']);
   });
 
   it('should work up to 8 bindings', () => {
-    let o3Comp: MyComp;
-    let o4Comp: MyComp;
-    let o5Comp: MyComp;
-    let o6Comp: MyComp;
-    let o7Comp: MyComp;
-    let o8Comp: MyComp;
+    let f3Comp: MyComp;
+    let f4Comp: MyComp;
+    let f5Comp: MyComp;
+    let f6Comp: MyComp;
+    let f7Comp: MyComp;
+    let f8Comp: MyComp;
 
-    function Template(c: any, cm: boolean) {
-      if (cm) {
-        elementStart(0, MyComp);
-        o3Comp = memory(1);
-        elementEnd();
-        elementStart(2, MyComp);
-        o4Comp = memory(3);
-        elementEnd();
-        elementStart(4, MyComp);
-        o5Comp = memory(5);
-        elementEnd();
-        elementStart(6, MyComp);
-        o6Comp = memory(7);
-        elementEnd();
-        elementStart(8, MyComp);
-        o7Comp = memory(9);
-        elementEnd();
-        elementStart(10, MyComp);
-        o8Comp = memory(11);
-        elementEnd();
-      }
-      elementProperty(0, 'names', objectLiteral3(e0_ff, c[5], c[6], c[7]));
-      elementProperty(2, 'names', objectLiteral4(e2_ff, c[4], c[5], c[6], c[7]));
-      elementProperty(4, 'names', objectLiteral5(e4_ff, c[3], c[4], c[5], c[6], c[7]));
-      elementProperty(6, 'names', objectLiteral6(e6_ff, c[2], c[3], c[4], c[5], c[6], c[7]));
-      elementProperty(8, 'names', objectLiteral7(e8_ff, c[1], c[2], c[3], c[4], c[5], c[6], c[7]));
-      elementProperty(
-          10, 'names', objectLiteral8(e10_ff, c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7]));
-      MyComp.ngComponentDef.h(1, 0);
-      MyComp.ngComponentDef.h(3, 2);
-      MyComp.ngComponentDef.h(5, 4);
-      MyComp.ngComponentDef.h(7, 6);
-      MyComp.ngComponentDef.h(9, 8);
-      MyComp.ngComponentDef.h(11, 10);
-      componentRefresh(1, 0);
-      componentRefresh(3, 2);
-      componentRefresh(5, 4);
-      componentRefresh(7, 6);
-      componentRefresh(9, 8);
-      componentRefresh(11, 10);
-    }
 
     const e0_ff = (v1: any, v2: any, v3: any) => ['a', 'b', 'c', 'd', 'e', v1, v2, v3];
     const e2_ff = (v1: any, v2: any, v3: any, v4: any) => ['a', 'b', 'c', 'd', v1, v2, v3, v4];
@@ -192,24 +220,73 @@ describe('array literals', () => {
         (v1: any, v2: any, v3: any, v4: any, v5: any, v6: any, v7: any,
          v8: any) => [v1, v2, v3, v4, v5, v6, v7, v8];
 
+    function Template(c: any, cm: boolean) {
+      if (cm) {
+        elementStart(0, MyComp);
+        f3Comp = memory(1);
+        elementEnd();
+        elementStart(2, MyComp);
+        f4Comp = memory(3);
+        elementEnd();
+        elementStart(4, MyComp);
+        f5Comp = memory(5);
+        elementEnd();
+        elementStart(6, MyComp);
+        f6Comp = memory(7);
+        elementEnd();
+        elementStart(8, MyComp);
+        f7Comp = memory(9);
+        elementEnd();
+        elementStart(10, MyComp);
+        f8Comp = memory(11);
+        elementEnd();
+      }
+      elementProperty(0, 'names', bind(pureFunction3(e0_ff, c[5], c[6], c[7])));
+      elementProperty(2, 'names', bind(pureFunction4(e2_ff, c[4], c[5], c[6], c[7])));
+      elementProperty(4, 'names', bind(pureFunction5(e4_ff, c[3], c[4], c[5], c[6], c[7])));
+      elementProperty(6, 'names', bind(pureFunction6(e6_ff, c[2], c[3], c[4], c[5], c[6], c[7])));
+      elementProperty(
+          8, 'names', bind(pureFunction7(e8_ff, c[1], c[2], c[3], c[4], c[5], c[6], c[7])));
+      elementProperty(
+          10, 'names', bind(pureFunction8(e10_ff, c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7])));
+      MyComp.ngComponentDef.h(1, 0);
+      MyComp.ngComponentDef.h(3, 2);
+      MyComp.ngComponentDef.h(5, 4);
+      MyComp.ngComponentDef.h(7, 6);
+      MyComp.ngComponentDef.h(9, 8);
+      MyComp.ngComponentDef.h(11, 10);
+      componentRefresh(1, 0);
+      componentRefresh(3, 2);
+      componentRefresh(5, 4);
+      componentRefresh(7, 6);
+      componentRefresh(9, 8);
+      componentRefresh(11, 10);
+    }
+
     renderToHtml(Template, ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']);
-    expect(o3Comp !.names).toEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
-    expect(o4Comp !.names).toEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
-    expect(o5Comp !.names).toEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
-    expect(o6Comp !.names).toEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
-    expect(o7Comp !.names).toEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
-    expect(o8Comp !.names).toEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
+    expect(f3Comp !.names).toEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
+    expect(f4Comp !.names).toEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
+    expect(f5Comp !.names).toEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
+    expect(f6Comp !.names).toEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
+    expect(f7Comp !.names).toEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
+    expect(f8Comp !.names).toEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
 
     renderToHtml(Template, ['a1', 'b1', 'c1', 'd1', 'e1', 'f1', 'g1', 'h1', 'i1']);
-    expect(o3Comp !.names).toEqual(['a', 'b', 'c', 'd', 'e', 'f1', 'g1', 'h1']);
-    expect(o4Comp !.names).toEqual(['a', 'b', 'c', 'd', 'e1', 'f1', 'g1', 'h1']);
-    expect(o5Comp !.names).toEqual(['a', 'b', 'c', 'd1', 'e1', 'f1', 'g1', 'h1']);
-    expect(o6Comp !.names).toEqual(['a', 'b', 'c1', 'd1', 'e1', 'f1', 'g1', 'h1']);
-    expect(o7Comp !.names).toEqual(['a', 'b1', 'c1', 'd1', 'e1', 'f1', 'g1', 'h1']);
-    expect(o8Comp !.names).toEqual(['a1', 'b1', 'c1', 'd1', 'e1', 'f1', 'g1', 'h1']);
+    expect(f3Comp !.names).toEqual(['a', 'b', 'c', 'd', 'e', 'f1', 'g1', 'h1']);
+    expect(f4Comp !.names).toEqual(['a', 'b', 'c', 'd', 'e1', 'f1', 'g1', 'h1']);
+    expect(f5Comp !.names).toEqual(['a', 'b', 'c', 'd1', 'e1', 'f1', 'g1', 'h1']);
+    expect(f6Comp !.names).toEqual(['a', 'b', 'c1', 'd1', 'e1', 'f1', 'g1', 'h1']);
+    expect(f7Comp !.names).toEqual(['a', 'b1', 'c1', 'd1', 'e1', 'f1', 'g1', 'h1']);
+    expect(f8Comp !.names).toEqual(['a1', 'b1', 'c1', 'd1', 'e1', 'f1', 'g1', 'h1']);
   });
 
-  it('should work with objectLiteralV for 9+ bindings', () => {
+  it('should work with pureFunctionV for 9+ bindings', () => {
+    const e0_ff =
+        (v0: any, v1: any, v2: any, v3: any, v4: any, v5: any, v6: any, v7: any,
+         v8: any) => ['start', v0, v1, v2, v3, v4, v5, v6, v7, v8, 'end'];
+    const e0_ff_1 = (v: any) => { return {name: v}; };
+
+    renderToHtml(Template, ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']);
     /**
      * <my-comp [names]="['start', v0, v1, v2, v3, {name: v4}, v5, v6, v7, v8, 'end']">
      * </my-comp>
@@ -219,19 +296,13 @@ describe('array literals', () => {
         elementStart(0, MyComp);
         elementEnd();
       }
-      elementProperty(
-          0, 'names', objectLiteralV(e0_ff, [
-            c[0], c[1], c[2], c[3], objectLiteral1(e0_ff_1, c[4]), c[5], c[6], c[7], c[8]
-          ]));
+      elementProperty(0, 'names', bind(pureFunctionV(e0_ff, [
+                        c[0], c[1], c[2], c[3], pureFunction1(e0_ff_1, c[4]), c[5], c[6], c[7], c[8]
+                      ])));
       MyComp.ngComponentDef.h(1, 0);
       componentRefresh(1, 0);
     }
 
-    const e0_ff =
-        (v: any[]) => ['start', v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], 'end'];
-    const e0_ff_1 = (v: any) => { return {name: v}; };
-
-    renderToHtml(Template, ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']);
     expect(myComp !.names).toEqual([
       'start', 'a', 'b', 'c', 'd', {name: 'e'}, 'f', 'g', 'h', 'i', 'end'
     ]);
@@ -264,6 +335,7 @@ describe('object literals', () => {
   }
 
   it('should support an object literal', () => {
+    const e0_ff = (v: any) => { return {duration: 500, animation: v}; };
 
     /** <object-comp [config]="{duration: 500, animation: name}"></object-comp> */
     function Template(ctx: any, cm: boolean) {
@@ -271,12 +343,10 @@ describe('object literals', () => {
         elementStart(0, ObjectComp);
         elementEnd();
       }
-      elementProperty(0, 'config', objectLiteral1(e0_ff, ctx.name));
+      elementProperty(0, 'config', bind(pureFunction1(e0_ff, ctx.name)));
       ObjectComp.ngComponentDef.h(1, 0);
       componentRefresh(1, 0);
     }
-
-    const e0_ff = (v: any) => { return {duration: 500, animation: v}; };
 
     renderToHtml(Template, {name: 'slide'});
     const firstObj = objectComp !.config;
@@ -294,6 +364,10 @@ describe('object literals', () => {
   });
 
   it('should support expressions nested deeply in object/array literals', () => {
+    const e0_ff = (v1: any, v2: any) => { return {animation: v1, actions: v2}; };
+    const e0_ff_1 = (v: any) => [{opacity: 0, duration: 0}, v];
+    const e0_ff_2 = (v: any) => { return {opacity: 1, duration: v}; };
+
     /**
      * <object-comp [config]="{animation: name, actions: [{ opacity: 0, duration: 0}, {opacity: 1,
      * duration: duration }]}">
@@ -306,15 +380,11 @@ describe('object literals', () => {
       }
       elementProperty(
           0, 'config',
-          objectLiteral2(
-              e0_ff, ctx.name, objectLiteral1(e0_ff_1, objectLiteral1(e0_ff_2, ctx.duration))));
+          bind(pureFunction2(
+              e0_ff, ctx.name, pureFunction1(e0_ff_1, pureFunction1(e0_ff_2, ctx.duration)))));
       ObjectComp.ngComponentDef.h(1, 0);
       componentRefresh(1, 0);
     }
-
-    const e0_ff = (v1: any, v2: any) => { return {animation: v1, actions: v2}; };
-    const e0_ff_1 = (v: any) => [{opacity: 0, duration: 0}, v];
-    const e0_ff_2 = (v: any) => { return {opacity: 1, duration: v}; };
 
     renderToHtml(Template, {name: 'slide', duration: 100});
     expect(objectComp !.config).toEqual({
@@ -348,6 +418,12 @@ describe('object literals', () => {
       animation: 'drag',
       actions: [{opacity: 0, duration: 0}, {opacity: 1, duration: 500}]
     });
+
+    // The property should not be set if the exp value is the same, so artificially
+    // setting the property to ensure it's not overwritten.
+    objectComp !.config = ['should not be overwritten'];
+    renderToHtml(Template, {name: 'drag', duration: 500});
+    expect(objectComp !.config).toEqual(['should not be overwritten']);
   });
 
   it('should support multiple view instances with multiple bindings', () => {
@@ -372,7 +448,8 @@ describe('object literals', () => {
             elementEnd();
           }
           elementProperty(
-              0, 'config', objectLiteral2(e0_ff, ctx.configs[i].opacity, ctx.configs[i].duration));
+              0, 'config',
+              bind(pureFunction2(e0_ff, ctx.configs[i].opacity, ctx.configs[i].duration)));
           ObjectComp.ngComponentDef.h(1, 0);
           componentRefresh(1, 0);
           embeddedViewEnd();

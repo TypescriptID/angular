@@ -190,20 +190,113 @@ describe('compiler specification', () => {
     });
 
     describe('value composition', () => {
+      type $MyArrayComp$ = MyArrayComp;
 
-      it('should support array literals', () => {
-        type $MyComp$ = MyComp;
+      @Component({
+        selector: 'my-array-comp',
+        template: `
+            {{ names[0] }} {{ names[1] }}
+        `
+      })
+      class MyArrayComp {
+        @Input() names: string[];
+
+        static ngComponentDef = $r3$.ɵdefineComponent({
+          type: MyArrayComp,
+          tag: 'my-array-comp',
+          factory: function MyArrayComp_Factory() { return new MyArrayComp(); },
+          template: function MyArrayComp_Template(ctx: $MyArrayComp$, cm: $boolean$) {
+            if (cm) {
+              $r3$.ɵT(0);
+            }
+            $r3$.ɵt(0, $r3$.ɵi2('', ctx.names[0], ' ', ctx.names[1], ''));
+          },
+          inputs: {names: 'names'}
+        });
+      }
+
+      it('should support array literals of constants', () => {
         type $MyApp$ = MyApp;
 
+        // NORMATIVE
+        const $e0_arr$ = ['Nancy', 'Bess'];
+        // /NORMATIVE
+
         @Component({
-          selector: 'my-comp',
+          selector: 'my-app',
           template: `
-            <p>{{ names[0] }}</p>
-            <p>{{ names[1] }}</p>
+          <my-array-comp [names]="['Nancy', 'Bess']"></my-array-comp>
+        `
+        })
+        class MyApp {
+          // NORMATIVE
+          static ngComponentDef = $r3$.ɵdefineComponent({
+            type: MyApp,
+            tag: 'my-app',
+            factory: function MyApp_Factory() { return new MyApp(); },
+            template: function MyApp_Template(ctx: $MyApp$, cm: $boolean$) {
+              if (cm) {
+                $r3$.ɵE(0, MyArrayComp);
+                $r3$.ɵe();
+              }
+              $r3$.ɵp(0, 'names', cm ? $e0_arr$ : $r3$.ɵNC);
+              MyArrayComp.ngComponentDef.h(1, 0);
+              $r3$.ɵr(1, 0);
+            }
+          });
+          // /NORMATIVE
+        }
+
+        expect(renderComp(MyApp)).toEqual(`<my-array-comp>Nancy Bess</my-array-comp>`);
+      });
+
+      it('should support array literals of constants inside function calls', () => {
+        type $MyApp$ = MyApp;
+
+        // NORMATIVE
+        const $e0_ff$ = () => ['Nancy', 'Bess'];
+        // /NORMATIVE
+
+        @Component({
+          selector: 'my-app',
+          template: `
+            <my-array-comp [names]="someFn(['Nancy', 'Bess'])"></my-array-comp>
           `
         })
+        class MyApp {
+          someFn(arr: string[]): string[] {
+            arr[0] = arr[0].toUpperCase();
+            return arr;
+          }
+
+          // NORMATIVE
+          static ngComponentDef = $r3$.ɵdefineComponent({
+            type: MyApp,
+            tag: 'my-app',
+            factory: function MyApp_Factory() { return new MyApp(); },
+            template: function MyApp_Template(ctx: $MyApp$, cm: $boolean$) {
+              if (cm) {
+                $r3$.ɵE(0, MyArrayComp);
+                $r3$.ɵe();
+              }
+              $r3$.ɵp(0, 'names', $r3$.ɵb(ctx.someFn($r3$.ɵf0($e0_ff$))));
+              MyArrayComp.ngComponentDef.h(1, 0);
+              $r3$.ɵr(1, 0);
+            }
+          });
+          // /NORMATIVE
+        }
+
+        expect(renderComp(MyApp)).toEqual(`<my-array-comp>NANCY Bess</my-array-comp>`);
+      });
+
+      it('should support array literals of constants inside expressions', () => {
+        type $MyApp$ = MyApp;
+        type $MyComp$ = MyComp;
+
+        @Component({selector: 'my-comp', template: `{{ num }}`})
         class MyComp {
-          @Input() names: string[];
+          num: number;
 
           static ngComponentDef = $r3$.ɵdefineComponent({
             type: MyComp,
@@ -211,19 +304,49 @@ describe('compiler specification', () => {
             factory: function MyComp_Factory() { return new MyComp(); },
             template: function MyComp_Template(ctx: $MyComp$, cm: $boolean$) {
               if (cm) {
-                $r3$.ɵE(0, 'p');
-                $r3$.ɵT(1);
-                $r3$.ɵe();
-                $r3$.ɵE(2, 'p');
-                $r3$.ɵT(3);
-                $r3$.ɵe();
+                $r3$.ɵT(0);
               }
-              $r3$.ɵt(1, $r3$.ɵb(ctx.names[0]));
-              $r3$.ɵt(3, $r3$.ɵb(ctx.names[1]));
+              $r3$.ɵt(0, $r3$.ɵb(ctx.num));
             },
-            inputs: {names: 'names'}
+            inputs: {num: 'num'}
           });
         }
+
+        // NORMATIVE
+        const $e0_ff$ = () => ['Nancy', 'Bess'];
+        // /NORMATIVE
+
+        @Component({
+          selector: 'my-app',
+          template: `
+            <my-comp [num]="['Nancy', 'Bess'].length + 1"></my-comp>
+          `
+        })
+        class MyApp {
+          // NORMATIVE
+          static ngComponentDef = $r3$.ɵdefineComponent({
+            type: MyApp,
+            tag: 'my-app',
+            factory: function MyApp_Factory() { return new MyApp(); },
+            template: function MyApp_Template(ctx: $MyApp$, cm: $boolean$) {
+              if (cm) {
+                $r3$.ɵE(0, MyComp);
+                $r3$.ɵe();
+              }
+              $r3$.ɵp(0, 'num', $r3$.ɵb($r3$.ɵf0($e0_ff$).length + 1));
+              MyComp.ngComponentDef.h(1, 0);
+              $r3$.ɵr(1, 0);
+            }
+          });
+          // /NORMATIVE
+        }
+
+        expect(renderComp(MyApp)).toEqual(`<my-comp>3</my-comp>`);
+      });
+
+
+      it('should support array literals', () => {
+        type $MyApp$ = MyApp;
 
         // NORMATIVE
         const $e0_ff$ = (v: any) => ['Nancy', v];
@@ -232,7 +355,7 @@ describe('compiler specification', () => {
         @Component({
           selector: 'my-app',
           template: `
-          <my-comp [names]="['Nancy', customName]"></my-comp>
+          <my-array-comp [names]="['Nancy', customName]"></my-array-comp>
         `
         })
         class MyApp {
@@ -245,18 +368,18 @@ describe('compiler specification', () => {
             factory: function MyApp_Factory() { return new MyApp(); },
             template: function MyApp_Template(ctx: $MyApp$, cm: $boolean$) {
               if (cm) {
-                $r3$.ɵE(0, MyComp);
+                $r3$.ɵE(0, MyArrayComp);
                 $r3$.ɵe();
               }
-              $r3$.ɵp(0, 'names', $r3$.ɵo1($e0_ff$, ctx.customName));
-              MyComp.ngComponentDef.h(1, 0);
+              $r3$.ɵp(0, 'names', $r3$.ɵb($r3$.ɵf1($e0_ff$, ctx.customName)));
+              MyArrayComp.ngComponentDef.h(1, 0);
               $r3$.ɵr(1, 0);
             }
           });
           // /NORMATIVE
         }
 
-        expect(renderComp(MyApp)).toEqual(`<my-comp><p>Nancy</p><p>Bess</p></my-comp>`);
+        expect(renderComp(MyApp)).toEqual(`<my-array-comp>Nancy Bess</my-array-comp>`);
       });
 
       it('should support 9+ bindings in array literals', () => {
@@ -318,8 +441,9 @@ describe('compiler specification', () => {
         }
 
         // NORMATIVE
-        const $e0_ff$ = (v: any[]) =>
-            ['start-', v[0], v[1], v[2], v[3], v[4], '-middle-', v[5], v[6], v[7], v[8], '-end'];
+        const $e0_ff$ =
+            (v0: any, v1: any, v2: any, v3: any, v4: any, v5: any, v6: any, v7: any,
+             v8: any) => ['start-', v0, v1, v2, v3, v4, '-middle-', v5, v6, v7, v8, '-end'];
         // /NORMATIVE
 
         @Component({
@@ -352,7 +476,8 @@ describe('compiler specification', () => {
               }
               $r3$.ɵp(
                   0, 'names',
-                  $r3$.ɵoV($e0_ff$, [c.n0, c.n1, c.n2, c.n3, c.n4, c.n5, c.n6, c.n7, c.n8]));
+                  $r3$.ɵb(
+                      $r3$.ɵfV($e0_ff$, [c.n0, c.n1, c.n2, c.n3, c.n4, c.n5, c.n6, c.n7, c.n8])));
               MyComp.ngComponentDef.h(1, 0);
               $r3$.ɵr(1, 0);
             }
@@ -420,7 +545,7 @@ describe('compiler specification', () => {
                 $r3$.ɵE(0, ObjectComp);
                 $r3$.ɵe();
               }
-              $r3$.ɵp(0, 'config', $r3$.ɵo1($e0_ff$, ctx.name));
+              $r3$.ɵp(0, 'config', $r3$.ɵb($r3$.ɵf1($e0_ff$, ctx.name)));
               ObjectComp.ngComponentDef.h(1, 0);
               $r3$.ɵr(1, 0);
             }
@@ -499,9 +624,9 @@ describe('compiler specification', () => {
                 $r3$.ɵe();
               }
               $r3$.ɵp(
-                  0, 'config',
-                  $r3$.ɵo2(
-                      $e0_ff_2$, ctx.name, $r3$.ɵo1($e0_ff_1$, $r3$.ɵo1($e0_ff$, ctx.duration))));
+                  0, 'config', $r3$.ɵf2(
+                                   $e0_ff_2$, ctx.name,
+                                   $r3$.ɵb($r3$.ɵf1($e0_ff_1$, $r3$.ɵf1($e0_ff$, ctx.duration)))));
               NestedComp.ngComponentDef.h(1, 0);
               $r3$.ɵr(1, 0);
             }
