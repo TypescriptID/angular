@@ -60,11 +60,13 @@ export {
   e as ɵe,
   p as ɵp,
   pD as ɵpD,
+  a as ɵa,
   s as ɵs,
   t as ɵt,
   v as ɵv,
   r as ɵr,
-  m as ɵm,
+  st as ɵst,
+  ld as ɵld,
   Pp as ɵPp,
 } from './render3/index';
 // clang-format on

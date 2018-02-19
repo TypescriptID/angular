@@ -50,8 +50,18 @@ export const NG_HOST_SYMBOL = '__ngHostLNode__';
 let renderer: Renderer3;
 let rendererFactory: RendererFactory3;
 
+export function getRenderer(): Renderer3 {
+  // top level variables should not be exported for performance reason (PERF_NOTES.md)
+  return renderer;
+}
+
 /** Used to set the parent property when nodes are created. */
 let previousOrParentNode: LNode;
+
+export function getPreviousOrParentNode(): LNode {
+  // top level variables should not be exported for performance reason (PERF_NOTES.md)
+  return previousOrParentNode;
+}
 
 /**
  * If `isParent` is:
@@ -70,17 +80,32 @@ let isParent: boolean;
  */
 let tData: TData;
 
-/** State of the current view being processed. */
-let currentView: LView;
-// The initialization has to be after the `let`, otherwise `createLView` can't see `let`.
-currentView = createLView(null !, null !, createTView());
+/**
+ * State of the current view being processed.
+ *
+ * NOTE: we cheat here and initialize it to `null` even thought the type does not
+ * contain `null`. This is because we expect this value to be not `null` as soon
+ * as we enter the view. Declaring the type as `null` would require us to place `!`
+ * in most instructions since they all assume that `currentView` is defined.
+ */
+let currentView: LView = null !;
 
 let currentQueries: LQueries|null;
+
+export function getCurrentQueries(QueryType: {new (): LQueries}): LQueries {
+  // top level variables should not be exported for performance reason (PERF_NOTES.md)
+  return currentQueries || (currentQueries = new QueryType());
+}
 
 /**
  * This property gets set before entering a template.
  */
 let creationMode: boolean;
+
+export function getCreationMode(): boolean {
+  // top level variables should not be exported for performance reason (PERF_NOTES.md)
+  return creationMode;
+}
 
 /**
  * An array of nodes (text, element, container, etc), their bindings, and
@@ -131,13 +156,13 @@ const enum BindingDirection {
  */
 export function enterView(newView: LView, host: LElementNode | LViewNode | null): LView {
   const oldView = currentView;
-  data = newView.data;
-  bindingIndex = newView.bindingStartIndex || 0;
-  tData = newView.tView.data;
-  creationMode = newView.creationMode;
+  data = newView && newView.data;
+  bindingIndex = newView && newView.bindingStartIndex || 0;
+  tData = newView && newView.tView.data;
+  creationMode = newView && newView.creationMode;
 
-  cleanup = newView.cleanup;
-  renderer = newView.renderer;
+  cleanup = newView && newView.cleanup;
+  renderer = newView && newView.renderer;
 
   if (host != null) {
     previousOrParentNode = host;
@@ -145,7 +170,7 @@ export function enterView(newView: LView, host: LElementNode | LViewNode | null)
   }
 
   currentView = newView;
-  currentQueries = newView.queries;
+  currentQueries = newView && newView.queries;
 
   return oldView !;
 }
@@ -165,8 +190,8 @@ export function leaveView(newView: LView): void {
 }
 
 export function createLView(
-    viewId: number, renderer: Renderer3, tView: TView,
-    template: ComponentTemplate<any>| null = null, context: any | null = null): LView {
+    viewId: number, renderer: Renderer3, tView: TView, template: ComponentTemplate<any>| null,
+    context: any | null): LView {
   const newView = {
     parent: currentView,
     id: viewId,    // -1 for component views
@@ -300,7 +325,8 @@ export function renderTemplate<T>(
     host = createLNode(
         null, LNodeFlags.Element, hostNode,
         createLView(
-            -1, providedRendererFactory.createRenderer(null, null), getOrCreateTView(template)));
+            -1, providedRendererFactory.createRenderer(null, null), getOrCreateTView(template),
+            null, null));
   }
   const hostView = host.data !;
   ngDevMode && assertNotNull(hostView, 'Host node should have an LView defined in host.data.');
@@ -406,7 +432,8 @@ export function elementStart(
       if (isHostElement) {
         const tView = getOrCreateTView(hostComponentDef !.template);
         componentView = addToViewTree(createLView(
-            -1, rendererFactory.createRenderer(native, hostComponentDef !.rendererType), tView));
+            -1, rendererFactory.createRenderer(native, hostComponentDef !.rendererType), tView,
+            null, null));
       }
 
       // Only component views should be added to the view tree directly. Embedded views are
@@ -556,7 +583,8 @@ export function locateHostElement(
 export function hostElement(rNode: RElement | null, def: ComponentDef<any>) {
   resetApplicationState();
   createLNode(
-      0, LNodeFlags.Element, rNode, createLView(-1, renderer, getOrCreateTView(def.template)));
+      0, LNodeFlags.Element, rNode,
+      createLView(-1, renderer, getOrCreateTView(def.template), null, null));
 }
 
 
@@ -626,23 +654,23 @@ export function elementEnd() {
 }
 
 /**
- * Update an attribute on an Element. This is used with a `bind` instruction.
+ * Updates the value of removes an attribute on an Element.
  *
- * @param index The index of the element to update in the data array
- * @param attrName Name of attribute. Because it is going to DOM, this is not subject to
- *        renaming as port of minification.
- * @param value Value to write. This value will go through stringification.
+ * @param number index The index of the element in the data array
+ * @param string name The name of the attribute.
+ * @param any value The attribute is removed when value is `null` or `undefined`.
+ *                  Otherwise the attribute value is set to the stringified value.
  */
-export function elementAttribute(index: number, attrName: string, value: any): void {
+export function elementAttribute(index: number, name: string, value: any): void {
   if (value !== NO_CHANGE) {
-    const element = data[index] as LElementNode;
+    const element: LElementNode = data[index];
     if (value == null) {
-      isProceduralRenderer(renderer) ? renderer.removeAttribute(element.native, attrName) :
-                                       element.native.removeAttribute(attrName);
+      isProceduralRenderer(renderer) ? renderer.removeAttribute(element.native, name) :
+                                       element.native.removeAttribute(name);
     } else {
       isProceduralRenderer(renderer) ?
-          renderer.setAttribute(element.native, attrName, stringify(value)) :
-          element.native.setAttribute(attrName, stringify(value));
+          renderer.setAttribute(element.native, name, stringify(value)) :
+          element.native.setAttribute(name, stringify(value));
     }
   }
 }
@@ -902,6 +930,12 @@ export function directiveCreate<T>(
     diPublic(directiveDef !);
   }
 
+  if (directiveDef !.attributes != null &&
+      (previousOrParentNode.flags & LNodeFlags.TYPE_MASK) == LNodeFlags.Element) {
+    setUpAttributes(
+        (previousOrParentNode as LElementNode).native, directiveDef !.attributes as string[]);
+  }
+
   const tNode: TNode|null = previousOrParentNode.tNode !;
   if (tNode && tNode.attrs) {
     setInputsFromAttrs<T>(instance, directiveDef !.inputs, tNode);
@@ -1114,8 +1148,8 @@ export function embeddedViewStart(viewBlockId: number): boolean {
     enterView((existingView as LViewNode).data, previousOrParentNode as LViewNode);
   } else {
     // When we create a new LView, we always reset the state of the instructions.
-    const newView =
-        createLView(viewBlockId, renderer, getOrCreateEmbeddedTView(viewBlockId, container));
+    const newView = createLView(
+        viewBlockId, renderer, getOrCreateEmbeddedTView(viewBlockId, container), null, null);
     if (lContainer.queries) {
       newView.queries = lContainer.queries.enterView(lContainer.nextIndex);
     }
@@ -1292,8 +1326,7 @@ export function projection(
   const componentNode = findComponentHost(currentView);
 
   // make sure that nodes to project were memorized
-  const nodesForSelector =
-      valueInData<LNode[][]>(componentNode.data !.data !, localIndex)[selectorIndex];
+  const nodesForSelector = componentNode.data !.data ![localIndex][selectorIndex];
 
   // build the linked list of projected nodes:
   for (let i = 0; i < nodesForSelector.length; i++) {
@@ -1405,12 +1438,12 @@ export function bind<T>(value: T | NO_CHANGE): T|NO_CHANGE {
 /**
  * Create interpolation bindings with a variable number of expressions.
  *
- * If there are 1 to 7 expressions `interpolation1()` to `interpolation7` should be used instead.
- * Those are faster because there is no need to create an array of expressions and loop over it.
+ * If there are 1 to 8 expressions `interpolation1()` to `interpolation8()` should be used instead.
+ * Those are faster because there is no need to create an array of expressions and iterate over it.
  *
  * `values`:
  * - has static text at even indexes,
- * - has evaluated expressions at odd indexes (could be NO_CHANGE).
+ * - has evaluated expressions at odd indexes.
  *
  * Returns the concatenated string when any of the arguments changes, `NO_CHANGE` otherwise.
  */
@@ -1418,67 +1451,44 @@ export function interpolationV(values: any[]): string|NO_CHANGE {
   ngDevMode && assertLessThan(2, values.length, 'should have at least 3 values');
   ngDevMode && assertEqual(values.length % 2, 1, 'should have an odd number of values');
 
-  // TODO(vicb): Add proper unit tests when there is a place to add them
-  if (creationMode) {
-    initBindings();
-    // Only the bindings (odd indexes) are stored as texts are constant.
-    const bindings: any[] = [];
-    data[bindingIndex++] = bindings;
-    let content: string = values[0];
-    for (let i = 1; i < values.length; i += 2) {
-      content += stringify(values[i]) + values[i + 1];
-      bindings.push(values[i]);
-    }
-    return content;
+  let different = false;
+
+  for (let i = 1; i < values.length; i += 2) {
+    // Check if bindings (odd indexes) have changed
+    bindingUpdated(values[i]) && (different = true);
   }
 
-  const bindings: any[] = data[bindingIndex++];
-  // `bIdx` is the index in the `bindings` array, `vIdx` in the `values` array
-  for (let bIdx = 0, vIdx = 1; bIdx < bindings.length; bIdx++, vIdx += 2) {
-    if (values[vIdx] !== NO_CHANGE && isDifferent(values[vIdx], bindings[bIdx])) {
-      let content: string = values[0];
-      for (bIdx = 0, vIdx = 1; bIdx < bindings.length; vIdx += 2, bIdx++) {
-        if (values[vIdx] !== NO_CHANGE) {
-          bindings[bIdx] = values[vIdx];
-        }
-        content += stringify(bindings[bIdx]) + values[vIdx + 1];
-      }
-      return content;
-    }
+  if (!different) {
+    return NO_CHANGE;
   }
 
-  return NO_CHANGE;
+  // Build the updated content
+  let content = values[0];
+  for (let i = 1; i < values.length; i += 2) {
+    content += stringify(values[i]) + values[i + 1];
+  }
+
+  return content;
 }
 
 /**
  * Creates an interpolation binding with 1 expression.
  *
  * @param prefix static value used for concatenation only.
- * @param value value checked for change.
+ * @param v0 value checked for change.
  * @param suffix static value used for concatenation only.
  */
-export function interpolation1(prefix: string, value: any, suffix: string): string|NO_CHANGE {
-  return bind(value) === NO_CHANGE ? NO_CHANGE : prefix + stringify(value) + suffix;
+export function interpolation1(prefix: string, v0: any, suffix: string): string|NO_CHANGE {
+  const different = bindingUpdated(v0);
+
+  return different ? prefix + stringify(v0) + suffix : NO_CHANGE;
 }
 
 /** Creates an interpolation binding with 2 expressions. */
 export function interpolation2(
     prefix: string, v0: any, i0: string, v1: any, suffix: string): string|NO_CHANGE {
-  let different: boolean;
-  if (different = creationMode) {
-    initBindings();
-    data[bindingIndex++] = v0;
-    data[bindingIndex++] = v1;
-  } else {
-    const part0 = data[bindingIndex++];
-    const part1 = data[bindingIndex++];
-    if (v0 === NO_CHANGE) v0 = part0;
-    if (v1 === NO_CHANGE) v1 = part1;
-    if (different = (isDifferent(part0, v0) || isDifferent(part1, v1))) {
-      data[bindingIndex - 2] = v0;
-      data[bindingIndex - 1] = v1;
-    }
-  }
+  const different = bindingUpdated2(v0, v1);
+
   return different ? prefix + stringify(v0) + i0 + stringify(v1) + suffix : NO_CHANGE;
 }
 
@@ -1486,25 +1496,9 @@ export function interpolation2(
 export function interpolation3(
     prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, suffix: string): string|
     NO_CHANGE {
-  let different: boolean;
-  if (different = creationMode) {
-    initBindings();
-    data[bindingIndex++] = v0;
-    data[bindingIndex++] = v1;
-    data[bindingIndex++] = v2;
-  } else {
-    const part0 = data[bindingIndex++];
-    const part1 = data[bindingIndex++];
-    const part2 = data[bindingIndex++];
-    if (v0 === NO_CHANGE) v0 = part0;
-    if (v1 === NO_CHANGE) v1 = part1;
-    if (v2 === NO_CHANGE) v2 = part2;
-    if (different = (isDifferent(part0, v0) || isDifferent(part1, v1) || isDifferent(part2, v2))) {
-      data[bindingIndex - 3] = v0;
-      data[bindingIndex - 2] = v1;
-      data[bindingIndex - 1] = v2;
-    }
-  }
+  let different = bindingUpdated2(v0, v1);
+  different = bindingUpdated(v2) || different;
+
   return different ? prefix + stringify(v0) + i0 + stringify(v1) + i1 + stringify(v2) + suffix :
                      NO_CHANGE;
 }
@@ -1513,31 +1507,8 @@ export function interpolation3(
 export function interpolation4(
     prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, i2: string, v3: any,
     suffix: string): string|NO_CHANGE {
-  let different: boolean;
-  if (different = creationMode) {
-    initBindings();
-    data[bindingIndex++] = v0;
-    data[bindingIndex++] = v1;
-    data[bindingIndex++] = v2;
-    data[bindingIndex++] = v3;
-  } else {
-    const part0 = data[bindingIndex++];
-    const part1 = data[bindingIndex++];
-    const part2 = data[bindingIndex++];
-    const part3 = data[bindingIndex++];
-    if (v0 === NO_CHANGE) v0 = part0;
-    if (v1 === NO_CHANGE) v1 = part1;
-    if (v2 === NO_CHANGE) v2 = part2;
-    if (v3 === NO_CHANGE) v3 = part3;
-    if (different =
-            (isDifferent(part0, v0) || isDifferent(part1, v1) || isDifferent(part2, v2) ||
-             isDifferent(part3, v3))) {
-      data[bindingIndex - 4] = v0;
-      data[bindingIndex - 3] = v1;
-      data[bindingIndex - 2] = v2;
-      data[bindingIndex - 1] = v3;
-    }
-  }
+  const different = bindingUpdated4(v0, v1, v2, v3);
+
   return different ?
       prefix + stringify(v0) + i0 + stringify(v1) + i1 + stringify(v2) + i2 + stringify(v3) +
           suffix :
@@ -1548,36 +1519,9 @@ export function interpolation4(
 export function interpolation5(
     prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, i2: string, v3: any,
     i3: string, v4: any, suffix: string): string|NO_CHANGE {
-  let different: boolean;
-  if (different = creationMode) {
-    initBindings();
-    data[bindingIndex++] = v0;
-    data[bindingIndex++] = v1;
-    data[bindingIndex++] = v2;
-    data[bindingIndex++] = v3;
-    data[bindingIndex++] = v4;
-  } else {
-    const part0 = data[bindingIndex++];
-    const part1 = data[bindingIndex++];
-    const part2 = data[bindingIndex++];
-    const part3 = data[bindingIndex++];
-    const part4 = data[bindingIndex++];
-    if (v0 === NO_CHANGE) v0 = part0;
-    if (v1 === NO_CHANGE) v1 = part1;
-    if (v2 === NO_CHANGE) v2 = part2;
-    if (v3 === NO_CHANGE) v3 = part3;
-    if (v4 === NO_CHANGE) v4 = part4;
+  let different = bindingUpdated4(v0, v1, v2, v3);
+  different = bindingUpdated(v4) || different;
 
-    if (different =
-            (isDifferent(part0, v0) || isDifferent(part1, v1) || isDifferent(part2, v2) ||
-             isDifferent(part3, v3) || isDifferent(part4, v4))) {
-      data[bindingIndex - 5] = v0;
-      data[bindingIndex - 4] = v1;
-      data[bindingIndex - 3] = v2;
-      data[bindingIndex - 2] = v3;
-      data[bindingIndex - 1] = v4;
-    }
-  }
   return different ?
       prefix + stringify(v0) + i0 + stringify(v1) + i1 + stringify(v2) + i2 + stringify(v3) + i3 +
           stringify(v4) + suffix :
@@ -1588,40 +1532,9 @@ export function interpolation5(
 export function interpolation6(
     prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, i2: string, v3: any,
     i3: string, v4: any, i4: string, v5: any, suffix: string): string|NO_CHANGE {
-  let different: boolean;
-  if (different = creationMode) {
-    initBindings();
-    data[bindingIndex++] = v0;
-    data[bindingIndex++] = v1;
-    data[bindingIndex++] = v2;
-    data[bindingIndex++] = v3;
-    data[bindingIndex++] = v4;
-    data[bindingIndex++] = v5;
-  } else {
-    const part0 = data[bindingIndex++];
-    const part1 = data[bindingIndex++];
-    const part2 = data[bindingIndex++];
-    const part3 = data[bindingIndex++];
-    const part4 = data[bindingIndex++];
-    const part5 = data[bindingIndex++];
-    if (v0 === NO_CHANGE) v0 = part0;
-    if (v1 === NO_CHANGE) v1 = part1;
-    if (v2 === NO_CHANGE) v2 = part2;
-    if (v3 === NO_CHANGE) v3 = part3;
-    if (v4 === NO_CHANGE) v4 = part4;
-    if (v5 === NO_CHANGE) v5 = part5;
+  let different = bindingUpdated4(v0, v1, v2, v3);
+  different = bindingUpdated2(v4, v5) || different;
 
-    if (different =
-            (isDifferent(part0, v0) || isDifferent(part1, v1) || isDifferent(part2, v2) ||
-             isDifferent(part3, v3) || isDifferent(part4, v4) || isDifferent(part5, v5))) {
-      data[bindingIndex - 6] = v0;
-      data[bindingIndex - 5] = v1;
-      data[bindingIndex - 4] = v2;
-      data[bindingIndex - 3] = v3;
-      data[bindingIndex - 2] = v4;
-      data[bindingIndex - 1] = v5;
-    }
-  }
   return different ?
       prefix + stringify(v0) + i0 + stringify(v1) + i1 + stringify(v2) + i2 + stringify(v3) + i3 +
           stringify(v4) + i4 + stringify(v5) + suffix :
@@ -1633,44 +1546,10 @@ export function interpolation7(
     prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, i2: string, v3: any,
     i3: string, v4: any, i4: string, v5: any, i5: string, v6: any, suffix: string): string|
     NO_CHANGE {
-  let different: boolean;
-  if (different = creationMode) {
-    initBindings();
-    data[bindingIndex++] = v0;
-    data[bindingIndex++] = v1;
-    data[bindingIndex++] = v2;
-    data[bindingIndex++] = v3;
-    data[bindingIndex++] = v4;
-    data[bindingIndex++] = v5;
-    data[bindingIndex++] = v6;
-  } else {
-    const part0 = data[bindingIndex++];
-    const part1 = data[bindingIndex++];
-    const part2 = data[bindingIndex++];
-    const part3 = data[bindingIndex++];
-    const part4 = data[bindingIndex++];
-    const part5 = data[bindingIndex++];
-    const part6 = data[bindingIndex++];
-    if (v0 === NO_CHANGE) v0 = part0;
-    if (v1 === NO_CHANGE) v1 = part1;
-    if (v2 === NO_CHANGE) v2 = part2;
-    if (v3 === NO_CHANGE) v3 = part3;
-    if (v4 === NO_CHANGE) v4 = part4;
-    if (v5 === NO_CHANGE) v5 = part5;
-    if (v6 === NO_CHANGE) v6 = part6;
-    if (different =
-            (isDifferent(part0, v0) || isDifferent(part1, v1) || isDifferent(part2, v2) ||
-             isDifferent(part3, v3) || isDifferent(part4, v4) || isDifferent(part5, v5) ||
-             isDifferent(part6, v6))) {
-      data[bindingIndex - 7] = v0;
-      data[bindingIndex - 6] = v1;
-      data[bindingIndex - 5] = v2;
-      data[bindingIndex - 4] = v3;
-      data[bindingIndex - 3] = v4;
-      data[bindingIndex - 2] = v5;
-      data[bindingIndex - 1] = v6;
-    }
-  }
+  let different = bindingUpdated4(v0, v1, v2, v3);
+  different = bindingUpdated2(v4, v5) || different;
+  different = bindingUpdated(v6) || different;
+
   return different ?
       prefix + stringify(v0) + i0 + stringify(v1) + i1 + stringify(v2) + i2 + stringify(v3) + i3 +
           stringify(v4) + i4 + stringify(v5) + i5 + stringify(v6) + suffix :
@@ -1682,79 +1561,29 @@ export function interpolation8(
     prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, i2: string, v3: any,
     i3: string, v4: any, i4: string, v5: any, i5: string, v6: any, i6: string, v7: any,
     suffix: string): string|NO_CHANGE {
-  let different: boolean;
-  if (different = creationMode) {
-    initBindings();
-    data[bindingIndex++] = v0;
-    data[bindingIndex++] = v1;
-    data[bindingIndex++] = v2;
-    data[bindingIndex++] = v3;
-    data[bindingIndex++] = v4;
-    data[bindingIndex++] = v5;
-    data[bindingIndex++] = v6;
-    data[bindingIndex++] = v7;
-  } else {
-    const part0 = data[bindingIndex++];
-    const part1 = data[bindingIndex++];
-    const part2 = data[bindingIndex++];
-    const part3 = data[bindingIndex++];
-    const part4 = data[bindingIndex++];
-    const part5 = data[bindingIndex++];
-    const part6 = data[bindingIndex++];
-    const part7 = data[bindingIndex++];
-    if (v0 === NO_CHANGE) v0 = part0;
-    if (v1 === NO_CHANGE) v1 = part1;
-    if (v2 === NO_CHANGE) v2 = part2;
-    if (v3 === NO_CHANGE) v3 = part3;
-    if (v4 === NO_CHANGE) v4 = part4;
-    if (v5 === NO_CHANGE) v5 = part5;
-    if (v6 === NO_CHANGE) v6 = part6;
-    if (v7 === NO_CHANGE) v7 = part7;
-    if (different =
-            (isDifferent(part0, v0) || isDifferent(part1, v1) || isDifferent(part2, v2) ||
-             isDifferent(part3, v3) || isDifferent(part4, v4) || isDifferent(part5, v5) ||
-             isDifferent(part6, v6) || isDifferent(part7, v7))) {
-      data[bindingIndex - 8] = v0;
-      data[bindingIndex - 7] = v1;
-      data[bindingIndex - 6] = v2;
-      data[bindingIndex - 5] = v3;
-      data[bindingIndex - 4] = v4;
-      data[bindingIndex - 3] = v5;
-      data[bindingIndex - 2] = v6;
-      data[bindingIndex - 1] = v7;
-    }
-  }
+  let different = bindingUpdated4(v0, v1, v2, v3);
+  different = bindingUpdated4(v4, v5, v6, v7) || different;
+
   return different ?
       prefix + stringify(v0) + i0 + stringify(v1) + i1 + stringify(v2) + i2 + stringify(v3) + i3 +
           stringify(v4) + i4 + stringify(v5) + i5 + stringify(v6) + i6 + stringify(v7) + suffix :
       NO_CHANGE;
 }
 
-export function memory<T>(index: number, value?: T): T {
-  return valueInData<T>(data, index, value);
-}
-
-function valueInData<T>(data: any[], index: number, value?: T): T {
-  if (value === undefined) {
-    ngDevMode && assertDataInRange(index, data);
-    value = data[index];
-  } else {
-    // We don't store any static data for local variables, so the first time
-    // we see the template, we should store as null to avoid a sparse array
-    if (index >= tData.length) {
-      tData[index] = null;
-    }
-    data[index] = value;
+/** Store a value in the `data` at a given `index`. */
+export function store<T>(index: number, value: T): void {
+  // We don't store any static data for local variables, so the first time
+  // we see the template, we should store as null to avoid a sparse array
+  if (index >= tData.length) {
+    tData[index] = null;
   }
-  return value !;
+  data[index] = value;
 }
 
-export function getCurrentQueries(QueryType: {new (): LQueries}): LQueries {
-  return currentQueries || (currentQueries = new QueryType());
-}
-
-export function getCreationMode(): boolean {
-  return creationMode;
+/** Retrieves a value from the `data`. */
+export function load<T>(index: number): T {
+  ngDevMode && assertDataInRange(index, data);
+  return data[index];
 }
 
 /** Gets the current binding value and increments the binding index. */
@@ -1795,14 +1624,6 @@ export function bindingUpdated2(exp1: any, exp2: any): boolean {
 export function bindingUpdated4(exp1: any, exp2: any, exp3: any, exp4: any): boolean {
   const different = bindingUpdated2(exp1, exp2);
   return bindingUpdated2(exp3, exp4) || different;
-}
-
-export function getPreviousOrParentNode(): LNode {
-  return previousOrParentNode;
-}
-
-export function getRenderer(): Renderer3 {
-  return renderer;
 }
 
 export function getDirectiveInstance<T>(instanceOrArray: T | [T]): T {

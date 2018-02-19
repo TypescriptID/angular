@@ -6,8 +6,8 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {defineComponent} from '../../src/render3/index';
-import {NO_CHANGE, bind, componentRefresh, container, containerRefreshEnd, containerRefreshStart, elementAttribute, elementClass, elementEnd, elementProperty, elementStart, elementStyle, embeddedViewEnd, embeddedViewStart, interpolation1, interpolation2, interpolation3, interpolation4, interpolation5, interpolation6, interpolation7, interpolation8, interpolationV, memory, projection, projectionDef, text, textBinding} from '../../src/render3/instructions';
+import {defineComponent, defineDirective} from '../../src/render3/index';
+import {NO_CHANGE, bind, componentRefresh, container, containerRefreshEnd, containerRefreshStart, elementAttribute, elementClass, elementEnd, elementProperty, elementStart, elementStyle, embeddedViewEnd, embeddedViewStart, interpolation1, interpolation2, interpolation3, interpolation4, interpolation5, interpolation6, interpolation7, interpolation8, interpolationV, load, projection, projectionDef, text, textBinding} from '../../src/render3/instructions';
 
 import {containerEl, renderToHtml} from './render_util';
 
@@ -76,46 +76,6 @@ describe('render3 integration test', () => {
       }
       expect(renderToHtml(Template, 'once')).toEqual('once');
       expect(renderToHtml(Template, 'twice')).toEqual('once');
-    });
-
-    it('should support creation-time bindings in interpolations', () => {
-      function Template(v: string, cm: boolean) {
-        if (cm) {
-          text(0);
-          text(1);
-          text(2);
-          text(3);
-          text(4);
-          text(5);
-          text(6);
-          text(7);
-          text(8);
-        }
-        textBinding(0, interpolation1('', cm ? v : NO_CHANGE, '|'));
-        textBinding(1, interpolation2('', v, '_', cm ? v : NO_CHANGE, '|'));
-        textBinding(2, interpolation3('', v, '_', v, '_', cm ? v : NO_CHANGE, '|'));
-        textBinding(3, interpolation4('', v, '_', v, '_', v, '_', cm ? v : NO_CHANGE, '|'));
-        textBinding(4, interpolation5('', v, '_', v, '_', v, '_', v, '_', cm ? v : NO_CHANGE, '|'));
-        textBinding(
-            5, interpolation6('', v, '_', v, '_', v, '_', v, '_', v, '_', cm ? v : NO_CHANGE, '|'));
-        textBinding(
-            6, interpolation7(
-                   '', v, '_', v, '_', v, '_', v, '_', v, '_', v, '_', cm ? v : NO_CHANGE, '|'));
-        textBinding(
-            7, interpolation8(
-                   '', v, '_', v, '_', v, '_', v, '_', v, '_', v, '_', v, '_', cm ? v : NO_CHANGE,
-                   '|'));
-        textBinding(8, interpolationV([
-                      '', v, '_', v, '_', v, '_', v, '_', v, '_', v, '_', v, '_', v, '_',
-                      cm ? v : NO_CHANGE, ''
-                    ]));
-      }
-      expect(renderToHtml(Template, 'a'))
-          .toEqual(
-              'a|a_a|a_a_a|a_a_a_a|a_a_a_a_a|a_a_a_a_a_a|a_a_a_a_a_a_a|a_a_a_a_a_a_a_a|a_a_a_a_a_a_a_a_a');
-      expect(renderToHtml(Template, 'A'))
-          .toEqual(
-              'a|A_a|A_A_a|A_A_A_a|A_A_A_A_a|A_A_A_A_A_a|A_A_A_A_A_A_a|A_A_A_A_A_A_A_a|A_A_A_A_A_A_A_A_a');
     });
 
   });
@@ -300,8 +260,7 @@ describe('render3 integration test', () => {
           hostBindings: function(directiveIndex: number, elementIndex: number): void {
             // host bindings
             elementProperty(
-                elementIndex, 'title',
-                bind(memory<TodoComponentHostBinding>(directiveIndex).title));
+                elementIndex, 'title', bind(load<TodoComponentHostBinding>(directiveIndex).title));
           }
         });
       }
@@ -663,6 +622,41 @@ describe('render3 integration test', () => {
         // refresh again with same binding
         expect(renderToHtml(Template, ctx))
             .toEqual('<span title="Hello"><b title="Goodbye"></b></span>');
+      });
+
+      it('should support host attribute bindings', () => {
+        let hostBindingDir: HostBindingDir;
+
+        class HostBindingDir {
+          /* @HostBinding('attr.aria-label') */
+          label = 'some label';
+
+          static ngDirectiveDef = defineDirective({
+            type: HostBindingDir,
+            factory: function HostBindingDir_Factory() {
+              return hostBindingDir = new HostBindingDir();
+            },
+            hostBindings: function HostBindingDir_HostBindings(dirIndex: number, elIndex: number) {
+              elementAttribute(elIndex, 'aria-label', bind(load<HostBindingDir>(dirIndex).label));
+            }
+          });
+        }
+
+        function Template(ctx: any, cm: boolean) {
+          if (cm) {
+            elementStart(0, 'div', ['hostBindingDir', ''], [HostBindingDir]);
+            elementEnd();
+          }
+          HostBindingDir.ngDirectiveDef.h(1, 0);
+          componentRefresh(1, 0);
+        }
+
+        expect(renderToHtml(Template, {}))
+            .toEqual(`<div aria-label="some label" hostbindingdir=""></div>`);
+
+        hostBindingDir !.label = 'other label';
+        expect(renderToHtml(Template, {}))
+            .toEqual(`<div aria-label="other label" hostbindingdir=""></div>`);
       });
     });
 

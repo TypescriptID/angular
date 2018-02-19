@@ -6,10 +6,10 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Component, ContentChild, Directive, Injectable, Input, NgModule, OnDestroy, Optional, Pipe, PipeTransform, QueryList, SimpleChanges, TemplateRef, ViewChild, ViewContainerRef} from '../../src/core';
-import * as $r3$ from '../../src/core_render3_private_export';
+import {Component, ContentChild, ContentChildren, Directive, HostBinding, HostListener, Injectable, Input, NgModule, OnDestroy, Optional, Pipe, PipeTransform, QueryList, SimpleChanges, TemplateRef, ViewChild, ViewChildren, ViewContainerRef} from '../../../src/core';
+import * as $r3$ from '../../../src/core_render3_private_export';
 
-import {renderComponent, toHtml} from './render_util';
+import {renderComponent, toHtml} from '../render_util';
 
 /**
  * NORMATIVE => /NORMATIVE: Designates what the compiler is expected to generate.
@@ -129,6 +129,193 @@ describe('compiler specification', () => {
       expect(log).toEqual(['ChildComponent', 'SomeDirective']);
     });
 
+    it('should support host bindings', () => {
+      type $MyApp$ = MyApp;
+
+      @Directive({selector: '[hostBindingDir]'})
+      class HostBindingDir {
+        @HostBinding('id') dirId = 'some id';
+
+        // NORMATIVE
+        static ngDirectiveDef = $r3$.ɵdefineDirective({
+          type: HostBindingDir,
+          factory: function HostBindingDir_Factory() { return new HostBindingDir(); },
+          hostBindings: function HostBindingDir_HostBindings(
+              dirIndex: $number$, elIndex: $number$) {
+            $r3$.ɵp(elIndex, 'id', $r3$.ɵb($r3$.ɵld<HostBindingDir>(dirIndex).dirId));
+          }
+        });
+        // /NORMATIVE
+      }
+
+      const $e0_attrs$ = ['hostBindingDir', ''];
+      const $e0_dirs$ = [HostBindingDir];
+
+      @Component({
+        selector: 'my-app',
+        template: `
+          <div hostBindingDir></div>
+        `
+      })
+      class MyApp {
+        static ngComponentDef = $r3$.ɵdefineComponent({
+          type: MyApp,
+          tag: 'my-app',
+          factory: function MyApp_Factory() { return new MyApp(); },
+          template: function MyApp_Template(ctx: $MyApp$, cm: $boolean$) {
+            if (cm) {
+              $r3$.ɵE(0, 'div', $e0_attrs$, $e0_dirs$);
+              $r3$.ɵe();
+            }
+            HostBindingDir.ngDirectiveDef.h(1, 0);
+            $r3$.ɵr(1, 0);
+          }
+        });
+      }
+
+      expect(renderComp(MyApp)).toEqual(`<div hostbindingdir="" id="some id"></div>`);
+    });
+
+    it('should support host listeners', () => {
+      type $MyApp$ = MyApp;
+
+      @Directive({selector: '[hostlistenerDir]'})
+      class HostListenerDir {
+        @HostListener('click')
+        onClick() {}
+
+        // NORMATIVE
+        static ngDirectiveDef = $r3$.ɵdefineDirective({
+          type: HostListenerDir,
+          factory: function HostListenerDir_Factory() {
+            const $dir$ = new HostListenerDir();
+            $r3$.ɵL(
+                'click', function HostListenerDir_click_Handler(event: any) { $dir$.onClick(); });
+            return $dir$;
+          },
+        });
+        // /NORMATIVE
+      }
+
+      const $e0_attrs$ = ['hostListenerDir', ''];
+      const $e0_dirs$ = [HostListenerDir];
+
+      @Component({
+        selector: 'my-app',
+        template: `
+          <button hostListenerDir>Click</button>
+        `
+      })
+      class MyApp {
+        static ngComponentDef = $r3$.ɵdefineComponent({
+          type: MyApp,
+          tag: 'my-app',
+          factory: function MyApp_Factory() { return new MyApp(); },
+          template: function MyApp_Template(ctx: $MyApp$, cm: $boolean$) {
+            if (cm) {
+              $r3$.ɵE(0, 'button', $e0_attrs$, $e0_dirs$);
+              $r3$.ɵT(2, 'Click');
+              $r3$.ɵe();
+            }
+            HostListenerDir.ngDirectiveDef.h(1, 0);
+            $r3$.ɵr(1, 0);
+          }
+        });
+      }
+
+      expect(renderComp(MyApp)).toEqual(`<button hostlistenerdir="">Click</button>`);
+    });
+
+
+    it('should support setting of host attributes', () => {
+      type $MyApp$ = MyApp;
+
+      @Directive({selector: '[hostAttributeDir]', host: {'role': 'listbox'}})
+      class HostAttributeDir {
+        // NORMATIVE
+        static ngDirectiveDef = $r3$.ɵdefineDirective({
+          type: HostAttributeDir,
+          factory: function HostAttributeDir_Factory() { return new HostAttributeDir(); },
+          attributes: ['role', 'listbox']
+        });
+        // /NORMATIVE
+      }
+
+      const $e0_attrs$ = ['hostAttributeDir', ''];
+      const $e0_dirs$ = [HostAttributeDir];
+
+      @Component({
+        selector: 'my-app',
+        template: `
+          <div hostAttributeDir></div>
+        `
+      })
+      class MyApp {
+        static ngComponentDef = $r3$.ɵdefineComponent({
+          type: MyApp,
+          tag: 'my-app',
+          factory: function MyApp_Factory() { return new MyApp(); },
+          template: function MyApp_Template(ctx: $MyApp$, cm: $boolean$) {
+            if (cm) {
+              $r3$.ɵE(0, 'div', $e0_attrs$, $e0_dirs$);
+              $r3$.ɵe();
+            }
+            HostAttributeDir.ngDirectiveDef.h(1, 0);
+            $r3$.ɵr(1, 0);
+          }
+        });
+      }
+
+      expect(renderComp(MyApp)).toEqual(`<div hostattributedir="" role="listbox"></div>`);
+    });
+
+    it('should support bindings of host attributes', () => {
+      type $MyApp$ = MyApp;
+
+      @Directive({selector: '[hostBindingDir]'})
+      class HostBindingDir {
+        @HostBinding('attr.aria-label') label = 'some label';
+
+        // NORMATIVE
+        static ngDirectiveDef = $r3$.ɵdefineDirective({
+          type: HostBindingDir,
+          factory: function HostBindingDir_Factory() { return new HostBindingDir(); },
+          hostBindings: function HostBindingDir_HostBindings(
+              dirIndex: $number$, elIndex: $number$) {
+            $r3$.ɵa(elIndex, 'aria-label', $r3$.ɵb($r3$.ɵld<HostBindingDir>(dirIndex).label));
+          }
+        });
+        // /NORMATIVE
+      }
+
+      const $e0_attrs$ = ['hostBindingDir', ''];
+      const $e0_dirs$ = [HostBindingDir];
+
+      @Component({
+        selector: 'my-app',
+        template: `
+          <div hostBindingDir></div>
+        `
+      })
+      class MyApp {
+        static ngComponentDef = $r3$.ɵdefineComponent({
+          type: MyApp,
+          tag: 'my-app',
+          factory: function MyApp_Factory() { return new MyApp(); },
+          template: function MyApp_Template(ctx: $MyApp$, cm: $boolean$) {
+            if (cm) {
+              $r3$.ɵE(0, 'div', $e0_attrs$, $e0_dirs$);
+              $r3$.ɵe();
+            }
+            HostBindingDir.ngDirectiveDef.h(1, 0);
+            $r3$.ɵr(1, 0);
+          }
+        });
+      }
+
+      expect(renderComp(MyApp)).toEqual(`<div aria-label="some label" hostbindingdir=""></div>`);
+    });
+
     xit('should support structural directives', () => {
       type $MyComponent$ = MyComponent;
 
@@ -167,7 +354,7 @@ describe('compiler specification', () => {
               $r3$.ɵC(2, $c1_dirs$, C1);
               $r3$.ɵe();
             }
-            let $foo$ = $r3$.ɵm<any>(1);
+            let $foo$ = $r3$.ɵld<any>(1);
             $r3$.ɵcR(2);
             $r3$.ɵr(3, 2);
             $r3$.ɵcr();
@@ -747,7 +934,7 @@ describe('compiler specification', () => {
         })
         class ViewQueryComponent {
           @ViewChild(SomeDirective) someDir: SomeDirective;
-
+          @ViewChildren(SomeDirective) someDirList: QueryList<SomeDirective>;
 
           // NORMATIVE
           static ngComponentDef = $r3$.ɵdefineComponent({
@@ -759,13 +946,16 @@ describe('compiler specification', () => {
               let $tmp$: any;
               if (cm) {
                 $r3$.ɵQ(0, SomeDirective, false);
-                $r3$.ɵE(1, 'div', $e1_attrs$, $e1_dirs$);
+                $r3$.ɵQ(1, SomeDirective, false);
+                $r3$.ɵE(2, 'div', $e1_attrs$, $e1_dirs$);
                 $r3$.ɵe();
               }
-              $r3$.ɵqR($tmp$ = $r3$.ɵm<QueryList<any>>(0)) &&
-                  (ctx.someDir = $tmp$ as QueryList<any>);
-              SomeDirective.ngDirectiveDef.h(2, 1);
-              $r3$.ɵr(2, 1);
+
+              $r3$.ɵqR($tmp$ = $r3$.ɵld<QueryList<any>>(0)) && (ctx.someDir = $tmp$.first);
+              $r3$.ɵqR($tmp$ = $r3$.ɵld<QueryList<any>>(1)) &&
+                  (ctx.someDirList = $tmp$ as QueryList<any>);
+              SomeDirective.ngDirectiveDef.h(3, 2);
+              $r3$.ɵr(3, 2);
             }
           });
           // /NORMATIVE
@@ -773,7 +963,10 @@ describe('compiler specification', () => {
 
 
         const viewQueryComp = renderComponent(ViewQueryComponent);
-        expect((viewQueryComp.someDir as QueryList<SomeDirective>).toArray()).toEqual([someDir !]);
+        expect(viewQueryComp.someDir).toEqual(someDir);
+        expect((viewQueryComp.someDirList as QueryList<SomeDirective>).toArray()).toEqual([
+          someDir !
+        ]);
       });
 
       it('should support content queries', () => {
@@ -790,19 +983,24 @@ describe('compiler specification', () => {
         })
         class ContentQueryComponent {
           @ContentChild(SomeDirective) someDir: SomeDirective;
+          @ContentChildren(SomeDirective) someDirList: QueryList<SomeDirective>;
 
           // NORMATIVE
           static ngComponentDef = $r3$.ɵdefineComponent({
             type: ContentQueryComponent,
             tag: 'content-query-component',
             factory: function ContentQueryComponent_Factory() {
-              return [new ContentQueryComponent(), $r3$.ɵQ(null, SomeDirective, false)];
+              return [
+                new ContentQueryComponent(), $r3$.ɵQ(null, SomeDirective, false),
+                $r3$.ɵQ(null, SomeDirective, false)
+              ];
             },
             hostBindings: function ContentQueryComponent_HostBindings(
                 dirIndex: $number$, elIndex: $number$) {
               let $tmp$: any;
-              $r3$.ɵqR($tmp$ = $r3$.ɵm<any[]>(dirIndex)[1]) &&
-                  ($r3$.ɵm<any[]>(dirIndex)[0].someDir = $tmp$);
+              const $instance$ = $r3$.ɵld<any[]>(dirIndex)[0];
+              $r3$.ɵqR($tmp$ = $r3$.ɵld<any[]>(dirIndex)[1]) && ($instance$.someDir = $tmp$.first);
+              $r3$.ɵqR($tmp$ = $r3$.ɵld<any[]>(dirIndex)[2]) && ($instance$.someDirList = $tmp$);
             },
             template: function ContentQueryComponent_Template(
                 ctx: $ContentQueryComponent$, cm: $boolean$) {
@@ -837,7 +1035,7 @@ describe('compiler specification', () => {
             template: function MyApp_Template(ctx: $MyApp$, cm: $boolean$) {
               if (cm) {
                 $r3$.ɵE(0, ContentQueryComponent);
-                contentQueryComp = $r3$.ɵm<any[]>(1)[0];
+                contentQueryComp = $r3$.ɵld<any[]>(1)[0];
                 $r3$.ɵE(2, 'div', $e2_attrs$, $e2_dirs$);
                 $r3$.ɵe();
                 $r3$.ɵe();
@@ -855,7 +1053,8 @@ describe('compiler specification', () => {
         expect(renderComp(MyApp))
             .toEqual(
                 `<content-query-component><div><div somedir=""></div></div></content-query-component>`);
-        expect((contentQueryComp !.someDir as QueryList<SomeDirective>).toArray()).toEqual([
+        expect(contentQueryComp !.someDir).toEqual(someDir !);
+        expect((contentQueryComp !.someDirList as QueryList<SomeDirective>).toArray()).toEqual([
           someDir !
         ]);
       });
@@ -949,7 +1148,7 @@ describe('compiler specification', () => {
               $r3$.ɵe();
               $r3$.ɵT(2);
             }
-            const l1_user = $r3$.ɵm<any>(1);
+            const l1_user = $r3$.ɵld<any>(1);
             $r3$.ɵt(2, $r3$.ɵi1('Hello ', l1_user.value, '!'));
           }
         });
