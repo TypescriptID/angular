@@ -209,6 +209,273 @@ describe('compiler compliance', () => {
       expectEmit(source, MyComponentDefinition, 'Incorrect MyComponent.ngComponentDef');
     });
 
+    describe('value composition', () => {
+
+      it('should support array literals', () => {
+        const files = {
+          app: {
+            'spec.ts': `
+              import {Component, Input, NgModule} from '@angular/core';
+
+              @Component({
+                selector: 'my-comp',
+                template: \`
+                  <p>{{ names[0] }}</p>
+                  <p>{{ names[1] }}</p>
+                \`
+              })
+              export class MyComp {
+                @Input() names: string[];
+              }
+
+              @Component({
+                selector: 'my-app',
+                template: \`
+                <my-comp [names]="['Nancy', customName]"></my-comp>
+              \`
+              })
+              export class MyApp {
+                customName = 'Bess';
+              }
+
+              @NgModule({declarations: [MyComp, MyApp]})
+              export class MyModule { }
+            `
+          }
+        };
+
+        const MyAppDeclaration = `
+          const $e0_ff$ = ($v$: any) => { return ['Nancy', $v$]; };
+          …
+          static ngComponentDef = $r3$.ɵdefineComponent({
+            type: MyApp,
+            tag: 'my-app',
+            factory: function MyApp_Factory() { return new MyApp(); },
+            template: function MyApp_Template(ctx: $MyApp$, cm: $boolean$) {
+              if (cm) {
+                $r3$.ɵE(0, MyComp);
+                $r3$.ɵe();
+              }
+              $r3$.ɵp(0, 'names', $r3$.ɵb($r3$.ɵf1($e0_ff$, ctx.customName)));
+              MyComp.ngComponentDef.h(1, 0);
+              $r3$.ɵr(1, 0);
+            }
+          });
+        `;
+
+        const result = compile(files, angularFiles);
+        const source = result.source;
+
+        expectEmit(source, MyAppDeclaration, 'Invalid array emit');
+      });
+
+      it('should support 9+ bindings in array literals', () => {
+        const files = {
+          app: {
+            'spec.ts': `
+              import {Component, Input, NgModule} from '@angular/core';
+
+              @Component({
+                selector: 'my-comp',
+                template: \`
+                  {{ names[0] }}
+                  {{ names[1] }}
+                  {{ names[3] }}
+                  {{ names[4] }}
+                  {{ names[5] }}
+                  {{ names[6] }}
+                  {{ names[7] }}
+                  {{ names[8] }}
+                  {{ names[9] }}
+                  {{ names[10] }}
+                  {{ names[11] }}
+                \`
+              })
+              export class MyComp {
+                @Input() names: string[];
+              }
+
+              @Component({
+                selector: 'my-app',
+                template: \`
+                <my-comp [names]="['start-', n0, n1, n2, n3, n4, '-middle-', n5, n6, n7, n8, '-end']">
+                </my-comp>
+              \`
+              })
+              export class MyApp {
+                n0 = 'a';
+                n1 = 'b';
+                n2 = 'c';
+                n3 = 'd';
+                n4 = 'e';
+                n5 = 'f';
+                n6 = 'g';
+                n7 = 'h';
+                n8 = 'i';
+              }
+
+              @NgModule({declarations: [MyComp, MyApp]})
+              export class MyModule {}
+              `
+          }
+        };
+
+        const MyAppDefinition = `
+          const $e0_ff$ = ($v0$: $any$, $v1$: $any$, $v2$: $any$, $v3$: $any$, $v4$: $any$, $v5$: $any$, $v6$: $any$, $v7$: $any$, $v8$: $any$) => {
+            return ['start-', $v0$, $v1$, $v2$, $v3$, $v4$, '-middle-', $v5$, $v6$, $v7$, $v8$, '-end'];
+          }
+          …
+          static ngComponentDef = $r3$.ɵdefineComponent({
+            type: MyApp,
+            tag: 'my-app',
+            factory: function MyApp_Factory() { return new MyApp(); },
+            template: function MyApp_Template(ctx: $MyApp$, cm: $boolean$) {
+              if (cm) {
+                $r3$.ɵE(0, MyComp);
+                $r3$.ɵe();
+              }
+              $r3$.ɵp(
+                  0, 'names',
+                  $r3$.ɵb($r3$.ɵfV($e0_ff$, ctx.n0, ctx.n1, ctx.n2, ctx.n3, ctx.n4, ctx.n5, ctx.n6, ctx.n7, ctx.n8)));
+              MyComp.ngComponentDef.h(1, 0);
+              $r3$.ɵr(1, 0);
+            }
+          });
+        `;
+
+        const result = compile(files, angularFiles);
+        const source = result.source;
+
+        expectEmit(source, MyAppDefinition, 'Invalid array binding');
+      });
+
+      it('should support object literals', () => {
+        const files = {
+          app: {
+            'spec.ts': `
+                import {Component, Input, NgModule} from '@angular/core';
+
+                @Component({
+                  selector: 'object-comp',
+                  template: \`
+                    <p> {{ config['duration'] }} </p>
+                    <p> {{ config.animation }} </p>
+                  \`
+                })
+                export class ObjectComp {
+                  @Input() config: {[key: string]: any};
+                }
+
+                @Component({
+                  selector: 'my-app',
+                  template: \`
+                  <object-comp [config]="{'duration': 500, animation: name}"></object-comp>
+                \`
+                })
+                export class MyApp {
+                  name = 'slide';
+                }
+
+                @NgModule({declarations: [ObjectComp, MyApp]})
+                export class MyModule {}
+              `
+          }
+        };
+
+        const MyAppDefinition = `
+          const $e0_ff$ = ($v$: any) => { return {'duration': 500, animation: $v$}; };
+          …
+          static ngComponentDef = $r3$.ɵdefineComponent({
+            type: MyApp,
+            tag: 'my-app',
+            factory: function MyApp_Factory() { return new MyApp(); },
+            template: function MyApp_Template(ctx: $MyApp$, cm: $boolean$) {
+              if (cm) {
+                $r3$.ɵE(0, ObjectComp);
+                $r3$.ɵe();
+              }
+              $r3$.ɵp(0, 'config', $r3$.ɵb($r3$.ɵf1($e0_ff$, ctx.name)));
+              ObjectComp.ngComponentDef.h(1, 0);
+              $r3$.ɵr(1, 0);
+            }
+          });
+        `;
+
+        const result = compile(files, angularFiles);
+        const source = result.source;
+
+        expectEmit(source, MyAppDefinition, 'Invalid object literal binding');
+      });
+
+      it('should support expressions nested deeply in object/array literals', () => {
+        const files = {
+          app: {
+            'spec.ts': `
+              import {Component, Input, NgModule} from '@angular/core';
+
+              @Component({
+                selector: 'nested-comp',
+                template: \`
+                  <p> {{ config.animation }} </p>
+                  <p> {{config.actions[0].opacity }} </p>
+                  <p> {{config.actions[1].duration }} </p>
+                \`
+              })
+              export class NestedComp {
+                @Input() config: {[key: string]: any};
+              }
+
+              @Component({
+                selector: 'my-app',
+                template: \`
+                <nested-comp [config]="{animation: name, actions: [{ opacity: 0, duration: 0}, {opacity: 1, duration: duration }]}">
+                </nested-comp>
+              \`
+              })
+              export class MyApp {
+                name = 'slide';
+                duration = 100;
+              }
+
+              @NgModule({declarations: [NestedComp, MyApp]})
+              export class MyModule {}
+              `
+          }
+        };
+
+        const MyAppDefinition = `
+          const $c0$ = {opacity: 0, duration: 0};
+          const $e0_ff$ = ($v$: any) => { return {opacity: 1, duration: $v$}; };
+          const $e0_ff_1$ = ($v$: any) => { return [$c0$, $v$]; };
+          const $e0_ff_2$ = ($v1$: any, $v2$: any) => { return {animation: $v1$, actions: $v2$}; };
+          …
+          static ngComponentDef = $r3$.ɵdefineComponent({
+            type: MyApp,
+            tag: 'my-app',
+            factory: function MyApp_Factory() { return new MyApp(); },
+            template: function MyApp_Template(ctx: $MyApp$, cm: $boolean$) {
+              if (cm) {
+                $r3$.ɵE(0, NestedComp);
+                $r3$.ɵe();
+              }
+              $r3$.ɵp(
+                  0, 'config',
+                  $r3$.ɵb($r3$.ɵf2(
+                      $e0_ff_2$, ctx.name, $r3$.ɵf1($e0_ff_1$, $r3$.ɵf1($e0_ff$, ctx.duration)))));
+              NestedComp.ngComponentDef.h(1, 0);
+              $r3$.ɵr(1, 0);
+            }
+          });
+        `;
+
+
+        const result = compile(files, angularFiles);
+        const source = result.source;
+
+        expectEmit(source, MyAppDefinition, 'Invalid array/object literal binding');
+      });
+    });
+
     it('should support content projection', () => {
       const files = {
         app: {
@@ -282,6 +549,133 @@ describe('compiler compliance', () => {
       expectEmit(result.source, SimpleComponentDefinition, 'Incorrect SimpleComponent definition');
       expectEmit(
           result.source, ComplexComponentDefinition, 'Incorrect ComplexComponent definition');
+    });
+
+    describe('queries', () => {
+      const directive = {
+        'some.directive.ts': `
+          import {Directive} from '@angular/core';
+
+          @Directive({
+            selector: '[someDir]',
+          })
+          export class SomeDirective { }
+        `
+      };
+
+      it('should support view queries', () => {
+        const files = {
+          app: {
+            ...directive,
+            'view_query.component.ts': `
+            import {Component, NgModule, ViewChild} from '@angular/core';
+            import {SomeDirective} from './some.directive';
+
+            @Component({
+              selector: 'view-query-component',
+              template: \`
+              <div someDir></div>
+              \`
+            })
+            export class ViewQueryComponent {
+              @ViewChild(SomeDirective) someDir: SomeDirective;
+            }
+
+            @NgModule({declarations: [SomeDirective, ViewQueryComponent]})
+            export class MyModule {}
+          `
+          }
+        };
+
+        const ViewQueryComponentDefinition = `
+          const $e0_attrs$ = ['someDir',''];
+          const $e1_dirs$ = [SomeDirective];
+          …
+          static ngComponentDef = $r3$.ɵdefineComponent({
+            type: ViewQueryComponent,
+            tag: 'view-query-component',
+            factory: function ViewQueryComponent_Factory() { return new ViewQueryComponent(); },
+            template: function ViewQueryComponent_Template(ctx: $ViewQueryComponent$, cm: $boolean$) {
+              var $tmp$: $any$;
+              if (cm) {
+                $r3$.ɵQ(0, SomeDirective, true);
+                $r3$.ɵE(1, 'div', $e0_attrs$, $e1_dirs$);
+                $r3$.ɵe();
+              }
+              ($r3$.ɵqR(($tmp$ = $r3$.ɵld(0))) && (ctx.someDir = $tmp$.first));
+              SomeDirective.ngDirectiveDef.h(2, 1);
+              $r3$.ɵr(2, 1);
+            }
+          });`;
+
+        const result = compile(files, angularFiles);
+        const source = result.source;
+
+        expectEmit(source, ViewQueryComponentDefinition, 'Invalid ViewQuery declaration');
+      });
+
+      it('should support content queries', () => {
+        const files = {
+          app: {
+            ...directive,
+            'spec.ts': `
+            import {Component, ContentChild, NgModule} from '@angular/core';
+            import {SomeDirective} from './some.directive';
+
+            @Component({
+              selector: 'content-query-component',
+              template: \`
+                <div><ng-content></ng-content></div>
+              \`
+            })
+            export class ContentQueryComponent {
+              @ContentChild(SomeDirective) someDir: SomeDirective;
+            }
+
+            @Component({
+              selector: 'my-app',
+              template: \`
+                <content-query-component>
+                  <div someDir></div>
+                </content-query-component>
+              \`
+            })
+            export class MyApp { }
+
+            @NgModule({declarations: [SomeDirective, ContentQueryComponent, MyApp]})
+            export class MyModule { }
+            `
+          }
+        };
+
+        const ContentQueryComponentDefinition = `
+          static ngComponentDef = $r3$.ɵdefineComponent({
+            type: ContentQueryComponent,
+            tag: 'content-query-component',
+            factory: function ContentQueryComponent_Factory() {
+              return [new ContentQueryComponent(), $r3$.ɵQ(null, SomeDirective, true)];
+            },
+            hostBindings: function ContentQueryComponent_HostBindings(
+                dirIndex: $number$, elIndex: $number$) {
+              var $tmp$: $any$;
+              ($r3$.ɵqR(($tmp$ = $r3$.ɵld(dirIndex)[1])) && ($r3$.ɵld(dirIndex)[0].someDir = $tmp$[0]));
+            },
+            template: function ContentQueryComponent_Template(
+                ctx: $ContentQueryComponent$, cm: $boolean$) {
+              if (cm) {
+                $r3$.ɵpD(0);
+                $r3$.ɵE(1, 'div');
+                $r3$.ɵP(2, 0);
+                $r3$.ɵe();
+              }
+            }
+          });`;
+
+        const result = compile(files, angularFiles);
+
+        const source = result.source;
+        expectEmit(source, ContentQueryComponentDefinition, 'Invalid ContentQuery declaration');
+      });
     });
 
     describe('pipes', () => {
