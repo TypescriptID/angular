@@ -11,7 +11,7 @@ import './ng_dev_mode';
 import {assertEqual, assertLessThan, assertNotEqual, assertNotNull, assertNull, assertSame} from './assert';
 import {LContainer, TContainer} from './interfaces/container';
 import {LInjector} from './interfaces/injector';
-import {CssSelector, LProjection} from './interfaces/projection';
+import {CssSelector, LProjection, NG_PROJECT_AS_ATTR_NAME} from './interfaces/projection';
 import {LQueries} from './interfaces/query';
 import {LView, LViewFlags, LifecycleStage, RootContext, TData, TView} from './interfaces/view';
 
@@ -560,8 +560,12 @@ function setUpAttributes(native: RElement, attrs: string[]): void {
 
   const isProc = isProceduralRenderer(renderer);
   for (let i = 0; i < attrs.length; i += 2) {
-    isProc ? (renderer as ProceduralRenderer3).setAttribute(native, attrs[i], attrs[i | 1]) :
-             native.setAttribute(attrs[i], attrs[i | 1]);
+    const attrName = attrs[i];
+    if (attrName !== NG_PROJECT_AS_ATTR_NAME) {
+      const attrVal = attrs[i + 1];
+      isProc ? (renderer as ProceduralRenderer3).setAttribute(native, attrName, attrVal) :
+               native.setAttribute(attrName, attrVal);
+    }
   }
 }
 
@@ -619,22 +623,24 @@ export function hostElement(rNode: RElement | null, def: ComponentDef<any>): LEl
  * and saves the subscription for later cleanup.
  *
  * @param eventName Name of the event
- * @param listener The function to be called when event emits
+ * @param listenerFn The function to be called when event emits
  * @param useCapture Whether or not to use capture in event listener.
  */
-export function listener(eventName: string, listener: EventListener, useCapture = false): void {
+export function listener(
+    eventName: string, listenerFn: (e?: any) => any, useCapture = false): void {
   ngDevMode && assertPreviousIsParent();
   const node = previousOrParentNode;
   const native = node.native as RElement;
-  const wrappedListener = wrapListenerWithDirtyLogic(currentView, listener);
 
   // In order to match current behavior, native DOM event listeners must be added for all
   // events (including outputs).
   const cleanupFns = cleanup || (cleanup = currentView.cleanup = []);
   if (isProceduralRenderer(renderer)) {
+    const wrappedListener = wrapListenerWithDirtyLogic(currentView, listenerFn);
     const cleanupFn = renderer.listen(native, eventName, wrappedListener);
     cleanupFns.push(cleanupFn, null);
   } else {
+    const wrappedListener = wrapListenerWithDirtyAndDefault(currentView, listenerFn);
     native.addEventListener(eventName, wrappedListener, useCapture);
     cleanupFns.push(eventName, native, wrappedListener, useCapture);
   }
@@ -649,7 +655,7 @@ export function listener(eventName: string, listener: EventListener, useCapture 
   const outputs = tNode.outputs;
   let outputData: PropertyAliasValue|undefined;
   if (outputs && (outputData = outputs[eventName])) {
-    createOutput(outputData, listener);
+    createOutput(outputData, listenerFn);
   }
 }
 
@@ -1277,9 +1283,23 @@ export function directiveRefresh<T>(directiveIndex: number, elementIndex: number
  * each projected node belongs (it re-distributes nodes among "buckets" where each "bucket" is
  * backed by a selector).
  *
- * @param selectors
+ * This function requires CSS selectors to be provided in 2 forms: parsed (by a compiler) and text,
+ * un-parsed form.
+ *
+ * The parsed form is needed for efficient matching of a node against a given CSS selector.
+ * The un-parsed, textual form is needed for support of the ngProjectAs attribute.
+ *
+ * Having a CSS selector in 2 different formats is not ideal, but alternatives have even more
+ * drawbacks:
+ * - having only a textual form would require runtime parsing of CSS selectors;
+ * - we can't have only a parsed as we can't re-construct textual form from it (as entered by a
+ * template author).
+ *
+ * @param selectors A collection of parsed CSS selectors
+ * @param rawSelectors A collection of CSS selectors in the raw, un-parsed form
  */
-export function projectionDef(index: number, selectors?: CssSelector[]): void {
+export function projectionDef(
+    index: number, selectors?: CssSelector[], textSelectors?: string[]): void {
   const noOfNodeBuckets = selectors ? selectors.length + 1 : 1;
   const distributedNodes = new Array<LNode[]>(noOfNodeBuckets);
   for (let i = 0; i < noOfNodeBuckets; i++) {
@@ -1294,7 +1314,7 @@ export function projectionDef(index: number, selectors?: CssSelector[]): void {
     // - there are selectors defined
     // - a node has a tag name / attributes that can be matched
     if (selectors && componentChild.tNode) {
-      const matchedIdx = matchingSelectorIndex(componentChild.tNode, selectors !);
+      const matchedIdx = matchingSelectorIndex(componentChild.tNode, selectors, textSelectors !);
       distributedNodes[matchedIdx].push(componentChild);
     } else {
       distributedNodes[0].push(componentChild);
@@ -1437,10 +1457,27 @@ export function markDirtyIfOnPush(node: LElementNode): void {
  * Wraps an event listener so its host view and its ancestor views will be marked dirty
  * whenever the event fires. Necessary to support OnPush components.
  */
-export function wrapListenerWithDirtyLogic(view: LView, listener: EventListener): EventListener {
+export function wrapListenerWithDirtyLogic(view: LView, listenerFn: (e?: any) => any): (e: Event) =>
+    any {
+  return function(e: any) {
+    markViewDirty(view);
+    return listenerFn(e);
+  };
+}
+
+/**
+ * Wraps an event listener so its host view and its ancestor views will be marked dirty
+ * whenever the event fires. Also wraps with preventDefault behavior.
+ */
+export function wrapListenerWithDirtyAndDefault(
+    view: LView, listenerFn: (e?: any) => any): EventListener {
   return function(e: Event) {
     markViewDirty(view);
-    listener(e);
+    if (listenerFn(e) === false) {
+      e.preventDefault();
+      // Necessary for legacy browsers that don't support preventDefault (e.g. IE)
+      e.returnValue = false;
+    }
   };
 }
 
