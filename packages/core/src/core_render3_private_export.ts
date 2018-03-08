@@ -63,6 +63,7 @@ export {
   p as ɵp,
   pD as ɵpD,
   a as ɵa,
+  k as ɵk,
   s as ɵs,
   t as ɵt,
   v as ɵv,
@@ -71,4 +72,15 @@ export {
   ld as ɵld,
   Pp as ɵPp,
 } from './render3/index';
+export {
+  bypassSanitizationTrustHtml as ɵbypassSanitizationTrustHtml,
+  bypassSanitizationTrustStyle as ɵbypassSanitizationTrustStyle,
+  bypassSanitizationTrustScript as ɵbypassSanitizationTrustScript,
+  bypassSanitizationTrustUrl as ɵbypassSanitizationTrustUrl,
+  bypassSanitizationTrustResourceUrl as ɵbypassSanitizationTrustResourceUrl,
+  sanitizeHtml as ɵsanitizeHtml, 
+  sanitizeStyle as ɵsanitizeStyle, 
+  sanitizeUrl as ɵsanitizeUrl, 
+  sanitizeResourceUrl as ɵsanitizeResourceUrl, 
+} from './sanitization/sanitization';
 // clang-format on

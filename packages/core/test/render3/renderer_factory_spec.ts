@@ -11,7 +11,7 @@ import {MockAnimationDriver, MockAnimationPlayer} from '@angular/animations/brow
 
 import {RendererType2, ViewEncapsulation} from '../../src/core';
 import {defineComponent, detectChanges} from '../../src/render3/index';
-import {bind, directiveRefresh, elementEnd, elementProperty, elementStart, listener, text} from '../../src/render3/instructions';
+import {bind, directiveRefresh, elementEnd, elementProperty, elementStart, listener, text, tick} from '../../src/render3/instructions';
 import {createRendererType2} from '../../src/view/index';
 
 import {getAnimationRendererFactory2, getRendererFactory2} from './imported_renderer2';
@@ -74,16 +74,16 @@ describe('renderer factory lifecycle', () => {
   beforeEach(() => { logs = []; });
 
   it('should work with a component', () => {
-    const component = renderComponent(SomeComponent, rendererFactory);
+    const component = renderComponent(SomeComponent, {rendererFactory});
     expect(logs).toEqual(['create', 'create', 'begin', 'component', 'end']);
 
     logs = [];
-    detectChanges(component);
+    tick(component);
     expect(logs).toEqual(['begin', 'component', 'end']);
   });
 
   it('should work with a component which throws', () => {
-    expect(() => renderComponent(SomeComponentWhichThrows, rendererFactory)).toThrow();
+    expect(() => renderComponent(SomeComponentWhichThrows, {rendererFactory})).toThrow();
     expect(logs).toEqual(['create', 'create', 'begin', 'end']);
   });
 
@@ -177,18 +177,18 @@ describe('animation renderer factory', () => {
   }
 
   it('should work with components without animations', () => {
-    renderComponent(SomeComponent, getAnimationRendererFactory2(document));
+    renderComponent(SomeComponent, {rendererFactory: getAnimationRendererFactory2(document)});
     expect(toHtml(containerEl)).toEqual('foo');
   });
 
   isBrowser && it('should work with animated components', (done) => {
-    const factory = getAnimationRendererFactory2(document);
-    const component = renderComponent(SomeComponentWithAnimation, factory);
+    const rendererFactory = getAnimationRendererFactory2(document);
+    const component = renderComponent(SomeComponentWithAnimation, {rendererFactory});
     expect(toHtml(containerEl))
         .toMatch(/<div class="ng-tns-c\d+-0 ng-trigger ng-trigger-myAnimation">foo<\/div>/);
 
     component.exp = 'on';
-    detectChanges(component);
+    tick(component);
 
     const [player] = getLog();
     expect(player.keyframes).toEqual([
@@ -197,7 +197,7 @@ describe('animation renderer factory', () => {
     ]);
     player.finish();
 
-    factory.whenRenderingDone !().then(() => {
+    rendererFactory.whenRenderingDone !().then(() => {
       expect(eventLogs).toEqual(['void - start', 'void - done', 'on - start', 'on - done']);
       done();
     });

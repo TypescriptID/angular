@@ -8,6 +8,7 @@
 
 import {stringifyElement} from '@angular/platform-browser/testing/src/browser_util';
 
+import {CreateComponentOptions} from '../../src/render3/component';
 import {ComponentTemplate, ComponentType, DirectiveType, PublicFeature, defineComponent, defineDirective, renderComponent as _renderComponent} from '../../src/render3/index';
 import {NG_HOST_SYMBOL, createLNode, createLView, renderTemplate} from '../../src/render3/instructions';
 import {DirectiveDefArgs} from '../../src/render3/interfaces/definition';
@@ -15,6 +16,58 @@ import {LElementNode, LNodeFlags} from '../../src/render3/interfaces/node';
 import {RElement, RText, Renderer3, RendererFactory3, domRendererFactory3} from '../../src/render3/interfaces/renderer';
 
 import {getRendererFactory2} from './imported_renderer2';
+
+function noop() {}
+/**
+ * Fixture for testing template functions in a convenient way.
+ *
+ * This fixture allows:
+ * - specifying the creation block and update block as two separate functions,
+ * - maintaining the template state between invocations,
+ * - access to the render `html`.
+ */
+export class TemplateFixture {
+  hostElement: HTMLElement;
+
+  hostNode: LElementNode;
+
+  /**
+   *
+   * @param createBlock Instructions which go into the creation block:
+   *          `if (creationMode) { __here__ }`.
+   * @param updateBlock Optional instructions which go after the creation block:
+   *          `if (creationMode) { ... } __here__`.
+   */
+  constructor(private createBlock: () => void, private updateBlock: () => void = noop) {
+    this.updateBlock = updateBlock || function() {};
+    this.hostElement = document.createElement('div');
+    this.hostNode = renderTemplate(this.hostElement, (ctx: any, cm: boolean) => {
+      if (cm) {
+        this.createBlock();
+      }
+      this.updateBlock();
+    }, null !, domRendererFactory3, null);
+  }
+
+  /**
+   * Update the existing template
+   *
+   * @param updateBlock Optional update block.
+   */
+  update(updateBlock?: () => void): void {
+    renderTemplate(
+        this.hostNode.native, updateBlock || this.updateBlock, null !, domRendererFactory3,
+        this.hostNode);
+  }
+
+  /**
+   * Current state of rendered HTML.
+   */
+  get html(): string {
+    return (this.hostNode.native as any as Element).innerHTML.replace(/ style=""/g, '');
+  }
+}
+
 
 export const document = ((global || window) as any).document;
 export let containerEl: HTMLElement = null !;
@@ -60,11 +113,12 @@ export function renderToHtml(
 
 beforeEach(resetDOM);
 
-export function renderComponent<T>(type: ComponentType<T>, rendererFactory?: RendererFactory3): T {
+export function renderComponent<T>(type: ComponentType<T>, opts?: CreateComponentOptions): T {
   return _renderComponent(type, {
-    rendererFactory: rendererFactory || testRendererFactory,
+    rendererFactory: opts && opts.rendererFactory || testRendererFactory,
     host: containerEl,
     scheduler: requestAnimationFrame,
+    hostFeatures: opts && opts.hostFeatures
   });
 }
 
