@@ -15,15 +15,17 @@ import {Identifiers, createTokenForExternalReference} from '../identifiers';
 import {InjectableCompiler} from '../injectable_compiler';
 import {CompileMetadataResolver} from '../metadata_resolver';
 import {HtmlParser} from '../ml_parser/html_parser';
-import {InterpolationConfig} from '../ml_parser/interpolation_config';
+import {DEFAULT_INTERPOLATION_CONFIG, InterpolationConfig} from '../ml_parser/interpolation_config';
 import {NgModuleCompiler} from '../ng_module_compiler';
 import {OutputEmitter} from '../output/abstract_emitter';
 import * as o from '../output/output_ast';
 import {ParseError} from '../parse_util';
 import {compilePipe as compileIvyPipe} from '../render3/r3_pipe_compiler';
+import {OutputMode} from '../render3/r3_types';
 import {compileComponent as compileIvyComponent, compileDirective as compileIvyDirective} from '../render3/r3_view_compiler';
 import {CompiledStylesheet, StyleCompiler} from '../style_compiler';
 import {SummaryResolver} from '../summary_resolver';
+import {BindingParser} from '../template_parser/binding_parser';
 import {TemplateAst} from '../template_parser/template_ast';
 import {TemplateParser} from '../template_parser/template_parser';
 import {OutputContext, ValueVisitor, error, syntaxError, visitValue} from '../util';
@@ -169,7 +171,7 @@ export class AotCompiler {
       _createEmptyStub(outputCtx);
     }
     // Note: for the stubs, we don't need a property srcFileUrl,
-    // as lateron in emitAllImpls we will create the proper GeneratedFiles with the
+    // as later on in emitAllImpls we will create the proper GeneratedFiles with the
     // correct srcFileUrl.
     // This is good as e.g. for .ngstyle.ts files we can't derive
     // the url of components based on the genFileUrl.
@@ -222,7 +224,7 @@ export class AotCompiler {
     let componentId = 0;
     file.ngModules.forEach((ngModuleMeta, ngModuleIndex) => {
       // Note: the code below needs to executed for StubEmitFlags.Basic and StubEmitFlags.TypeCheck,
-      // so we don't change the .ngfactory file too much when adding the typecheck block.
+      // so we don't change the .ngfactory file too much when adding the type-check block.
 
       // create exports that user code can reference
       this._ngModuleCompiler.createStub(outputCtx, ngModuleMeta.type.reference);
@@ -255,7 +257,7 @@ export class AotCompiler {
       });
 
       if (emitFlags & StubEmitFlags.TypeCheck) {
-        // add the typecheck block for all components of the NgModule
+        // add the type-check block for all components of the NgModule
         ngModuleMeta.declaredDirectives.forEach((dirId) => {
           const compMeta = this._metadataResolver.getDirectiveMetadata(dirId.reference);
           if (!compMeta.isComponent) {
@@ -345,8 +347,12 @@ export class AotCompiler {
       directives: StaticSymbol[], pipes: StaticSymbol[], ngModules: CompileNgModuleMetadata[],
       injectables: CompileInjectableMetadata[]): PartialModule[] {
     const classes: o.ClassStmt[] = [];
+    const errors: ParseError[] = [];
 
     const context = this._createOutputContext(fileName);
+    const hostBindingParser = new BindingParser(
+        this._templateParser.expressionParser, DEFAULT_INTERPOLATION_CONFIG, null !, [], errors);
+
 
     // Process all components and directives
     directives.forEach(directiveType => {
@@ -360,16 +366,19 @@ export class AotCompiler {
         const {template: parsedTemplate, pipes: parsedPipes} =
             this._parseTemplate(directiveMetadata, module, module.transitiveModule.directives);
         compileIvyComponent(
-            context, directiveMetadata, parsedPipes, parsedTemplate, this._reflector);
+            context, directiveMetadata, parsedPipes, parsedTemplate, this._reflector,
+            hostBindingParser, OutputMode.PartialClass);
       } else {
-        compileIvyDirective(context, directiveMetadata, this._reflector);
+        compileIvyDirective(
+            context, directiveMetadata, this._reflector, hostBindingParser,
+            OutputMode.PartialClass);
       }
     });
 
     pipes.forEach(pipeType => {
       const pipeMetadata = this._metadataResolver.getPipeMetadata(pipeType);
       if (pipeMetadata) {
-        compileIvyPipe(context, pipeMetadata, this._reflector);
+        compileIvyPipe(context, pipeMetadata, this._reflector, OutputMode.PartialClass);
       }
     });
 

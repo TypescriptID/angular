@@ -25,6 +25,7 @@ import {LInjector} from './interfaces/injector';
 import {LContainerNode, LElementNode, LNode, LNodeFlags, LViewNode} from './interfaces/node';
 import {QueryReadType} from './interfaces/query';
 import {Renderer3} from './interfaces/renderer';
+import {LView} from './interfaces/view';
 import {assertNodeOfPossibleTypes, assertNodeType} from './node_assert';
 import {insertView} from './node_manipulation';
 import {notImplemented, stringify} from './util';
@@ -174,7 +175,7 @@ export function diPublic(def: DirectiveDef<any>): void {
 }
 
 /**
- * Searches for an instance of the given directive type up the injector tree and returns
+ * Searches for an instance of the given type up the injector tree and returns
  * that instance if found.
  *
  * If not found, it will propagate up to the next parent injector until the token
@@ -187,15 +188,18 @@ export function diPublic(def: DirectiveDef<any>): void {
  *
  *   static ngDirectiveDef = defineDirective({
  *     type: SomeDirective,
- *     factory: () => new SomeDirective(inject(DirectiveA))
+ *     factory: () => new SomeDirective(directiveInject(DirectiveA))
  *   });
  * }
+ *
+ * NOTE: use `directiveInject` with `@Directive`, `@Component`, and `@Pipe`. For
+ * all other injection use `inject` which does not walk the DOM render tree.
  *
  * @param token The directive type to search for
  * @param flags Injection flags (e.g. CheckParent)
  * @returns The instance found
  */
-export function inject<T>(token: Type<T>, flags?: InjectFlags, defaultValue?: T): T {
+export function directiveInject<T>(token: Type<T>, flags?: InjectFlags, defaultValue?: T): T {
   return getOrCreateInjectable<T>(getOrCreateNodeInjector(), token, flags, defaultValue);
 }
 
@@ -298,7 +302,7 @@ export function getOrCreateChangeDetectorRef(
     return di.changeDetectorRef = getOrCreateHostChangeDetector(currentNode.view.node);
   } else if ((currentNode.flags & LNodeFlags.TYPE_MASK) === LNodeFlags.Element) {
     // if it's an element node with data, it's a component and context will be set later
-    return di.changeDetectorRef = createViewRef(context);
+    return di.changeDetectorRef = createViewRef(currentNode.data as LView, context);
   }
   return null !;
 }
@@ -310,8 +314,10 @@ function getOrCreateHostChangeDetector(currentNode: LViewNode | LElementNode):
   const hostInjector = hostNode.nodeInjector;
   const existingRef = hostInjector && hostInjector.changeDetectorRef;
 
-  return existingRef ? existingRef :
-                       createViewRef(hostNode.view.data[hostNode.flags >> LNodeFlags.INDX_SHIFT]);
+  return existingRef ?
+      existingRef :
+      createViewRef(
+          hostNode.data as LView, hostNode.view.data[hostNode.flags >> LNodeFlags.INDX_SHIFT]);
 }
 
 /**
