@@ -7,7 +7,7 @@
  */
 
 import {defineComponent, defineDirective} from '../../src/render3/index';
-import {NO_CHANGE, bind, container, containerRefreshEnd, containerRefreshStart, directiveRefresh, elementAttribute, elementClass, elementEnd, elementProperty, elementStart, elementStyle, embeddedViewEnd, embeddedViewStart, interpolation1, interpolation2, interpolation3, interpolation4, interpolation5, interpolation6, interpolation7, interpolation8, interpolationV, load, projection, projectionDef, text, textBinding} from '../../src/render3/instructions';
+import {NO_CHANGE, bind, container, containerRefreshEnd, containerRefreshStart, elementAttribute, elementClassNamed, elementEnd, elementProperty, elementStart, elementStyleNamed, embeddedViewEnd, embeddedViewStart, interpolation1, interpolation2, interpolation3, interpolation4, interpolation5, interpolation6, interpolation7, interpolation8, interpolationV, load, projection, projectionDef, text, textBinding} from '../../src/render3/instructions';
 
 import {containerEl, renderToHtml} from './render_util';
 
@@ -201,7 +201,6 @@ describe('render3 integration test', () => {
           elementEnd();
         }
         TodoComponent.ngComponentDef.h(1, 0);
-        directiveRefresh(1, 0);
       }
 
       expect(renderToHtml(Template, null)).toEqual('<todo><p>Todo one</p></todo>');
@@ -215,7 +214,6 @@ describe('render3 integration test', () => {
           text(2, 'two');
         }
         TodoComponent.ngComponentDef.h(1, 0);
-        directiveRefresh(1, 0);
       }
       expect(renderToHtml(Template, null)).toEqual('<todo><p>Todo one</p></todo>two');
     });
@@ -234,8 +232,6 @@ describe('render3 integration test', () => {
         }
         TodoComponent.ngComponentDef.h(1, 0);
         TodoComponent.ngComponentDef.h(3, 2);
-        directiveRefresh(1, 0);
-        directiveRefresh(3, 2);
       }
       expect(renderToHtml(Template, null))
           .toEqual('<todo><p>Todo one</p></todo><todo><p>Todo one</p></todo>');
@@ -271,7 +267,6 @@ describe('render3 integration test', () => {
           elementEnd();
         }
         TodoComponentHostBinding.ngComponentDef.h(1, 0);
-        directiveRefresh(1, 0);
       }
 
       expect(renderToHtml(Template, {})).toEqual('<todo title="one">one</todo>');
@@ -304,7 +299,6 @@ describe('render3 integration test', () => {
           elementEnd();
         }
         MyComp.ngComponentDef.h(1, 0);
-        directiveRefresh(1, 0);
       }
 
       expect(renderToHtml(Template, null)).toEqual('<comp><p>Bess</p></comp>');
@@ -351,7 +345,6 @@ describe('render3 integration test', () => {
         }
         elementProperty(0, 'condition', bind(ctx.condition));
         MyComp.ngComponentDef.h(1, 0);
-        directiveRefresh(1, 0);
       }
 
       expect(renderToHtml(Template, {condition: true})).toEqual('<comp><div>text</div></comp>');
@@ -472,7 +465,6 @@ describe('render3 integration test', () => {
       }
       containerRefreshEnd();
       ChildComponent.ngComponentDef.h(1, 0);
-      directiveRefresh(1, 0);
     }
 
     it('should work with a tree', () => {
@@ -648,7 +640,6 @@ describe('render3 integration test', () => {
             elementEnd();
           }
           HostBindingDir.ngDirectiveDef.h(1, 0);
-          directiveRefresh(1, 0);
         }
 
         expect(renderToHtml(Template, {}))
@@ -668,7 +659,7 @@ describe('render3 integration test', () => {
             elementStart(0, 'span');
             elementEnd();
           }
-          elementStyle(0, 'border-color', bind(ctx));
+          elementStyleNamed(0, 'border-color', bind(ctx));
         }
 
         expect(renderToHtml(Template, 'red')).toEqual('<span style="border-color: red;"></span>');
@@ -683,7 +674,7 @@ describe('render3 integration test', () => {
             elementStart(0, 'span');
             elementEnd();
           }
-          elementStyle(0, 'font-size', bind(ctx), 'px');
+          elementStyleNamed(0, 'font-size', bind(ctx), 'px');
         }
 
         expect(renderToHtml(Template, '100')).toEqual('<span style="font-size: 100px;"></span>');
@@ -700,7 +691,7 @@ describe('render3 integration test', () => {
             elementStart(0, 'span');
             elementEnd();
           }
-          elementClass(0, 'active', bind(ctx));
+          elementClassNamed(0, 'active', bind(ctx));
         }
 
         expect(renderToHtml(Template, true)).toEqual('<span class="active"></span>');
@@ -721,7 +712,7 @@ describe('render3 integration test', () => {
             elementStart(0, 'span', ['class', 'existing']);
             elementEnd();
           }
-          elementClass(0, 'active', bind(ctx));
+          elementClassNamed(0, 'active', bind(ctx));
         }
 
         expect(renderToHtml(Template, true)).toEqual('<span class="existing active"></span>');

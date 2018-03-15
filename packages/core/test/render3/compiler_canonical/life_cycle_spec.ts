@@ -45,8 +45,7 @@ describe('lifecycle hooks', () => {
       factory: function LifecycleComp_Factory() { return new LifecycleComp(); },
       template: function LifecycleComp_Template(ctx: $LifecycleComp$, cm: $boolean$) {},
       inputs: {nameMin: 'name'},
-      inputsPropertyName: {nameMin: 'nameMin'},
-      features: [$r3$.ɵNgOnChangesFeature]
+      features: [$r3$.ɵNgOnChangesFeature({nameMin: 'nameMin'})]
     });
     // /NORMATIVE
   }
@@ -78,8 +77,6 @@ describe('lifecycle hooks', () => {
         $r3$.ɵp(2, 'name', $r3$.ɵb(ctx.name2));
         LifecycleComp.ngComponentDef.h(1, 0);
         LifecycleComp.ngComponentDef.h(3, 2);
-        $r3$.ɵr(1, 0);
-        $r3$.ɵr(3, 2);
       }
     });
     // /NORMATIVE

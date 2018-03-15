@@ -40,18 +40,18 @@ export {
   interpolation8 as i8,
   interpolationV as iV,
 
-  directiveRefresh as r,
-
   container as C,
   containerRefreshStart as cR,
   containerRefreshEnd as cr,
 
   elementAttribute as a,
   elementClass as k,
+  elementClassNamed as kn,
   elementEnd as e,
   elementProperty as p,
   elementStart as E,
   elementStyle as s,
+  elementStyleNamed as sn,
 
   listener as L,
   store as st,
@@ -67,6 +67,7 @@ export {
   embeddedViewEnd as v,
   detectChanges,
   markDirty,
+  tick,
 } from './instructions';
 
 export {

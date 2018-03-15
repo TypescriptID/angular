@@ -21,88 +21,6 @@ export interface AfterViewInit {
 /** @experimental */
 export declare const ANALYZE_FOR_ENTRY_COMPONENTS: InjectionToken<any>;
 
-/** @deprecated */
-export declare function animate(timings: string | number, styles?: AnimationStyleMetadata | AnimationKeyframesSequenceMetadata): AnimationAnimateMetadata;
-
-/** @deprecated */
-export interface AnimationAnimateMetadata extends AnimationMetadata {
-    styles: AnimationStyleMetadata | AnimationKeyframesSequenceMetadata | null;
-    timings: string | number | AnimateTimings;
-}
-
-/** @deprecated */
-export declare type AnimationEntryMetadata = any;
-
-/** @deprecated */
-export interface AnimationGroupMetadata extends AnimationMetadata {
-    steps: AnimationMetadata[];
-}
-
-/** @deprecated */
-export declare type AnimationKeyframe = any;
-
-/** @deprecated */
-export interface AnimationKeyframesSequenceMetadata extends AnimationMetadata {
-    steps: AnimationStyleMetadata[];
-}
-
-/** @deprecated */
-export interface AnimationMetadata {
-    type: AnimationMetadataType;
-}
-
-/** @deprecated */
-export declare type AnimationPlayer = any;
-
-/** @deprecated */
-export interface AnimationSequenceMetadata extends AnimationMetadata {
-    steps: AnimationMetadata[];
-}
-
-/** @deprecated */
-export interface AnimationStateMetadata extends AnimationMetadata {
-    name: string;
-    styles: AnimationStyleMetadata;
-}
-
-/** @deprecated */
-export declare type AnimationStateTransitionMetadata = any;
-
-/** @deprecated */
-export interface AnimationStyleMetadata extends AnimationMetadata {
-    offset: number | null;
-    styles: '*' | {
-        [key: string]: string | number;
-    } | Array<{
-        [key: string]: string | number;
-    } | '*'>;
-}
-
-/** @deprecated */
-export declare type AnimationStyles = any;
-
-/** @deprecated */
-export interface AnimationTransitionEvent {
-    element: any;
-    fromState: string;
-    phaseName: string;
-    toState: string;
-    totalTime: number;
-    triggerName: string;
-}
-
-/** @deprecated */
-export interface AnimationTransitionMetadata extends AnimationMetadata {
-    animation: AnimationMetadata | AnimationMetadata[];
-    expr: string | ((fromState: string, toState: string) => boolean);
-}
-
-/** @deprecated */
-export interface AnimationTriggerMetadata {
-    definitions: AnimationMetadata[];
-    name: string;
-}
-
 /** @experimental */
 export declare const APP_BOOTSTRAP_LISTENER: InjectionToken<((compRef: ComponentRef<any>) => void)[]>;
 
@@ -111,9 +29,6 @@ export declare const APP_ID: InjectionToken<string>;
 
 /** @experimental */
 export declare const APP_INITIALIZER: InjectionToken<(() => void)[]>;
-
-/** @experimental */
-export declare const APP_ROOT_SCOPE: Type<any>;
 
 /** @experimental */
 export declare class ApplicationInitStatus {
@@ -147,9 +62,6 @@ export declare function assertPlatform(requiredToken: any): PlatformRef;
 
 /** @stable */
 export declare const Attribute: AttributeDecorator;
-
-/** @deprecated */
-export declare const AUTO_STYLE = "*";
 
 /** @stable */
 export declare enum ChangeDetectionStrategy {
@@ -347,7 +259,10 @@ export declare class DefaultIterableDiffer<V> implements IterableDiffer<V>, Iter
 }
 
 /** @experimental */
-export declare function defineInjectable(opts: Injectable): Injectable;
+export declare function defineInjectable<T>(opts: {
+    providedIn?: Type<any> | 'root' | null;
+    factory: () => T;
+}): InjectableDef<T>;
 
 /** @experimental */
 export declare function destroyPlatform(): void;
@@ -429,9 +344,6 @@ export interface GetTestability {
     findTestabilityInTree(registry: TestabilityRegistry, elem: any, findInAncestors: boolean): Testability | null;
 }
 
-/** @deprecated */
-export declare function group(steps: AnimationMetadata[]): AnimationGroupMetadata;
-
 /** @stable */
 export declare const Host: HostDecorator;
 
@@ -461,11 +373,11 @@ export declare const Injectable: InjectableDecorator;
 export interface InjectableDecorator {
     /** @stable */ (): any;
     (options?: {
-        scope: Type<any>;
+        providedIn: Type<any> | 'root' | null;
     } & InjectableProvider): any;
     new (): Injectable;
     new (options?: {
-        scope: Type<any>;
+        providedIn: Type<any> | 'root' | null;
     } & InjectableProvider): Injectable;
 }
 
@@ -474,7 +386,7 @@ export declare type InjectableProvider = ValueSansProvider | ExistingSansProvide
 
 /** @experimental */
 export interface InjectableType<T> extends Type<T> {
-    ngInjectableDef?: Injectable;
+    ngInjectableDef: InjectableDef<T>;
 }
 
 /** @stable */
@@ -493,9 +405,9 @@ export declare const enum InjectFlags {
 /** @stable */
 export declare class InjectionToken<T> {
     protected _desc: string;
-    readonly ngInjectableDef: Injectable | undefined;
+    readonly ngInjectableDef: InjectableDef<T> | undefined;
     constructor(_desc: string, options?: {
-        scope: Type<any>;
+        providedIn?: Type<any> | 'root' | null;
         factory: () => T;
     });
     toString(): string;
@@ -559,9 +471,6 @@ export declare class IterableDiffers {
     static create(factories: IterableDifferFactory[], parent?: IterableDiffers): IterableDiffers;
     static extend(factories: IterableDifferFactory[]): StaticProvider;
 }
-
-/** @deprecated */
-export declare function keyframes(steps: AnimationStyleMetadata[]): AnimationKeyframesSequenceMetadata;
 
 /** @stable */
 export interface KeyValueChangeRecord<K, V> {
@@ -933,9 +842,6 @@ export interface SelfDecorator {
     new (): Self;
 }
 
-/** @deprecated */
-export declare function sequence(steps: AnimationMetadata[]): AnimationSequenceMetadata;
-
 /** @experimental */
 export declare function setTestabilityGetter(getter: GetTestability): void;
 
@@ -962,18 +868,8 @@ export interface SkipSelfDecorator {
     new (): SkipSelf;
 }
 
-/** @deprecated */
-export declare function state(name: string, styles: AnimationStyleMetadata): AnimationStateMetadata;
-
 /** @stable */
 export declare type StaticProvider = ValueProvider | ExistingProvider | StaticClassProvider | ConstructorProvider | FactoryProvider | any[];
-
-/** @deprecated */
-export declare function style(tokens: {
-    [key: string]: string | number;
-} | Array<{
-    [key: string]: string | number;
-}>): AnimationStyleMetadata;
 
 /** @experimental */
 export declare class SystemJsNgModuleLoader implements NgModuleFactoryLoader {
@@ -996,12 +892,12 @@ export declare abstract class TemplateRef<C> {
 /** @experimental */
 export declare class Testability implements PublicTestability {
     constructor(_ngZone: NgZone);
-    decreasePendingRequestCount(): number;
+    /** @deprecated */ decreasePendingRequestCount(): number;
     findProviders(using: any, provider: string, exactMatch: boolean): any[];
-    getPendingRequestCount(): number;
-    increasePendingRequestCount(): number;
+    /** @deprecated */ getPendingRequestCount(): number;
+    /** @deprecated */ increasePendingRequestCount(): number;
     isStable(): boolean;
-    whenStable(callback: Function): void;
+    whenStable(doneCb: Function, timeout?: number, updateCb?: Function): void;
 }
 
 /** @experimental */
@@ -1021,17 +917,11 @@ export interface TrackByFunction<T> {
     (index: number, item: T): any;
 }
 
-/** @deprecated */
-export declare function transition(stateChangeExpr: string, steps: AnimationMetadata | AnimationMetadata[]): AnimationTransitionMetadata;
-
 /** @experimental */
 export declare const TRANSLATIONS: InjectionToken<string>;
 
 /** @experimental */
 export declare const TRANSLATIONS_FORMAT: InjectionToken<string>;
-
-/** @deprecated */
-export declare function trigger(name: string, definitions: AnimationMetadata[]): AnimationTriggerMetadata;
 
 /** @stable */
 export declare const Type: FunctionConstructor;

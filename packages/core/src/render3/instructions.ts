@@ -22,7 +22,7 @@ import {matchingSelectorIndex} from './node_selector_matcher';
 import {ComponentDef, ComponentTemplate, ComponentType, DirectiveDef, DirectiveType} from './interfaces/definition';
 import {RElement, RText, Renderer3, RendererFactory3, ProceduralRenderer3, ObjectOrientedRenderer3, RendererStyleFlags3, isProceduralRenderer} from './interfaces/renderer';
 import {isDifferent, stringify} from './util';
-import {executeHooks, executeContentHooks, queueLifecycleHooks, queueInitHooks, executeInitHooks} from './hooks';
+import {executeHooks, queueLifecycleHooks, queueInitHooks, executeInitHooks} from './hooks';
 import {ViewRef} from './view_ref';
 
 /**
@@ -209,8 +209,29 @@ export function leaveView(newView: LView): void {
   // Views should be clean and in update mode after being checked, so these bits are cleared
   currentView.flags &= ~(LViewFlags.CreationMode | LViewFlags.Dirty);
   currentView.lifecycleStage = LifecycleStage.INIT;
-  currentView.tView.firstTemplatePass = false;
   enterView(newView, null);
+}
+
+/** Refreshes the views of child components, triggering any init/content hooks existing.  */
+function refreshChildComponents() {
+  executeInitAndContentHooks();
+  // This needs to be set before children are processed to support recursive components
+  currentView.tView.firstTemplatePass = false;
+
+  const components = currentView.tView.components;
+  if (components != null) {
+    for (let i = 0; i < components.length; i++) {
+      componentRefresh(components[i] + 1, components[i]);
+    }
+  }
+}
+
+function executeInitAndContentHooks(): void {
+  if (!checkNoChangesMode) {
+    const tView = currentView.tView;
+    executeInitHooks(currentView, tView, creationMode);
+    executeHooks(currentView.data, tView.contentHooks, tView.contentCheckHooks, creationMode);
+  }
 }
 
 export function createLView(
@@ -376,8 +397,9 @@ export function renderEmbeddedTemplate<T>(
     enterView(viewNode.data, viewNode);
 
     template(context, cm);
-  } finally {
     refreshDynamicChildren();
+    refreshChildComponents();
+  } finally {
     leaveView(currentView !.parent !);
     isParent = _isParent;
     previousOrParentNode = _previousOrParentNode;
@@ -394,10 +416,12 @@ export function renderComponentOrTemplate<T>(
     }
     if (template) {
       template(componentOrContext !, creationMode);
+      refreshChildComponents();
     } else {
+      executeInitAndContentHooks();
       // Element was stored at 0 and directive was stored at 1 in renderComponent
       // so to refresh the component, refresh() needs to be called with (1, 0)
-      directiveRefresh(1, 0);
+      componentRefresh(1, 0);
     }
   } finally {
     if (rendererFactory.end) {
@@ -482,6 +506,7 @@ export function elementStart(
         // TODO(mhevery): This assumes that the directives come in correct order, which
         // is not guaranteed. Must be refactored to take it into account.
         const instance = hostComponentDef.n();
+        storeComponentIndex(index);
         directiveCreate(++index, instance, hostComponentDef, queryName);
         initChangeDetectorIfExisting(node.nodeInjector, instance);
       }
@@ -489,6 +514,13 @@ export function elementStart(
     }
   }
   return native;
+}
+
+/** Stores index of component so it will be queued for refresh during change detection. */
+function storeComponentIndex(index: number): void {
+  if (currentView.tView.firstTemplatePass) {
+    (currentView.tView.components || (currentView.tView.components = [])).push(index);
+  }
 }
 
 /** Sets the context for a ChangeDetectorRef to the given instance. */
@@ -565,7 +597,8 @@ export function createTView(): TView {
     contentCheckHooks: null,
     viewHooks: null,
     viewCheckHooks: null,
-    destroyHooks: null
+    destroyHooks: null,
+    components: null
   };
 }
 
@@ -833,7 +866,7 @@ function generatePropertyAliases(lNodeFlags: number, direction: BindingDirection
 }
 
 /**
- * Add or remove a class in a classList.
+ * Add or remove a class in a `classList` on a DOM element.
  *
  * This instruction is meant to handle the [class.foo]="exp" case
  *
@@ -842,7 +875,7 @@ function generatePropertyAliases(lNodeFlags: number, direction: BindingDirection
  *        renaming as part of minification.
  * @param value A value indicating if a given class should be added or removed.
  */
-export function elementClass<T>(index: number, className: string, value: T | NO_CHANGE): void {
+export function elementClassNamed<T>(index: number, className: string, value: T | NO_CHANGE): void {
   if (value !== NO_CHANGE) {
     const lElement = data[index] as LElementNode;
     if (value) {
@@ -857,6 +890,29 @@ export function elementClass<T>(index: number, className: string, value: T | NO_
 }
 
 /**
+ * Set the `className` property on a DOM element.
+ *
+ * This instruction is meant to handle the `[class]="exp"` usage.
+ *
+ * `elementClass` instruction writes the value to the "element's" `className` property.
+ *
+ * @param index The index of the element to update in the data array
+ * @param value A value indicating a set of classes which should be applied. The method overrides
+ *   any existing classes. The value is stringified (`toString`) before it is applied to the
+ *   element.
+ */
+export function elementClass<T>(index: number, value: T | NO_CHANGE): void {
+  if (value !== NO_CHANGE) {
+    // TODO: This is a naive implementation which simply writes value to the `className`. In the
+    // future
+    // we will add logic here which would work with the animation code.
+    const lElement: LElementNode = data[index];
+    isProceduralRenderer(renderer) ? renderer.setProperty(lElement.native, 'className', value) :
+                                     lElement.native['className'] = stringify(value);
+  }
+}
+
+/**
  * Update a given style on an Element.
  *
  * @param index Index of the element to change in the data array
@@ -867,29 +923,63 @@ export function elementClass<T>(index: number, className: string, value: T | NO_
  * @param sanitizer An optional function used to transform the value typically used for
  *        sanitization.
  */
-export function elementStyle<T>(
+export function elementStyleNamed<T>(
     index: number, styleName: string, value: T | NO_CHANGE, suffix?: string): void;
-export function elementStyle<T>(
+export function elementStyleNamed<T>(
     index: number, styleName: string, value: T | NO_CHANGE, sanitizer?: Sanitizer): void;
-export function elementStyle<T>(
+export function elementStyleNamed<T>(
     index: number, styleName: string, value: T | NO_CHANGE,
     suffixOrSanitizer?: string | Sanitizer): void {
   if (value !== NO_CHANGE) {
-    const lElement = data[index] as LElementNode;
+    const lElement: LElementNode = data[index];
     if (value == null) {
       isProceduralRenderer(renderer) ?
           renderer.removeStyle(lElement.native, styleName, RendererStyleFlags3.DashCase) :
-          lElement.native.style.removeProperty(styleName);
+          lElement.native['style'].removeProperty(styleName);
     } else {
       let strValue =
           typeof suffixOrSanitizer == 'function' ? suffixOrSanitizer(value) : stringify(value);
       if (typeof suffixOrSanitizer == 'string') strValue = strValue + suffixOrSanitizer;
       isProceduralRenderer(renderer) ?
           renderer.setStyle(lElement.native, styleName, strValue, RendererStyleFlags3.DashCase) :
-          lElement.native.style.setProperty(styleName, strValue);
+          lElement.native['style'].setProperty(styleName, strValue);
     }
   }
 }
+
+/**
+ * Set the `style` property on a DOM element.
+ *
+ * This instruction is meant to handle the `[style]="exp"` usage.
+ *
+ *
+ * @param index The index of the element to update in the data array
+ * @param value A value indicating if a given style should be added or removed.
+ *   The expected shape of `value` is an object where keys are style names and the values
+ *   are their corresponding values to set. If value is falsy than the style is remove. An absence
+ *   of style does not cause that style to be removed. `NO_CHANGE` implies that no update should be
+ *   performed.
+ */
+export function elementStyle<T>(
+    index: number, value: {[styleName: string]: any} | NO_CHANGE): void {
+  if (value !== NO_CHANGE) {
+    // TODO: This is a naive implementation which simply writes value to the `style`. In the future
+    // we will add logic here which would work with the animation code.
+    const lElement = data[index] as LElementNode;
+    if (isProceduralRenderer(renderer)) {
+      renderer.setProperty(lElement.native, 'style', value);
+    } else {
+      const style = lElement.native['style'];
+      for (let i = 0, keys = Object.keys(value); i < keys.length; i++) {
+        const styleName: string = keys[i];
+        const styleValue: any = (value as any)[styleName];
+        styleValue == null ? style.removeProperty(styleName) :
+                             style.setProperty(styleName, styleValue);
+      }
+    }
+  }
+}
+
 
 
 //////////////////////////
@@ -1171,8 +1261,9 @@ export function containerRefreshEnd(): void {
   container.native = undefined;
   ngDevMode && assertNodeType(container, LNodeFlags.Container);
   const nextIndex = container.data.nextIndex;
+
+  // remove extra views at the end of the container
   while (nextIndex < container.data.views.length) {
-    // remove extra view.
     removeView(container, nextIndex);
   }
 }
@@ -1190,6 +1281,35 @@ function refreshDynamicChildren() {
 }
 
 /**
+ * Looks for a view with a given view block id inside a provided LContainer.
+ * Removes views that need to be deleted in the process.
+ *
+ * @param containerNode where to search for views
+ * @param startIdx starting index in the views array to search from
+ * @param viewBlockId exact view block id to look for
+ * @returns index of a found view or -1 if not found
+ */
+function scanForView(
+    containerNode: LContainerNode, startIdx: number, viewBlockId: number): LViewNode|null {
+  const views = containerNode.data.views;
+  for (let i = startIdx; i < views.length; i++) {
+    const viewAtPositionId = views[i].data.id;
+    if (viewAtPositionId === viewBlockId) {
+      return views[i];
+    } else if (viewAtPositionId < viewBlockId) {
+      // found a view that should not be at this position - remove
+      removeView(containerNode, i);
+    } else {
+      // found a view with id grater than the one we are searching for
+      // which means that required view doesn't exist and can't be found at
+      // later positions in the views array - stop the search here
+      break;
+    }
+  }
+  return null;
+}
+
+/**
  * Marks the start of an embedded view.
  *
  * @param viewBlockId The ID of this view
@@ -1200,17 +1320,13 @@ export function embeddedViewStart(viewBlockId: number): boolean {
       (isParent ? previousOrParentNode : previousOrParentNode.parent !) as LContainerNode;
   ngDevMode && assertNodeType(container, LNodeFlags.Container);
   const lContainer = container.data;
-  const views = lContainer.views;
+  const existingViewNode = scanForView(container, lContainer.nextIndex, viewBlockId);
 
-  const existingView: LViewNode|false =
-      !creationMode && lContainer.nextIndex < views.length && views[lContainer.nextIndex];
-  let viewUpdateMode = existingView && viewBlockId === (existingView as LViewNode).data.id;
-
-  if (viewUpdateMode) {
-    previousOrParentNode = views[lContainer.nextIndex++];
+  if (existingViewNode) {
+    previousOrParentNode = existingViewNode;
     ngDevMode && assertNodeType(previousOrParentNode, LNodeFlags.View);
     isParent = true;
-    enterView((existingView as LViewNode).data, previousOrParentNode as LViewNode);
+    enterView((existingViewNode as LViewNode).data, existingViewNode as LViewNode);
   } else {
     // When we create a new LView, we always reset the state of the instructions.
     const newView = createLView(
@@ -1221,10 +1337,9 @@ export function embeddedViewStart(viewBlockId: number): boolean {
     }
 
     enterView(newView, createLNode(null, LNodeFlags.View, null, newView));
-    lContainer.nextIndex++;
   }
 
-  return !viewUpdateMode;
+  return !existingViewNode;
 }
 
 /**
@@ -1250,21 +1365,21 @@ function getOrCreateEmbeddedTView(viewIndex: number, parent: LContainerNode): TV
 
 /** Marks the end of an embedded view. */
 export function embeddedViewEnd(): void {
+  refreshChildComponents();
   isParent = false;
   const viewNode = previousOrParentNode = currentView.node as LViewNode;
-  const container = previousOrParentNode.parent as LContainerNode;
-  if (container) {
+  const containerNode = previousOrParentNode.parent as LContainerNode;
+  if (containerNode) {
     ngDevMode && assertNodeType(viewNode, LNodeFlags.View);
-    ngDevMode && assertNodeType(container, LNodeFlags.Container);
-    const containerState = container.data;
-    const previousView = containerState.nextIndex <= containerState.views.length ?
-        containerState.views[containerState.nextIndex - 1] as LViewNode :
-        null;
-    const viewIdChanged = previousView == null ? true : previousView.data.id !== viewNode.data.id;
+    ngDevMode && assertNodeType(containerNode, LNodeFlags.Container);
+    const lContainer = containerNode.data;
 
-    if (viewIdChanged) {
-      insertView(container, viewNode, containerState.nextIndex - 1);
+    if (creationMode) {
+      // it is a new view, insert it into collection of views for a given container
+      insertView(containerNode, viewNode, lContainer.nextIndex);
     }
+
+    lContainer.nextIndex++;
   }
   leaveView(currentView !.parent !);
   ngDevMode && assertEqual(isParent, false, 'isParent');
@@ -1274,7 +1389,7 @@ export function embeddedViewEnd(): void {
 /////////////
 
 /**
- * Refreshes the directive, triggering init and content hooks.
+ * Refreshes the directive.
  *
  * When it is a component, it also enters the component's view and processes it to update bindings,
  * queries, etc.
@@ -1282,11 +1397,7 @@ export function embeddedViewEnd(): void {
  * @param directiveIndex
  * @param elementIndex
  */
-export function directiveRefresh<T>(directiveIndex: number, elementIndex: number): void {
-  if (!checkNoChangesMode) {
-    executeInitHooks(currentView, currentView.tView, creationMode);
-    executeContentHooks(currentView, currentView.tView, creationMode);
-  }
+export function componentRefresh<T>(directiveIndex: number, elementIndex: number): void {
   const template = (tData[directiveIndex] as ComponentDef<T>).template;
   if (template != null) {
     ngDevMode && assertDataInRange(elementIndex);
@@ -1649,8 +1760,9 @@ function detectChangesInternal<T>(hostView: LView, hostNode: LElementNode, compo
   if (template != null) {
     try {
       template(component, creationMode);
-    } finally {
       refreshDynamicChildren();
+      refreshChildComponents();
+    } finally {
       leaveView(oldView);
     }
   }
