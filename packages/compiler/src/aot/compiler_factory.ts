@@ -70,7 +70,6 @@ export function createAotCompiler(
   const config = new CompilerConfig({
     defaultEncapsulation: ViewEncapsulation.Emulated,
     useJit: false,
-    enableLegacyTemplate: options.enableLegacyTemplate === true,
     missingTranslation: options.missingTranslation,
     preserveWhitespaces: options.preserveWhitespaces,
     strictInjectionParameters: options.strictInjectionParameters,
@@ -91,7 +90,8 @@ export function createAotCompiler(
   const compiler = new AotCompiler(
       config, options, compilerHost, staticReflector, resolver, tmplParser,
       new StyleCompiler(urlResolver), viewCompiler, typeCheckCompiler,
-      new NgModuleCompiler(staticReflector), new InjectableCompiler(staticReflector),
-      new TypeScriptEmitter(), summaryResolver, symbolResolver);
+      new NgModuleCompiler(staticReflector),
+      new InjectableCompiler(staticReflector, !!options.enableIvy), new TypeScriptEmitter(),
+      summaryResolver, symbolResolver);
   return {compiler, reflector: staticReflector};
 }

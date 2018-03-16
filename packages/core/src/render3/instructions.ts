@@ -462,15 +462,16 @@ export function elementStart(
     ngDevMode &&
         assertNull(currentView.bindingStartIndex, 'elements should be created before any bindings');
     const isHostElement = typeof nameOrComponentType !== 'string';
-    // MEGAMORPHIC: `ngComponentDef` is a megamorphic property access here.
-    // This is OK, since we will refactor this code and store the result in `TView.data`
-    // which means that we will be reading this value only once. We are trading clean/simple
-    // template
-    // code for slight startup(first run) performance. (No impact on subsequent runs)
-    // TODO(misko): refactor this to store the `ComponentDef` in `TView.data`.
-    const hostComponentDef =
-        isHostElement ? (nameOrComponentType as ComponentType<any>).ngComponentDef : null;
-    const name = isHostElement ? hostComponentDef !.tag : nameOrComponentType as string;
+
+    let hostComponentDef: ComponentDef<any>|null = null;
+    let name = nameOrComponentType as string;
+    if (isHostElement) {
+      hostComponentDef = currentView.tView.firstTemplatePass ?
+          (nameOrComponentType as ComponentType<any>).ngComponentDef :
+          tData[index + 1] as ComponentDef<any>;
+      name = hostComponentDef !.tag;
+    }
+
     if (name === null) {
       // TODO: future support for nameless components.
       throw 'for now name is required';
@@ -490,13 +491,11 @@ export function elementStart(
       // accessed through their containers because they may be removed / re-added later.
       node = createLNode(index, LNodeFlags.Element, native, componentView);
 
-      // TODO(misko): implement code which caches the local reference resolution
-      const queryName: string|null = hack_findQueryName(hostComponentDef, localRefs, '');
-
       if (node.tNode == null) {
+        const localNames: (string | number)[]|null =
+            findMatchingLocalNames(hostComponentDef, localRefs, isHostElement ? index + 1 : -1, '');
         ngDevMode && assertDataInRange(index - 1);
-        node.tNode = tData[index] =
-            createTNode(name, attrs || null, null, hostComponentDef ? null : queryName);
+        node.tNode = tData[index] = createTNode(name, attrs || null, null, localNames);
       }
 
       if (attrs) setUpAttributes(native, attrs);
@@ -507,7 +506,7 @@ export function elementStart(
         // is not guaranteed. Must be refactored to take it into account.
         const instance = hostComponentDef.n();
         storeComponentIndex(index);
-        directiveCreate(++index, instance, hostComponentDef, queryName);
+        directiveCreate(++index, instance, hostComponentDef, null);
         initChangeDetectorIfExisting(node.nodeInjector, instance);
       }
       hack_declareDirectives(index, directiveTypes, localRefs);
@@ -531,8 +530,8 @@ export function initChangeDetectorIfExisting(injector: LInjector | null, instanc
 }
 
 /**
- * This function instantiates a directive with a correct queryName. It is a hack since we should
- * compute the query value only once and store it with the template (rather than on each invocation)
+ * This function instantiates the given directives. It is a hack since it assumes the directives
+ * come in the correct order for DI.
  */
 function hack_declareDirectives(
     index: number, directiveTypes: DirectiveType<any>[] | null | undefined,
@@ -541,38 +540,39 @@ function hack_declareDirectives(
     // TODO(mhevery): This assumes that the directives come in correct order, which
     // is not guaranteed. Must be refactored to take it into account.
     for (let i = 0; i < directiveTypes.length; i++) {
-      // MEGAMORPHIC: `ngDirectiveDef` is a megamorphic property access here.
-      // This is OK, since we will refactor this code and store the result in `TView.data`
-      // which means that we will be reading this value only once. We are trading clean/simple
-      // template
-      // code for slight startup(first run) performance. (No impact on subsequent runs)
-      // TODO(misko): refactor this to store the `DirectiveDef` in `TView.data`.
+      index++;
       const directiveType = directiveTypes[i];
-      const directiveDef = directiveType.ngDirectiveDef;
-      directiveCreate(
-          ++index, directiveDef.n(), directiveDef, hack_findQueryName(directiveDef, localRefs));
+      const directiveDef = currentView.tView.firstTemplatePass ? directiveType.ngDirectiveDef :
+                                                                 tData[index] as DirectiveDef<any>;
+      const localNames = currentView.tView.firstTemplatePass ?
+          findMatchingLocalNames(directiveDef, localRefs, index) :
+          null;
+
+      directiveCreate(index, directiveDef.n(), directiveDef, localNames);
     }
   }
 }
 
 /**
- * This function returns the queryName for a directive. It is a hack since we should
- * compute the query value only once and store it with the template (rather than on each invocation)
+ * Finds any local names that match the given directive's exportAs and returns them with directive
+ * index. If the directiveDef is null, it matches against the default '' value instead of
+ * exportAs.
  */
-function hack_findQueryName(
-    directiveDef: DirectiveDef<any>| null, localRefs: string[] | null | undefined,
-    defaultExport?: string, ): string|null {
+function findMatchingLocalNames(
+    directiveDef: DirectiveDef<any>| null, localRefs: string[] | null | undefined, index: number,
+    defaultExport?: string): (string | number)[]|null {
   const exportAs = directiveDef && directiveDef.exportAs || defaultExport;
+  let matches: (string | number)[]|null = null;
   if (exportAs != null && localRefs) {
     for (let i = 0; i < localRefs.length; i = i + 2) {
       const local = localRefs[i];
       const toExportAs = localRefs[i | 1];
       if (toExportAs === exportAs || toExportAs === defaultExport) {
-        return local;
+        (matches || (matches = [])).push(local, index);
       }
     }
   }
-  return null;
+  return matches;
 }
 
 /**
@@ -804,15 +804,16 @@ export function elementProperty<T>(
  * @param tagName
  * @param attrs
  * @param data
+ * @param localNames A list of local names and their matching indices
  * @returns the TNode object
  */
 function createTNode(
     tagName: string | null, attrs: string[] | null, data: TContainer | null,
-    localName: string | null): TNode {
+    localNames: (string | number)[] | null): TNode {
   return {
     tagName: tagName,
     attrs: attrs,
-    localNames: localName ? [localName, -1] : null,
+    localNames: localNames,
     initialInputs: undefined,
     inputs: undefined,
     outputs: undefined,
@@ -1046,10 +1047,11 @@ export function textBinding<T>(index: number, value: T | NO_CHANGE): void {
  *        be created or retrieved out of order.
  * @param directive The directive instance.
  * @param directiveDef DirectiveDef object which contains information about the template.
- * @param queryName Name under which the query can retrieve the directive instance.
+ * @param localNames Names under which a query can retrieve the directive instance
  */
 export function directiveCreate<T>(
-    index: number, directive: T, directiveDef: DirectiveDef<T>, queryName?: string | null): T {
+    index: number, directive: T, directiveDef: DirectiveDef<T>,
+    localNames?: (string | number)[] | null): T {
   let instance;
   ngDevMode &&
       assertNull(currentView.bindingStartIndex, 'directives should be created before any bindings');
@@ -1071,10 +1073,10 @@ export function directiveCreate<T>(
 
   if (index >= tData.length) {
     tData[index] = directiveDef !;
-    if (queryName) {
+    if (localNames) {
       ngDevMode && assertNotNull(previousOrParentNode.tNode, 'previousOrParentNode.tNode');
       const tNode = previousOrParentNode !.tNode !;
-      (tNode.localNames || (tNode.localNames = [])).push(queryName, index);
+      tNode.localNames = tNode.localNames ? tNode.localNames.concat(localNames) : localNames;
     }
   }
 
@@ -1200,9 +1202,8 @@ export function container(
   const node = createLNode(index, LNodeFlags.Container, undefined, lContainer);
 
   if (node.tNode == null) {
-    // TODO(misko): implement queryName caching
-    const queryName: string|null = hack_findQueryName(null, localRefs, '');
-    node.tNode = tData[index] = createTNode(tagName || null, attrs || null, [], queryName || null);
+    const localNames: (string | number)[]|null = findMatchingLocalNames(null, localRefs, -1, '');
+    node.tNode = tData[index] = createTNode(tagName || null, attrs || null, [], localNames);
   }
 
   // Containers are added to the current view tree instead of their embedded views
