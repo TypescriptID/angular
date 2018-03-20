@@ -28,7 +28,7 @@
     rxjs "^5.5.6"
 
 "@angular/animations@file:../../dist/packages-dist/animations":
-  version "6.0.0-beta.7-2027ec8895"
+  version "6.0.0-beta.7-54970933bb"
   dependencies:
     tslib "^1.9.0"
 
@@ -97,12 +97,12 @@
     node-sass "^4.7.2"
 
 "@angular/common@file:../../dist/packages-dist/common":
-  version "6.0.0-beta.7-2027ec8895"
+  version "6.0.0-beta.7-54970933bb"
   dependencies:
     tslib "^1.9.0"
 
 "@angular/compiler-cli@file:../../dist/packages-dist/compiler-cli":
-  version "6.0.0-beta.7-2027ec8895"
+  version "6.0.0-beta.7-54970933bb"
   dependencies:
     chokidar "^1.4.2"
     minimist "^1.2.0"
@@ -110,40 +110,40 @@
     tsickle "^0.27.2"
 
 "@angular/compiler@file:../../dist/packages-dist/compiler":
-  version "6.0.0-beta.7-2027ec8895"
+  version "6.0.0-beta.7-54970933bb"
   dependencies:
     tslib "^1.9.0"
 
 "@angular/core@file:../../dist/packages-dist/core":
-  version "6.0.0-beta.7-2027ec8895"
+  version "6.0.0-beta.7-54970933bb"
   dependencies:
     tslib "^1.9.0"
 
 "@angular/forms@file:../../dist/packages-dist/forms":
-  version "6.0.0-beta.7-2027ec8895"
+  version "6.0.0-beta.7-54970933bb"
   dependencies:
     tslib "^1.9.0"
 
 "@angular/http@file:../../dist/packages-dist/http":
-  version "6.0.0-beta.7-2027ec8895"
+  version "6.0.0-beta.7-54970933bb"
   dependencies:
     tslib "^1.9.0"
 
 "@angular/language-service@file:../../dist/packages-dist/language-service":
-  version "6.0.0-beta.7-2027ec8895"
+  version "6.0.0-beta.7-54970933bb"
 
 "@angular/platform-browser-dynamic@file:../../dist/packages-dist/platform-browser-dynamic":
-  version "6.0.0-beta.7-2027ec8895"
+  version "6.0.0-beta.7-54970933bb"
   dependencies:
     tslib "^1.9.0"
 
 "@angular/platform-browser@file:../../dist/packages-dist/platform-browser":
-  version "6.0.0-beta.7-2027ec8895"
+  version "6.0.0-beta.7-54970933bb"
   dependencies:
     tslib "^1.9.0"
 
 "@angular/router@file:../../dist/packages-dist/router":
-  version "6.0.0-beta.7-2027ec8895"
+  version "6.0.0-beta.7-54970933bb"
   dependencies:
     tslib "^1.9.0"
 
@@ -1496,9 +1496,12 @@ copy-webpack-plugin@^4.1.1:
     pify "^3.0.0"
     serialize-javascript "^1.4.0"
 
-core-js@^2.2.0, core-js@^2.4.0, core-js@^2.4.1:
+core-js@^2.2.0, core-js@^2.4.0:
   version "2.5.3"
   resolved "https://registry.yarnpkg.com/core-js/-/core-js-2.5.3.tgz#8acc38345824f16d8365b7c9b4259168e8ed603e"
+
+"core-js@file:../../node_modules/core-js":
+  version "2.5.1"
 
 core-object@^3.1.0:
   version "3.1.5"
@@ -5946,6 +5949,11 @@ rxjs@^5.5.6:
   dependencies:
     symbol-observable "1.0.1"
 
+"rxjs@file:../../node_modules/rxjs":
+  version "6.0.0-alpha.3"
+  dependencies:
+    tslib "^1.9.0"
+
 safe-buffer@5.1.1, safe-buffer@^5.0.1, safe-buffer@^5.1.0, safe-buffer@^5.1.1, safe-buffer@~5.1.0, safe-buffer@~5.1.1:
   version "5.1.1"
   resolved "https://registry.yarnpkg.com/safe-buffer/-/safe-buffer-5.1.1.tgz#893312af69b2123def71f57889001671eeb2c853"
@@ -7540,6 +7548,5 @@ yn@^2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/yn/-/yn-2.0.0.tgz#e5adabc8acf408f6385fc76495684c88e6af689a"
 
-zone.js@^0.8.19:
+"zone.js@file:../../node_modules/zone.js":
   version "0.8.20"
-  resolved "https://registry.yarnpkg.com/zone.js/-/zone.js-0.8.20.tgz#a218c48db09464b19ff6fc8f0d4bb5b1046e185d"
