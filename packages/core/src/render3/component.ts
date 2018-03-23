@@ -16,7 +16,7 @@ import {assertComponentType, assertNotNull} from './assert';
 import {queueInitHooks, queueLifecycleHooks} from './hooks';
 import {CLEAN_PROMISE, _getComponentHostLElementNode, baseDirectiveCreate, createLView, createTView, enterView, getRootView, hostElement, initChangeDetectorIfExisting, locateHostElement, renderComponentOrTemplate} from './instructions';
 import {ComponentDef, ComponentType} from './interfaces/definition';
-import {LElementNode} from './interfaces/node';
+import {LElementNode, TNodeFlags} from './interfaces/node';
 import {RElement, RendererFactory3, domRendererFactory3} from './interfaces/renderer';
 import {LView, LViewFlags, RootContext} from './interfaces/view';
 import {stringify} from './util';
@@ -140,9 +140,9 @@ export function renderComponent<T>(
   try {
     // Create element node at index 0 in data array
     elementNode = hostElement(hostNode, componentDef);
-    // Create directive instance with factory() and store at index 1 in data array (el is 0)
+    // Create directive instance with factory() and store at index 0 in directives array
     component = rootContext.component =
-        baseDirectiveCreate(1, componentDef.factory(), componentDef) as T;
+        baseDirectiveCreate(0, componentDef.factory(), componentDef) as T;
     initChangeDetectorIfExisting(elementNode.nodeInjector, component);
   } finally {
     // We must not use leaveView here because it will set creationMode to false too early,
@@ -172,9 +172,9 @@ export function renderComponent<T>(
 export function LifecycleHooksFeature(component: any, def: ComponentDef<any>): void {
   const elementNode = _getComponentHostLElementNode(component);
 
-  // Root component is always created at dir index 1, after host element at 0
-  queueInitHooks(1, def.onInit, def.doCheck, elementNode.view.tView);
-  queueLifecycleHooks(elementNode.flags, elementNode.view);
+  // Root component is always created at dir index 0
+  queueInitHooks(0, def.onInit, def.doCheck, elementNode.view.tView);
+  queueLifecycleHooks(elementNode.tNode !.flags, elementNode.view);
 }
 
 /**
