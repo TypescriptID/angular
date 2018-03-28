@@ -198,7 +198,7 @@ def ngc_compile_action(ctx, label, inputs, outputs, messages_out, tsconfig_file,
                arguments = (_EXTRA_NODE_OPTIONS_FLAGS +
                             [tsconfig_file.path] +
                             # The base path is bin_dir because of the way the ngc
-                            # compiler host is configured. So we need to explictily
+                            # compiler host is configured. So we need to explicitly
                             # point to genfiles/ to redirect the output.
                             ["../genfiles/" + messages_out[0].short_path]),
                progress_message = "Extracting Angular 2 messages (ng_xi18n)",
@@ -280,6 +280,7 @@ def _write_bundle_index(ctx):
   tsconfig = dict(tsc_wrapped_tsconfig(ctx, ctx.files.srcs, ctx.files.srcs), **{
     "angularCompilerOptions": {
       "flatModuleOutFile": flat_module_out_file,
+      "flatModulePrivateSymbolPrefix": "_".join([ctx.workspace_name] + ctx.label.package.split("/") + [ctx.label.name, ""]),
     },
   })
   if not ctx.attr.module_name:
