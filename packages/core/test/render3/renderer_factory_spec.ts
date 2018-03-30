@@ -31,7 +31,7 @@ describe('renderer factory lifecycle', () => {
   class SomeComponent {
     static ngComponentDef = defineComponent({
       type: SomeComponent,
-      selector: [[['some-component'], null]],
+      selectors: [['some-component']],
       template: function(ctx: SomeComponent, cm: boolean) {
         logs.push('component');
         if (cm) {
@@ -45,7 +45,7 @@ describe('renderer factory lifecycle', () => {
   class SomeComponentWhichThrows {
     static ngComponentDef = defineComponent({
       type: SomeComponentWhichThrows,
-      selector: [[['some-component-with-Error'], null]],
+      selectors: [['some-component-with-Error']],
       template: function(ctx: SomeComponentWhichThrows, cm: boolean) {
         throw(new Error('SomeComponentWhichThrows threw'));
       },
@@ -88,7 +88,7 @@ describe('renderer factory lifecycle', () => {
   });
 
   it('should work with a template', () => {
-    renderToHtml(Template, {}, [], rendererFactory);
+    renderToHtml(Template, {}, null, null, rendererFactory);
     expect(logs).toEqual(['create', 'begin', 'function', 'end']);
 
     logs = [];
@@ -97,7 +97,7 @@ describe('renderer factory lifecycle', () => {
   });
 
   it('should work with a template which contains a component', () => {
-    renderToHtml(TemplateWithComponent, {}, defs, rendererFactory);
+    renderToHtml(TemplateWithComponent, {}, defs, null, rendererFactory);
     expect(logs).toEqual(
         ['create', 'begin', 'function_with_component', 'create', 'component', 'end']);
 
@@ -124,7 +124,7 @@ describe('animation renderer factory', () => {
   class SomeComponent {
     static ngComponentDef = defineComponent({
       type: SomeComponent,
-      selector: [[['some-component'], null]],
+      selectors: [['some-component']],
       template: function(ctx: SomeComponent, cm: boolean) {
         if (cm) {
           text(0, 'foo');
@@ -141,7 +141,7 @@ describe('animation renderer factory', () => {
     }
     static ngComponentDef = defineComponent({
       type: SomeComponentWithAnimation,
-      selector: [[['some-component'], null]],
+      selectors: [['some-component']],
       template: function(ctx: SomeComponentWithAnimation, cm: boolean) {
         if (cm) {
           elementStart(0, 'div');

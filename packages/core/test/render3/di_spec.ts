@@ -11,7 +11,7 @@ import {ChangeDetectorRef, ElementRef, TemplateRef, ViewContainerRef} from '@ang
 import {defineComponent} from '../../src/render3/definition';
 import {InjectFlags, bloomAdd, bloomFindPossibleInjector, getOrCreateNodeInjector, injectAttribute} from '../../src/render3/di';
 import {NgOnChangesFeature, PublicFeature, defineDirective, directiveInject, injectChangeDetectorRef, injectElementRef, injectTemplateRef, injectViewContainerRef} from '../../src/render3/index';
-import {bind, container, containerRefreshEnd, containerRefreshStart, createLNode, createLView, createTView, elementEnd, elementStart, embeddedViewEnd, embeddedViewStart, enterView, interpolation2, leaveView, load, loadDirective, projection, projectionDef, text, textBinding} from '../../src/render3/instructions';
+import {bind, container, containerRefreshEnd, containerRefreshStart, createLNode, createLView, createTView, elementEnd, elementStart, embeddedViewEnd, embeddedViewStart, enterView, interpolation2, leaveView, load, projection, projectionDef, text, textBinding} from '../../src/render3/instructions';
 import {LInjector} from '../../src/render3/interfaces/injector';
 import {LNodeType} from '../../src/render3/interfaces/node';
 import {LViewFlags} from '../../src/render3/interfaces/view';
@@ -24,18 +24,23 @@ describe('di', () => {
     it('should create directive with no deps', () => {
       class Directive {
         value: string = 'Created';
-        static ngDirectiveDef = defineDirective(
-            {type: Directive, selector: [[['', 'dir', ''], null]], factory: () => new Directive});
+        static ngDirectiveDef = defineDirective({
+          type: Directive,
+          selectors: [['', 'dir', '']],
+          factory: () => new Directive,
+          exportAs: 'dir'
+        });
       }
 
+      /** <div dir #dir="dir"> {{ dir.value }}  </div> */
       function Template(ctx: any, cm: boolean) {
         if (cm) {
-          elementStart(0, 'div', ['dir', '']);
-          { text(1); }
+          elementStart(0, 'div', ['dir', ''], ['dir', 'dir']);
+          { text(2); }
           elementEnd();
         }
-        // TODO: remove loadDirective when removing directive references
-        textBinding(1, bind(loadDirective<Directive>(0).value));
+        const tmp = load(1) as any;
+        textBinding(2, bind(tmp.value));
       }
 
       expect(renderToHtml(Template, {}, [Directive.ngDirectiveDef]))
@@ -49,7 +54,7 @@ describe('di', () => {
         value: string = 'A';
         static ngDirectiveDef = defineDirective({
           type: DirectiveA,
-          selector: [[['', 'dirA', ''], null]],
+          selectors: [['', 'dirA', '']],
           factory: () => new DirectiveA,
           features: [PublicFeature]
         });
@@ -59,7 +64,7 @@ describe('di', () => {
         value: string = 'B';
         static ngDirectiveDef = defineDirective({
           type: DirectiveB,
-          selector: [[['', 'dirB', ''], null]],
+          selectors: [['', 'dirB', '']],
           factory: () => new DirectiveB,
           features: [PublicFeature]
         });
@@ -70,23 +75,29 @@ describe('di', () => {
         constructor(a: DirectiveA, b: DirectiveB) { this.value = a.value + b.value; }
         static ngDirectiveDef = defineDirective({
           type: DirectiveC,
-          selector: [[['', 'dirC', ''], null]],
-          factory: () => new DirectiveC(directiveInject(DirectiveA), directiveInject(DirectiveB))
+          selectors: [['', 'dirC', '']],
+          factory: () => new DirectiveC(directiveInject(DirectiveA), directiveInject(DirectiveB)),
+          exportAs: 'dirC'
         });
       }
 
+      /**
+       * <div dirA>
+       *  <span dirB dirC #dir="dirC"> {{ dir.value }} </span>
+       * </div>
+       */
       function Template(ctx: any, cm: boolean) {
         if (cm) {
           elementStart(0, 'div', ['dirA', '']);
           {
-            elementStart(1, 'span', ['dirB', '', 'dirC', '']);
-            { text(2); }
+            elementStart(1, 'span', ['dirB', '', 'dirC', ''], ['dir', 'dirC']);
+            { text(3); }
             elementEnd();
           }
           elementEnd();
         }
-        // TODO: remove loadDirective when removing directive references
-        textBinding(2, bind(loadDirective<DirectiveC>(2).value));
+        const tmp = load(2) as any;
+        textBinding(3, bind(tmp.value));
       }
 
       const defs =
@@ -105,9 +116,10 @@ describe('di', () => {
         }
         static ngDirectiveDef = defineDirective({
           type: Directive,
-          selector: [[['', 'dir', ''], null]],
+          selectors: [['', 'dir', '']],
           factory: () => new Directive(injectElementRef()),
-          features: [PublicFeature]
+          features: [PublicFeature],
+          exportAs: 'dir'
         });
       }
 
@@ -118,22 +130,27 @@ describe('di', () => {
         }
         static ngDirectiveDef = defineDirective({
           type: DirectiveSameInstance,
-          selector: [[['', 'dirSame', ''], null]],
-          factory: () => new DirectiveSameInstance(injectElementRef(), directiveInject(Directive))
+          selectors: [['', 'dirSame', '']],
+          factory: () => new DirectiveSameInstance(injectElementRef(), directiveInject(Directive)),
+          exportAs: 'dirSame'
         });
       }
 
+      /**
+       * <div dir dirSame #dirSame="dirSame" #dir="dir">
+       *   {{ dir.value }} - {{ dirSame.value }}
+       * </div>
+       */
       function Template(ctx: any, cm: boolean) {
         if (cm) {
-          elementStart(0, 'div', ['dir', '', 'dirSame', '']);
-          { text(1); }
+          elementStart(0, 'div', ['dir', '', 'dirSame', ''], ['dirSame', 'dirSame', 'dir', 'dir']);
+          { text(3); }
           elementEnd();
         }
-        // TODO: remove loadDirective when removing directive references
-        textBinding(
-            1, interpolation2(
-                   '', loadDirective<Directive>(0).value, '-',
-                   loadDirective<DirectiveSameInstance>(1).value, ''));
+
+        const tmp1 = load(1) as any;
+        const tmp2 = load(2) as any;
+        textBinding(3, interpolation2('', tmp2.value, '-', tmp1.value, ''));
       }
 
       const defs = [Directive.ngDirectiveDef, DirectiveSameInstance.ngDirectiveDef];
@@ -151,9 +168,10 @@ describe('di', () => {
         }
         static ngDirectiveDef = defineDirective({
           type: Directive,
-          selector: [[['', 'dir', ''], null]],
+          selectors: [['', 'dir', '']],
           factory: () => new Directive(injectTemplateRef()),
-          features: [PublicFeature]
+          features: [PublicFeature],
+          exportAs: 'dir'
         });
       }
 
@@ -164,22 +182,26 @@ describe('di', () => {
         }
         static ngDirectiveDef = defineDirective({
           type: DirectiveSameInstance,
-          selector: [[['', 'dirSame', ''], null]],
-          factory: () => new DirectiveSameInstance(injectTemplateRef(), directiveInject(Directive))
+          selectors: [['', 'dirSame', '']],
+          factory: () => new DirectiveSameInstance(injectTemplateRef(), directiveInject(Directive)),
+          exportAs: 'dirSame'
         });
       }
 
-
+      /**
+       * <ng-template dir dirSame #dir="dir" #dirSame="dirSame">
+       *   {{ dir.value }} - {{ dirSame.value }}
+       * </ng-template>
+       */
       function Template(ctx: any, cm: any) {
         if (cm) {
-          container(0, function() {}, undefined, ['dir', '', 'dirSame', '']);
-          text(1);
+          container(0, function() {
+          }, undefined, ['dir', '', 'dirSame', ''], ['dir', 'dir', 'dirSame', 'dirSame']);
+          text(3);
         }
-        // TODO: remove loadDirective when removing directive references
-        textBinding(
-            1, interpolation2(
-                   '', loadDirective<Directive>(0).value, '-',
-                   loadDirective<DirectiveSameInstance>(1).value, ''));
+        const tmp1 = load(1) as any;
+        const tmp2 = load(2) as any;
+        textBinding(3, interpolation2('', tmp1.value, '-', tmp2.value, ''));
       }
 
       const defs = [Directive.ngDirectiveDef, DirectiveSameInstance.ngDirectiveDef];
@@ -196,9 +218,10 @@ describe('di', () => {
         }
         static ngDirectiveDef = defineDirective({
           type: Directive,
-          selector: [[['', 'dir', ''], null]],
+          selectors: [['', 'dir', '']],
           factory: () => new Directive(injectViewContainerRef()),
-          features: [PublicFeature]
+          features: [PublicFeature],
+          exportAs: 'dir'
         });
       }
 
@@ -209,23 +232,28 @@ describe('di', () => {
         }
         static ngDirectiveDef = defineDirective({
           type: DirectiveSameInstance,
-          selector: [[['', 'dirSame', ''], null]],
+          selectors: [['', 'dirSame', '']],
           factory:
-              () => new DirectiveSameInstance(injectViewContainerRef(), directiveInject(Directive))
+              () => new DirectiveSameInstance(injectViewContainerRef(), directiveInject(Directive)),
+          exportAs: 'dirSame'
         });
       }
 
+      /**
+       * <div dir dirSame #dir="dir" #dirSame="dirSame">
+       *   {{ dir.value }} - {{ dirSame.value }}
+       * </div>
+       */
       function Template(ctx: any, cm: boolean) {
         if (cm) {
-          elementStart(0, 'div', ['dir', '', 'dirSame', '']);
-          { text(1); }
+          elementStart(0, 'div', ['dir', '', 'dirSame', ''], ['dir', 'dir', 'dirSame', 'dirSame']);
+          { text(3); }
           elementEnd();
         }
-        // TODO: remove loadDirective when removing directive references
-        textBinding(
-            1, interpolation2(
-                   '', loadDirective<Directive>(0).value, '-',
-                   loadDirective<DirectiveSameInstance>(1).value, ''));
+
+        const tmp1 = load(1) as any;
+        const tmp2 = load(2) as any;
+        textBinding(3, interpolation2('', tmp1.value, '-', tmp2.value, ''));
       }
 
       const defs = [Directive.ngDirectiveDef, DirectiveSameInstance.ngDirectiveDef];
@@ -244,7 +272,7 @@ describe('di', () => {
 
       static ngComponentDef = defineComponent({
         type: MyComp,
-        selector: [[['my-comp'], null]],
+        selectors: [['my-comp']],
         factory: () => comp = new MyComp(injectChangeDetectorRef()),
         template: function(ctx: MyComp, cm: boolean) {
           if (cm) {
@@ -260,7 +288,7 @@ describe('di', () => {
       constructor(public cdr: ChangeDetectorRef) { this.value = (cdr.constructor as any).name; }
       static ngDirectiveDef = defineDirective({
         type: Directive,
-        selector: [[['', 'dir', ''], null]],
+        selectors: [['', 'dir', '']],
         factory: () => dir = new Directive(injectChangeDetectorRef()),
         features: [PublicFeature],
         exportAs: 'dir'
@@ -272,7 +300,7 @@ describe('di', () => {
 
       static ngDirectiveDef = defineDirective({
         type: DirectiveSameInstance,
-        selector: [[['', 'dirSame', ''], null]],
+        selectors: [['', 'dirSame', '']],
         factory: () => dirSameInstance = new DirectiveSameInstance(injectChangeDetectorRef())
       });
     }
@@ -291,7 +319,7 @@ describe('di', () => {
 
       static ngDirectiveDef = defineDirective({
         type: IfDirective,
-        selector: [[['', 'myIf', ''], null]],
+        selectors: [['', 'myIf', '']],
         factory: () => new IfDirective(injectTemplateRef(), injectViewContainerRef()),
         inputs: {myIf: 'myIf'},
         features: [PublicFeature, NgOnChangesFeature()]
@@ -310,10 +338,10 @@ describe('di', () => {
         if (cm) {
           elementStart(0, 'my-comp', ['dir', '', 'dirSame', ''], ['dir', 'dir']);
           elementEnd();
-          text(1);
+          text(2);
         }
-        // TODO: remove loadDirective when removing directive references
-        textBinding(1, bind(loadDirective<Directive>(1).value));
+        const tmp = load(1) as any;
+        textBinding(2, bind(tmp.value));
       }, defs);
 
       const app = renderComponent(MyApp);
@@ -332,17 +360,17 @@ describe('di', () => {
 
         static ngComponentDef = defineComponent({
           type: MyApp,
-          selector: [[['my-app'], null]],
+          selectors: [['my-app']],
           factory: () => new MyApp(injectChangeDetectorRef()),
           /** <div dir dirSameInstance #dir="dir"> {{ dir.value }} </div> */
           template: function(ctx: any, cm: boolean) {
             if (cm) {
               elementStart(0, 'div', ['dir', '', 'dirSame', ''], ['dir', 'dir']);
-              { text(1); }
+              { text(2); }
               elementEnd();
             }
-            // TODO: remove loadDirective when removing directive references
-            textBinding(1, bind(loadDirective<Directive>(0).value));
+            const tmp = load(1) as any;
+            textBinding(2, bind(tmp.value));
           },
           directiveDefs: defs
         });
@@ -362,7 +390,7 @@ describe('di', () => {
 
         static ngComponentDef = defineComponent({
           type: MyApp,
-          selector: [[['my-app'], null]],
+          selectors: [['my-app']],
           factory: () => new MyApp(injectChangeDetectorRef()),
           /**
            * <my-comp>
@@ -378,10 +406,10 @@ describe('di', () => {
                 elementEnd();
               }
               elementEnd();
-              text(2);
+              text(3);
             }
-            // TODO: remove loadDirective when removing directive references
-            textBinding(2, bind(loadDirective<Directive>(1).value));
+            const tmp = load(2) as any;
+            textBinding(3, bind(tmp.value));
           },
           directiveDefs: defs
         });
@@ -404,7 +432,7 @@ describe('di', () => {
 
         static ngComponentDef = defineComponent({
           type: MyApp,
-          selector: [[['my-app'], null]],
+          selectors: [['my-app']],
           factory: () => new MyApp(injectChangeDetectorRef()),
           /**
            * % if (showing) {
@@ -420,11 +448,11 @@ describe('di', () => {
               if (ctx.showing) {
                 if (embeddedViewStart(0)) {
                   elementStart(0, 'div', ['dir', '', 'dirSame', ''], ['dir', 'dir']);
-                  { text(1); }
+                  { text(2); }
                   elementEnd();
                 }
-                // TODO: remove loadDirective when removing directive references
-                textBinding(1, bind(loadDirective<Directive>(0).value));
+                const tmp = load(1) as any;
+                textBinding(2, bind(tmp.value));
               }
               embeddedViewEnd();
             }
@@ -450,7 +478,7 @@ describe('di', () => {
 
         static ngComponentDef = defineComponent({
           type: MyApp,
-          selector: [[['my-app'], null]],
+          selectors: [['my-app']],
           factory: () => new MyApp(injectChangeDetectorRef()),
           /** <div *myIf="showing" dir dirSameInstance #dir="dir"> {{ dir.value }} </div> */
           template: function(ctx: MyApp, cm: boolean) {
@@ -463,11 +491,11 @@ describe('di', () => {
             function C1(ctx1: any, cm1: boolean) {
               if (cm1) {
                 elementStart(0, 'div', ['dir', '', 'dirSame', ''], ['dir', 'dir']);
-                { text(1); }
+                { text(2); }
                 elementEnd();
               }
-              // TODO: remove loadDirective when removing directive references
-              textBinding(1, bind(loadDirective<Directive>(0).value));
+              const tmp = load(1) as any;
+              textBinding(2, bind(tmp.value));
             }
           },
           directiveDefs: defs
@@ -579,7 +607,7 @@ describe('di', () => {
 
           static ngComponentDef = defineComponent({
             type: MyApp,
-            selector: [[['my-app'], null]],
+            selectors: [['my-app']],
             factory: () => new MyApp(
                          directiveInject(String as any, InjectFlags.Default, 'DefaultValue')),
             template: () => null
@@ -598,9 +626,10 @@ describe('di', () => {
         constructor(public parent: any) { this.value = (parent.constructor as any).name; }
         static ngDirectiveDef = defineDirective({
           type: ChildDirective,
-          selector: [[['', 'childDir', ''], null]],
+          selectors: [['', 'childDir', '']],
           factory: () => new ChildDirective(directiveInject(ParentDirective)),
-          features: [PublicFeature]
+          features: [PublicFeature],
+          exportAs: 'childDir'
         });
       }
 
@@ -608,13 +637,21 @@ describe('di', () => {
         value: boolean;
         constructor(parent: any, child: ChildDirective) { this.value = parent === child.parent; }
         static ngDirectiveDef = defineDirective({
-          selector: [[['', 'child2Dir', ''], null]],
+          selectors: [['', 'child2Dir', '']],
           type: Child2Directive,
           factory: () => new Child2Directive(
-                       directiveInject(ParentDirective), directiveInject(ChildDirective))
+                       directiveInject(ParentDirective), directiveInject(ChildDirective)),
+          exportAs: 'child2Dir'
         });
       }
 
+      /**
+       * <div parentDir>
+       *    <span childDir child2Dir #child1="childDir" #child2="child2Dir">
+       *      {{ child1.value }} - {{ child2.value }}
+       *    </span>
+       * </div>
+       */
       function Template(ctx: any, cm: boolean) {
         if (cm) {
           elementStart(0, 'div', ['parentDir', '']);
@@ -624,15 +661,15 @@ describe('di', () => {
         containerRefreshStart(1);
         {
           if (embeddedViewStart(0)) {
-            elementStart(0, 'span', ['childDir', '', 'child2Dir', '']);
-            { text(1); }
+            elementStart(
+                0, 'span', ['childDir', '', 'child2Dir', ''],
+                ['child1', 'childDir', 'child2', 'child2Dir']);
+            { text(3); }
             elementEnd();
           }
-          // TODO: remove loadDirective when removing directive references
-          textBinding(
-              1, interpolation2(
-                     '', loadDirective<ChildDirective>(0).value, '-',
-                     loadDirective<Child2Directive>(1).value, ''));
+          const tmp1 = load(1) as any;
+          const tmp2 = load(2) as any;
+          textBinding(3, interpolation2('', tmp1.value, '-', tmp2.value, ''));
           embeddedViewEnd();
         }
         containerRefreshEnd();
@@ -654,7 +691,7 @@ describe('di', () => {
   describe('getOrCreateNodeInjector', () => {
     it('should handle initial undefined state', () => {
       const contentView =
-          createLView(-1, null !, createTView(null), null, null, LViewFlags.CheckAlways);
+          createLView(-1, null !, createTView(null, null), null, null, LViewFlags.CheckAlways);
       const oldView = enterView(contentView, null !);
       try {
         const parent = createLNode(0, LNodeType.Element, null, null);

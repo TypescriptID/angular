@@ -20,14 +20,37 @@ load("//packages/bazel/src:esm5.bzl", "esm5_outputs_aspect", "ESM5Info")
 
 # TODO(alexeagle): this list is incomplete, add more as material ramps up
 WELL_KNOWN_GLOBALS = {
-    "@angular/core": "ng.core",
+    "@angular/upgrade": "ng.upgrade",
+    "@angular/upgrade/static": "ng.upgrade.static",
+    "@angular/forms": "ng.forms",
     "@angular/core/testing": "ng.core.testing",
+    "@angular/core": "ng.core",
+    "@angular/platform-server/testing": "ng.platformServer.testing",
+    "@angular/platform-server": "ng.platformServer",
+    "@angular/platform-webworker-dynamic": "ng.platformWebworkerDynamic",
+    "@angular/platform-webworker": "ng.platformWebworker",
+    "@angular/common/testing": "ng.common.testing",
     "@angular/common": "ng.common",
-    "@angular/compiler": "ng.compiler",
-    "@angular/compiler/testing": "ng.compiler.testing",
-    "@angular/platform-browser": "ng.platformBrowser",
-    "@angular/platform-browser/testing": "ng.platformBrowser.testing",
+    "@angular/common/http/testing": "ng.common.http.testing",
+    "@angular/common/http": "ng.common.http",
+    "@angular/elements": "ng.elements",
+    "@angular/http/testing": "ng.http.testing",
+    "@angular/http": "ng.http",
+    "@angular/platform-browser-dynamic/testing": "ng.platformBrowserDynamic.testing",
     "@angular/platform-browser-dynamic": "ng.platformBrowserDynamic",
+    "@angular/compiler/testing": "ng.compiler.testing",
+    "@angular/compiler": "ng.compiler",
+    "@angular/animations": "ng.animations",
+    "@angular/animations/browser/testing": "ng.animations.browser.testing",
+    "@angular/animations/browser": "ng.animations.browser",
+    "@angular/service-worker/config": "ng.serviceWorker.config",
+    "@angular/service-worker": "ng.serviceWorker",
+    "@angular/platform-browser/testing": "ng.platformBrowser.testing",
+    "@angular/platform-browser": "ng.platformBrowser",
+    "@angular/platform-browser/animations": "ng.platformBrowser.animations",
+    "@angular/router/upgrade": "ng.router.upgrade",
+    "@angular/router/testing": "ng.router.testing",
+    "@angular/router": "ng.router",
     "rxjs": "rxjs",
     "rxjs/operators": "rxjs.operators",
 }
@@ -50,15 +73,19 @@ def _rollup(ctx, rollup_config, entry_point, inputs, js_output, format = "es"):
   args.add("--sourcemap")
 
   globals = dict(WELL_KNOWN_GLOBALS, **ctx.attr.globals)
-  externals = globals.keys()
   args.add("--external")
-  args.add(externals, join_with=",")
+  args.add(globals.keys(), join_with=",")
+
+  args.add("--globals")
+  args.add(["%s:%s" % g for g in globals.items()], join_with=",")
+
+  args.add("--silent")
 
   other_inputs = [ctx.executable._rollup, rollup_config]
   if ctx.file.license_banner:
     other_inputs.append(ctx.file.license_banner)
-  if ctx.file.stamp_data:
-    other_inputs.append(ctx.file.stamp_data)
+  if ctx.version_file:
+    other_inputs.append(ctx.version_file)
   ctx.actions.run(
       progress_message = "Angular Packaging: rolling up %s" % ctx.label.name,
       mnemonic = "AngularPackageRollup",
@@ -122,28 +149,31 @@ def _ng_package_impl(ctx):
   # - ng_module rules in the deps (they have an "angular" provider)
   # - in this package or a subpackage
   # - those that have a module_name attribute (they produce flat module metadata)
-  entry_points = []
   flat_module_metadata = []
-  for dep in ctx.attr.deps:
-    if dep.label.package.startswith(ctx.label.package):
-      entry_points.append(dep.label.package[len(ctx.label.package) + 1:])
-      if hasattr(dep, "angular") and dep.angular.flat_module_metadata:
-        flat_module_metadata.append(dep.angular.flat_module_metadata)
+  deps_in_package = [d for d in ctx.attr.deps if d.label.package.startswith(ctx.label.package)]
+  for dep in deps_in_package:
+    # Intentionally evaluates to empty string for the main entry point
+    entry_point = dep.label.package[len(ctx.label.package) + 1:]
+    if hasattr(dep, "angular") and hasattr(dep.angular, "flat_module_metadata"):
+      flat_module_metadata.append(dep.angular.flat_module_metadata)
+      flat_module_out_file = dep.angular.flat_module_metadata.flat_module_out_file + ".js"
+    else:
+      # fallback to a reasonable default
+      flat_module_out_file = "index.js"
 
-  for entry_point in entry_points:
     es2015_entry_point = "/".join([p for p in [
         ctx.bin_dir.path,
         ctx.label.package,
         ctx.label.name + ".es6",
         ctx.label.package,
         entry_point,
-        "index.js",
+        flat_module_out_file,
     ] if p])
 
     es5_entry_point = "/".join([p for p in [
         ctx.label.package,
         entry_point,
-        "index.js",
+        flat_module_out_file,
     ] if p])
 
     if entry_point:
@@ -192,10 +222,10 @@ def _ng_package_impl(ctx):
   # Marshal the metadata into a JSON string so we can parse the data structure
   # in the TypeScript program easily.
   metadata_arg = {}
-  for m in depset(transitive = flat_module_metadata).to_list():
-    packager_inputs.extend([m.index_file, m.typings_file, m.metadata_file])
+  for m in flat_module_metadata:
+    packager_inputs.extend([m.metadata_file])
     metadata_arg[m.module_name] = {
-        "index": m.index_file.path,
+        "index": m.typings_file.path.replace(".d.ts", ".js"),
         "typings": m.typings_file.path,
         "metadata": m.metadata_file.path,
     }
@@ -226,7 +256,7 @@ def _ng_package_impl(ctx):
     packager_args.add("")
 
   ctx.actions.run(
-      progress_message = "Angular Packaging: building npm package for %s" % ctx.label.name,
+      progress_message = "Angular Packaging: building npm package %s" % str(ctx.label),
       mnemonic = "AngularPackage",
       inputs = packager_inputs,
       outputs = [npm_package_directory],

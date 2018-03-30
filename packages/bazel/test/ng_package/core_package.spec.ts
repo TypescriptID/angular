@@ -107,6 +107,9 @@ describe('@angular/core ng_package', () => {
         expect(shx.cat('fesm2015/core.js'))
             .toMatch(/@license Angular v\d+\.\d+\.\d+(?!-PLACEHOLDER)/);
       });
+
+      it('should have been built from the generated bundle index',
+         () => { expect(shx.cat('fesm2015/core.js')).toMatch('export {.*makeParamDecorator'); });
     });
 
 
@@ -122,6 +125,17 @@ describe('@angular/core ng_package', () => {
       it('should not be processed by tsickle', () => {
         expect(shx.cat('fesm5/core.js')).not.toContain('@fileoverview added by tsickle');
       });
+
+      it('should have annotations rather than decorators',
+         () => { expect(shx.cat('fesm5/core.js')).not.toContain('__decorate'); });
+
+      it('should load tslib from external bundle', () => {
+        expect(shx.cat('fesm5/core.js')).not.toContain('function __extends');
+        expect(shx.cat('fesm5/core.js')).toMatch('import {.*__extends');
+      });
+
+      it('should have been built from the generated bundle index',
+         () => { expect(shx.cat('fesm5/core.js')).toMatch('export {.*makeParamDecorator'); });
     });
 
 
