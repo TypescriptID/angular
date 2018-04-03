@@ -30,7 +30,7 @@ describe('pipe', () => {
     person = new Person();
   });
 
-  const defs = () => [CountingPipe.ngPipeDef, MultiArgPipe.ngPipeDef, CountingImpurePipe.ngPipeDef];
+  const pipes = () => [CountingPipe, MultiArgPipe, CountingImpurePipe];
 
   it('should support interpolation', () => {
     function Template(person: Person, cm: boolean) {
@@ -42,7 +42,7 @@ describe('pipe', () => {
     }
 
     person.init('bob', null);
-    expect(renderToHtml(Template, person, null, defs)).toEqual('bob state:0');
+    expect(renderToHtml(Template, person, null, pipes)).toEqual('bob state:0');
   });
 
   it('should throw if pipe is not found', () => {
@@ -52,7 +52,7 @@ describe('pipe', () => {
         pipe(1, 'randomPipeName');
       }
       textBinding(0, interpolation1('', pipeBind1(1, ctx.value), ''));
-    }, [], defs);
+    }, [], pipes);
 
     expect(() => {
       const fixture = new ComponentFixture(App);
@@ -96,7 +96,7 @@ describe('pipe', () => {
       elementProperty(0, 'elprop', bind(pipeBind1(1, ctx)));
       directive = loadDirective(0);
     }
-    renderToHtml(Template, 'a', [MyDir.ngDirectiveDef], [DoublePipe.ngPipeDef]);
+    renderToHtml(Template, 'a', [MyDir], [DoublePipe]);
     expect(directive !.dirProp).toEqual('aa');
   });
 
@@ -111,7 +111,7 @@ describe('pipe', () => {
     }
 
     person.init('value', new Address('two'));
-    expect(renderToHtml(Template, person, null, defs)).toEqual('value one two default');
+    expect(renderToHtml(Template, person, null, pipes)).toEqual('value one two default');
   });
 
   it('should support calling pipes with different number of arguments', () => {
@@ -126,7 +126,7 @@ describe('pipe', () => {
     }
 
     person.init('value', null);
-    expect(renderToHtml(Template, person, null, defs)).toEqual('value a b default 0 1 2');
+    expect(renderToHtml(Template, person, null, pipes)).toEqual('value a b default 0 1 2');
   });
 
   it('should do nothing when no change', () => {
@@ -150,11 +150,11 @@ describe('pipe', () => {
       elementProperty(0, 'someProp', bind(pipeBind1(1, 'Megatron')));
     }
 
-    renderToHtml(Template, person, null, [IdentityPipe.ngPipeDef], rendererFactory2);
+    renderToHtml(Template, person, null, [IdentityPipe], rendererFactory2);
     expect(renderLog.log).toEqual(['someProp=Megatron']);
 
     renderLog.clear();
-    renderToHtml(Template, person, null, defs, rendererFactory2);
+    renderToHtml(Template, person, null, pipes, rendererFactory2);
     expect(renderLog.log).toEqual([]);
   });
 
@@ -170,61 +170,18 @@ describe('pipe', () => {
 
       // change from undefined -> null
       person.name = null;
-      expect(renderToHtml(Template, person, null, defs)).toEqual('null state:0');
-      expect(renderToHtml(Template, person, null, defs)).toEqual('null state:0');
+      expect(renderToHtml(Template, person, null, pipes)).toEqual('null state:0');
+      expect(renderToHtml(Template, person, null, pipes)).toEqual('null state:0');
 
       // change from null -> some value
       person.name = 'bob';
-      expect(renderToHtml(Template, person, null, defs)).toEqual('bob state:1');
-      expect(renderToHtml(Template, person, null, defs)).toEqual('bob state:1');
+      expect(renderToHtml(Template, person, null, pipes)).toEqual('bob state:1');
+      expect(renderToHtml(Template, person, null, pipes)).toEqual('bob state:1');
 
       // change from some value -> some other value
       person.name = 'bart';
-      expect(renderToHtml(Template, person, null, defs)).toEqual('bart state:2');
-      expect(renderToHtml(Template, person, null, defs)).toEqual('bart state:2');
-    });
-
-    it('should cache pure pipes', () => {
-      function Template(ctx: any, cm: boolean) {
-        let pipeInstance: any;
-        if (cm) {
-          elementStart(0, 'div');
-          pipeInstance = pipe(1, 'countingPipe');
-          elementEnd();
-          elementStart(2, 'div');
-          pipe(3, 'countingPipe', pipeInstance);
-          elementEnd();
-          container(4);
-        }
-        elementProperty(0, 'someProp', bind(pipeBind1(1, true)));
-        elementProperty(2, 'someProp', bind(pipeBind1(3, true)));
-        pipeInstances.push(load<CountingPipe>(1), load(3));
-        containerRefreshStart(4);
-        {
-          for (let i of [1, 2]) {
-            let cm1 = embeddedViewStart(1);
-            {
-              if (cm1) {
-                elementStart(0, 'div');
-                pipe(1, 'countingPipe', pipeInstance);
-                elementEnd();
-              }
-              elementProperty(0, 'someProp', bind(pipeBind1(1, true)));
-              pipeInstances.push(load<CountingPipe>(1));
-            }
-            embeddedViewEnd();
-          }
-        }
-        containerRefreshEnd();
-      }
-
-      const pipeInstances: CountingPipe[] = [];
-      renderToHtml(Template, {}, null, defs, rendererFactory2);
-      expect(pipeInstances.length).toEqual(4);
-      expect(pipeInstances[0]).toBeAnInstanceOf(CountingPipe);
-      expect(pipeInstances[1]).toBe(pipeInstances[0]);
-      expect(pipeInstances[2]).toBe(pipeInstances[0]);
-      expect(pipeInstances[3]).toBe(pipeInstances[0]);
+      expect(renderToHtml(Template, person, null, pipes)).toEqual('bart state:2');
+      expect(renderToHtml(Template, person, null, pipes)).toEqual('bart state:2');
     });
   });
 
@@ -239,8 +196,8 @@ describe('pipe', () => {
       }
 
       person.name = 'bob';
-      expect(renderToHtml(Template, person, null, defs)).toEqual('bob state:0');
-      expect(renderToHtml(Template, person, null, defs)).toEqual('bob state:1');
+      expect(renderToHtml(Template, person, null, pipes)).toEqual('bob state:0');
+      expect(renderToHtml(Template, person, null, pipes)).toEqual('bob state:1');
     });
 
     it('should not cache impure pipes', () => {
@@ -277,7 +234,7 @@ describe('pipe', () => {
       }
 
       const pipeInstances: CountingImpurePipe[] = [];
-      renderToHtml(Template, {}, null, defs, rendererFactory2);
+      renderToHtml(Template, {}, null, pipes, rendererFactory2);
       expect(pipeInstances.length).toEqual(4);
       expect(pipeInstances[0]).toBeAnInstanceOf(CountingImpurePipe);
       expect(pipeInstances[1]).toBeAnInstanceOf(CountingImpurePipe);
@@ -324,23 +281,23 @@ describe('pipe', () => {
         }
         containerRefreshEnd();
       }
-      const defs = [PipeWithOnDestroy.ngPipeDef];
+      const pipes = [PipeWithOnDestroy];
 
       person.age = 25;
-      renderToHtml(Template, person, null, defs);
+      renderToHtml(Template, person, null, pipes);
 
       person.age = 15;
-      renderToHtml(Template, person, null, defs);
+      renderToHtml(Template, person, null, pipes);
       expect(log).toEqual(['pipeWithOnDestroy - ngOnDestroy']);
 
       log = [];
       person.age = 30;
-      renderToHtml(Template, person, null, defs);
+      renderToHtml(Template, person, null, pipes);
       expect(log).toEqual([]);
 
       log = [];
       person.age = 10;
-      renderToHtml(Template, person, null, defs);
+      renderToHtml(Template, person, null, pipes);
       expect(log).toEqual(['pipeWithOnDestroy - ngOnDestroy']);
     });
   });
