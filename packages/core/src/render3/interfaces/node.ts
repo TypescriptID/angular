@@ -42,6 +42,9 @@ export const enum TNodeFlags {
   /** How far to shift the flags to get the number of directives on this node */
   SIZE_SHIFT = 1,
 
+  /** The amount to add to flags to increment size when each directive is added */
+  SIZE_SKIP = 2,
+
   /** Mask to get the number of directives on this node */
   SIZE_MASK = 0b00000000000000000001111111111110
 }
@@ -130,6 +133,11 @@ export interface LNode {
    * data about this node.
    */
   tNode: TNode|null;
+
+  /**
+   * A pointer to a LContainerNode created by directives requesting ViewContainerRef
+   */
+  dynamicLContainerNode: LContainerNode|null;
 }
 
 
@@ -158,6 +166,7 @@ export interface LTextNode extends LNode {
   /** LTextNodes can be inside LElementNodes or inside LViewNodes. */
   readonly parent: LElementNode|LViewNode;
   readonly data: null;
+  dynamicLContainerNode: null;
 }
 
 /** Abstract node which contains root nodes of a view. */
@@ -169,6 +178,7 @@ export interface LViewNode extends LNode {
   /**  LViewNodes can only be added to LContainerNodes. */
   readonly parent: LContainerNode|null;
   readonly data: LView;
+  dynamicLContainerNode: null;
 }
 
 /** Abstract node container which contains other views. */
@@ -199,6 +209,7 @@ export interface LProjectionNode extends LNode {
 
   /** Projections can be added to elements or views. */
   readonly parent: LElementNode|LViewNode;
+  dynamicLContainerNode: null;
 }
 
 /**

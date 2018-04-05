@@ -39,14 +39,16 @@ export class NullInjector implements Injector {
 }
 
 /**
- * @whatItDoes Injector interface
- * @howToUse
+ * @usageNotes
  * ```
  * const injector: Injector = ...;
  * injector.get(...);
  * ```
  *
  * @description
+ *
+ * Concrete injectors implement this interface.
+ *
  * For more details, see the {@linkDocs guide/dependency-injection "Dependency Injection Guide"}.
  *
  * ### Example

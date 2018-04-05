@@ -19,7 +19,7 @@ import {EmbeddedViewRef as viewEngine_EmbeddedViewRef, ViewRef as viewEngine_Vie
 import {Type} from '../type';
 
 import {assertLessThan, assertNotNull} from './assert';
-import {addToViewTree, assertPreviousIsParent, createLContainer, createLNodeObject, getDirectiveInstance, getPreviousOrParentNode, getRenderer, isComponent, renderEmbeddedTemplate} from './instructions';
+import {addToViewTree, assertPreviousIsParent, createLContainer, createLNodeObject, getDirectiveInstance, getPreviousOrParentNode, getRenderer, isComponent, renderEmbeddedTemplate, resolveDirective} from './instructions';
 import {ComponentTemplate, DirectiveDef} from './interfaces/definition';
 import {LInjector} from './interfaces/injector';
 import {LContainerNode, LElementNode, LNode, LNodeType, LViewNode, TNodeFlags} from './interfaces/node';
@@ -404,8 +404,15 @@ export function getOrCreateInjectable<T>(
         }
       }
 
-      // If we *didn't* find the directive for the token from the candidate injector, we had a false
-      // positive. Traverse up the tree and continue.
+      // If we *didn't* find the directive for the token and we are searching the current node's
+      // injector, it's possible the directive is on this node and hasn't been created yet.
+      let instance: T|null;
+      if (injector === di && (instance = searchMatchesQueuedForCreation<T>(node, token))) {
+        return instance;
+      }
+
+      // The def wasn't found anywhere on this node, so it might be a false positive.
+      // Traverse up the tree and continue searching.
       injector = injector.parent;
     }
   }
@@ -413,6 +420,19 @@ export function getOrCreateInjectable<T>(
   // No directive was found for the given token.
   // TODO: implement optional, check-self, and check-parent.
   throw createInjectionError('Not found', token);
+}
+
+function searchMatchesQueuedForCreation<T>(node: LNode, token: any): T|null {
+  const matches = node.view.tView.currentMatches;
+  if (matches) {
+    for (let i = 0; i < matches.length; i += 2) {
+      const def = matches[i] as DirectiveDef<any>;
+      if (def.type === token) {
+        return resolveDirective(def, i + 1, matches, node.view.tView);
+      }
+    }
+  }
+  return null;
 }
 
 /**
@@ -556,9 +576,11 @@ export function getOrCreateContainerRef(di: LInjector): viewEngine_ViewContainer
 
     ngDevMode && assertNodeOfPossibleTypes(vcRefHost, LNodeType.Container, LNodeType.Element);
 
-    const lContainer = createLContainer(vcRefHost.parent !, vcRefHost.view, undefined, vcRefHost);
+    const lContainer = createLContainer(vcRefHost.parent !, vcRefHost.view);
     const lContainerNode: LContainerNode = createLNodeObject(
         LNodeType.Container, vcRefHost.view, vcRefHost.parent !, undefined, lContainer, null);
+
+    vcRefHost.dynamicLContainerNode = lContainerNode;
 
     addToViewTree(vcRefHost.view, lContainer);
 
@@ -608,6 +630,10 @@ class ViewContainerRef implements viewEngine_ViewContainerRef {
     const adjustedIdx = this._adjustAndAssertIndex(index);
 
     insertView(this._lContainerNode, lViewNode, adjustedIdx);
+    // invalidate cache of next sibling RNode (we do similar operation in the containerRefreshEnd
+    // instruction)
+    this._lContainerNode.native = undefined;
+
     this._viewRefs.splice(adjustedIdx, 0, viewRef);
 
     (lViewNode as{parent: LNode}).parent = this._lContainerNode;
