@@ -311,6 +311,7 @@ export function removeView(container: LContainerNode, removeIndex: number): LVie
     setViewNext(views[removeIndex - 1], viewNode.next);
   }
   views.splice(removeIndex, 1);
+  viewNode.next = null;
   destroyViewTree(viewNode.data);
   addRemoveViewFromContainer(container, viewNode, false);
   // Notify query that view has been removed
@@ -488,5 +489,8 @@ export function appendProjectedNode(
     for (let i = 0; i < views.length; i++) {
       addRemoveViewFromContainer(node as LContainerNode, views[i], true, null);
     }
+  }
+  if (node.dynamicLContainerNode) {
+    node.dynamicLContainerNode.data.renderParent = currentParent as LElementNode;
   }
 }
