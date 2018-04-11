@@ -1710,12 +1710,14 @@ export function projection(
   }
 
   if (canInsertNativeNode(currentParent, currentView)) {
+    ngDevMode && assertNodeType(currentParent, LNodeType.Element);
     // process each node in the list of projected nodes:
     let nodeToProject: LNode|null = node.data.head;
     const lastNodeToProject = node.data.tail;
     while (nodeToProject) {
       appendProjectedNode(
-          nodeToProject as LTextNode | LElementNode | LContainerNode, currentParent, currentView);
+          nodeToProject as LTextNode | LElementNode | LContainerNode, currentParent as LElementNode,
+          currentView);
       nodeToProject = nodeToProject === lastNodeToProject ? null : nodeToProject.pNextOrParent;
     }
   }
@@ -1787,7 +1789,7 @@ export function wrapListenerWithDirtyLogic(view: LView, listenerFn: (e?: any) =>
  */
 export function wrapListenerWithDirtyAndDefault(
     view: LView, listenerFn: (e?: any) => any): EventListener {
-  return function(e: Event) {
+  return function wrapListenerIn_markViewDirty(e: Event) {
     markViewDirty(view);
     if (listenerFn(e) === false) {
       e.preventDefault();
