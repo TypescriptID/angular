@@ -242,16 +242,16 @@ export declare class DefaultIterableDiffer<V> implements IterableDiffer<V>, Iter
 
 /** @experimental */
 export declare function defineInjectable<T>(opts: {
-    providedIn?: Type<any> | 'root' | null;
+    providedIn?: Type<any> | 'root' | 'any' | null;
     factory: () => T;
-}): InjectableDef<T>;
+}): never;
 
 /** @experimental */
 export declare function defineInjector(options: {
     factory: () => any;
     providers?: any[];
     imports?: any[];
-}): InjectorDef<any>;
+}): never;
 
 /** @experimental */
 export declare function destroyPlatform(): void;
@@ -336,9 +336,8 @@ export interface HostDecorator {
 export declare const HostListener: HostListenerDecorator;
 
 /** @experimental */
-export declare function inject<T>(token: Type<T> | InjectionToken<T>, notFoundValue?: undefined, flags?: InjectFlags): T;
-export declare function inject<T>(token: Type<T> | InjectionToken<T>, notFoundValue: T, flags?: InjectFlags): T;
-export declare function inject<T>(token: Type<T> | InjectionToken<T>, notFoundValue: null, flags?: InjectFlags): T | null;
+export declare function inject<T>(token: Type<T> | InjectionToken<T>): T;
+export declare function inject<T>(token: Type<T> | InjectionToken<T>, flags?: InjectFlags): T | null;
 
 export declare const Inject: InjectDecorator;
 
@@ -356,17 +355,11 @@ export interface InjectableDecorator {
 }
 
 /** @experimental */
-export interface InjectableDef<T> {
-    factory: () => T;
-    providedIn: InjectorType<any> | 'root' | 'any' | null;
-}
-
-/** @experimental */
 export declare type InjectableProvider = ValueSansProvider | ExistingSansProvider | StaticClassSansProvider | ConstructorSansProvider | FactorySansProvider | ClassSansProvider;
 
 /** @experimental */
 export interface InjectableType<T> extends Type<T> {
-    ngInjectableDef: InjectableDef<T>;
+    ngInjectableDef: never;
 }
 
 export interface InjectDecorator {
@@ -376,13 +369,15 @@ export interface InjectDecorator {
 
 export declare const enum InjectFlags {
     Default = 0,
-    SkipSelf = 1,
+    Host = 1,
     Self = 2,
+    SkipSelf = 4,
+    Optional = 8,
 }
 
 export declare class InjectionToken<T> {
     protected _desc: string;
-    readonly ngInjectableDef: InjectableDef<T> | undefined;
+    readonly ngInjectableDef: never | undefined;
     constructor(_desc: string, options?: {
         providedIn?: Type<any> | 'root' | null;
         factory: () => T;
@@ -395,7 +390,7 @@ export declare abstract class Injector {
     /** @deprecated */ abstract get(token: any, notFoundValue?: any): any;
     static NULL: Injector;
     static THROW_IF_NOT_FOUND: Object;
-    static ngInjectableDef: InjectableDef<Injector>;
+    static ngInjectableDef: never;
     /** @deprecated */ static create(providers: StaticProvider[], parent?: Injector): Injector;
     static create(options: {
         providers: StaticProvider[];
@@ -408,21 +403,8 @@ export declare abstract class Injector {
 export declare const INJECTOR: InjectionToken<Injector>;
 
 /** @experimental */
-export interface InjectorDef<T> {
-    factory: () => T;
-    imports: (InjectorType<any> | InjectorTypeWithProviders<any>)[];
-    providers: (Type<any> | ValueProvider | ExistingProvider | FactoryProvider | ConstructorProvider | StaticClassProvider | ClassProvider | any[])[];
-}
-
-/** @experimental */
 export interface InjectorType<T> extends Type<T> {
-    ngInjectorDef: InjectorDef<T>;
-}
-
-/** @experimental */
-export interface InjectorTypeWithProviders<T> {
-    ngModule: InjectorType<T>;
-    providers?: (Type<any> | ValueProvider | ExistingProvider | FactoryProvider | ConstructorProvider | StaticClassProvider | ClassProvider | any[])[];
+    ngInjectorDef: never;
 }
 
 export declare const Input: InputDecorator;
@@ -460,6 +442,7 @@ export declare class IterableDiffers {
     /** @deprecated */ factories: IterableDifferFactory[];
     constructor(factories: IterableDifferFactory[]);
     find(iterable: any): IterableDifferFactory;
+    static ngInjectableDef: never;
     static create(factories: IterableDifferFactory[], parent?: IterableDiffers): IterableDiffers;
     static extend(factories: IterableDifferFactory[]): StaticProvider;
 }
