@@ -279,16 +279,16 @@
     "name": "BoundDirectivePropertyAst"
   },
   {
+    "name": "BoundElementProperty"
+  },
+  {
     "name": "BoundElementPropertyAst"
   },
   {
     "name": "BoundEventAst"
   },
   {
-    "name": "BoundProperty"
-  },
-  {
-    "name": "BoundPropertyType"
+    "name": "BoundPropertyMapping"
   },
   {
     "name": "BoundTextAst"
@@ -1005,9 +1005,6 @@
     "name": "LiteralPrimitive"
   },
   {
-    "name": "MAX_LENGTH_STRINGIFY"
-  },
-  {
     "name": "MEANING_SEPARATOR"
   },
   {
@@ -1239,6 +1236,18 @@
     "name": "ParseTreeResult"
   },
   {
+    "name": "ParsedEvent"
+  },
+  {
+    "name": "ParsedProperty"
+  },
+  {
+    "name": "ParsedPropertyType"
+  },
+  {
+    "name": "ParsedVariable"
+  },
+  {
     "name": "Parser"
   },
   {
@@ -1336,9 +1345,6 @@
   },
   {
     "name": "RecursiveAstVisitor$1"
-  },
-  {
-    "name": "RecursiveTemplateAstVisitor"
   },
   {
     "name": "RefCountOperator$1"
@@ -2200,9 +2206,6 @@
   },
   {
     "name": "_global"
-  },
-  {
-    "name": "_isAnimationLabel"
   },
   {
     "name": "_isClosingComment"
@@ -3228,6 +3231,9 @@
     "name": "invalid"
   },
   {
+    "name": "isAnimationLabel"
+  },
+  {
     "name": "isArray"
   },
   {
@@ -3595,6 +3601,9 @@
   },
   {
     "name": "pipeBinding"
+  },
+  {
+    "name": "pipeBindingIdentifiers"
   },
   {
     "name": "pipeDef"
