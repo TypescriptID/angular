@@ -65,6 +65,7 @@ export class Identifiers {
   static pipeBindV: o.ExternalReference = {name: 'ɵpbV', moduleName: CORE};
 
   static load: o.ExternalReference = {name: 'ɵld', moduleName: CORE};
+  static loadDirective: o.ExternalReference = {name: 'ɵd', moduleName: CORE};
 
   static pipe: o.ExternalReference = {name: 'ɵPp', moduleName: CORE};
 
@@ -120,4 +121,7 @@ export class Identifiers {
   static NgOnChangesFeature: o.ExternalReference = {name: 'ɵNgOnChangesFeature', moduleName: CORE};
 
   static listener: o.ExternalReference = {name: 'ɵL', moduleName: CORE};
+
+  // Reserve slots for pure functions
+  static reserveSlots: o.ExternalReference = {name: 'ɵrS', moduleName: CORE};
 }
