@@ -1203,6 +1203,9 @@
     "name": "PLATFORM_INITIALIZER"
   },
   {
+    "name": "PLATFORM_SERVER_ID"
+  },
+  {
     "name": "PLURAL_CASES"
   },
   {
@@ -2071,9 +2074,6 @@
   },
   {
     "name": "__extends$7"
-  },
-  {
-    "name": "__global"
   },
   {
     "name": "__read"
@@ -3349,6 +3349,9 @@
   },
   {
     "name": "isObservable"
+  },
+  {
+    "name": "isPlatformServer"
   },
   {
     "name": "isPrefixEnd"

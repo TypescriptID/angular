@@ -9,7 +9,7 @@
 import {assertNotNull} from './assert';
 import {callHooks} from './hooks';
 import {LContainer, unusedValueExportToPlacateAjd as unused1} from './interfaces/container';
-import {LContainerNode, LElementNode, LNode, LProjectionNode, LTextNode, LViewNode, TNodeType, unusedValueExportToPlacateAjd as unused2} from './interfaces/node';
+import {LContainerNode, LElementNode, LNode, LProjectionNode, LTextNode, LViewNode, TNodeFlags, TNodeType, unusedValueExportToPlacateAjd as unused2} from './interfaces/node';
 import {unusedValueExportToPlacateAjd as unused3} from './interfaces/projection';
 import {ProceduralRenderer3, RElement, RNode, RText, Renderer3, isProceduralRenderer, unusedValueExportToPlacateAjd as unused4} from './interfaces/renderer';
 import {HookData, LView, LViewOrLContainer, TView, unusedValueExportToPlacateAjd as unused5} from './interfaces/view';
@@ -52,7 +52,7 @@ function findNextRNodeSibling(node: LNode | null, stopNode: LNode | null): RElem
         }
         currentSibling = getNextLNode(currentSibling);
       }
-      const parentNode = currentNode.parent;
+      const parentNode = getParentLNode(currentNode);
       currentNode = null;
       if (parentNode) {
         const parentType = parentNode.tNode.type;
@@ -82,6 +82,17 @@ export function getChildLNode(node: LNode): LNode|null {
     return view.data[node.tNode.child.index as number];
   }
   return null;
+}
+
+/** Retrieves the parent LNode of a given node. */
+export function getParentLNode(node: LElementNode | LTextNode | LProjectionNode): LElementNode|
+    LViewNode;
+export function getParentLNode(node: LViewNode): LContainerNode|null;
+export function getParentLNode(node: LNode): LElementNode|LContainerNode|LViewNode|null;
+export function getParentLNode(node: LNode): LElementNode|LContainerNode|LViewNode|null {
+  if (node.tNode.index === null) return null;
+  const parent = node.tNode.parent;
+  return parent ? node.view.data[parent.index as number] : node.view.node;
 }
 
 /**
@@ -122,7 +133,7 @@ function getNextOrParentSiblingNode(initialNode: LNode, rootNode: LNode): LNode|
   while (node && !nextNode) {
     // if node.pNextOrParent is not null here, it is not the next node
     // (because, at this point, nextNode is null, so it is the parent)
-    node = node.pNextOrParent || node.parent;
+    node = node.pNextOrParent || getParentLNode(node);
     if (node === rootNode) {
       return null;
     }
@@ -204,8 +215,15 @@ export function addRemoveViewFromContainer(
               renderer.insertBefore(parent, node.native !, beforeNode as RNode | null) :
               parent.insertBefore(node.native !, beforeNode as RNode | null, true);
         } else {
-          isProceduralRenderer(renderer) ? renderer.removeChild(parent as RElement, node.native !) :
-                                           parent.removeChild(node.native !);
+          if (isProceduralRenderer(renderer)) {
+            renderer.removeChild(parent as RElement, node.native !);
+            if (renderer.destroyNode) {
+              ngDevMode && ngDevMode.rendererDestroyNode++;
+              renderer.destroyNode(node.native !);
+            }
+          } else {
+            parent.removeChild(node.native !);
+          }
         }
         nextNode = getNextLNode(node);
       } else if (node.tNode.type === TNodeType.Container) {
@@ -310,6 +328,12 @@ export function insertView(
     viewNode.data.next = null;
   }
 
+  // Notify query that a new view has been added
+  const lView = viewNode.data;
+  if (lView.queries) {
+    lView.queries.insertView(index);
+  }
+
   // If the container's renderParent is null, we know that it is a root node of its own parent view
   // and we should wait until that parent processes its nodes (otherwise, we will insert this view's
   // nodes twice - once now and once when its parent inserts its views).
@@ -349,8 +373,13 @@ export function removeView(container: LContainerNode, removeIndex: number): LVie
   views.splice(removeIndex, 1);
   destroyViewTree(viewNode.data);
   addRemoveViewFromContainer(container, viewNode, false);
+
   // Notify query that view has been removed
-  container.data.queries && container.data.queries.removeView(removeIndex);
+  const removedLview = viewNode.data;
+  if (removedLview.queries) {
+    removedLview.queries.removeView(removeIndex);
+  }
+
   return viewNode;
 }
 
@@ -371,7 +400,7 @@ export function getParentState(state: LViewOrLContainer, rootView: LView): LView
   if ((node = (state as LView) !.node) && node.tNode.type === TNodeType.View) {
     // if it's an embedded view, the state needs to go up to the container, in case the
     // container has a next
-    return node.parent !.data as any;
+    return getParentLNode(node) !.data as any;
   } else {
     // otherwise, use parent view for containers or component views
     return state.parent === rootView ? null : state.parent;
@@ -387,6 +416,11 @@ function cleanUpView(view: LView): void {
   removeListeners(view);
   executeOnDestroys(view);
   executePipeOnDestroys(view);
+  // For component views only, the local renderer is destroyed as clean up time.
+  if (view.id === -1 && isProceduralRenderer(view.renderer)) {
+    ngDevMode && ngDevMode.rendererDestroy++;
+    view.renderer.destroy();
+  }
 }
 
 /** Removes listeners and unsubscribes from output subscriptions */
@@ -476,7 +510,7 @@ export function appendChild(parent: LNode, child: RNode | null, currentView: LVi
  * @param currentView Current LView
  */
 export function insertChild(node: LNode, currentView: LView): void {
-  const parent = node.parent !;
+  const parent = getParentLNode(node) !;
   if (canInsertNativeNode(parent, currentView)) {
     let nativeSibling: RNode|null = findNextRNodeSibling(node, null);
     const renderer = currentView.renderer;

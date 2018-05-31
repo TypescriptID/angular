@@ -120,9 +120,6 @@
     "name": "__extends"
   },
   {
-    "name": "__global"
-  },
-  {
     "name": "__read"
   },
   {
@@ -423,6 +420,9 @@
     "name": "getOrCreateTemplateRef"
   },
   {
+    "name": "getParentLNode"
+  },
+  {
     "name": "getParentState"
   },
   {
@@ -490,6 +490,9 @@
   },
   {
     "name": "isJsObject"
+  },
+  {
+    "name": "isLContainer"
   },
   {
     "name": "isListLikeIterable"

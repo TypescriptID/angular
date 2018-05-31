@@ -53,22 +53,24 @@ export class TemplateFixture extends BaseFixture {
   private _directiveDefs: DirectiveDefList|null;
   private _pipeDefs: PipeDefList|null;
   private _sanitizer: Sanitizer|null;
+  private _rendererFactory: RendererFactory3;
 
   /**
    *
    * @param createBlock Instructions which go into the creation block:
-   *          `if (creationMode) { __here__ }`.
-   * @param updateBlock Optional instructions which go after the creation block:
-   *          `if (creationMode) { ... } __here__`.
+   *          `if (rf & RenderFlags.Create) { __here__ }`.
+   * @param updateBlock Optional instructions which go into the update block:
+   *          `if (rf & RenderFlags.Update) { __here__ }`.
    */
   constructor(
       private createBlock: () => void, private updateBlock: () => void = noop,
       directives?: DirectiveTypesOrFactory|null, pipes?: PipeTypesOrFactory|null,
-      sanitizer?: Sanitizer) {
+      sanitizer?: Sanitizer|null, rendererFactory?: RendererFactory3) {
     super();
     this._directiveDefs = toDefs(directives, extractDirectiveDef);
     this._pipeDefs = toDefs(pipes, extractPipeDef);
     this._sanitizer = sanitizer || null;
+    this._rendererFactory = rendererFactory || domRendererFactory3;
     this.hostNode = renderTemplate(this.hostElement, (rf: RenderFlags, ctx: any) => {
       if (rf & RenderFlags.Create) {
         this.createBlock();
@@ -76,7 +78,7 @@ export class TemplateFixture extends BaseFixture {
       if (rf & RenderFlags.Update) {
         this.updateBlock();
       }
-    }, null !, domRendererFactory3, null, this._directiveDefs, this._pipeDefs, sanitizer);
+    }, null !, this._rendererFactory, null, this._directiveDefs, this._pipeDefs, sanitizer);
   }
 
   /**
@@ -86,7 +88,7 @@ export class TemplateFixture extends BaseFixture {
    */
   update(updateBlock?: () => void): void {
     renderTemplate(
-        this.hostNode.native, updateBlock || this.updateBlock, null !, domRendererFactory3,
+        this.hostNode.native, updateBlock || this.updateBlock, null !, this._rendererFactory,
         this.hostNode, this._directiveDefs, this._pipeDefs, this._sanitizer);
   }
 }

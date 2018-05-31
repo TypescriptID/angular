@@ -10,7 +10,7 @@ import {AnimationBuilder, animate, style, transition, trigger} from '@angular/an
 import {APP_BASE_HREF, PlatformLocation, isPlatformServer} from '@angular/common';
 import {HttpClient, HttpClientModule} from '@angular/common/http';
 import {HttpClientTestingModule, HttpTestingController} from '@angular/common/http/testing';
-import {ApplicationRef, CompilerFactory, Component, HostListener, Input, NgModule, NgModuleRef, NgZone, PLATFORM_ID, PlatformRef, ViewEncapsulation, destroyPlatform, getPlatform} from '@angular/core';
+import {ApplicationRef, CompilerFactory, Component, HostListener, Inject, Input, NgModule, NgModuleRef, NgZone, PLATFORM_ID, PlatformRef, ViewEncapsulation, destroyPlatform, getPlatform} from '@angular/core';
 import {TestBed, async, inject} from '@angular/core/testing';
 import {Http, HttpModule, Response, ResponseOptions, XHRBackend} from '@angular/http';
 import {MockBackend, MockConnection} from '@angular/http/testing';
@@ -154,7 +154,11 @@ class MyAnimationApp {
 class AnimationServerModule {
 }
 
-@Component({selector: 'app', template: `Works!`, styles: [':host { color: red; }']})
+@Component({
+  selector: 'app',
+  template: `<div>Works!</div>`,
+  styles: ['div {color: blue; } :host { color: red; }']
+})
 class MyStylesApp {
 }
 
@@ -252,6 +256,20 @@ class MyInputComponent {
   imports: [ServerModule, BrowserModule.withServerTransition({appId: 'name-attributes'})]
 })
 class NameModule {
+}
+
+@Component({selector: 'app', template: '<div [innerHTML]="html"></div>'})
+class HTMLTypesApp {
+  html = '<b>foo</b> bar';
+  constructor(@Inject(DOCUMENT) doc: Document) {}
+}
+
+@NgModule({
+  declarations: [HTMLTypesApp],
+  imports: [BrowserModule.withServerTransition({appId: 'inner-html'}), ServerModule],
+  bootstrap: [HTMLTypesApp]
+})
+class HTMLTypesModule {
 }
 
 const TEST_KEY = makeStateKey<number>('test');
@@ -534,6 +552,15 @@ class EscapedTransferStoreModule {
            });
          }));
 
+
+      it('sets a prefix for the _nghost and _ngcontent attributes', async(() => {
+           renderModule(ExampleStylesModule, {document: doc}).then(output => {
+             expect(output).toMatch(
+                 /<html><head><style ng-transition="example-styles">div\[_ngcontent-sc\d+\] {color: blue; } \[_nghost-sc\d+\] { color: red; }<\/style><\/head><body><app _nghost-sc\d+="" ng-version="0.0.0-PLACEHOLDER"><div _ngcontent-sc\d+="">Works!<\/div><\/app><\/body><\/html>/);
+             called = true;
+           });
+         }));
+
       it('should handle false values on attributes', async(() => {
            renderModule(FalseAttributesModule, {document: doc}).then(output => {
              expect(output).toBe(
@@ -548,6 +575,19 @@ class EscapedTransferStoreModule {
              expect(output).toBe(
                  '<html><head></head><body><app ng-version="0.0.0-PLACEHOLDER">' +
                  '<input name=""></app></body></html>');
+             called = true;
+           });
+         }));
+
+      it('should work with sanitizer to handle "innerHTML"', async(() => {
+           // Clear out any global states. These should be set when platform-server
+           // is initialized.
+           (global as any).Node = undefined;
+           (global as any).Document = undefined;
+           renderModule(HTMLTypesModule, {document: doc}).then(output => {
+             expect(output).toBe(
+                 '<html><head></head><body><app ng-version="0.0.0-PLACEHOLDER">' +
+                 '<div innerhtml="<b>foo</b> bar"><b>foo</b> bar</div></app></body></html>');
              called = true;
            });
          }));
