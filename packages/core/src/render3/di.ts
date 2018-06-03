@@ -583,8 +583,7 @@ export function getOrCreateContainerRef(di: LInjector): viewEngine_ViewContainer
 
     const hostTNode = vcRefHost.tNode;
     if (!hostTNode.dynamicContainerNode) {
-      hostTNode.dynamicContainerNode =
-          createTNode(TNodeType.Container, null, null, null, null, null);
+      hostTNode.dynamicContainerNode = createTNode(TNodeType.Container, -1, null, null, null, null);
     }
 
     lContainerNode.tNode = hostTNode.dynamicContainerNode;
@@ -706,7 +705,7 @@ export function getOrCreateTemplateRef<T>(di: LInjector): viewEngine_TemplateRef
     ngDevMode && assertNotNull(hostTNode.tViews, 'TView must be allocated');
     di.templateRef = new TemplateRef<any>(
         getOrCreateElementRef(di), hostTNode.tViews as TView, hostNode.data.template !,
-        getRenderer(), hostNode.queries);
+        getRenderer(), hostNode.data.queries);
   }
   return di.templateRef;
 }
