@@ -27,9 +27,9 @@ import {LQueries, QueryReadType} from './interfaces/query';
 import {Renderer3} from './interfaces/renderer';
 import {LView, TView} from './interfaces/view';
 import {assertNodeOfPossibleTypes, assertNodeType} from './node_assert';
-import {getParentLNode, insertView, removeView} from './node_manipulation';
+import {detachView, getParentLNode, insertView, removeView} from './node_manipulation';
 import {notImplemented, stringify} from './util';
-import {EmbeddedViewRef, ViewRef, addDestroyable, createViewRef} from './view_ref';
+import {EmbeddedViewRef, ViewRef} from './view_ref';
 
 
 
@@ -282,7 +282,7 @@ export function getOrCreateChangeDetectorRef(
 
   const currentNode = di.node;
   if (isComponent(currentNode.tNode)) {
-    return di.changeDetectorRef = createViewRef(currentNode.data as LView, context);
+    return di.changeDetectorRef = new ViewRef(currentNode.data as LView, context);
   } else if (currentNode.tNode.type === TNodeType.Element) {
     return di.changeDetectorRef = getOrCreateHostChangeDetector(currentNode.view.node);
   }
@@ -298,7 +298,7 @@ function getOrCreateHostChangeDetector(currentNode: LViewNode | LElementNode):
 
   return existingRef ?
       existingRef :
-      createViewRef(
+      new ViewRef(
           hostNode.data as LView,
           hostNode.view
               .directives ![hostNode.tNode.flags >> TNodeFlags.DirectiveStartingIndexShift]);
@@ -638,8 +638,13 @@ class ViewContainerRef implements viewEngine_ViewContainerRef {
   }
 
   insert(viewRef: viewEngine_ViewRef, index?: number): viewEngine_ViewRef {
+    if (viewRef.destroyed) {
+      throw new Error('Cannot insert a destroyed View in a ViewContainer!');
+    }
     const lViewNode = (viewRef as EmbeddedViewRef<any>)._lViewNode;
     const adjustedIdx = this._adjustIndex(index);
+
+    (viewRef as EmbeddedViewRef<any>).attachToViewContainerRef(this);
 
     insertView(this._lContainerNode, lViewNode, adjustedIdx);
     // invalidate cache of next sibling RNode (we do similar operation in the containerRefreshEnd
@@ -661,15 +666,14 @@ class ViewContainerRef implements viewEngine_ViewContainerRef {
   indexOf(viewRef: viewEngine_ViewRef): number { return this._viewRefs.indexOf(viewRef); }
 
   remove(index?: number): void {
-    this.detach(index);
-    // TODO(ml): proper destroy of the ViewRef, i.e. recursively destroy the LviewNode and its
-    // children, delete DOM nodes and QueryList, trigger hooks (onDestroy), destroy the renderer,
-    // detach projected nodes
+    const adjustedIdx = this._adjustIndex(index, -1);
+    removeView(this._lContainerNode, adjustedIdx);
+    this._viewRefs.splice(adjustedIdx, 1);
   }
 
   detach(index?: number): viewEngine_ViewRef|null {
     const adjustedIdx = this._adjustIndex(index, -1);
-    removeView(this._lContainerNode, adjustedIdx);
+    detachView(this._lContainerNode, adjustedIdx);
     return this._viewRefs.splice(adjustedIdx, 1)[0] || null;
   }
 
@@ -700,12 +704,12 @@ export function getOrCreateTemplateRef<T>(di: LInjector): viewEngine_TemplateRef
     const hostTNode = hostNode.tNode;
     const hostTView = hostNode.view.tView;
     if (!hostTNode.tViews) {
-      hostTNode.tViews = createTView(-1, hostTView.directiveRegistry, hostTView.pipeRegistry);
+      hostTNode.tViews = createTView(
+          -1, hostNode.data.template !, hostTView.directiveRegistry, hostTView.pipeRegistry);
     }
     ngDevMode && assertNotNull(hostTNode.tViews, 'TView must be allocated');
     di.templateRef = new TemplateRef<any>(
-        getOrCreateElementRef(di), hostTNode.tViews as TView, hostNode.data.template !,
-        getRenderer(), hostNode.data.queries);
+        getOrCreateElementRef(di), hostTNode.tViews as TView, getRenderer(), hostNode.data.queries);
   }
   return di.templateRef;
 }
@@ -714,15 +718,14 @@ class TemplateRef<T> implements viewEngine_TemplateRef<T> {
   readonly elementRef: viewEngine_ElementRef;
 
   constructor(
-      elementRef: viewEngine_ElementRef, private _tView: TView,
-      private _template: ComponentTemplate<T>, private _renderer: Renderer3,
+      elementRef: viewEngine_ElementRef, private _tView: TView, private _renderer: Renderer3,
       private _queries: LQueries|null) {
     this.elementRef = elementRef;
   }
 
   createEmbeddedView(context: T): viewEngine_EmbeddedViewRef<T> {
-    const viewNode = renderEmbeddedTemplate(
-        null, this._tView, this._template, context, this._renderer, this._queries);
-    return addDestroyable(new EmbeddedViewRef(viewNode, this._template, context));
+    const viewNode =
+        renderEmbeddedTemplate(null, this._tView, context, this._renderer, this._queries);
+    return new EmbeddedViewRef(viewNode, this._tView.template !as ComponentTemplate<T>, context);
   }
 }

@@ -21,7 +21,7 @@ import {LElementNode, TNodeFlags} from './interfaces/node';
 import {RElement, RendererFactory3, domRendererFactory3} from './interfaces/renderer';
 import {LView, LViewFlags, RootContext} from './interfaces/view';
 import {stringify} from './util';
-import {createViewRef} from './view_ref';
+import {ViewRef} from './view_ref';
 
 
 
@@ -82,7 +82,7 @@ export function createComponentRef<T>(
     componentType: ComponentType<T>, opts: CreateComponentOptions): viewEngine_ComponentRef<T> {
   const component = renderComponent(componentType, opts);
   const hostView = _getComponentHostLElementNode(component).data as LView;
-  const hostViewRef = createViewRef(hostView, component);
+  const hostViewRef = new ViewRef(hostView, component);
   return {
     location: {nativeElement: getHostElement(component)},
     injector: opts.injector || NULL_INJECTOR,
@@ -139,7 +139,7 @@ export function renderComponent<T>(
   };
   const rootView: LView = createLView(
       rendererFactory.createRenderer(hostNode, componentDef.rendererType),
-      createTView(-1, null, null), null, rootContext,
+      createTView(-1, null, null, null), rootContext,
       componentDef.onPush ? LViewFlags.Dirty : LViewFlags.CheckAlways);
   rootView.injector = opts.injector || null;
 
@@ -160,7 +160,7 @@ export function renderComponent<T>(
 
     executeInitAndContentHooks();
     setHostBindings(ROOT_DIRECTIVE_INDICES);
-    detectChangesInternal(elementNode.data as LView, elementNode, componentDef, component);
+    detectChangesInternal(elementNode.data as LView, elementNode, component);
   } finally {
     leaveView(oldView);
     if (rendererFactory.end) rendererFactory.end();

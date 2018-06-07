@@ -63,22 +63,14 @@ export interface LView {
 
   /**
    * When a view is destroyed, listeners need to be released and outputs need to be
-   * unsubscribed. This cleanup array stores both listener data (in chunks of 4)
-   * and output data (in chunks of 2) for a particular view. Combining the arrays
-   * saves on memory (70 bytes per array) and on a few bytes of code size (for two
-   * separate for loops).
+   * unsubscribed. This context array stores both listener functions wrapped with
+   * their context and output subscription instances for a particular view.
    *
-   * If it's a listener being stored:
-   * 1st index is: event name to remove
-   * 2nd index is: native element
-   * 3rd index is: listener function
-   * 4th index is: useCapture boolean
-   *
-   * If it's an output subscription:
-   * 1st index is: unsubscribe function
-   * 2nd index is: context for function
+   * These change per LView instance, so they cannot be stored on TView. Instead,
+   * TView.cleanup saves an index to the necessary context in this array.
    */
-  cleanup: any[]|null;
+  // TODO: collapse into data[]
+  cleanupInstances: any[]|null;
 
   /**
    * The last LView or LContainer beneath this LView in the hierarchy.
@@ -127,11 +119,6 @@ export interface LView {
   tView: TView;
 
   /**
-   * For dynamically inserted views, the template function to refresh the view.
-   */
-  template: ComponentTemplate<{}>|null;
-
-  /**
    * - For embedded views, the context with which to render the template.
    * - For root view of the root component the context contains change detection data.
    * - `null` otherwise.
@@ -164,16 +151,16 @@ export const enum LViewFlags {
    * back into the parent view, `data` will be defined and `creationMode` will be
    * improperly reported as false.
    */
-  CreationMode = 0b00001,
+  CreationMode = 0b000001,
 
   /** Whether this view has default change detection strategy (checks always) or onPush */
-  CheckAlways = 0b00010,
+  CheckAlways = 0b000010,
 
   /** Whether or not this view is currently dirty (needing check) */
-  Dirty = 0b00100,
+  Dirty = 0b000100,
 
   /** Whether or not this view is currently attached to change detection tree. */
-  Attached = 0b01000,
+  Attached = 0b001000,
 
   /**
    *  Whether or not the init hooks have run.
@@ -182,7 +169,10 @@ export const enum LViewFlags {
    * runs OR the first cR() instruction that runs (so inits are run for the top level view before
    * any embedded views).
    */
-  RunInit = 0b10000,
+  RunInit = 0b010000,
+
+  /** Whether or not this view is destroyed. */
+  Destroyed = 0b100000,
 }
 
 /** Interface necessary to work with view tree traversal */
@@ -208,6 +198,12 @@ export interface TView {
    * If this is -1, then this is a component view or a dynamically created view.
    */
   readonly id: number;
+
+  /**
+   * The template function used to refresh the view of dynamically created views
+   * and components. Will be null for inline views.
+   */
+  template: ComponentTemplate<{}>|null;
 
   /**
    * Pointer to the `TNode` that represents the root of the view.
@@ -363,6 +359,29 @@ export interface TView {
    * are stored in data.
    */
   pipeDestroyHooks: HookData|null;
+
+  /**
+   * When a view is destroyed, listeners need to be released and outputs need to be
+   * unsubscribed. This cleanup array stores both listener data (in chunks of 4)
+   * and output data (in chunks of 2) for a particular view. Combining the arrays
+   * saves on memory (70 bytes per array) and on a few bytes of code size (for two
+   * separate for loops).
+   *
+   * If it's a native DOM listener being stored:
+   * 1st index is: event name to remove
+   * 2nd index is: index of native element in LView.data[]
+   * 3rd index is: index of wrapped listener function in LView.cleanupInstances[]
+   * 4th index is: useCapture boolean
+   *
+   * If it's a renderer2 style listener or ViewRef destroy hook being stored:
+   * 1st index is: index of the cleanup function in LView.cleanupInstances[]
+   * 2nd index is: null
+   *
+   * If it's an output subscription or query list destroy hook:
+   * 1st index is: output unsubscribe function / query list destroy function
+   * 2nd index is: index of function context in LView.cleanupInstances[]
+   */
+  cleanup: any[]|null;
 
   /**
    * A list of directive and element indices for child components that will need to be
