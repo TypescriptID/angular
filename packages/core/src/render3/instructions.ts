@@ -24,7 +24,7 @@ import {assertNodeType} from './node_assert';
 import {appendChild, insertView, appendProjectedNode, removeView, canInsertNativeNode, createTextNode, getNextLNode, getChildLNode, getParentLNode, getLViewChild} from './node_manipulation';
 import {isNodeMatchingSelectorList, matchingSelectorIndex} from './node_selector_matcher';
 import {ComponentDef, ComponentTemplate, DirectiveDef, DirectiveDefListOrFactory, PipeDefListOrFactory, RenderFlags} from './interfaces/definition';
-import {RElement, RText, Renderer3, RendererFactory3, ProceduralRenderer3, RendererStyleFlags3, isProceduralRenderer} from './interfaces/renderer';
+import {RComment, RElement, RText, Renderer3, RendererFactory3, ProceduralRenderer3, RendererStyleFlags3, isProceduralRenderer} from './interfaces/renderer';
 import {isDifferent, stringify} from './util';
 import {ViewRef} from './view_ref';
 
@@ -308,7 +308,7 @@ export function createLViewData<T>(
  */
 export function createLNodeObject(
     type: TNodeType, currentView: LViewData, parent: LNode | null,
-    native: RText | RElement | null | undefined, state: any,
+    native: RText | RElement | RComment | null, state: any,
     queries: LQueries | null): LElementNode&LTextNode&LViewNode&LContainerNode&LProjectionNode {
   return {
     native: native as any,
@@ -341,15 +341,15 @@ export function createLNode(
     index: number, type: TNodeType.View, native: null, name: null, attrs: null,
     lViewData: LViewData): LViewNode;
 export function createLNode(
-    index: number, type: TNodeType.Container, native: undefined, name: string | null,
+    index: number, type: TNodeType.Container, native: RComment, name: string | null,
     attrs: TAttributes | null, lContainer: LContainer): LContainerNode;
 export function createLNode(
     index: number, type: TNodeType.Projection, native: null, name: null, attrs: TAttributes | null,
     lProjection: LProjection): LProjectionNode;
 export function createLNode(
-    index: number, type: TNodeType, native: RText | RElement | null | undefined,
-    name: string | null, attrs: TAttributes | null, state?: null | LViewData | LContainer |
-        LProjection): LElementNode&LTextNode&LViewNode&LContainerNode&LProjectionNode {
+    index: number, type: TNodeType, native: RText | RElement | RComment | null, name: string | null,
+    attrs: TAttributes | null, state?: null | LViewData | LContainer | LProjection): LElementNode&
+    LTextNode&LViewNode&LContainerNode&LProjectionNode {
   const parent = isParent ? previousOrParentNode :
                             previousOrParentNode && getParentLNode(previousOrParentNode) !as LNode;
   // Parents cannot cross component boundaries because components will be used in multiple places,
@@ -858,16 +858,34 @@ export function createTView(
 
 function setUpAttributes(native: RElement, attrs: TAttributes): void {
   const isProc = isProceduralRenderer(renderer);
-  for (let i = 0; i < attrs.length; i += 2) {
+  let i = 0;
+
+  while (i < attrs.length) {
     const attrName = attrs[i];
-    if (attrName === AttributeMarker.SELECT_ONLY) break;
-    if (attrName !== NG_PROJECT_AS_ATTR_NAME) {
-      const attrVal = attrs[i + 1];
+    if (attrName === AttributeMarker.SelectOnly) break;
+    if (attrName === NG_PROJECT_AS_ATTR_NAME) {
+      i += 2;
+    } else {
       ngDevMode && ngDevMode.rendererSetAttribute++;
-      isProc ?
-          (renderer as ProceduralRenderer3)
-              .setAttribute(native, attrName as string, attrVal as string) :
-          native.setAttribute(attrName as string, attrVal as string);
+      if (attrName === AttributeMarker.NamespaceURI) {
+        // Namespaced attributes
+        const namespaceURI = attrs[i + 1] as string;
+        const attrName = attrs[i + 2] as string;
+        const attrVal = attrs[i + 3] as string;
+        isProc ?
+            (renderer as ProceduralRenderer3)
+                .setAttribute(native, attrName, attrVal, namespaceURI) :
+            native.setAttributeNS(namespaceURI, attrName, attrVal);
+        i += 4;
+      } else {
+        // Standard attributes
+        const attrVal = attrs[i + 1];
+        isProc ?
+            (renderer as ProceduralRenderer3)
+                .setAttribute(native, attrName as string, attrVal as string) :
+            native.setAttribute(attrName as string, attrVal as string);
+        i += 2;
+      }
     }
   }
 }
@@ -1509,17 +1527,25 @@ function generateInitialInputs(
   initialInputData[directiveIndex] = null;
 
   const attrs = tNode.attrs !;
-  for (let i = 0; i < attrs.length; i += 2) {
+  let i = 0;
+  while (i < attrs.length) {
     const attrName = attrs[i];
+    if (attrName === AttributeMarker.SelectOnly) break;
+    if (attrName === AttributeMarker.NamespaceURI) {
+      // We do not allow inputs on namespaced attributes.
+      i += 4;
+      continue;
+    }
     const minifiedInputName = inputs[attrName];
     const attrValue = attrs[i + 1];
 
-    if (attrName === AttributeMarker.SELECT_ONLY) break;
     if (minifiedInputName !== undefined) {
       const inputsToStore: InitialInputs =
           initialInputData[directiveIndex] || (initialInputData[directiveIndex] = []);
       inputsToStore.push(minifiedInputName, attrValue as string);
     }
+
+    i += 2;
   }
   return initialInputData;
 }
@@ -1571,8 +1597,10 @@ export function container(
   const currentParent = isParent ? previousOrParentNode : getParentLNode(previousOrParentNode) !;
   const lContainer = createLContainer(currentParent, viewData);
 
-  const node = createLNode(
-      index, TNodeType.Container, undefined, tagName || null, attrs || null, lContainer);
+  const comment = renderer.createComment(ngDevMode ? 'container' : '');
+  const node =
+      createLNode(index, TNodeType.Container, comment, tagName || null, attrs || null, lContainer);
+  appendChild(getParentLNode(node), comment, viewData);
 
   if (firstTemplatePass) {
     node.tNode.tViews =
@@ -1609,9 +1637,6 @@ export function containerRefreshStart(index: number): void {
   ngDevMode && assertNodeType(previousOrParentNode, TNodeType.Container);
   isParent = true;
   (previousOrParentNode as LContainerNode).data[ACTIVE_INDEX] = 0;
-  ngDevMode && assertSame(
-                   (previousOrParentNode as LContainerNode).native, undefined,
-                   `the container's native element should not have been set yet.`);
 
   if (!checkNoChangesMode) {
     // We need to execute init hooks here so ngOnInit hooks are called in top level views
@@ -1635,7 +1660,6 @@ export function containerRefreshEnd(): void {
   }
   ngDevMode && assertNodeType(previousOrParentNode, TNodeType.Container);
   const container = previousOrParentNode as LContainerNode;
-  container.native = undefined;
   ngDevMode && assertNodeType(container, TNodeType.Container);
   const nextIndex = container.data[ACTIVE_INDEX] !;
 

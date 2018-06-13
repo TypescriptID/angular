@@ -361,7 +361,7 @@ describe('query', () => {
       expect(isViewContainerRef(qList.first)).toBeTruthy();
     });
 
-    it('should no longer read ElementRef with a native element pointing to comment DOM node from containers',
+    it('should read ElementRef with a native element pointing to comment DOM node from containers',
        () => {
          /**
           * <ng-template #foo></ng-template>
@@ -383,7 +383,8 @@ describe('query', () => {
          const cmptInstance = renderComponent(Cmpt);
          const qList = (cmptInstance.query as QueryList<any>);
          expect(qList.length).toBe(1);
-         expect(qList.first.nativeElement).toBe(null);
+         expect(isElementRef(qList.first)).toBeTruthy();
+         expect(qList.first.nativeElement.nodeType).toBe(8);  // Node.COMMENT_NODE = 8
        });
 
     it('should read TemplateRef from container nodes by default', () => {
@@ -858,7 +859,7 @@ describe('query', () => {
                  }
                }, null, []);
 
-               container(5, undefined, null, [AttributeMarker.SELECT_ONLY, 'vc']);
+               container(5, undefined, null, [AttributeMarker.SelectOnly, 'vc']);
              }
 
              if (rf & RenderFlags.Update) {
@@ -937,8 +938,8 @@ describe('query', () => {
                  }
                }, null, []);
 
-               container(2, undefined, null, [AttributeMarker.SELECT_ONLY, 'vc']);
-               container(3, undefined, null, [AttributeMarker.SELECT_ONLY, 'vc']);
+               container(2, undefined, null, [AttributeMarker.SelectOnly, 'vc']);
+               container(3, undefined, null, [AttributeMarker.SelectOnly, 'vc']);
              }
 
              if (rf & RenderFlags.Update) {
