@@ -335,8 +335,7 @@ export function createLNodeObject(
     queries: queries,
     tNode: null !,
     pNextOrParent: null,
-    dynamicLContainerNode: null,
-    pChild: null,
+    dynamicLContainerNode: null
   };
 }
 
@@ -440,7 +439,7 @@ export function createLNode(
 /**
  * Resets the application state.
  */
-function resetApplicationState() {
+export function resetApplicationState() {
   isParent = false;
   previousOrParentNode = null !;
 }
@@ -1831,46 +1830,9 @@ export function embeddedViewEnd(): void {
   refreshView();
   isParent = false;
   previousOrParentNode = viewData[HOST_NODE] as LViewNode;
-  if (creationMode) {
-    const containerNode = getParentLNode(previousOrParentNode) as LContainerNode;
-    if (containerNode) {
-      ngDevMode && assertNodeType(previousOrParentNode, TNodeType.View);
-      ngDevMode && assertNodeType(containerNode, TNodeType.Container);
-      // When projected nodes are going to be inserted, the renderParent of the dynamic container
-      // used by the ViewContainerRef must be set.
-      setRenderParentInProjectedNodes(
-          containerNode.data[RENDER_PARENT], previousOrParentNode as LViewNode);
-    }
-  }
   leaveView(viewData[PARENT] !);
   ngDevMode && assertEqual(isParent, false, 'isParent');
   ngDevMode && assertNodeType(previousOrParentNode, TNodeType.View);
-}
-
-/**
- * For nodes which are projected inside an embedded view, this function sets the renderParent
- * of their dynamic LContainerNode.
- * @param renderParent the renderParent of the LContainer which contains the embedded view.
- * @param viewNode the embedded view.
- */
-function setRenderParentInProjectedNodes(
-    renderParent: LElementNode | null, viewNode: LViewNode): void {
-  if (renderParent != null) {
-    let node: LNode|null = getChildLNode(viewNode);
-    while (node) {
-      if (node.tNode.type === TNodeType.Projection) {
-        let nodeToProject: LNode|null = (node as LProjectionNode).data.head;
-        const lastNodeToProject = (node as LProjectionNode).data.tail;
-        while (nodeToProject) {
-          if (nodeToProject.dynamicLContainerNode) {
-            nodeToProject.dynamicLContainerNode.data[RENDER_PARENT] = renderParent;
-          }
-          nodeToProject = nodeToProject === lastNodeToProject ? null : nodeToProject.pNextOrParent;
-        }
-      }
-      node = getNextLNode(node);
-    }
-  }
 }
 
 /////////////
@@ -1931,33 +1893,20 @@ export function projectionDef(
   }
 
   const componentNode: LElementNode = findComponentHost(viewData);
-  let isProjectingI18nNodes = false;
-  let componentChild: LNode|null;
-  // for i18n translations we use pChild to point to the next child
-  // TODO(kara): Remove when removing LNodes
-  if (componentNode.pChild) {
-    isProjectingI18nNodes = true;
-    componentChild = componentNode.pChild;
-  } else {
-    componentChild = getChildLNode(componentNode);
-  }
+  let componentChild = getChildLNode(componentNode);
 
   while (componentChild !== null) {
     // execute selector matching logic if and only if:
     // - there are selectors defined
     // - a node has a tag name / attributes that can be matched
-    if (selectors && componentChild.tNode) {
+    if (selectors) {
       const matchedIdx = matchingSelectorIndex(componentChild.tNode, selectors, textSelectors !);
       distributedNodes[matchedIdx].push(componentChild);
     } else {
       distributedNodes[0].push(componentChild);
     }
 
-    if (isProjectingI18nNodes) {
-      componentChild = componentChild.pNextOrParent;
-    } else {
-      componentChild = getNextLNode(componentChild);
-    }
+    componentChild = getNextLNode(componentChild);
   }
 
   ngDevMode && assertDataNext(index + HEADER_OFFSET);
@@ -2037,10 +1986,14 @@ export function projection(
     // process each node in the list of projected nodes:
     let nodeToProject: LNode|null = node.data.head;
     const lastNodeToProject = node.data.tail;
+    const renderParent = currentParent.tNode.type === TNodeType.View ?
+        (getParentLNode(currentParent) as LContainerNode).data[RENDER_PARENT] ! :
+        currentParent as LElementNode;
+
     while (nodeToProject) {
       appendProjectedNode(
-          nodeToProject as LTextNode | LElementNode | LContainerNode, currentParent as LElementNode,
-          viewData);
+          nodeToProject as LTextNode | LElementNode | LContainerNode, currentParent, viewData,
+          renderParent);
       nodeToProject = nodeToProject === lastNodeToProject ? null : nodeToProject.pNextOrParent;
     }
   }
