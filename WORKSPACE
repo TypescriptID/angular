@@ -13,16 +13,16 @@ http_archive(
 
 http_archive(
     name = "io_bazel_rules_webtesting",
-    url = "https://github.com/bazelbuild/rules_webtesting/archive/v0.2.0.zip",
-    strip_prefix = "rules_webtesting-0.2.0",
-    sha256 = "cecc12f07e95740750a40d38e8b14b76fefa1551bef9332cb432d564d693723c",
+    url = "https://github.com/bazelbuild/rules_webtesting/archive/7ffe970bbf380891754487f66c3d680c087d67f2.zip",
+    strip_prefix = "rules_webtesting-7ffe970bbf380891754487f66c3d680c087d67f2",
+    sha256 = "4fb0dca8c9a90547891b7ef486592775a523330fc4555c88cd8f09270055c2ce",
 )
 
 http_archive(
     name = "build_bazel_rules_typescript",
-    url = "https://github.com/rkirov/rules_typescript/archive/v0.16.0.zip",
-    strip_prefix = "rules_typescript-0.16.0",
-    sha256 = "f5aedd3a792e5af19cd0c0f0318cb692e2989e816e896e794152d07808fccacd",
+    url = "https://github.com/bazelbuild/rules_typescript/archive/0.15.1.zip",
+    strip_prefix = "rules_typescript-0.15.1",
+    sha256 = "3792cc20ef13bb1d1d8b1760894c3320f02a87843e3a04fed7e8e454a75328b6",
 )
 
 http_archive(
@@ -77,7 +77,7 @@ http_archive(
 
 load("@build_bazel_rules_nodejs//:defs.bzl", "check_bazel_version", "node_repositories", "yarn_install")
 
-check_bazel_version("0.14.0")
+check_bazel_version("0.15.0")
 node_repositories(package_json = ["//:package.json"])
 
 load("@io_bazel_rules_go//go:def.bzl", "go_rules_dependencies", "go_register_toolchains")
