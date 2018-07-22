@@ -20,9 +20,9 @@ http_archive(
 
 http_archive(
     name = "build_bazel_rules_typescript",
-    url = "https://github.com/bazelbuild/rules_typescript/archive/0.15.1.zip",
-    strip_prefix = "rules_typescript-0.15.1",
-    sha256 = "3792cc20ef13bb1d1d8b1760894c3320f02a87843e3a04fed7e8e454a75328b6",
+    url = "https://github.com/bazelbuild/rules_typescript/archive/0.15.3.zip",
+    strip_prefix = "rules_typescript-0.15.3",
+    sha256 = "a2b26ac3fc13036011196063db1bf7f1eae81334449201dc28087ebfa3708c99",
 )
 
 http_archive(
@@ -78,7 +78,10 @@ http_archive(
 load("@build_bazel_rules_nodejs//:defs.bzl", "check_bazel_version", "node_repositories", "yarn_install")
 
 check_bazel_version("0.15.0")
-node_repositories(package_json = ["//:package.json"])
+node_repositories(
+  package_json = ["//:package.json"],
+  preserve_symlinks = True,
+)
 
 load("@io_bazel_rules_go//go:def.bzl", "go_rules_dependencies", "go_register_toolchains")
 
@@ -96,6 +99,10 @@ browser_repositories(
 load("@build_bazel_rules_typescript//:defs.bzl", "ts_setup_workspace")
 
 ts_setup_workspace()
+
+load("//packages/bazel/src:ng_setup_workspace.bzl", "ng_setup_workspace")
+
+ng_setup_workspace()
 
 #
 # Point Bazel to WORKSPACEs that live in subdirectories
