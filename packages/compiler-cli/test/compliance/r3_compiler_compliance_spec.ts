@@ -53,7 +53,7 @@ describe('compiler compliance', () => {
         template: function MyComponent_Template(rf, ctx) {
           if (rf & 1) {
             $r3$.ɵE(0, "div", $c1$);
-            $r3$.ɵs(null, $c2$);
+            $r3$.ɵs($c2$);
             $r3$.ɵNS();
             $r3$.ɵE(1, "svg");
             $r3$.ɵEe(2, "circle", $c3$);
@@ -103,7 +103,7 @@ describe('compiler compliance', () => {
         template: function MyComponent_Template(rf, ctx) {
           if (rf & 1) {
             $r3$.ɵE(0, "div", $c1$);
-            $r3$.ɵs(null, $c2$);
+            $r3$.ɵs($c2$);
             $r3$.ɵNM();
             $r3$.ɵE(1, "math");
             $r3$.ɵEe(2, "infinity");
@@ -153,7 +153,7 @@ describe('compiler compliance', () => {
         template: function MyComponent_Template(rf, ctx) {
           if (rf & 1) {
             $r3$.ɵE(0, "div", $c1$);
-            $r3$.ɵs(null, $c2$);
+            $r3$.ɵs($c2$);
             $r3$.ɵT(1, "Hello ");
             $r3$.ɵE(2, "b");
             $r3$.ɵT(3, "World");
@@ -329,8 +329,8 @@ describe('compiler compliance', () => {
 
       const factory = 'factory: function MyComponent_Factory() { return new MyComponent(); }';
       const template = `
-        const _c0 = ["background-color"];
-        const _c1 = ["error"];
+        const _c0 = ["error"];
+        const _c1 = ["background-color"];
         …
         MyComponent.ngComponentDef = i0.ɵdefineComponent({type:MyComponent,selectors:[["my-component"]],
             factory:function MyComponent_Factory(){
@@ -987,7 +987,7 @@ describe('compiler compliance', () => {
           app: {
             ...directive,
             'spec.ts': `
-            import {Component, ContentChild, NgModule} from '@angular/core';
+            import {Component, ContentChild, ContentChildren, NgModule, QueryList} from '@angular/core';
             import {SomeDirective} from './some.directive';
 
             @Component({
@@ -998,6 +998,7 @@ describe('compiler compliance', () => {
             })
             export class ContentQueryComponent {
               @ContentChild(SomeDirective) someDir: SomeDirective;
+              @ContentChildren(SomeDirective) someDirList !: QueryList<SomeDirective>;
             }
 
             @Component({
@@ -1021,11 +1022,17 @@ describe('compiler compliance', () => {
             type: ContentQueryComponent,
             selectors: [["content-query-component"]],
             factory: function ContentQueryComponent_Factory() {
-              return [new ContentQueryComponent(), $r3$.ɵQ(null, SomeDirective, true)];
+              return new ContentQueryComponent();
+            },            
+            contentQueries: function ContentQueryComponent_ContentQueries() {
+              $r3$.ɵQr($r3$.ɵQ(null, SomeDirective, true));
+              $r3$.ɵQr($r3$.ɵQ(null, SomeDirective, false));
             },
-            hostBindings: function ContentQueryComponent_HostBindings(dirIndex, elIndex) {
+            contentQueriesRefresh: function ContentQueryComponent_ContentQueriesRefresh(dirIndex, queryStartIndex) {  
+              const instance = $r3$.ɵd(dirIndex);
               var $tmp$;
-              ($r3$.ɵqR(($tmp$ = $r3$.ɵd(dirIndex)[1])) && ($r3$.ɵd(dirIndex)[0].someDir = $tmp$.first));
+              ($r3$.ɵqR(($tmp$ = $r3$.ɵql(queryStartIndex))) && ($instance$.someDir = $tmp$.first));
+              ($r3$.ɵqR(($tmp$ = $r3$.ɵql((queryStartIndex + 1)))) && ($instance$.someDirList = $tmp$));
             },
             template: function ContentQueryComponent_Template(rf, ctx) {
               if (rf & 1) {

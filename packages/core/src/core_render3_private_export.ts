@@ -94,7 +94,14 @@ export {
   whenRendered as ɵwhenRendered,
   iA as ɵiA,
   iEM as ɵiEM,
-  iI as ɵiI,
+  iI1 as ɵiI1,
+  iI2 as ɵiI2,
+  iI3 as ɵiI3,
+  iI4 as ɵiI4,
+  iI5 as ɵiI5,
+  iI6 as ɵiI6,
+  iI7 as ɵiI7,
+  iI8 as ɵiI8,
   iIV as ɵIV,
   iM as ɵiM,
   I18nInstruction as ɵI18nInstruction,
@@ -102,14 +109,16 @@ export {
 } from './render3/index';
 export {NgModuleDef as ɵNgModuleDef} from './metadata/ng_module';
 export {
-  bypassSanitizationTrustHtml as ɵbypassSanitizationTrustHtml,
-  bypassSanitizationTrustStyle as ɵbypassSanitizationTrustStyle,
-  bypassSanitizationTrustScript as ɵbypassSanitizationTrustScript,
-  bypassSanitizationTrustUrl as ɵbypassSanitizationTrustUrl,
-  bypassSanitizationTrustResourceUrl as ɵbypassSanitizationTrustResourceUrl,
   sanitizeHtml as ɵsanitizeHtml,
   sanitizeStyle as ɵsanitizeStyle,
   sanitizeUrl as ɵsanitizeUrl,
   sanitizeResourceUrl as ɵsanitizeResourceUrl,
 } from './sanitization/sanitization';
+export {
+  bypassSanitizationTrustHtml as ɵbypassSanitizationTrustHtml,
+  bypassSanitizationTrustStyle as ɵbypassSanitizationTrustStyle,
+  bypassSanitizationTrustScript as ɵbypassSanitizationTrustScript,
+  bypassSanitizationTrustUrl as ɵbypassSanitizationTrustUrl,
+  bypassSanitizationTrustResourceUrl as ɵbypassSanitizationTrustResourceUrl,
+} from './sanitization/bypass';
 // clang-format on

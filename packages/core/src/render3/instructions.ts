@@ -10,6 +10,7 @@ import './ng_dev_mode';
 
 import {QueryList} from '../linker';
 import {Sanitizer} from '../sanitization/security';
+import {StyleSanitizeFn} from '../sanitization/style_sanitizer';
 
 import {assertDefined, assertEqual, assertLessThan, assertNotDefined, assertNotEqual} from './assert';
 import {throwCyclicDependencyError, throwErrorIfNoChangesMode, throwMultipleComponentError} from './errors';
@@ -25,7 +26,7 @@ import {BINDING_INDEX, CLEANUP, CONTAINER_INDEX, CONTENT_QUERIES, CONTEXT, Curre
 import {assertNodeOfPossibleTypes, assertNodeType} from './node_assert';
 import {appendChild, appendProjectedNode, canInsertNativeNode, createTextNode, findComponentHost, getChildLNode, getLViewChild, getNextLNode, getParentLNode, insertView, removeView} from './node_manipulation';
 import {isNodeMatchingSelectorList, matchingSelectorIndex} from './node_selector_matcher';
-import {StylingContext, StylingIndex, allocStylingContext, createStylingContextTemplate, renderStyling as renderElementStyles, updateClassProp as updateElementClassProp, updateStyleProp as updateElementStyleProp, updateStylingMap} from './styling';
+import {StylingContext, allocStylingContext, createStylingContextTemplate, renderStyling as renderElementStyles, updateClassProp as updateElementClassProp, updateStyleProp as updateElementStyleProp, updateStylingMap} from './styling';
 import {assertDataInRangeInternal, isDifferent, loadElementInternal, loadInternal, stringify} from './util';
 import {ViewRef} from './view_ref';
 
@@ -528,29 +529,35 @@ export function createEmbeddedViewNode<T>(
  * TView for dynamically created views on their host TNode, which only has one instance.
  */
 export function renderEmbeddedTemplate<T>(
-    viewNode: LViewNode, tView: TView, context: T, rf: RenderFlags): LViewNode {
+    viewNode: LViewNode | LElementNode, tView: TView, context: T, rf: RenderFlags): LViewNode|
+    LElementNode {
   const _isParent = isParent;
   const _previousOrParentNode = previousOrParentNode;
   let oldView: LViewData;
-  try {
-    isParent = true;
-    previousOrParentNode = null !;
+  if (viewNode.data ![PARENT] == null && viewNode.data ![CONTEXT] && !tView.template) {
+    // This is a root view inside the view tree
+    tickRootContext(viewNode.data ![CONTEXT] as RootContext);
+  } else {
+    try {
+      isParent = true;
+      previousOrParentNode = null !;
 
-    oldView = enterView(viewNode.data, viewNode);
-    namespaceHTML();
-    tView.template !(rf, context);
-    if (rf & RenderFlags.Update) {
-      refreshView();
-    } else {
-      viewNode.data[TVIEW].firstTemplatePass = firstTemplatePass = false;
+      oldView = enterView(viewNode.data !, viewNode);
+      namespaceHTML();
+      tView.template !(rf, context);
+      if (rf & RenderFlags.Update) {
+        refreshView();
+      } else {
+        viewNode.data ![TVIEW].firstTemplatePass = firstTemplatePass = false;
+      }
+    } finally {
+      // renderEmbeddedTemplate() is called twice in fact, once for creation only and then once for
+      // update. When for creation only, leaveView() must not trigger view hooks, nor clean flags.
+      const isCreationOnly = (rf & RenderFlags.Create) === RenderFlags.Create;
+      leaveView(oldView !, isCreationOnly);
+      isParent = _isParent;
+      previousOrParentNode = _previousOrParentNode;
     }
-  } finally {
-    // renderEmbeddedTemplate() is called twice in fact, once for creation only and then once for
-    // update. When for creation only, leaveView() must not trigger view hooks, nor clean flags.
-    const isCreationOnly = (rf & RenderFlags.Create) === RenderFlags.Create;
-    leaveView(oldView !, isCreationOnly);
-    isParent = _isParent;
-    previousOrParentNode = _previousOrParentNode;
   }
   return viewNode;
 }
@@ -653,17 +660,7 @@ export function elementStart(
 
   ngDevMode && ngDevMode.rendererCreateElement++;
 
-  let native: RElement;
-
-  if (isProceduralRenderer(renderer)) {
-    native = renderer.createElement(name, _currentNamespace);
-  } else {
-    if (_currentNamespace === null) {
-      native = renderer.createElement(name);
-    } else {
-      native = renderer.createElementNS(_currentNamespace, name);
-    }
-  }
+  const native = elementCreate(name);
 
   ngDevMode && assertDataInRange(index - 1);
 
@@ -676,6 +673,27 @@ export function elementStart(
   }
   appendChild(getParentLNode(node), native, viewData);
   createDirectivesAndLocals(localRefs);
+  return native;
+}
+/**
+ * Creates a native element from a tag name, using a renderer.
+ * @param name the tag name
+ * @param overriddenRenderer Optional A renderer to override the default one
+ * @returns the element created
+ */
+export function elementCreate(name: string, overriddenRenderer?: Renderer3): RElement {
+  let native: RElement;
+  const rendererToUse = overriddenRenderer || renderer;
+
+  if (isProceduralRenderer(rendererToUse)) {
+    native = rendererToUse.createElement(name, _currentNamespace);
+  } else {
+    if (_currentNamespace === null) {
+      native = rendererToUse.createElement(name);
+    } else {
+      native = rendererToUse.createElementNS(_currentNamespace, name);
+    }
+  }
   return native;
 }
 
@@ -1291,25 +1309,29 @@ export function elementClassProp<T>(
  *        (Note that this is not the element index, but rather an index value allocated
  *        specifically for element styling--the index must be the next index after the element
  *        index.)
- * @param styleDeclarations A key/value array of CSS styles that will be registered on the element.
- *   Each individual style will be used on the element as long as it is not overridden
- *   by any styles placed on the element by multiple (`[style]`) or singular (`[style.prop]`)
- *   bindings. If a style binding changes its value to null then the initial styling
- *   values that are passed in here will be applied to the element (if matched).
  * @param classDeclarations A key/value array of CSS classes that will be registered on the element.
  *   Each individual style will be used on the element as long as it is not overridden
  *   by any classes placed on the element by multiple (`[class]`) or singular (`[class.named]`)
  *   bindings. If a class binding changes its value to a falsy value then the matching initial
  *   class value that are passed in here will be applied to the element (if matched).
+ * @param styleDeclarations A key/value array of CSS styles that will be registered on the element.
+ *   Each individual style will be used on the element as long as it is not overridden
+ *   by any styles placed on the element by multiple (`[style]`) or singular (`[style.prop]`)
+ *   bindings. If a style binding changes its value to null then the initial styling
+ *   values that are passed in here will be applied to the element (if matched).
+ * @param styleSanitizer An optional sanitizer function that will be used (if provided)
+ *   to sanitize the any CSS property values that are applied to the element (during rendering).
  */
 export function elementStyling<T>(
+    classDeclarations?: (string | boolean | InitialStylingFlags)[] | null,
     styleDeclarations?: (string | boolean | InitialStylingFlags)[] | null,
-    classDeclarations?: (string | boolean | InitialStylingFlags)[] | null): void {
+    styleSanitizer?: StyleSanitizeFn | null): void {
   const lElement = currentElementNode !;
   const tNode = lElement.tNode;
   if (!tNode.stylingTemplate) {
     // initialize the styling template.
-    tNode.stylingTemplate = createStylingContextTemplate(styleDeclarations, classDeclarations);
+    tNode.stylingTemplate =
+        createStylingContextTemplate(classDeclarations, styleDeclarations, styleSanitizer);
   }
   if (styleDeclarations && styleDeclarations.length ||
       classDeclarations && classDeclarations.length) {
@@ -1377,22 +1399,23 @@ export function elementStylingApply<T>(index: number): void {
  *        renaming as part of minification.
  * @param value New value to write (null to remove).
  * @param suffix Optional suffix. Used with scalar values to add unit such as `px`.
- * @param sanitizer An optional function used to transform the value typically used for
- *        sanitization.
+ *        Note that when a suffix is provided then the underlying sanitizer will
+ *        be ignored.
  */
 export function elementStyleProp<T>(
-    index: number, styleIndex: number, value: T | null, suffix?: string): void;
-export function elementStyleProp<T>(
-    index: number, styleIndex: number, value: T | null, sanitizer?: SanitizerFn): void;
-export function elementStyleProp<T>(
-    index: number, styleIndex: number, value: T | null,
-    suffixOrSanitizer?: string | SanitizerFn): void {
+    index: number, styleIndex: number, value: T | null, suffix?: string): void {
   let valueToAdd: string|null = null;
   if (value) {
-    valueToAdd =
-        typeof suffixOrSanitizer == 'function' ? suffixOrSanitizer(value) : stringify(value);
-    if (typeof suffixOrSanitizer == 'string') {
-      valueToAdd = valueToAdd + suffixOrSanitizer;
+    if (suffix) {
+      // when a suffix is applied then it will bypass
+      // sanitization entirely (b/c a new string is created)
+      valueToAdd = stringify(value) + suffix;
+    } else {
+      // sanitization happens by dealing with a String value
+      // this means that the string value will be passed through
+      // into the style rendering later (which is where the value
+      // will be sanitized before it is applied)
+      valueToAdd = value as any as string;
     }
   }
   updateElementStyleProp(getStylingContext(index), styleIndex, valueToAdd);
@@ -1412,17 +1435,17 @@ export function elementStyleProp<T>(
  *        (Note that this is not the element index, but rather an index value allocated
  *        specifically for element styling--the index must be the next index after the element
  *        index.)
- * @param styles A key/value style map of the styles that will be applied to the given element.
- *        Any missing styles (that have already been applied to the element beforehand) will be
- *        removed (unset) from the element's styling.
  * @param classes A key/value style map of CSS classes that will be added to the given element.
  *        Any missing classes (that have already been applied to the element beforehand) will be
  *        removed (unset) from the element's list of CSS classes.
+ * @param styles A key/value style map of the styles that will be applied to the given element.
+ *        Any missing styles (that have already been applied to the element beforehand) will be
+ *        removed (unset) from the element's styling.
  */
 export function elementStylingMap<T>(
-    index: number, styles: {[styleName: string]: any} | null,
-    classes?: {[key: string]: any} | string | null): void {
-  updateStylingMap(getStylingContext(index), styles, classes);
+    index: number, classes: {[key: string]: any} | string | null,
+    styles?: {[styleName: string]: any} | null): void {
+  updateStylingMap(getStylingContext(index), classes, styles);
 }
 
 //////////////////////////
@@ -2431,7 +2454,7 @@ export function interpolation2(
   return different ? prefix + stringify(v0) + i0 + stringify(v1) + suffix : NO_CHANGE;
 }
 
-/** Creates an interpolation bindings with 3 expressions. */
+/** Creates an interpolation binding with 3 expressions. */
 export function interpolation3(
     prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, suffix: string): string|
     NO_CHANGE {

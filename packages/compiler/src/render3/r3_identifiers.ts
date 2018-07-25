@@ -80,6 +80,7 @@ export class Identifiers {
 
   static load: o.ExternalReference = {name: 'ɵld', moduleName: CORE};
   static loadDirective: o.ExternalReference = {name: 'ɵd', moduleName: CORE};
+  static loadQueryList: o.ExternalReference = {name: 'ɵql', moduleName: CORE};
 
   static pipe: o.ExternalReference = {name: 'ɵPp', moduleName: CORE};
 
@@ -142,6 +143,7 @@ export class Identifiers {
 
   static query: o.ExternalReference = {name: 'ɵQ', moduleName: CORE};
   static queryRefresh: o.ExternalReference = {name: 'ɵqR', moduleName: CORE};
+  static registerContentQuery: o.ExternalReference = {name: 'ɵQr', moduleName: CORE};
 
   static NgOnChangesFeature: o.ExternalReference = {name: 'ɵNgOnChangesFeature', moduleName: CORE};
 
@@ -152,4 +154,12 @@ export class Identifiers {
 
   // Reserve slots for pure functions
   static reserveSlots: o.ExternalReference = {name: 'ɵrS', moduleName: CORE};
+
+  // sanitization-related functions
+  static sanitizeHtml: o.ExternalReference = {name: 'ɵzh', moduleName: CORE};
+  static sanitizeStyle: o.ExternalReference = {name: 'ɵzs', moduleName: CORE};
+  static defaultStyleSanitizer: o.ExternalReference = {name: 'ɵzss', moduleName: CORE};
+  static sanitizeResourceUrl: o.ExternalReference = {name: 'ɵzr', moduleName: CORE};
+  static sanitizeScript: o.ExternalReference = {name: 'ɵzc', moduleName: CORE};
+  static sanitizeUrl: o.ExternalReference = {name: 'ɵzu', moduleName: CORE};
 }
