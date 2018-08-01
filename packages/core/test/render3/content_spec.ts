@@ -15,6 +15,7 @@ import {AttributeMarker, detectChanges} from '../../src/render3/index';
 import {bind, container, containerRefreshEnd, containerRefreshStart, element, elementEnd, elementProperty, elementStart, embeddedViewEnd, embeddedViewStart, loadDirective, projection, projectionDef, text} from '../../src/render3/instructions';
 import {RenderFlags} from '../../src/render3/interfaces/definition';
 
+import {NgIf} from './common_with_def';
 import {ComponentFixture, createComponent, renderComponent, toHtml} from './render_util';
 
 describe('content projection', () => {
@@ -804,22 +805,6 @@ describe('content projection', () => {
      });
 
   it('should project into dynamic views (with createEmbeddedView)', () => {
-    class NgIf {
-      constructor(public vcr: ViewContainerRef, public template: TemplateRef<any>) {}
-
-      @Input()
-      set ngIf(value: boolean) {
-        value ? this.vcr.createEmbeddedView(this.template) : this.vcr.clear();
-      }
-
-      static ngDirectiveDef = defineDirective({
-        type: NgIf,
-        selectors: [['', 'ngIf', '']],
-        inputs: {'ngIf': 'ngIf'},
-        factory: () => new NgIf(injectViewContainerRef(), injectTemplateRef())
-      });
-    }
-
     /**
      * Before-
      * <ng-template [ngIf]="showing">
@@ -838,13 +823,14 @@ describe('content projection', () => {
         elementProperty(1, 'ngIf', bind(ctx.showing));
       }
 
-      function IfTemplate(rf1: RenderFlags, ctx1: any) {
-        if (rf1 & RenderFlags.Create) {
-          projectionDef();
-          projection(0);
-        }
-      }
     }, [NgIf]);
+
+    function IfTemplate(rf1: RenderFlags, ctx: any) {
+      if (rf1 & RenderFlags.Create) {
+        projectionDef();
+        projection(0);
+      }
+    }
 
     let child: {showing: boolean};
     /**
@@ -884,27 +870,6 @@ describe('content projection', () => {
   });
 
   it('should project into dynamic views (with insertion)', () => {
-    class NgIf {
-      constructor(public vcr: ViewContainerRef, public template: TemplateRef<any>) {}
-
-      @Input()
-      set ngIf(value: boolean) {
-        if (value) {
-          const viewRef = this.template.createEmbeddedView({});
-          this.vcr.insert(viewRef);
-        } else {
-          this.vcr.clear();
-        }
-      }
-
-      static ngDirectiveDef = defineDirective({
-        type: NgIf,
-        selectors: [['', 'ngIf', '']],
-        inputs: {'ngIf': 'ngIf'},
-        factory: () => new NgIf(injectViewContainerRef(), injectTemplateRef())
-      });
-    }
-
     /**
      * Before-
      * <ng-template [ngIf]="showing">
@@ -923,13 +888,14 @@ describe('content projection', () => {
         elementProperty(1, 'ngIf', bind(ctx.showing));
       }
 
-      function IfTemplate(rf1: RenderFlags, ctx1: any) {
-        if (rf1 & RenderFlags.Create) {
-          projectionDef();
-          projection(0);
-        }
-      }
     }, [NgIf]);
+
+    function IfTemplate(rf: RenderFlags, ctx: any) {
+      if (rf & RenderFlags.Create) {
+        projectionDef();
+        projection(0);
+      }
+    }
 
     let child: {showing: boolean};
     /**

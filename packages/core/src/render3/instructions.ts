@@ -22,7 +22,7 @@ import {AttributeMarker, InitialInputData, InitialInputs, LContainerNode, LEleme
 import {CssSelectorList, NG_PROJECT_AS_ATTR_NAME} from './interfaces/projection';
 import {LQueries} from './interfaces/query';
 import {ProceduralRenderer3, RComment, RElement, RText, Renderer3, RendererFactory3, RendererStyleFlags3, isProceduralRenderer} from './interfaces/renderer';
-import {BINDING_INDEX, CLEANUP, CONTAINER_INDEX, CONTENT_QUERIES, CONTEXT, CurrentMatchesList, DIRECTIVES, FLAGS, HEADER_OFFSET, HOST_NODE, INJECTOR, LViewData, LViewFlags, NEXT, PARENT, QUERIES, RENDERER, RootContext, SANITIZER, TAIL, TData, TVIEW, TView} from './interfaces/view';
+import {BINDING_INDEX, CLEANUP, CONTAINER_INDEX, CONTENT_QUERIES, CONTEXT, CurrentMatchesList, DECLARATION_VIEW, DIRECTIVES, FLAGS, HEADER_OFFSET, HOST_NODE, INJECTOR, LViewData, LViewFlags, NEXT, OpaqueViewState, PARENT, QUERIES, RENDERER, RootContext, SANITIZER, TAIL, TData, TVIEW, TView} from './interfaces/view';
 import {assertNodeOfPossibleTypes, assertNodeType} from './node_assert';
 import {appendChild, appendProjectedNode, canInsertNativeNode, createTextNode, findComponentHost, getChildLNode, getLViewChild, getNextLNode, getParentLNode, insertView, removeView} from './node_manipulation';
 import {isNodeMatchingSelectorList, matchingSelectorIndex} from './node_selector_matcher';
@@ -108,9 +108,38 @@ export function getCurrentSanitizer(): Sanitizer|null {
   return viewData && viewData[SANITIZER];
 }
 
-export function getViewData(): LViewData {
+/**
+ * Returns the current OpaqueViewState instance.
+ *
+ * Used in conjunction with the restoreView() instruction to save a snapshot
+ * of the current view and restore it when listeners are invoked. This allows
+ * walking the declaration view tree in listeners to get vars from parent views.
+ */
+export function getCurrentView(): OpaqueViewState {
+  return (viewData as any) as OpaqueViewState;
+}
+
+/**
+ * Internal function that returns the current LViewData instance.
+ *
+ * The getCurrentView() instruction should be used for anything public.
+ */
+export function _getViewData(): LViewData {
   // top level variables should not be exported for performance reasons (PERF_NOTES.md)
   return viewData;
+}
+
+/**
+ * Restores `contextViewData` to the given OpaqueViewState instance.
+ *
+ * Used in conjunction with the getCurrentView() instruction to save a snapshot
+ * of the current view and restore it when listeners are invoked. This allows
+ * walking the declaration view tree in listeners to get vars from parent views.
+ *
+ * @param viewToRestore The LViewData instance to restore.
+ */
+export function restoreView(viewToRestore: OpaqueViewState) {
+  contextViewData = (viewToRestore as any) as LViewData;
 }
 
 /** Used to set the parent property when nodes are created. */
@@ -164,6 +193,14 @@ export function getCreationMode(): boolean {
  * any local variables that need to be stored between invocations.
  */
 let viewData: LViewData;
+
+/**
+ * The last viewData retrieved by nextContext().
+ * Allows building nextContext() and reference() calls.
+ *
+ * e.g. const inner = x().$implicit; const outer = x().$implicit;
+ */
+let contextViewData: LViewData = null !;
 
 /**
  * An array of directive instances in the current view.
@@ -223,7 +260,7 @@ export function enterView(newView: LViewData, host: LElementNode | LViewNode | n
     isParent = true;
   }
 
-  viewData = newView;
+  viewData = contextViewData = newView;
   currentQueries = newView && newView[QUERIES];
 
   return oldView;
@@ -253,11 +290,13 @@ export function leaveView(newView: LViewData, creationOnly?: boolean): void {
 /**
  * Refreshes the view, executing the following steps in that order:
  * triggers init hooks, refreshes dynamic embedded views, triggers content hooks, sets host
- * bindings,
- * refreshes child components.
+ * bindings, refreshes child components.
  * Note: view hooks are triggered later when leaving the view.
  */
-function refreshView() {
+function refreshDescendantViews() {
+  // This needs to be set before children are processed to support recursive components
+  tView.firstTemplatePass = firstTemplatePass = false;
+
   if (!checkNoChangesMode) {
     executeInitHooks(viewData, tView, creationMode);
   }
@@ -265,9 +304,6 @@ function refreshView() {
   if (!checkNoChangesMode) {
     executeHooks(directives !, tView.contentHooks, tView.contentCheckHooks, creationMode);
   }
-
-  // This needs to be set before children are processed to support recursive components
-  tView.firstTemplatePass = firstTemplatePass = false;
 
   setHostBindings(tView.hostBindings);
   refreshContentQueries(tView);
@@ -302,8 +338,8 @@ function refreshContentQueries(tView: TView): void {
 /** Refreshes child components in the current view. */
 function refreshChildComponents(components: number[] | null): void {
   if (components != null) {
-    for (let i = 0; i < components.length; i += 2) {
-      componentRefresh(components[i], components[i + 1]);
+    for (let i = 0; i < components.length; i++) {
+      componentRefresh(components[i]);
     }
   }
 }
@@ -329,12 +365,13 @@ export function createLViewData<T>(
     null,                                                                        // directives
     null,                                                                        // cleanupInstances
     context,                                                                     // context
-    viewData && viewData[INJECTOR],                                              // injector
+    viewData ? viewData[INJECTOR] : null,                                        // injector
     renderer,                                                                    // renderer
     sanitizer || null,                                                           // sanitizer
     null,                                                                        // tail
     -1,                                                                          // containerIndex
     null,                                                                        // contentQueries
+    null                                                                         // declarationView
   ];
 }
 
@@ -500,7 +537,8 @@ export function renderTemplate<T>(
  * Such lViewNode will then be renderer with renderEmbeddedTemplate() (see below).
  */
 export function createEmbeddedViewNode<T>(
-    tView: TView, context: T, renderer: Renderer3, queries?: LQueries | null): LViewNode {
+    tView: TView, context: T, declarationView: LViewData, renderer: Renderer3,
+    queries?: LQueries | null): LViewNode {
   const _isParent = isParent;
   const _previousOrParentNode = previousOrParentNode;
   isParent = true;
@@ -508,6 +546,8 @@ export function createEmbeddedViewNode<T>(
 
   const lView =
       createLViewData(renderer, tView, context, LViewFlags.CheckAlways, getCurrentSanitizer());
+  lView[DECLARATION_VIEW] = declarationView;
+
   if (queries) {
     lView[QUERIES] = queries.createView();
   }
@@ -546,7 +586,7 @@ export function renderEmbeddedTemplate<T>(
       namespaceHTML();
       tView.template !(rf, context);
       if (rf & RenderFlags.Update) {
-        refreshView();
+        refreshDescendantViews();
       } else {
         viewNode.data ![TVIEW].firstTemplatePass = firstTemplatePass = false;
       }
@@ -562,6 +602,21 @@ export function renderEmbeddedTemplate<T>(
   return viewNode;
 }
 
+/**
+ * Retrieves a context at the level specified and saves it as the global, contextViewData.
+ * Will get the next level up if level is not specified.
+ *
+ * This is used to save contexts of parent views so they can be bound in embedded views, or
+ * in conjunction with reference() to bind a ref from a parent view.
+ *
+ * @param level The relative level of the view from which to grab context compared to contextVewData
+ * @returns context
+ */
+export function nextContext<T = any>(level: number = 1): T {
+  contextViewData = walkUpViews(level, contextViewData !);
+  return contextViewData[CONTEXT] as T;
+}
+
 export function renderComponentOrTemplate<T>(
     node: LElementNode, hostView: LViewData, componentOrContext: T,
     template?: ComponentTemplate<T>) {
@@ -573,14 +628,14 @@ export function renderComponentOrTemplate<T>(
     if (template) {
       namespaceHTML();
       template(getRenderFlags(hostView), componentOrContext !);
-      refreshView();
+      refreshDescendantViews();
     } else {
       executeInitAndContentHooks();
 
       // Element was stored at 0 in data and directive was stored at 0 in directives
       // in renderComponent()
       setHostBindings(_ROOT_DIRECTIVE_INDICES);
-      componentRefresh(0, HEADER_OFFSET);
+      componentRefresh(HEADER_OFFSET);
     }
   } finally {
     if (rendererFactory.end) {
@@ -770,9 +825,9 @@ export function resolveDirective(
 }
 
 /** Stores index of component's host element so it will be queued for view refresh during CD. */
-function queueComponentIndexForCheck(dirIndex: number): void {
+function queueComponentIndexForCheck(): void {
   if (firstTemplatePass) {
-    (tView.components || (tView.components = [])).push(dirIndex, viewData.length - 1);
+    (tView.components || (tView.components = [])).push(viewData.length - 1);
   }
 }
 
@@ -1543,7 +1598,7 @@ function addComponentLogic<T>(
       viewData, previousOrParentNode.tNode.index as number,
       createLViewData(
           rendererFactory.createRenderer(previousOrParentNode.native as RElement, def.rendererType),
-          tView, null, def.onPush ? LViewFlags.Dirty : LViewFlags.CheckAlways,
+          tView, instance, def.onPush ? LViewFlags.Dirty : LViewFlags.CheckAlways,
           getCurrentSanitizer()));
 
   // We need to set the host node/data here because when the component LNode was created,
@@ -1553,7 +1608,7 @@ function addComponentLogic<T>(
 
   initChangeDetectorIfExisting(previousOrParentNode.nodeInjector, instance, componentView);
 
-  if (firstTemplatePass) queueComponentIndexForCheck(directiveIndex);
+  if (firstTemplatePass) queueComponentIndexForCheck();
 }
 
 /**
@@ -1914,7 +1969,7 @@ function getOrCreateEmbeddedTView(viewIndex: number, parent: LContainerNode): TV
 
 /** Marks the end of an embedded view. */
 export function embeddedViewEnd(): void {
-  refreshView();
+  refreshDescendantViews();
   isParent = false;
   previousOrParentNode = viewData[HOST_NODE] as LViewNode;
   leaveView(viewData[PARENT] !);
@@ -1927,10 +1982,9 @@ export function embeddedViewEnd(): void {
 /**
  * Refreshes components by entering the component view and processing its bindings, queries, etc.
  *
- * @param directiveIndex Directive index in LViewData[DIRECTIVES]
  * @param adjustedElementIndex  Element index in LViewData[] (adjusted for HEADER_OFFSET)
  */
-export function componentRefresh<T>(directiveIndex: number, adjustedElementIndex: number): void {
+export function componentRefresh<T>(adjustedElementIndex: number): void {
   ngDevMode && assertDataInRange(adjustedElementIndex);
   const element = viewData[adjustedElementIndex] as LElementNode;
   ngDevMode && assertNodeType(element, TNodeType.Element);
@@ -1940,8 +1994,7 @@ export function componentRefresh<T>(directiveIndex: number, adjustedElementIndex
 
   // Only attached CheckAlways components or attached, dirty OnPush components should be checked
   if (viewAttached(hostView) && hostView[FLAGS] & (LViewFlags.CheckAlways | LViewFlags.Dirty)) {
-    ngDevMode && assertDataInRange(directiveIndex, directives !);
-    detectChangesInternal(hostView, element, directives ![directiveIndex]);
+    detectChangesInternal(hostView, element, hostView[CONTEXT]);
   }
 }
 
@@ -2239,6 +2292,15 @@ export function detectChanges<T>(component: T): void {
   detectChangesInternal(hostNode.data as LViewData, hostNode, component);
 }
 
+/**
+ * Synchronously perform change detection on a root view and its components.
+ *
+ * @param lViewData The view which the change detection should be performed on.
+ */
+export function detectChangesInRootView(lViewData: LViewData): void {
+  tickRootContext(lViewData[CONTEXT] as RootContext);
+}
+
 
 /**
  * Checks the change detector and its children, and throws if any changes are detected.
@@ -2250,6 +2312,24 @@ export function checkNoChanges<T>(component: T): void {
   checkNoChangesMode = true;
   try {
     detectChanges(component);
+  } finally {
+    checkNoChangesMode = false;
+  }
+}
+
+/**
+ * Checks the change detector on a root view and its components, and throws if any changes are
+ * detected.
+ *
+ * This is used in development mode to verify that running change detection doesn't
+ * introduce other changes.
+ *
+ * @param lViewData The view which the change detection should be checked on.
+ */
+export function checkNoChangesInRootView(lViewData: LViewData): void {
+  checkNoChangesMode = true;
+  try {
+    detectChangesInRootView(lViewData);
   } finally {
     checkNoChangesMode = false;
   }
@@ -2267,7 +2347,7 @@ export function detectChangesInternal<T>(
     namespaceHTML();
     createViewQuery(viewQuery, hostView[FLAGS], component);
     template(getRenderFlags(hostView), component);
-    refreshView();
+    refreshDescendantViews();
     updateViewQuery(viewQuery, component);
   } finally {
     leaveView(oldView);
@@ -2540,6 +2620,29 @@ export function store<T>(index: number, value: T): void {
     tView.data[adjustedIndex] = null;
   }
   viewData[adjustedIndex] = value;
+}
+
+/**
+ * Retrieves a local reference from the current contextViewData.
+ *
+ * If the reference to retrieve is in a parent view, this instruction is used in conjunction
+ * with a nextContext() call, which walks up the tree and updates the contextViewData instance.
+ *
+ * @param index The index of the local ref in contextViewData.
+ */
+export function reference<T>(index: number) {
+  return loadInternal<T>(index, contextViewData);
+}
+
+function walkUpViews(nestingLevel: number, currentView: LViewData): LViewData {
+  while (nestingLevel > 0) {
+    ngDevMode && assertDefined(
+                     currentView[DECLARATION_VIEW],
+                     'Declaration view should be defined if nesting level is greater than 0.');
+    currentView = currentView[DECLARATION_VIEW] !;
+    nestingLevel--;
+  }
+  return currentView;
 }
 
 /** Retrieves a value from the `directives` array. */

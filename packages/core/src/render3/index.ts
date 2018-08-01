@@ -7,7 +7,7 @@
  */
 
 import {LifecycleHooksFeature, getHostElement, getRenderedText, renderComponent, whenRendered} from './component';
-import {defineComponent, defineDirective, defineNgModule, definePipe} from './definition';
+import {defineBase, defineComponent, defineDirective, defineNgModule, definePipe} from './definition';
 import {InheritDefinitionFeature} from './features/inherit_definition_feature';
 import {NgOnChangesFeature} from './features/ng_onchanges_feature';
 import {PublicFeature} from './features/public_feature';
@@ -49,6 +49,8 @@ export {
   containerRefreshStart as cR,
   containerRefreshEnd as cr,
 
+  nextContext as x,
+
   element as Ee,
   elementAttribute as a,
   elementClassProp as cp,
@@ -60,6 +62,9 @@ export {
   elementStylingMap as sm,
   elementStyleProp as sp,
   elementStylingApply as sa,
+
+  getCurrentView as gV,
+  restoreView as rV,
 
   listener as L,
   store as st,
@@ -75,6 +80,8 @@ export {
 
   text as T,
   textBinding as t,
+
+  reference as r,
 
   reserveSlots as rS,
 
@@ -160,6 +167,7 @@ export {
   defineComponent,
   defineDirective,
   defineNgModule,
+  defineBase,
   definePipe,
   getHostElement,
   getRenderedText,

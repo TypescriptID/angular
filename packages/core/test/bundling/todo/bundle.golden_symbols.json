@@ -27,6 +27,12 @@
     "name": "ChangeDetectionStrategy"
   },
   {
+    "name": "ChangeDetectorRef"
+  },
+  {
+    "name": "DECLARATION_VIEW"
+  },
+  {
     "name": "DIRECTIVES"
   },
   {
@@ -40,6 +46,9 @@
   },
   {
     "name": "EMPTY_RENDERER_TYPE_ID"
+  },
+  {
+    "name": "ElementRef"
   },
   {
     "name": "ElementRef$1"
@@ -96,6 +105,12 @@
     "name": "NgModuleRef"
   },
   {
+    "name": "NodeInjector"
+  },
+  {
+    "name": "NullInjector"
+  },
+  {
     "name": "Optional"
   },
   {
@@ -135,7 +150,28 @@
     "name": "TVIEW"
   },
   {
+    "name": "TemplateRef"
+  },
+  {
     "name": "TemplateRef$1"
+  },
+  {
+    "name": "ToDoAppComponent_footer_Template_6"
+  },
+  {
+    "name": "ToDoAppComponent_footer_button_Template_5"
+  },
+  {
+    "name": "ToDoAppComponent_section_Template_5"
+  },
+  {
+    "name": "ToDoAppComponent_section_input_Template_1"
+  },
+  {
+    "name": "ToDoAppComponent_section_li_Template_3"
+  },
+  {
+    "name": "ToDoAppComponent_section_li_input_Template_6"
   },
   {
     "name": "Todo"
@@ -148,6 +184,9 @@
   },
   {
     "name": "VIEWS"
+  },
+  {
+    "name": "ViewContainerRef"
   },
   {
     "name": "ViewContainerRef$1"
@@ -169,6 +208,9 @@
   },
   {
     "name": "_ROOT_DIRECTIVE_INDICES"
+  },
+  {
+    "name": "_THROW_IF_NOT_FOUND"
   },
   {
     "name": "__read"
@@ -324,6 +366,9 @@
     "name": "container"
   },
   {
+    "name": "contextViewData"
+  },
+  {
     "name": "createDirectivesAndLocals"
   },
   {
@@ -471,7 +516,13 @@
     "name": "getCleanup"
   },
   {
+    "name": "getClosestComponentAncestor"
+  },
+  {
     "name": "getCurrentSanitizer"
+  },
+  {
+    "name": "getCurrentView"
   },
   {
     "name": "getInitialIndex"
@@ -492,10 +543,16 @@
     "name": "getNextLNode"
   },
   {
+    "name": "getOrCreateChangeDetectorRef"
+  },
+  {
     "name": "getOrCreateContainerRef"
   },
   {
     "name": "getOrCreateElementRef"
+  },
+  {
+    "name": "getOrCreateHostChangeDetector"
   },
   {
     "name": "getOrCreateInjectable"
@@ -594,6 +651,9 @@
     "name": "invertObject"
   },
   {
+    "name": "isComponent"
+  },
+  {
     "name": "isContextDirty"
   },
   {
@@ -669,6 +729,9 @@
     "name": "namespaceHTML"
   },
   {
+    "name": "nextContext"
+  },
+  {
     "name": "pointers"
   },
   {
@@ -702,16 +765,19 @@
     "name": "readElementValue"
   },
   {
+    "name": "reference"
+  },
+  {
     "name": "refreshChildComponents"
   },
   {
     "name": "refreshContentQueries"
   },
   {
-    "name": "refreshDynamicEmbeddedViews"
+    "name": "refreshDescendantViews"
   },
   {
-    "name": "refreshView"
+    "name": "refreshDynamicEmbeddedViews"
   },
   {
     "name": "removeListeners"
@@ -739,6 +805,9 @@
   },
   {
     "name": "resolveRendererType2"
+  },
+  {
+    "name": "restoreView"
   },
   {
     "name": "sameHostView"
@@ -841,6 +910,9 @@
   },
   {
     "name": "walkLNodeTree"
+  },
+  {
+    "name": "walkUpViews"
   },
   {
     "name": "wrapListenerWithDirtyAndDefault"

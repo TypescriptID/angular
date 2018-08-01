@@ -7,8 +7,9 @@
  */
 
 import {ApplicationModule, ApplicationRef, DoCheck, InjectFlags, InjectorType, Input, OnInit, PlatformRef, TestabilityRegistry, Type, defineInjector, inject, ɵE as elementStart, ɵNgModuleDef as NgModuleDef, ɵRenderFlags as RenderFlags, ɵT as text, ɵdefineComponent as defineComponent, ɵe as elementEnd, ɵi1 as interpolation1, ɵt as textBinding} from '@angular/core';
-import {getTestBed, withBody} from '@angular/core/testing';
+import {getTestBed} from '@angular/core/testing';
 import {BrowserModule, EVENT_MANAGER_PLUGINS, platformBrowser} from '@angular/platform-browser';
+import {withBody} from '@angular/private/testing';
 
 import {BROWSER_MODULE_PROVIDERS} from '../../platform-browser/src/browser';
 import {APPLICATION_MODULE_PROVIDERS} from '../src/application_module';
@@ -52,13 +53,12 @@ describe('ApplicationRef bootstrap', () => {
        const appRef = moduleRef.injector.get(ApplicationRef);
        const helloWorldComponent = appRef.components[0].instance as HelloWorldComponent;
        expect(document.body.innerHTML).toEqual('<hello-world><div>Hello World</div></hello-world>');
-       // TODO(jasonaden): Get with Kara on lifecycle hooks
-       //  expect(helloWorldComponent.log).toEqual(['OnInit', 'DoCheck']);
+       expect(helloWorldComponent.log).toEqual(['OnInit', 'DoCheck']);
+
        helloWorldComponent.name = 'Mundo';
        appRef.tick();
        expect(document.body.innerHTML).toEqual('<hello-world><div>Hello Mundo</div></hello-world>');
-       // TODO(jasonaden): Get with Kara on lifecycle hooks
-       //  expect(helloWorldComponent.log).toEqual(['OnInit', 'DoCheck', 'DoCheck']);
+       expect(helloWorldComponent.log).toEqual(['OnInit', 'DoCheck', 'DoCheck']);
 
        // Cleanup TestabilityRegistry
        const registry: TestabilityRegistry = getTestBed().get(TestabilityRegistry);

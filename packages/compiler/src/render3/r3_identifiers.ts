@@ -45,11 +45,17 @@ export class Identifiers {
 
   static containerCreate: o.ExternalReference = {name: 'ɵC', moduleName: CORE};
 
+  static nextContext: o.ExternalReference = {name: 'ɵx', moduleName: CORE};
+
   static text: o.ExternalReference = {name: 'ɵT', moduleName: CORE};
 
   static textBinding: o.ExternalReference = {name: 'ɵt', moduleName: CORE};
 
   static bind: o.ExternalReference = {name: 'ɵb', moduleName: CORE};
+
+  static getCurrentView: o.ExternalReference = {name: 'ɵgV', moduleName: CORE};
+
+  static restoreView: o.ExternalReference = {name: 'ɵrV', moduleName: CORE};
 
   static interpolation1: o.ExternalReference = {name: 'ɵi1', moduleName: CORE};
   static interpolation2: o.ExternalReference = {name: 'ɵi2', moduleName: CORE};
@@ -86,6 +92,8 @@ export class Identifiers {
 
   static projection: o.ExternalReference = {name: 'ɵP', moduleName: CORE};
   static projectionDef: o.ExternalReference = {name: 'ɵpD', moduleName: CORE};
+
+  static reference: o.ExternalReference = {name: 'ɵr', moduleName: CORE};
 
   static inject: o.ExternalReference = {name: 'inject', moduleName: CORE};
 
