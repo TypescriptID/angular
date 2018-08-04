@@ -9,7 +9,7 @@
     "name": "BLOOM_MASK"
   },
   {
-    "name": "CIRCULAR$1"
+    "name": "CIRCULAR$2"
   },
   {
     "name": "CLEANUP"
@@ -591,7 +591,13 @@
     "name": "getRenderFlags"
   },
   {
+    "name": "getRenderParent"
+  },
+  {
     "name": "getRenderer"
+  },
+  {
+    "name": "getRendererFactory"
   },
   {
     "name": "getRootView"
@@ -727,6 +733,9 @@
   },
   {
     "name": "namespaceHTML"
+  },
+  {
+    "name": "nativeInsertBefore"
   },
   {
     "name": "nextContext"

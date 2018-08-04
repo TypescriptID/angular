@@ -18,7 +18,7 @@ import {executeHooks, executeInitHooks, queueInitHooks, queueLifecycleHooks} fro
 import {ACTIVE_INDEX, LContainer, RENDER_PARENT, VIEWS} from './interfaces/container';
 import {ComponentDefInternal, ComponentQuery, ComponentTemplate, DirectiveDefInternal, DirectiveDefListOrFactory, InitialStylingFlags, PipeDefListOrFactory, RenderFlags} from './interfaces/definition';
 import {LInjector} from './interfaces/injector';
-import {AttributeMarker, InitialInputData, InitialInputs, LContainerNode, LElementNode, LNode, LProjectionNode, LTextNode, LViewNode, PropertyAliasValue, PropertyAliases, TAttributes, TContainerNode, TElementNode, TNode, TNodeFlags, TNodeType} from './interfaces/node';
+import {AttributeMarker, InitialInputData, InitialInputs, LContainerNode, LElementContainerNode, LElementNode, LNode, LProjectionNode, LTextNode, LViewNode, PropertyAliasValue, PropertyAliases, TAttributes, TContainerNode, TElementNode, TNode, TNodeFlags, TNodeType} from './interfaces/node';
 import {CssSelectorList, NG_PROJECT_AS_ATTR_NAME} from './interfaces/projection';
 import {LQueries} from './interfaces/query';
 import {ProceduralRenderer3, RComment, RElement, RText, Renderer3, RendererFactory3, RendererStyleFlags3, isProceduralRenderer} from './interfaces/renderer';
@@ -96,13 +96,20 @@ export const CIRCULAR = '__CIRCULAR__';
  * Renderer2.
  */
 let renderer: Renderer3;
-let rendererFactory: RendererFactory3;
-let currentElementNode: LElementNode|null = null;
 
 export function getRenderer(): Renderer3 {
   // top level variables should not be exported for performance reasons (PERF_NOTES.md)
   return renderer;
 }
+
+let rendererFactory: RendererFactory3;
+
+export function getRendererFactory(): RendererFactory3 {
+  // top level variables should not be exported for performance reasons (PERF_NOTES.md)
+  return rendererFactory;
+}
+
+let currentElementNode: LElementNode|null = null;
 
 export function getCurrentSanitizer(): Sanitizer|null {
   return viewData && viewData[SANITIZER];
@@ -116,7 +123,7 @@ export function getCurrentSanitizer(): Sanitizer|null {
  * walking the declaration view tree in listeners to get vars from parent views.
  */
 export function getCurrentView(): OpaqueViewState {
-  return (viewData as any) as OpaqueViewState;
+  return viewData as any as OpaqueViewState;
 }
 
 /**
@@ -136,10 +143,10 @@ export function _getViewData(): LViewData {
  * of the current view and restore it when listeners are invoked. This allows
  * walking the declaration view tree in listeners to get vars from parent views.
  *
- * @param viewToRestore The LViewData instance to restore.
+ * @param viewToRestore The OpaqueViewState instance to restore.
  */
 export function restoreView(viewToRestore: OpaqueViewState) {
-  contextViewData = (viewToRestore as any) as LViewData;
+  contextViewData = viewToRestore as any as LViewData;
 }
 
 /** Used to set the parent property when nodes are created. */
@@ -301,12 +308,15 @@ function refreshDescendantViews() {
     executeInitHooks(viewData, tView, creationMode);
   }
   refreshDynamicEmbeddedViews(viewData);
+
+  // Content query results must be refreshed before content hooks are called.
+  refreshContentQueries(tView);
+
   if (!checkNoChangesMode) {
     executeHooks(directives !, tView.contentHooks, tView.contentCheckHooks, creationMode);
   }
 
   setHostBindings(tView.hostBindings);
-  refreshContentQueries(tView);
   refreshChildComponents(tView.components);
 }
 
@@ -419,6 +429,9 @@ export function createLNode(
 export function createLNode(
     index: number, type: TNodeType.Projection, native: null, name: null, attrs: TAttributes | null,
     lProjection: null): LProjectionNode;
+export function createLNode(
+    index: number, type: TNodeType.ElementContainer, native: RComment, name: null,
+    attrs: TAttributes | null, data: null): LElementContainerNode;
 export function createLNode(
     index: number, type: TNodeType, native: RText | RElement | RComment | null, name: string | null,
     attrs: TAttributes | null, state?: null | LViewData | LContainer): LElementNode&LTextNode&
@@ -693,6 +706,50 @@ export function element(
     index: number, name: string, attrs?: TAttributes | null, localRefs?: string[] | null): void {
   elementStart(index, name, attrs, localRefs);
   elementEnd();
+}
+
+/**
+ * Creates a logical container for other nodes (<ng-container>) backed by a comment node in the DOM.
+ * The instruction must later be followed by `elementContainerEnd()` call.
+ *
+ * @param index Index of the element in the LViewData array
+ * @param attrs Set of attributes to be used when matching directives.
+ * @param localRefs A set of local reference bindings on the element.
+ *
+ * Even if this instruction accepts a set of attributes no actual attribute values are propagated to
+ * the DOM (as a comment node can't have attributes). Attributes are here only for directive
+ * matching purposes and setting initial inputs of directives.
+ */
+export function elementContainerStart(
+    index: number, attrs?: TAttributes | null, localRefs?: string[] | null): void {
+  ngDevMode &&
+      assertEqual(viewData[BINDING_INDEX], -1, 'elements should be created before any bindings');
+
+  ngDevMode && ngDevMode.rendererCreateComment++;
+  const native = renderer.createComment(ngDevMode ? 'ng-container' : '');
+
+  ngDevMode && assertDataInRange(index - 1);
+
+  const node: LElementContainerNode =
+      createLNode(index, TNodeType.ElementContainer, native, null, attrs || null, null);
+
+  appendChild(getParentLNode(node), native, viewData);
+  createDirectivesAndLocals(localRefs);
+}
+
+/** Mark the end of the <ng-container>. */
+export function elementContainerEnd(): void {
+  if (isParent) {
+    isParent = false;
+  } else {
+    ngDevMode && assertHasParent();
+    previousOrParentNode = getParentLNode(previousOrParentNode) as LElementContainerNode;
+  }
+
+  ngDevMode && assertNodeType(previousOrParentNode, TNodeType.ElementContainer);
+  const queries = previousOrParentNode.queries;
+  queries && queries.addNode(previousOrParentNode);
+  queueLifecycleHooks(previousOrParentNode.tNode.flags, tView);
 }
 
 /**
@@ -1086,6 +1143,7 @@ export function hostElement(
 export function listener(
     eventName: string, listenerFn: (e?: any) => any, useCapture = false): void {
   ngDevMode && assertPreviousIsParent();
+  ngDevMode && assertNodeOfPossibleTypes(previousOrParentNode, TNodeType.Element);
   const node = previousOrParentNode;
   const native = node.native as RElement;
   ngDevMode && ngDevMode.rendererAddEventListener++;
@@ -1779,6 +1837,7 @@ export function container(
   const currentParent = isParent ? previousOrParentNode : getParentLNode(previousOrParentNode) !;
   const lContainer = createLContainer(currentParent, viewData);
 
+  ngDevMode && ngDevMode.rendererCreateComment++;
   const comment = renderer.createComment(ngDevMode ? 'container' : '');
   const node =
       createLNode(index, TNodeType.Container, comment, tagName || null, attrs || null, lContainer);
@@ -2687,7 +2746,7 @@ export function bindingUpdated(value: any): boolean {
 
   if (bindingIndex >= viewData.length) {
     viewData[viewData[BINDING_INDEX]++] = value;
-  } else if (isDifferent(viewData[bindingIndex], value)) {
+  } else if (isDifferent(viewData[bindingIndex], value, checkNoChangesMode)) {
     throwErrorIfNoChangesMode(creationMode, checkNoChangesMode, viewData[bindingIndex], value);
     viewData[viewData[BINDING_INDEX]++] = value;
   } else {
