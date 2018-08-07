@@ -120,6 +120,9 @@
     "name": "PARENT"
   },
   {
+    "name": "PublicFeature"
+  },
+  {
     "name": "QUERIES"
   },
   {
@@ -333,6 +336,9 @@
     "name": "bindingUpdated"
   },
   {
+    "name": "bloomAdd"
+  },
+  {
     "name": "bloomFindPossibleInjector"
   },
   {
@@ -346,6 +352,12 @@
   },
   {
     "name": "callHooks"
+  },
+  {
+    "name": "canInsertNativeChildOfElement"
+  },
+  {
+    "name": "canInsertNativeChildOfView"
   },
   {
     "name": "canInsertNativeNode"
@@ -433,6 +445,12 @@
   },
   {
     "name": "detectChangesInternal"
+  },
+  {
+    "name": "diPublic"
+  },
+  {
+    "name": "diPublicInInjector"
   },
   {
     "name": "directiveCreate"
@@ -739,6 +757,9 @@
   },
   {
     "name": "nextContext"
+  },
+  {
+    "name": "nextNgElementId"
   },
   {
     "name": "pointers"
