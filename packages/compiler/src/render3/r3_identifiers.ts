@@ -35,6 +35,10 @@ export class Identifiers {
 
   static elementClassProp: o.ExternalReference = {name: 'ɵcp', moduleName: CORE};
 
+  static elementContainerStart: o.ExternalReference = {name: 'ɵEC', moduleName: CORE};
+
+  static elementContainerEnd: o.ExternalReference = {name: 'ɵeC', moduleName: CORE};
+
   static elementStyling: o.ExternalReference = {name: 'ɵs', moduleName: CORE};
 
   static elementStylingMap: o.ExternalReference = {name: 'ɵsm', moduleName: CORE};
@@ -161,6 +165,16 @@ export class Identifiers {
   static PublicFeature: o.ExternalReference = {name: 'ɵPublicFeature', moduleName: CORE};
 
   static listener: o.ExternalReference = {name: 'ɵL', moduleName: CORE};
+
+  static getFactoryOf: o.ExternalReference = {
+    name: 'ɵgetFactoryOf',
+    moduleName: CORE,
+  };
+
+  static getInheritedFactory: o.ExternalReference = {
+    name: 'ɵgetInheritedFactory',
+    moduleName: CORE,
+  };
 
   // Reserve slots for pure functions
   static reserveSlots: o.ExternalReference = {name: 'ɵrS', moduleName: CORE};

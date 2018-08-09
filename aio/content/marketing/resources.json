@@ -266,6 +266,13 @@
             "title": "Nx",
             "logo": "https://nrwl.io/assets/nx-logo.png",
             "url": "https://nrwl.io/nx"
+          },
+          "uijar": {
+            "desc": "A drop in module to automatically create a living style guide based on the test you write for your components.",
+            "logo": "",
+            "rev": true,
+            "title": "UI-jar - Test Driven Style Guide Development",
+            "url": "https://github.com/ui-jar/ui-jar"
           }
         }
       },
@@ -509,6 +516,13 @@
             "rev": true,
             "title": "The Angular Guide by Wishtack (Français)",
             "url": "https://guide-angular.wishtack.io/"
+          },
+          "ab5": {
+            "desc": "How to build Angular applications using NGRX",
+            "logo": "",
+            "rev": true,
+            "title": "Architecting Angular Applications with NGRX",
+            "url": "https://www.packtpub.com/web-development/architecting-angular-applications-redux"
           }
         }
       },
@@ -635,6 +649,12 @@
             "rev": true,
             "title": "AngularFirebase.com",
             "url": "https://angularfirebase.com/"
+          },
+          "loiane-angulartraining": {
+            "desc": "Free Angular course in Portuguese.",
+            "rev": true,
+            "title": "Loiane Training (Português)",
+            "url": "https://loiane.training/course/angular/"
           }
         }
       },

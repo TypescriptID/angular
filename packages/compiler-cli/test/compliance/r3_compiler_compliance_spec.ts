@@ -42,7 +42,8 @@ describe('compiler compliance', () => {
       };
 
       // The factory should look like this:
-      const factory = 'factory: function MyComponent_Factory() { return new MyComponent(); }';
+      const factory =
+          'factory: function MyComponent_Factory(t) { return new (t || MyComponent)(); }';
 
       // The template should look like this (where IDENT is a wild card for an identifier):
       const template = `
@@ -93,7 +94,8 @@ describe('compiler compliance', () => {
       };
 
       // The factory should look like this:
-      const factory = 'factory: function MyComponent_Factory() { return new MyComponent(); }';
+      const factory =
+          'factory: function MyComponent_Factory(t) { return new (t || MyComponent)(); }';
 
       // The template should look like this (where IDENT is a wild card for an identifier):
       const template = `
@@ -143,7 +145,8 @@ describe('compiler compliance', () => {
       };
 
       // The factory should look like this:
-      const factory = 'factory: function MyComponent_Factory() { return new MyComponent(); }';
+      const factory =
+          'factory: function MyComponent_Factory(t) { return new (t || MyComponent)(); }';
 
       // The template should look like this (where IDENT is a wild card for an identifier):
       const template = `
@@ -192,7 +195,8 @@ describe('compiler compliance', () => {
       };
 
       // The factory should look like this:
-      const factory = 'factory: function MyComponent_Factory() { return new MyComponent(); }';
+      const factory =
+          'factory: function MyComponent_Factory(t) { return new (t || MyComponent)(); }';
 
       // The template should look like this (where IDENT is a wild card for an identifier):
       const template = `
@@ -218,6 +222,76 @@ describe('compiler compliance', () => {
       expectEmit(result.source, template, 'Incorrect template');
     });
 
+    it('should support <ng-container>', () => {
+      const files = {
+        app: {
+          'spec.ts': `
+              import {Component, NgModule} from '@angular/core';
+
+              @Component({
+                selector: 'my-component',
+                template: \`<ng-container><span>in a </span>container</ng-container>\`
+              })
+              export class MyComponent {}
+
+              @NgModule({declarations: [MyComponent]})
+              export class MyModule {}
+          `
+        }
+      };
+
+      // The template should look like this (where IDENT is a wild card for an identifier):
+      const template = `
+          …
+          template: function MyComponent_Template(rf, ctx) {
+            if (rf & 1) {
+              i0.ɵEC(0);
+              i0.ɵE(1, "span");
+              i0.ɵT(2, "in a ");
+              i0.ɵe();
+              i0.ɵT(3, "container");
+              i0.ɵeC();
+            }
+          }
+        `;
+
+      const result = compile(files, angularFiles);
+      expectEmit(result.source, template, 'Incorrect template');
+    });
+
+    it('should generate elementContainerStart/End instructions for empty <ng-container>', () => {
+      const files = {
+        app: {
+          'spec.ts': `
+              import {Component, NgModule} from '@angular/core';
+
+              @Component({
+                selector: 'my-component',
+                template: \`<ng-container></ng-container>\`
+              })
+              export class MyComponent {}
+
+              @NgModule({declarations: [MyComponent]})
+              export class MyModule {}
+          `
+        }
+      };
+
+      // The template should look like this (where IDENT is a wild card for an identifier):
+      const template = `
+          …
+          template: function MyComponent_Template(rf, ctx) {
+            if (rf & 1) {
+              i0.ɵEC(0);
+              i0.ɵeC();
+            }
+          }
+        `;
+
+      const result = compile(files, angularFiles);
+      expectEmit(result.source, template, 'Incorrect template');
+    });
+
     it('should bind to element properties', () => {
       const files = {
         app: {
@@ -238,7 +312,8 @@ describe('compiler compliance', () => {
         }
       };
 
-      const factory = 'factory: function MyComponent_Factory() { return new MyComponent(); }';
+      const factory =
+          'factory: function MyComponent_Factory(t) { return new (t || MyComponent)(); }';
       const template = `
         template: function MyComponent_Template(rf, ctx) {
           if (rf & 1) {
@@ -282,7 +357,8 @@ describe('compiler compliance', () => {
         }
       };
 
-      const factory = 'factory: function MyComponent_Factory() { return new MyComponent(); }';
+      const factory =
+          'factory: function MyComponent_Factory(t) { return new (t || MyComponent)(); }';
       const template = `
         template: function MyComponent_Template(rf, ctx) {
           if (rf & 1) {
@@ -327,14 +403,15 @@ describe('compiler compliance', () => {
         }
       };
 
-      const factory = 'factory: function MyComponent_Factory() { return new MyComponent(); }';
+      const factory =
+          'factory: function MyComponent_Factory(t) { return new (t || MyComponent)(); }';
       const template = `
         const _c0 = ["error"];
         const _c1 = ["background-color"];
         …
         MyComponent.ngComponentDef = i0.ɵdefineComponent({type:MyComponent,selectors:[["my-component"]],
-            factory: function MyComponent_Factory(){
-              return new MyComponent();
+            factory: function MyComponent_Factory(t){
+              return new (t || MyComponent)();
             },
             features: [$r3$.ɵPublicFeature],
             template:function MyComponent_Template(rf,ctx){
@@ -388,7 +465,7 @@ describe('compiler compliance', () => {
         ChildComponent.ngComponentDef = $r3$.ɵdefineComponent({
           type: ChildComponent,
           selectors: [["child"]],
-          factory: function ChildComponent_Factory() { return new ChildComponent(); },
+          factory: function ChildComponent_Factory(t) { return new (t || ChildComponent)(); },
           features: [$r3$.ɵPublicFeature],
           template: function ChildComponent_Template(rf, ctx) {
             if (rf & 1) {
@@ -402,7 +479,7 @@ describe('compiler compliance', () => {
         SomeDirective.ngDirectiveDef = $r3$.ɵdefineDirective({
           type: SomeDirective,
           selectors: [["", "some-directive", ""]],
-          factory: function SomeDirective_Factory() {return new SomeDirective(); },
+          factory: function SomeDirective_Factory(t) {return new (t || SomeDirective)(); },
           features: [$r3$.ɵPublicFeature]
         });
       `;
@@ -414,7 +491,7 @@ describe('compiler compliance', () => {
         MyComponent.ngComponentDef = $r3$.ɵdefineComponent({
           type: MyComponent,
           selectors: [["my-component"]],
-          factory: function MyComponent_Factory() { return new MyComponent(); },
+          factory: function MyComponent_Factory(t) { return new (t || MyComponent)(); },
           features: [$r3$.ɵPublicFeature],
           template: function MyComponent_Template(rf, ctx) {
             if (rf & 1) {
@@ -458,7 +535,7 @@ describe('compiler compliance', () => {
         SomeDirective.ngDirectiveDef = $r3$.ɵdefineDirective({
           type: SomeDirective,
           selectors: [["div", "some-directive", "", 8, "foo", 3, "title", "", 9, "baz"]],
-          factory: function SomeDirective_Factory() {return new SomeDirective(); },
+          factory: function SomeDirective_Factory(t) {return new (t || SomeDirective)(); },
           features: [$r3$.ɵPublicFeature]
         });
       `;
@@ -468,7 +545,7 @@ describe('compiler compliance', () => {
         OtherDirective.ngDirectiveDef = $r3$.ɵdefineDirective({
           type: OtherDirective,
           selectors: [["", 5, "span", "title", "", 9, "baz"]],
-          factory: function OtherDirective_Factory() {return new OtherDirective(); },
+          factory: function OtherDirective_Factory(t) {return new (t || OtherDirective)(); },
           features: [$r3$.ɵPublicFeature]
         });
       `;
@@ -501,7 +578,7 @@ describe('compiler compliance', () => {
         HostBindingDir.ngDirectiveDef = $r3$.ɵdefineDirective({
           type: HostBindingDir,
           selectors: [["", "hostBindingDir", ""]],
-          factory: function HostBindingDir_Factory() { return new HostBindingDir(); },
+          factory: function HostBindingDir_Factory(t) { return new (t || HostBindingDir)(); },
           hostBindings: function HostBindingDir_HostBindings(dirIndex, elIndex) {
             $r3$.ɵp(elIndex, "id", $r3$.ɵb($r3$.ɵd(dirIndex).dirId));
           },
@@ -544,7 +621,7 @@ describe('compiler compliance', () => {
         IfDirective.ngDirectiveDef = $r3$.ɵdefineDirective({
           type: IfDirective,
           selectors: [["", "if", ""]],
-          factory: function IfDirective_Factory() { return new IfDirective($r3$.ɵinjectTemplateRef()); },
+          factory: function IfDirective_Factory(t) { return new (t || IfDirective)($r3$.ɵinjectTemplateRef()); },
           features: [$r3$.ɵPublicFeature]
         });`;
       const MyComponentDefinition = `
@@ -566,7 +643,7 @@ describe('compiler compliance', () => {
         MyComponent.ngComponentDef = $r3$.ɵdefineComponent({
           type: MyComponent,
           selectors: [["my-component"]],
-          factory: function MyComponent_Factory() { return new MyComponent(); },
+          factory: function MyComponent_Factory(t) { return new (t || MyComponent)(); },
           features: [$r3$.ɵPublicFeature],
           template: function MyComponent_Template(rf, ctx) {
             if (rf & 1) {
@@ -626,7 +703,7 @@ describe('compiler compliance', () => {
           MyApp.ngComponentDef = $r3$.ɵdefineComponent({
             type: MyApp,
             selectors: [["my-app"]],
-            factory: function MyApp_Factory() { return new MyApp(); },
+            factory: function MyApp_Factory(t) { return new (t || MyApp)(); },
             features: [$r3$.ɵPublicFeature],
             template: function MyApp_Template(rf, ctx) {
               if (rf & 1) {
@@ -706,7 +783,7 @@ describe('compiler compliance', () => {
           MyApp.ngComponentDef = $r3$.ɵdefineComponent({
             type: MyApp,
             selectors: [["my-app"]],
-            factory: function MyApp_Factory() { return new MyApp(); },
+            factory: function MyApp_Factory(t) { return new (t || MyApp)(); },
             features: [$r3$.ɵPublicFeature],
             template: function MyApp_Template(rf, ctx) {
               if (rf & 1) {
@@ -768,7 +845,7 @@ describe('compiler compliance', () => {
           MyApp.ngComponentDef = $r3$.ɵdefineComponent({
             type: MyApp,
             selectors: [["my-app"]],
-            factory: function MyApp_Factory() { return new MyApp(); },
+            factory: function MyApp_Factory(t) { return new (t || MyApp)(); },
             features: [$r3$.ɵPublicFeature],
             template: function MyApp_Template(rf, ctx) {
               if (rf & 1) {
@@ -834,7 +911,7 @@ describe('compiler compliance', () => {
           MyApp.ngComponentDef = $r3$.ɵdefineComponent({
             type: MyApp,
             selectors: [["my-app"]],
-            factory: function MyApp_Factory() { return new MyApp(); },
+            factory: function MyApp_Factory(t) { return new (t || MyApp)(); },
             features: [$r3$.ɵPublicFeature],
             template: function MyApp_Template(rf, ctx) {
               if (rf & 1) {
@@ -892,7 +969,7 @@ describe('compiler compliance', () => {
         SimpleComponent.ngComponentDef = $r3$.ɵdefineComponent({
           type: SimpleComponent,
           selectors: [["simple"]],
-          factory: function SimpleComponent_Factory() { return new SimpleComponent(); },
+          factory: function SimpleComponent_Factory(t) { return new (t || SimpleComponent)(); },
           features: [$r3$.ɵPublicFeature],
           template: function SimpleComponent_Template(rf, ctx) {
             if (rf & 1) {
@@ -913,7 +990,7 @@ describe('compiler compliance', () => {
         ComplexComponent.ngComponentDef = $r3$.ɵdefineComponent({
           type: ComplexComponent,
           selectors: [["complex"]],
-          factory: function ComplexComponent_Factory() { return new ComplexComponent(); },
+          factory: function ComplexComponent_Factory(t) { return new (t || ComplexComponent)(); },
           features: [$r3$.ɵPublicFeature],
           template: function ComplexComponent_Template(rf, ctx) {
             if (rf & 1) {
@@ -979,7 +1056,7 @@ describe('compiler compliance', () => {
           ViewQueryComponent.ngComponentDef = $r3$.ɵdefineComponent({
             type: ViewQueryComponent,
             selectors: [["view-query-component"]],
-            factory: function ViewQueryComponent_Factory() { return new ViewQueryComponent(); },
+            factory: function ViewQueryComponent_Factory(t) { return new (t || ViewQueryComponent)(); },
             features: [$r3$.ɵPublicFeature],
             viewQuery: function ViewQueryComponent_Query(rf, ctx) {
               if (rf & 1) {
@@ -995,7 +1072,7 @@ describe('compiler compliance', () => {
                 $r3$.ɵEe(1, "div", $e0_attrs$);
               }
             },
-            directives:[SomeDirective]
+            directives: function () { return [SomeDirective]; }
           });`;
 
         const result = compile(files, angularFiles);
@@ -1043,8 +1120,8 @@ describe('compiler compliance', () => {
           ContentQueryComponent.ngComponentDef = $r3$.ɵdefineComponent({
             type: ContentQueryComponent,
             selectors: [["content-query-component"]],
-            factory: function ContentQueryComponent_Factory() {
-              return new ContentQueryComponent();
+            factory: function ContentQueryComponent_Factory(t) {
+              return new (t || ContentQueryComponent)();
             },
             contentQueries: function ContentQueryComponent_ContentQueries() {
               $r3$.ɵQr($r3$.ɵQ(null, SomeDirective, true));
@@ -1119,7 +1196,7 @@ describe('compiler compliance', () => {
             MyPipe.ngPipeDef = $r3$.ɵdefinePipe({
               name: "myPipe",
               type: MyPipe,
-              factory: function MyPipe_Factory() { return new MyPipe(); },
+              factory: function MyPipe_Factory(t) { return new (t || MyPipe)(); },
               pure: false
             });
         `;
@@ -1128,7 +1205,7 @@ describe('compiler compliance', () => {
             MyPurePipe.ngPipeDef = $r3$.ɵdefinePipe({
               name: "myPurePipe",
               type: MyPurePipe,
-              factory: function MyPurePipe_Factory() { return new MyPurePipe(); },
+              factory: function MyPurePipe_Factory(t) { return new (t || MyPurePipe)(); },
               pure: true
             });`;
 
@@ -1140,7 +1217,7 @@ describe('compiler compliance', () => {
             MyApp.ngComponentDef = $r3$.ɵdefineComponent({
               type: MyApp,
               selectors: [["my-app"]],
-              factory: function MyApp_Factory() { return new MyApp(); },
+              factory: function MyApp_Factory(t) { return new (t || MyApp)(); },
               features: [$r3$.ɵPublicFeature],
               template: function MyApp_Template(rf, ctx) {
                 if (rf & 1) {
@@ -1191,7 +1268,7 @@ describe('compiler compliance', () => {
         MyComponent.ngComponentDef = $r3$.ɵdefineComponent({
           type: MyComponent,
           selectors: [["my-component"]],
-          factory: function MyComponent_Factory() { return new MyComponent(); },
+          factory: function MyComponent_Factory(t) { return new (t || MyComponent)(); },
           features: [$r3$.ɵPublicFeature],
           template: function MyComponent_Template(rf, ctx) {
             if (rf & 1) {
@@ -1283,7 +1360,7 @@ describe('compiler compliance', () => {
         MyComponent.ngComponentDef = $r3$.ɵdefineComponent({
           type: MyComponent,
           selectors: [["my-component"]],
-          factory: function MyComponent_Factory() { return new MyComponent(); },
+          factory: function MyComponent_Factory(t) { return new (t || MyComponent)(); },
           features: [$r3$.ɵPublicFeature],
           template: function MyComponent_Template(rf, ctx) {
             if (rf & 1) {
@@ -1426,7 +1503,7 @@ describe('compiler compliance', () => {
           LifecycleComp.ngComponentDef = $r3$.ɵdefineComponent({
             type: LifecycleComp,
             selectors: [["lifecycle-comp"]],
-            factory: function LifecycleComp_Factory() { return new LifecycleComp(); },
+            factory: function LifecycleComp_Factory(t) { return new (t || LifecycleComp)(); },
             inputs: {nameMin: "name"},
             features: [$r3$.ɵPublicFeature, $r3$.ɵNgOnChangesFeature],
             template: function LifecycleComp_Template(rf, ctx) {}
@@ -1436,7 +1513,7 @@ describe('compiler compliance', () => {
           SimpleLayout.ngComponentDef = $r3$.ɵdefineComponent({
             type: SimpleLayout,
             selectors: [["simple-layout"]],
-            factory: function SimpleLayout_Factory() { return new SimpleLayout(); },
+            factory: function SimpleLayout_Factory(t) { return new (t || SimpleLayout)(); },
             features: [$r3$.ɵPublicFeature],
             template: function SimpleLayout_Template(rf, ctx) {
               if (rf & 1) {
@@ -1542,8 +1619,8 @@ describe('compiler compliance', () => {
               ForOfDirective.ngDirectiveDef = $r3$.ɵdefineDirective({
                 type: ForOfDirective,
                 selectors: [["", "forOf", ""]],
-                factory: function ForOfDirective_Factory() {
-                  return new ForOfDirective($r3$.ɵinjectViewContainerRef(), $r3$.ɵinjectTemplateRef());
+                factory: function ForOfDirective_Factory(t) {
+                  return new (t || ForOfDirective)($r3$.ɵinjectViewContainerRef(), $r3$.ɵinjectTemplateRef());
                 },
                 features: [$r3$.ɵPublicFeature, $r3$.ɵNgOnChangesFeature],
                 inputs: {forOf: "forOf"}
@@ -1564,7 +1641,7 @@ describe('compiler compliance', () => {
               MyComponent.ngComponentDef = $r3$.ɵdefineComponent({
                 type: MyComponent,
                 selectors: [["my-component"]],
-                factory: function MyComponent_Factory() { return new MyComponent(); },
+                factory: function MyComponent_Factory(t) { return new (t || MyComponent)(); },
                 features: [$r3$.ɵPublicFeature],
                 template: function MyComponent_Template(rf, ctx){
                   if (rf & 1) {
@@ -1575,7 +1652,7 @@ describe('compiler compliance', () => {
                   }
                   if (rf & 2) { $r3$.ɵp(1,"forOf",$r3$.ɵb(ctx.items)); }
                 },
-                directives: [ForOfDirective]
+                directives: function() { return [ForOfDirective]; }
               });
             `;
 
@@ -1616,8 +1693,8 @@ describe('compiler compliance', () => {
           ForOfDirective.ngDirectiveDef = $r3$.ɵdefineDirective({
             type: ForOfDirective,
             selectors: [["", "forOf", ""]],
-            factory: function ForOfDirective_Factory() {
-              return new ForOfDirective($r3$.ɵinjectViewContainerRef(), $r3$.ɵinjectTemplateRef());
+            factory: function ForOfDirective_Factory(t) {
+              return new (t || ForOfDirective)($r3$.ɵinjectViewContainerRef(), $r3$.ɵinjectTemplateRef());
             },
             features: [$r3$.ɵPublicFeature, $r3$.ɵNgOnChangesFeature],
             inputs: {forOf: "forOf"}
@@ -1641,7 +1718,7 @@ describe('compiler compliance', () => {
           MyComponent.ngComponentDef = $r3$.ɵdefineComponent({
             type: MyComponent,
             selectors: [["my-component"]],
-            factory: function MyComponent_Factory() { return new MyComponent(); },
+            factory: function MyComponent_Factory(t) { return new (t || MyComponent)(); },
             features: [$r3$.ɵPublicFeature],
             template: function MyComponent_Template(rf, ctx) {
               if (rf & 1) {
@@ -1653,7 +1730,7 @@ describe('compiler compliance', () => {
                 $r3$.ɵp(1, "forOf", $r3$.ɵb(ctx.items));
               }
             },
-            directives: [ForOfDirective]
+            directives: function() { return [ForOfDirective]; }
           });
         `;
 
@@ -1739,7 +1816,7 @@ describe('compiler compliance', () => {
           MyComponent.ngComponentDef = $r3$.ɵdefineComponent({
             type: MyComponent,
             selectors: [["my-component"]],
-            factory: function MyComponent_Factory() { return new MyComponent(); },
+            factory: function MyComponent_Factory(t) { return new (t || MyComponent)(); },
             features: [$r3$.ɵPublicFeature],
             template: function MyComponent_Template(rf, ctx) {
               if (rf & 1) {
@@ -1751,7 +1828,7 @@ describe('compiler compliance', () => {
                 $r3$.ɵp(1, "forOf", $r3$.ɵb(ctx.items));
               }
             },
-            directives: [ForOfDirective]
+            directives: function () { return [ForOfDirective]; }
           });`;
 
         const result = compile(files, angularFiles);

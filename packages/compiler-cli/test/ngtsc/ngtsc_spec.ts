@@ -237,7 +237,7 @@ describe('ngtsc behavioral tests', () => {
     expect(jsContents)
         .toContain(
             `TestModule.ngInjectorDef = i0.defineInjector({ factory: ` +
-            `function TestModule_Factory() { return new TestModule(); }, providers: [{ provide: ` +
+            `function TestModule_Factory(t) { return new (t || TestModule)(); }, providers: [{ provide: ` +
             `Token, useValue: 'test' }], imports: [[OtherModule]] });`);
 
     const dtsContents = getContents('test.d.ts');
@@ -328,7 +328,7 @@ describe('ngtsc behavioral tests', () => {
     expect(jsContents)
         .toContain(
             'TestPipe.ngPipeDef = i0.ɵdefinePipe({ name: "test-pipe", type: TestPipe, ' +
-            'factory: function TestPipe_Factory() { return new TestPipe(); }, pure: false })');
+            'factory: function TestPipe_Factory(t) { return new (t || TestPipe)(); }, pure: false })');
     expect(dtsContents).toContain('static ngPipeDef: i0.ɵPipeDef<TestPipe, \'test-pipe\'>;');
   });
 
@@ -353,7 +353,7 @@ describe('ngtsc behavioral tests', () => {
     expect(jsContents)
         .toContain(
             'TestPipe.ngPipeDef = i0.ɵdefinePipe({ name: "test-pipe", type: TestPipe, ' +
-            'factory: function TestPipe_Factory() { return new TestPipe(); }, pure: true })');
+            'factory: function TestPipe_Factory(t) { return new (t || TestPipe)(); }, pure: true })');
     expect(dtsContents).toContain('static ngPipeDef: i0.ɵPipeDef<TestPipe, \'test-pipe\'>;');
   });
 
@@ -378,7 +378,7 @@ describe('ngtsc behavioral tests', () => {
     expect(exitCode).toBe(0);
 
     const jsContents = getContents('test.js');
-    expect(jsContents).toContain('return new TestPipe(i0.ɵdirectiveInject(Dep));');
+    expect(jsContents).toContain('return new (t || TestPipe)(i0.ɵdirectiveInject(Dep));');
   });
 
   it('should include @Pipes in @NgModule scopes', () => {
@@ -474,7 +474,7 @@ describe('ngtsc behavioral tests', () => {
     const jsContents = getContents('test.js');
     expect(jsContents)
         .toContain(
-            `factory: function FooCmp_Factory() { return new FooCmp(i0.ɵinjectAttribute("test"), i0.ɵinjectChangeDetectorRef(), i0.ɵinjectElementRef(), i0.ɵdirectiveInject(i0.INJECTOR), i0.ɵinjectTemplateRef(), i0.ɵinjectViewContainerRef()); }`);
+            `factory: function FooCmp_Factory(t) { return new (t || FooCmp)(i0.ɵinjectAttribute("test"), i0.ɵinjectChangeDetectorRef(), i0.ɵinjectElementRef(), i0.ɵdirectiveInject(i0.INJECTOR), i0.ɵinjectTemplateRef(), i0.ɵinjectViewContainerRef()); }`);
   });
 
   it('should generate queries for components', () => {
@@ -604,6 +604,26 @@ describe('ngtsc behavioral tests', () => {
     expect(jsContents).not.toMatch(/import \* as i[0-9] from ['"].\/test['"]/);
   });
 
+  it('should generate exportAs declarations', () => {
+    writeConfig();
+    write('test.ts', `
+        import {Component, Directive} from '@angular/core';
+
+        @Directive({
+          selector: '[test]',
+          exportAs: 'foo',
+        })
+        class Dir {}
+    `);
+
+    const exitCode = main(['-p', basePath], errorSpy);
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(exitCode).toBe(0);
+
+    const jsContents = getContents('test.js');
+    expect(jsContents).toContain(`exportAs: "foo"`);
+  });
+
   it('should generate correct factory stubs for a test module', () => {
     writeConfig({'allowEmptyCodegenFiles': true});
 
@@ -640,4 +660,91 @@ describe('ngtsc behavioral tests', () => {
     expect(emptyFactory).toContain(`import * as i0 from '@angular/core';`);
     expect(emptyFactory).toContain(`export var ɵNonEmptyModule = true;`);
   });
+
+  it('should compile a banana-in-a-box inside of a template', () => {
+    writeConfig();
+    write('test.ts', `
+        import {Component} from '@angular/core';
+
+        @Component({
+          template: '<div *tmpl [(bananaInABox)]="prop"></div>',
+          selector: 'test'
+        })
+        class TestCmp {}
+    `);
+
+    const exitCode = main(['-p', basePath], errorSpy);
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(exitCode).toBe(0);
+  });
+
+  it('generates inherited factory definitions', () => {
+    writeConfig();
+    write(`test.ts`, `
+        import {Injectable} from '@angular/core';
+
+        class Dep {}
+
+        @Injectable()
+        class Base {
+          constructor(dep: Dep) {}
+        }
+
+        @Injectable()
+        class Child extends Base {}
+
+        @Injectable()
+        class GrandChild extends Child {
+          constructor() {
+            super(null!);
+          }
+        }
+    `);
+
+
+    const exitCode = main(['-p', basePath], errorSpy);
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(exitCode).toBe(0);
+    const jsContents = getContents('test.js');
+
+    expect(jsContents)
+        .toContain('function Base_Factory(t) { return new (t || Base)(i0.inject(Dep)); }');
+    expect(jsContents).toContain('var ɵChild_BaseFactory = i0.ɵgetInheritedFactory(Child)');
+    expect(jsContents)
+        .toContain('function Child_Factory(t) { return ɵChild_BaseFactory((t || Child)); }');
+    expect(jsContents)
+        .toContain('function GrandChild_Factory(t) { return new (t || GrandChild)(); }');
+  });
+
+  it('should wrap "directives" in component metadata in a closure when forward references are present',
+     () => {
+       writeConfig();
+       write('test.ts', `
+        import {Component, NgModule} from '@angular/core';
+
+        @Component({
+          selector: 'cmp-a',
+          template: '<cmp-b></cmp-b>',
+        })
+        class CmpA {}
+
+        @Component({
+          selector: 'cmp-b',
+          template: 'This is B',
+        })
+        class CmpB {}
+
+        @NgModule({
+          declarations: [CmpA, CmpB],
+        })
+        class Module {}
+    `);
+
+       const exitCode = main(['-p', basePath], errorSpy);
+       expect(errorSpy).not.toHaveBeenCalled();
+       expect(exitCode).toBe(0);
+
+       const jsContents = getContents('test.js');
+       expect(jsContents).toContain('directives: function () { return [CmpB]; }');
+     });
 });
