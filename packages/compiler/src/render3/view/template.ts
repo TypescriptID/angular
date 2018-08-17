@@ -727,11 +727,10 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       parameters.push(this.constantPool.getConstLiteral(o.literalArr(attributeNames), true));
     }
 
-    // e.g. C(1, C1Template)
-    this.creationInstruction(
-        template.sourceSpan, R3.containerCreate, trimTrailingNulls(parameters));
+    // e.g. template(1, MyComp_Template_1)
+    this.creationInstruction(template.sourceSpan, R3.templateCreate, trimTrailingNulls(parameters));
 
-    // e.g. p(1, 'forOf', ɵb(ctx.items));
+    // e.g. p(1, 'forOf', ɵbind(ctx.items));
     const context = o.variable(CONTEXT_NAME);
     template.inputs.forEach(input => {
       const value = input.value.visit(this._valueConverter);
@@ -792,7 +791,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   // * @meaning mean
   // */
   // const MSG_XYZ = goog.getMsg('some content');
-  // i0.ɵT(1, MSG_XYZ);
+  // i0.ɵtext(1, MSG_XYZ);
   // ```
   visitSingleI18nTextChild(text: t.Text, i18nMeta: string) {
     const meta = parseI18nMeta(i18nMeta);

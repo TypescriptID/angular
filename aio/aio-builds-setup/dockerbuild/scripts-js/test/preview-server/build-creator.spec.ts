@@ -5,20 +5,20 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as shell from 'shelljs';
 import {SHORT_SHA_LEN} from '../../lib/common/constants';
-import {BuildCreator} from '../../lib/upload-server/build-creator';
-import {ChangedPrVisibilityEvent, CreatedBuildEvent} from '../../lib/upload-server/build-events';
-import {UploadError} from '../../lib/upload-server/upload-error';
-import {expectToBeUploadError} from './helpers';
+import {BuildCreator} from '../../lib/preview-server/build-creator';
+import {ChangedPrVisibilityEvent, CreatedBuildEvent} from '../../lib/preview-server/build-events';
+import {PreviewServerError} from '../../lib/preview-server/preview-error';
+import {expectToBePreviewServerError} from './helpers';
 
 // Tests
 describe('BuildCreator', () => {
-  const pr = '9';
+  const pr = 9;
   const sha = '9'.repeat(40);
   const shortSha = sha.substr(0, SHORT_SHA_LEN);
   const archive = 'snapshot.tar.gz';
   const buildsDir = 'builds/dir';
   const hiddenPrDir = path.join(buildsDir, `hidden--${pr}`);
-  const publicPrDir = path.join(buildsDir, pr);
+  const publicPrDir = path.join(buildsDir, `${pr}`);
   const hiddenShaDir = path.join(hiddenPrDir, shortSha);
   const publicShaDir = path.join(publicPrDir, shortSha);
   let bc: BuildCreator;
@@ -134,8 +134,8 @@ describe('BuildCreator', () => {
 
 
         it('should abort and skip further operations if changing the PR\'s visibility fails', done => {
-          const mockError = new UploadError(543, 'Test');
-          bcUpdatePrVisibilitySpy.and.returnValue(Promise.reject(mockError));
+          const mockError = new PreviewServerError(543, 'Test');
+          bcUpdatePrVisibilitySpy.and.callFake(() => Promise.reject(mockError));
 
           bc.create(pr, sha, archive, isPublic).catch(err => {
             expect(err).toBe(mockError);
@@ -154,7 +154,7 @@ describe('BuildCreator', () => {
           existsValues[shaDir] = true;
           bc.create(pr, sha, archive, isPublic).catch(err => {
             const publicOrNot = isPublic ? 'public' : 'non-public';
-            expectToBeUploadError(err, 409, `Request to overwrite existing ${publicOrNot} directory: ${shaDir}`);
+            expectToBePreviewServerError(err, 409, `Request to overwrite existing ${publicOrNot} directory: ${shaDir}`);
             expect(shellMkdirSpy).not.toHaveBeenCalled();
             expect(bcExtractArchiveSpy).not.toHaveBeenCalled();
             expect(bcEmitSpy).not.toHaveBeenCalled();
@@ -171,7 +171,7 @@ describe('BuildCreator', () => {
 
           bc.create(pr, sha, archive, isPublic).catch(err => {
             const publicOrNot = isPublic ? 'public' : 'non-public';
-            expectToBeUploadError(err, 409, `Request to overwrite existing ${publicOrNot} directory: ${shaDir}`);
+            expectToBePreviewServerError(err, 409, `Request to overwrite existing ${publicOrNot} directory: ${shaDir}`);
             expect(shellMkdirSpy).not.toHaveBeenCalled();
             expect(bcExtractArchiveSpy).not.toHaveBeenCalled();
             expect(bcEmitSpy).not.toHaveBeenCalled();
@@ -222,20 +222,20 @@ describe('BuildCreator', () => {
         });
 
 
-        it('should reject with an UploadError', done => {
+        it('should reject with an PreviewServerError', done => {
           // tslint:disable-next-line: no-string-throw
           shellMkdirSpy.and.callFake(() => { throw 'Test'; });
           bc.create(pr, sha, archive, isPublic).catch(err => {
-            expectToBeUploadError(err, 500, `Error while uploading to directory: ${shaDir}\nTest`);
+            expectToBePreviewServerError(err, 500, `Error while creating preview at: ${shaDir}\nTest`);
             done();
           });
         });
 
 
-        it('should pass UploadError instances unmodified', done => {
-          shellMkdirSpy.and.callFake(() => { throw new UploadError(543, 'Test'); });
+        it('should pass PreviewServerError instances unmodified', done => {
+          shellMkdirSpy.and.callFake(() => { throw new PreviewServerError(543, 'Test'); });
           bc.create(pr, sha, archive, isPublic).catch(err => {
-            expectToBeUploadError(err, 543, 'Test');
+            expectToBePreviewServerError(err, 543, 'Test');
             done();
           });
         });
@@ -324,7 +324,7 @@ describe('BuildCreator', () => {
           const shas = ['foo', 'bar', 'baz'];
           let emitted = false;
 
-          bcListShasByDate.and.returnValue(Promise.resolve(shas));
+          bcListShasByDate.and.callFake(() => Promise.resolve(shas));
           bcEmitSpy.and.callFake((type: string, evt: ChangedPrVisibilityEvent) => {
             expect(bcListShasByDate).toHaveBeenCalledWith(newPrDir);
 
@@ -376,7 +376,8 @@ describe('BuildCreator', () => {
         it('should abort and skip further operations if both directories exist', done => {
           bcExistsSpy.and.returnValue(true);
           bc.updatePrVisibility(pr, makePublic).catch(err => {
-            expectToBeUploadError(err, 409, `Request to move '${oldPrDir}' to existing directory '${newPrDir}'.`);
+            expectToBePreviewServerError(err, 409,
+              `Request to move '${oldPrDir}' to existing directory '${newPrDir}'.`);
             expect(shellMvSpy).not.toHaveBeenCalled();
             expect(bcListShasByDate).not.toHaveBeenCalled();
             expect(bcEmitSpy).not.toHaveBeenCalled();
@@ -407,20 +408,21 @@ describe('BuildCreator', () => {
         });
 
 
-        it('should reject with an UploadError', done => {
+        it('should reject with an PreviewServerError', done => {
           // tslint:disable-next-line: no-string-throw
           shellMvSpy.and.callFake(() => { throw 'Test'; });
           bc.updatePrVisibility(pr, makePublic).catch(err => {
-            expectToBeUploadError(err, 500, `Error while making PR ${pr} ${makePublic ? 'public' : 'hidden'}.\nTest`);
+            expectToBePreviewServerError(err, 500,
+                `Error while making PR ${pr} ${makePublic ? 'public' : 'hidden'}.\nTest`);
             done();
           });
         });
 
 
-        it('should pass UploadError instances unmodified', done => {
-          shellMvSpy.and.callFake(() => { throw new UploadError(543, 'Test'); });
+        it('should pass PreviewServerError instances unmodified', done => {
+          shellMvSpy.and.callFake(() => { throw new PreviewServerError(543, 'Test'); });
           bc.updatePrVisibility(pr, makePublic).catch(err => {
-            expectToBeUploadError(err, 543, 'Test');
+            expectToBePreviewServerError(err, 543, 'Test');
             done();
           });
         });
@@ -451,7 +453,7 @@ describe('BuildCreator', () => {
 
     it('should call \'fs.access()\' with the specified argument', () => {
       (bc as any).exists('foo');
-      expect(fs.access).toHaveBeenCalledWith('foo', jasmine.any(Function));
+      expect(fsAccessSpy).toHaveBeenCalledWith('foo', jasmine.any(Function));
     });
 
 
@@ -511,7 +513,8 @@ describe('BuildCreator', () => {
 
     it('should log (as a warning) any stderr output if extracting succeeded', done => {
       (bc as any).extractArchive('foo', 'bar').
-        then(() => expect(consoleWarnSpy).toHaveBeenCalledWith('This is stderr')).
+        then(() => expect(consoleWarnSpy)
+          .toHaveBeenCalledWith(jasmine.any(String), 'BuildCreator:        ', 'This is stderr')).
         then(done);
 
       cpExecCbs[0](null, 'This is stdout', 'This is stderr');
@@ -527,7 +530,7 @@ describe('BuildCreator', () => {
     });
 
 
-    it('should delete the uploaded file on success', done => {
+    it('should delete the build artifact file on success', done => {
       (bc as any).extractArchive('input/file', 'output/dir').
         then(() => expect(shellRmSpy).toHaveBeenCalledWith('-f', 'input/file')).
         then(done);
@@ -567,7 +570,7 @@ describe('BuildCreator', () => {
       });
 
 
-      it('should abort and reject if it fails to remove the uploaded file', done => {
+      it('should abort and reject if it fails to remove the build artifact file', done => {
         (bc as any).extractArchive('foo', 'bar').catch((err: any) => {
           expect(shellChmodSpy).toHaveBeenCalled();
           expect(shellRmSpy).toHaveBeenCalled();
@@ -618,7 +621,7 @@ describe('BuildCreator', () => {
 
 
     it('should reject if listing files fails', done => {
-      shellLsSpy.and.returnValue(Promise.reject('Test'));
+      shellLsSpy.and.callFake(() => Promise.reject('Test'));
       (bc as any).listShasByDate('input/dir').catch((err: string) => {
         expect(err).toBe('Test');
         done();
@@ -627,7 +630,7 @@ describe('BuildCreator', () => {
 
 
     it('should return the filenames', done => {
-      shellLsSpy.and.returnValue(Promise.resolve([
+      shellLsSpy.and.callFake(() => Promise.resolve([
         lsResult('foo', 100),
         lsResult('bar', 200),
         lsResult('baz', 300),
@@ -640,7 +643,7 @@ describe('BuildCreator', () => {
 
 
     it('should sort by date', done => {
-      shellLsSpy.and.returnValue(Promise.resolve([
+      shellLsSpy.and.callFake(() => Promise.resolve([
         lsResult('foo', 300),
         lsResult('bar', 100),
         lsResult('baz', 200),
@@ -660,7 +663,7 @@ describe('BuildCreator', () => {
       ];
       mockArray.sort = jasmine.createSpy('sort');
 
-      shellLsSpy.and.returnValue(Promise.resolve(mockArray));
+      shellLsSpy.and.callFake(() => Promise.resolve(mockArray));
       (bc as any).listShasByDate('input/dir').
         then((shas: string[]) => {
           expect(shas).toEqual(['bar', 'baz', 'foo']);
@@ -671,7 +674,7 @@ describe('BuildCreator', () => {
 
 
     it('should only include directories', done => {
-      shellLsSpy.and.returnValue(Promise.resolve([
+      shellLsSpy.and.callFake(() => Promise.resolve([
         lsResult('foo', 100),
         lsResult('bar', 200, false),
         lsResult('baz', 300),
