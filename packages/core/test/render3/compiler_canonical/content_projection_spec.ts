@@ -25,6 +25,8 @@ describe('content projection', () => {
         type: SimpleComponent,
         selectors: [['simple']],
         factory: () => new SimpleComponent(),
+        consts: 1,
+        vars: 0,
         template: function(rf: $RenderFlags$, ctx: $SimpleComponent$) {
           if (rf & 1) {
             $r3$.ɵprojectionDef();
@@ -54,6 +56,8 @@ describe('content projection', () => {
         type: ComplexComponent,
         selectors: [['complex']],
         factory: () => new ComplexComponent(),
+        consts: 4,
+        vars: 0,
         template: function(rf: $RenderFlags$, ctx: $ComplexComponent$) {
           if (rf & 1) {
             $r3$.ɵprojectionDef($pD_0P$, $pD_0R$);
@@ -77,6 +81,8 @@ describe('content projection', () => {
         type: MyApp,
         selectors: [['my-app']],
         factory: () => new MyApp(),
+        consts: 2,
+        vars: 0,
         template: function(rf: $RenderFlags$, ctx: $MyApp$) {
           if (rf & 1) {
             $r3$.ɵelementStart(0, 'simple');

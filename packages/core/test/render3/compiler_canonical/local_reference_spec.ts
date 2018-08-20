@@ -25,6 +25,8 @@ describe('local references', () => {
         type: MyComponent,
         selectors: [['my-component']],
         factory: () => new MyComponent,
+        consts: 3,
+        vars: 1,
         template: function(rf: $RenderFlags$, ctx: $MyComponent$) {
           let l1_user: any;
           if (rf & 1) {
@@ -42,5 +44,46 @@ describe('local references', () => {
 
     const fixture = new ComponentFixture(MyComponent);
     expect(fixture.html).toEqual(`<input value="World">Hello, World!`);
+  });
+
+  it('should expose TemplateRef when a local ref is placed on ng-template', () => {
+    type $MyComponent$ = MyComponent;
+    type $any$ = any;
+
+    @Component({
+      selector: 'my-component',
+      template: `<ng-template #tpl></ng-template>{{isTemplateRef(tpl)}}`
+    })
+    class MyComponent {
+      isTemplateRef(tplRef: any): boolean { return tplRef.createEmbeddedView != null; }
+
+      // NORMATIVE
+      static ngComponentDef = $r3$.ɵdefineComponent({
+        type: MyComponent,
+        selectors: [['my-component']],
+        factory: () => new MyComponent,
+        consts: 3,
+        vars: 1,
+        template: function(rf: $RenderFlags$, ctx: $MyComponent$) {
+          let l1_tpl: any;
+          if (rf & 1) {
+            $r3$.ɵtemplate(
+                0, MyComponent_Template_0, 0, 0, null, null, ['tpl', ''],
+                $r3$.ɵtemplateRefExtractor);
+            $r3$.ɵtext(2);
+          }
+          if (rf & 2) {
+            l1_tpl = $r3$.ɵreference<any>(1);
+            $r3$.ɵtextBinding(2, $r3$.ɵinterpolation1('', ctx.isTemplateRef(l1_tpl), ''));
+          }
+
+          function MyComponent_Template_0(rf1: $RenderFlags$, ctx1: $any$) {}
+        }
+      });
+      // NORMATIVE
+    }
+
+    const fixture = new ComponentFixture(MyComponent);
+    expect(fixture.html).toEqual(`true`);
   });
 });

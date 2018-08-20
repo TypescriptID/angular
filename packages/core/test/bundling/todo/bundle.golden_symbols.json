@@ -642,9 +642,6 @@
     "name": "hostElement"
   },
   {
-    "name": "initBindings"
-  },
-  {
     "name": "initChangeDetectorIfExisting"
   },
   {
@@ -751,6 +748,9 @@
   },
   {
     "name": "nativeInsertBefore"
+  },
+  {
+    "name": "nativeNodeLocalRefExtractor"
   },
   {
     "name": "nextContext"

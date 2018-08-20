@@ -93,6 +93,9 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   // Number of slots to reserve for pureFunctions
   private _pureFunctionSlots = 0;
 
+  // Number of binding slots
+  private _bindingSlots = 0;
+
   constructor(
       private constantPool: ConstantPool, parentBindingScope: BindingScope, private level = 0,
       private contextName: string|null, private templateName: string|null,
@@ -171,11 +174,15 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     // resolving bindings.
     t.visitAll(this, nodes);
 
-    // Generate all the creation mode instructions (e.g. resolve bindings in listeners)
-    const creationStatements = this._creationCodeFns.map((fn: () => o.Statement) => fn());
+    // Nested templates must be processed before creation instructions so template()
+    // instructions can be generated with the correct internal const count.
+    this._nestedTemplateFns.forEach(buildTemplateFn => buildTemplateFn());
 
     // Generate all the update mode instructions (e.g. resolve property or text bindings)
     const updateStatements = this._updateCodeFns.map((fn: () => o.Statement) => fn());
+
+    // Generate all the creation mode instructions (e.g. resolve bindings in listeners)
+    const creationStatements = this._creationCodeFns.map((fn: () => o.Statement) => fn());
 
     // To count slots for the reserveSlots() instruction, all bindings must have been visited.
     if (this._pureFunctionSlots > 0) {
@@ -207,8 +214,6 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
         this._prefixCode.push(phMap);
       }
     }
-
-    this._nestedTemplateFns.forEach(buildTemplateFn => buildTemplateFn());
 
     return o.fn(
         // i.e. (rf: RenderFlags, ctx: any)
@@ -727,9 +732,6 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       parameters.push(this.constantPool.getConstLiteral(o.literalArr(attributeNames), true));
     }
 
-    // e.g. template(1, MyComp_Template_1)
-    this.creationInstruction(template.sourceSpan, R3.templateCreate, trimTrailingNulls(parameters));
-
     // e.g. p(1, 'forOf', ɵbind(ctx.items));
     const context = o.variable(CONTEXT_NAME);
     template.inputs.forEach(input => {
@@ -755,6 +757,14 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       const templateFunctionExpr =
           templateVisitor.buildTemplateFunction(template.children, template.variables);
       this.constantPool.statements.push(templateFunctionExpr.toDeclStmt(templateName, null));
+    });
+
+    // e.g. template(1, MyComp_Template_1)
+    this.creationInstruction(template.sourceSpan, R3.templateCreate, () => {
+      parameters.splice(
+          2, 0, o.literal(templateVisitor.getConstCount()),
+          o.literal(templateVisitor.getVarCount()));
+      return trimTrailingNulls(parameters);
     });
   }
 
@@ -801,6 +811,11 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   }
 
   private allocateDataSlot() { return this._dataIndex++; }
+
+  getConstCount() { return this._dataIndex; }
+
+  getVarCount() { return this._bindingSlots + this._pureFunctionSlots; }
+
   private bindingContext() { return `${this._bindingContext++}`; }
 
   // Bindings must only be resolved after all local refs have been visited, so all
@@ -830,6 +845,8 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
 
   private convertPropertyBinding(implicit: o.Expression, value: AST, skipBindFn?: boolean):
       o.Expression {
+    if (!skipBindFn) this._bindingSlots++;
+
     const interpolationFn =
         value instanceof Interpolation ? interpolate : () => error('Unexpected interpolation');
 

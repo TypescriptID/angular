@@ -38,6 +38,8 @@ export class TreeComponent {
   static ngComponentDef = ɵdefineComponent({
     type: TreeComponent,
     selectors: [['tree']],
+    consts: 4,
+    vars: 1,
     template: function(rf: ɵRenderFlags, ctx: TreeComponent) {
       if (rf & ɵRenderFlags.Create) {
         ɵelementStart(0, 'span');
@@ -53,7 +55,7 @@ export class TreeComponent {
         ɵcontainerRefreshStart(2);
         {
           if (ctx.data.left != null) {
-            let rf0 = ɵembeddedViewStart(0);
+            let rf0 = ɵembeddedViewStart(0, 1, 1);
             {
               if (rf0 & ɵRenderFlags.Create) {
                 ɵelementStart(0, 'tree');
@@ -70,7 +72,7 @@ export class TreeComponent {
         ɵcontainerRefreshStart(3);
         {
           if (ctx.data.right != null) {
-            let rf0 = ɵembeddedViewStart(0);
+            let rf0 = ɵembeddedViewStart(0, 1, 1);
             {
               if (rf0 & ɵRenderFlags.Create) {
                 ɵelementStart(0, 'tree');
@@ -99,6 +101,8 @@ export class TreeFunction {
   static ngComponentDef = ɵdefineComponent({
     type: TreeFunction,
     selectors: [['tree']],
+    consts: 5,
+    vars: 1,
     template: function(rf: ɵRenderFlags, ctx: TreeFunction) {
       // bit of a hack
       TreeTpl(rf, ctx.data);
@@ -128,7 +132,7 @@ export function TreeTpl(rf: ɵRenderFlags, ctx: TreeNode) {
     ɵcontainerRefreshStart(3);
     {
       if (ctx.left != null) {
-        let rf0 = ɵembeddedViewStart(0);
+        let rf0 = ɵembeddedViewStart(0, 5, 1);
         { TreeTpl(rf0, ctx.left); }
         ɵembeddedViewEnd();
       }
@@ -137,7 +141,7 @@ export function TreeTpl(rf: ɵRenderFlags, ctx: TreeNode) {
     ɵcontainerRefreshStart(4);
     {
       if (ctx.right != null) {
-        let rf0 = ɵembeddedViewStart(0);
+        let rf0 = ɵembeddedViewStart(0, 5, 1);
         { TreeTpl(rf0, ctx.right); }
         ɵembeddedViewEnd();
       }

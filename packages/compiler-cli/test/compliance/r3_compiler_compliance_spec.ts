@@ -414,7 +414,9 @@ describe('compiler compliance', () => {
               return new (t || MyComponent)();
             },
             features: [$r3$.ɵPublicFeature],
-            template:function MyComponent_Template(rf,ctx){
+            consts: 1,
+            vars: 0,
+            template: function MyComponent_Template(rf,ctx){
               if (rf & 1) {
                 $r3$.ɵelementStart(0, "div");
                 $r3$.ɵelementStyling(_c0, _c1);
@@ -467,7 +469,9 @@ describe('compiler compliance', () => {
           selectors: [["child"]],
           factory: function ChildComponent_Factory(t) { return new (t || ChildComponent)(); },
           features: [$r3$.ɵPublicFeature],
-          template: function ChildComponent_Template(rf, ctx) {
+          consts: 1,
+          vars: 0,
+          template:  function ChildComponent_Template(rf, ctx) {
             if (rf & 1) {
               $r3$.ɵtext(0, "child-view");
             }
@@ -493,7 +497,9 @@ describe('compiler compliance', () => {
           selectors: [["my-component"]],
           factory: function MyComponent_Factory(t) { return new (t || MyComponent)(); },
           features: [$r3$.ɵPublicFeature],
-          template: function MyComponent_Template(rf, ctx) {
+          consts: 2,
+          vars: 0,
+          template:  function MyComponent_Template(rf, ctx) {
             if (rf & 1) {
               $r3$.ɵelement(0, "child", $c1$);
               $r3$.ɵtext(1, "!");
@@ -645,10 +651,12 @@ describe('compiler compliance', () => {
           selectors: [["my-component"]],
           factory: function MyComponent_Factory(t) { return new (t || MyComponent)(); },
           features: [$r3$.ɵPublicFeature],
-          template: function MyComponent_Template(rf, ctx) {
+          consts: 3,
+          vars: 0,
+          template:  function MyComponent_Template(rf, ctx) {
             if (rf & 1) {
               $r3$.ɵelementStart(0, "ul", null, $c1$);
-              $r3$.ɵtemplate(2, MyComponent_li_Template_2, null, $c2$);
+              $r3$.ɵtemplate(2, MyComponent_li_Template_2, 2, 1, null, $c2$);
               $r3$.ɵelementEnd();
             }
           },
@@ -705,7 +713,9 @@ describe('compiler compliance', () => {
             selectors: [["my-app"]],
             factory: function MyApp_Factory(t) { return new (t || MyApp)(); },
             features: [$r3$.ɵPublicFeature],
-            template: function MyApp_Template(rf, ctx) {
+            consts: 1,
+            vars: 3,
+            template:  function MyApp_Template(rf, ctx) {
               if (rf & 1) {
                 $r3$.ɵelement(0, "my-comp");
                 $r3$.ɵreserveSlots(2);
@@ -785,7 +795,9 @@ describe('compiler compliance', () => {
             selectors: [["my-app"]],
             factory: function MyApp_Factory(t) { return new (t || MyApp)(); },
             features: [$r3$.ɵPublicFeature],
-            template: function MyApp_Template(rf, ctx) {
+            consts: 1,
+            vars: 11,
+            template:  function MyApp_Template(rf, ctx) {
               if (rf & 1) {
                 $r3$.ɵelement(0, "my-comp");
                 $r3$.ɵreserveSlots(10);
@@ -847,7 +859,9 @@ describe('compiler compliance', () => {
             selectors: [["my-app"]],
             factory: function MyApp_Factory(t) { return new (t || MyApp)(); },
             features: [$r3$.ɵPublicFeature],
-            template: function MyApp_Template(rf, ctx) {
+            consts: 1,
+            vars: 3,
+            template:  function MyApp_Template(rf, ctx) {
               if (rf & 1) {
                 $r3$.ɵelement(0, "object-comp");
                 $r3$.ɵreserveSlots(2);
@@ -913,7 +927,9 @@ describe('compiler compliance', () => {
             selectors: [["my-app"]],
             factory: function MyApp_Factory(t) { return new (t || MyApp)(); },
             features: [$r3$.ɵPublicFeature],
-            template: function MyApp_Template(rf, ctx) {
+            consts: 1,
+            vars: 8,
+            template:  function MyApp_Template(rf, ctx) {
               if (rf & 1) {
                 $r3$.ɵelement(0, "nested-comp");
                 $r3$.ɵreserveSlots(7);
@@ -971,7 +987,9 @@ describe('compiler compliance', () => {
           selectors: [["simple"]],
           factory: function SimpleComponent_Factory(t) { return new (t || SimpleComponent)(); },
           features: [$r3$.ɵPublicFeature],
-          template: function SimpleComponent_Template(rf, ctx) {
+          consts: 2,
+          vars: 0,
+          template:  function SimpleComponent_Template(rf, ctx) {
             if (rf & 1) {
               $r3$.ɵprojectionDef();
               $r3$.ɵelementStart(0, "div");
@@ -992,7 +1010,9 @@ describe('compiler compliance', () => {
           selectors: [["complex"]],
           factory: function ComplexComponent_Factory(t) { return new (t || ComplexComponent)(); },
           features: [$r3$.ɵPublicFeature],
-          template: function ComplexComponent_Template(rf, ctx) {
+          consts: 4,
+          vars: 0,
+          template:  function ComplexComponent_Template(rf, ctx) {
             if (rf & 1) {
               $r3$.ɵprojectionDef($c1$, $c2$);
               $r3$.ɵelementStart(0, "div", $c3$);
@@ -1067,7 +1087,9 @@ describe('compiler compliance', () => {
                 ($r3$.ɵqueryRefresh(($tmp$ = $r3$.ɵload(0))) && (ctx.someDir = $tmp$.first));
               }
             },
-            template: function ViewQueryComponent_Template(rf, ctx) {
+            consts: 2,
+            vars: 0,
+            template:  function ViewQueryComponent_Template(rf, ctx) {
               if (rf & 1) {
                 $r3$.ɵelement(1, "div", $e0_attrs$);
               }
@@ -1134,7 +1156,9 @@ describe('compiler compliance', () => {
               ($r3$.ɵqueryRefresh(($tmp$ = $r3$.ɵloadQueryList((queryStartIndex + 1)))) && ($instance$.someDirList = $tmp$));
             },
             features: [$r3$.ɵPublicFeature],
-            template: function ContentQueryComponent_Template(rf, ctx) {
+            consts: 2,
+            vars: 0,
+            template:  function ContentQueryComponent_Template(rf, ctx) {
               if (rf & 1) {
                 $r3$.ɵprojectionDef();
                 $r3$.ɵelementStart(0, "div");
@@ -1219,7 +1243,9 @@ describe('compiler compliance', () => {
               selectors: [["my-app"]],
               factory: function MyApp_Factory(t) { return new (t || MyApp)(); },
               features: [$r3$.ɵPublicFeature],
-              template: function MyApp_Template(rf, ctx) {
+              consts: 6,
+              vars: 17,
+              template:  function MyApp_Template(rf, ctx) {
                 if (rf & 1) {
                   $r3$.ɵtext(0);
                   $r3$.ɵpipe(1, "myPurePipe");
@@ -1270,7 +1296,9 @@ describe('compiler compliance', () => {
           selectors: [["my-component"]],
           factory: function MyComponent_Factory(t) { return new (t || MyComponent)(); },
           features: [$r3$.ɵPublicFeature],
-          template: function MyComponent_Template(rf, ctx) {
+          consts: 3,
+          vars: 1,
+          template:  function MyComponent_Template(rf, ctx) {
             if (rf & 1) {
               $r3$.ɵelement(0, "input", null, $c1$);
               $r3$.ɵtext(2);
@@ -1345,7 +1373,7 @@ describe('compiler compliance', () => {
           if (rf & 1) {
             $r3$.ɵelementStart(0, "div");
             $r3$.ɵtext(1);
-            $r3$.ɵtemplate(2, MyComponent_div_span_Template_2, null, $c2$);
+            $r3$.ɵtemplate(2, MyComponent_div_span_Template_2, 2, 1, null, $c2$);
             $r3$.ɵelement(3, "span", null, $c4$);
             $r3$.ɵelementEnd();
           }
@@ -1362,11 +1390,13 @@ describe('compiler compliance', () => {
           selectors: [["my-component"]],
           factory: function MyComponent_Factory(t) { return new (t || MyComponent)(); },
           features: [$r3$.ɵPublicFeature],
-          template: function MyComponent_Template(rf, ctx) {
+          consts: 6,
+          vars: 1,
+          template:  function MyComponent_Template(rf, ctx) {
             if (rf & 1) {
               $r3$.ɵelement(0, "div", null, $c1$);
               $r3$.ɵtext(2);
-              $r3$.ɵtemplate(3, MyComponent_div_Template_3, null, $c2$);
+              $r3$.ɵtemplate(3, MyComponent_div_Template_3, 5, 1, null, $c2$);
               $r3$.ɵelement(4, "div", null, $c3$);
             }
             if (rf & 2) {
@@ -1430,7 +1460,7 @@ describe('compiler compliance', () => {
         if (rf & 1) {
           $i0$.ɵelementStart(0, "div");
           $i0$.ɵelement(1, "div", null, $c1$);
-          $i0$.ɵtemplate(3, MyComponent_div_span_Template_3, null, $c2$);
+          $i0$.ɵtemplate(3, MyComponent_div_span_Template_3, 2, 1, null, $c2$);
           $i0$.ɵelementEnd();
         }
         if (rf & 2) {
@@ -1442,7 +1472,7 @@ describe('compiler compliance', () => {
       // ...
       template:function MyComponent_Template(rf, ctx){
         if (rf & 1) {
-          $i0$.ɵtemplate(0, MyComponent_div_Template_0, null, $c0$);
+          $i0$.ɵtemplate(0, MyComponent_div_Template_0, 4, 1, null, $c0$);
         }
         if (rf & 2) {
           $i0$.ɵelementProperty(0, "ngForOf", $i0$.ɵbind(ctx.items));
@@ -1506,7 +1536,9 @@ describe('compiler compliance', () => {
             factory: function LifecycleComp_Factory(t) { return new (t || LifecycleComp)(); },
             inputs: {nameMin: "name"},
             features: [$r3$.ɵPublicFeature, $r3$.ɵNgOnChangesFeature],
-            template: function LifecycleComp_Template(rf, ctx) {}
+            consts: 0,
+            vars: 0,
+            template:  function LifecycleComp_Template(rf, ctx) {}
           });`;
 
         const SimpleLayoutDefinition = `
@@ -1515,7 +1547,9 @@ describe('compiler compliance', () => {
             selectors: [["simple-layout"]],
             factory: function SimpleLayout_Factory(t) { return new (t || SimpleLayout)(); },
             features: [$r3$.ɵPublicFeature],
-            template: function SimpleLayout_Template(rf, ctx) {
+            consts: 2,
+            vars: 2,
+            template:  function SimpleLayout_Template(rf, ctx) {
               if (rf & 1) {
                 $r3$.ɵelement(0, "lifecycle-comp");
                 $r3$.ɵelement(1, "lifecycle-comp");
@@ -1643,11 +1677,13 @@ describe('compiler compliance', () => {
                 selectors: [["my-component"]],
                 factory: function MyComponent_Factory(t) { return new (t || MyComponent)(); },
                 features: [$r3$.ɵPublicFeature],
-                template: function MyComponent_Template(rf, ctx){
+                consts: 2,
+                vars: 1,
+                template:  function MyComponent_Template(rf, ctx){
                   if (rf & 1) {
                     $r3$.ɵnamespaceSVG();
                     $r3$.ɵelementStart(0,"svg");
-                    $r3$.ɵtemplate(1,MyComponent__svg_g_Template_1,null,$_c0$);
+                    $r3$.ɵtemplate(1, MyComponent__svg_g_Template_1, 2, 0, null, $_c0$);
                     $r3$.ɵelementEnd();
                   }
                   if (rf & 2) { $r3$.ɵelementProperty(1,"forOf",$r3$.ɵbind(ctx.items)); }
@@ -1720,10 +1756,12 @@ describe('compiler compliance', () => {
             selectors: [["my-component"]],
             factory: function MyComponent_Factory(t) { return new (t || MyComponent)(); },
             features: [$r3$.ɵPublicFeature],
-            template: function MyComponent_Template(rf, ctx) {
+            consts: 2,
+            vars: 1,
+            template:  function MyComponent_Template(rf, ctx) {
               if (rf & 1) {
                 $r3$.ɵelementStart(0, "ul");
-                $r3$.ɵtemplate(1, MyComponent_li_Template_1, null, $_c0$);
+                $r3$.ɵtemplate(1, MyComponent_li_Template_1, 2, 1, null, $_c0$);
                 $r3$.ɵelementEnd();
               }
               if (rf & 2) {
@@ -1801,7 +1839,7 @@ describe('compiler compliance', () => {
               $r3$.ɵtext(2);
               $r3$.ɵelementEnd();
               $r3$.ɵelementStart(3, "ul");
-              $r3$.ɵtemplate(4, MyComponent_li_li_Template_4, null, $c1$);
+              $r3$.ɵtemplate(4, MyComponent_li_li_Template_4, 2, 1, null, $c1$);
               $r3$.ɵelementEnd();
               $r3$.ɵelementEnd();
             }
@@ -1818,10 +1856,12 @@ describe('compiler compliance', () => {
             selectors: [["my-component"]],
             factory: function MyComponent_Factory(t) { return new (t || MyComponent)(); },
             features: [$r3$.ɵPublicFeature],
-            template: function MyComponent_Template(rf, ctx) {
+            consts: 2,
+            vars: 1,
+            template:  function MyComponent_Template(rf, ctx) {
               if (rf & 1) {
                 $r3$.ɵelementStart(0, "ul");
-                $r3$.ɵtemplate(1, MyComponent_li_Template_1, null, $c1$);
+                $r3$.ɵtemplate(1, MyComponent_li_Template_1, 5, 2, null, $c1$);
                 $r3$.ɵelementEnd();
               }
               if (rf & 2) {
