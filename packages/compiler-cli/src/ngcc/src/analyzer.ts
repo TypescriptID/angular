@@ -10,7 +10,6 @@ import * as fs from 'fs';
 import * as ts from 'typescript';
 
 import {BaseDefDecoratorHandler, ComponentDecoratorHandler, DirectiveDecoratorHandler, InjectableDecoratorHandler, NgModuleDecoratorHandler, PipeDecoratorHandler, ResourceLoader, SelectorScopeRegistry} from '../../ngtsc/annotations';
-import {Decorator} from '../../ngtsc/host';
 import {CompileResult, DecoratorHandler} from '../../ngtsc/transform';
 
 import {NgccReflectionHost} from './host/ngcc_host';
@@ -49,14 +48,16 @@ export class Analyzer {
   handlers: DecoratorHandler<any, any>[] = [
     new BaseDefDecoratorHandler(this.typeChecker, this.host),
     new ComponentDecoratorHandler(
-        this.typeChecker, this.host, this.scopeRegistry, false, this.resourceLoader),
+        this.typeChecker, this.host, this.scopeRegistry, false, this.resourceLoader, this.rootDirs),
     new DirectiveDecoratorHandler(this.typeChecker, this.host, this.scopeRegistry, false),
     new InjectableDecoratorHandler(this.host, false),
     new NgModuleDecoratorHandler(this.typeChecker, this.host, this.scopeRegistry, false),
     new PipeDecoratorHandler(this.typeChecker, this.host, this.scopeRegistry, false),
   ];
 
-  constructor(private typeChecker: ts.TypeChecker, private host: NgccReflectionHost) {}
+  constructor(
+      private typeChecker: ts.TypeChecker, private host: NgccReflectionHost,
+      private rootDirs: string[]) {}
 
   /**
    * Analyize a parsed file to generate the information about decorated classes that
@@ -66,7 +67,7 @@ export class Analyzer {
   analyzeFile(file: ParsedFile): AnalyzedFile {
     const constantPool = new ConstantPool();
     const analyzedClasses =
-        file.decoratedClasses.map(clazz => this.analyzeClass(file.sourceFile, constantPool, clazz))
+        file.decoratedClasses.map(clazz => this.analyzeClass(constantPool, clazz))
             .filter(isDefined);
 
     return {
@@ -75,8 +76,7 @@ export class Analyzer {
     };
   }
 
-  protected analyzeClass(file: ts.SourceFile, pool: ConstantPool, clazz: ParsedClass): AnalyzedClass
-      |undefined {
+  protected analyzeClass(pool: ConstantPool, clazz: ParsedClass): AnalyzedClass|undefined {
     const matchingHandlers = this.handlers
                                  .map(handler => ({
                                         handler,

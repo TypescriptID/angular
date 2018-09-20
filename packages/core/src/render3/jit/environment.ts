@@ -34,6 +34,8 @@ export const angularCoreEnv: {[name: string]: Function} = {
   'ɵinjectElementRef': r3.injectElementRef,
   'ɵinjectTemplateRef': r3.injectTemplateRef,
   'ɵinjectViewContainerRef': r3.injectViewContainerRef,
+  'ɵtemplateRefExtractor': r3.templateRefExtractor,
+  'ɵinjectRenderer2': r3.injectRenderer2,
   'ɵNgOnChangesFeature': r3.NgOnChangesFeature,
   'ɵPublicFeature': r3.PublicFeature,
   'ɵInheritDefinitionFeature': r3.InheritDefinitionFeature,
@@ -89,7 +91,6 @@ export const angularCoreEnv: {[name: string]: Function} = {
   'ɵquery': r3.query,
   'ɵqueryRefresh': r3.queryRefresh,
   'ɵregisterContentQuery': r3.registerContentQuery,
-  'ɵreserveSlots': r3.reserveSlots,
   'ɵreference': r3.reference,
   'ɵelementStyling': r3.elementStyling,
   'ɵelementStylingMap': r3.elementStylingMap,
@@ -101,10 +102,10 @@ export const angularCoreEnv: {[name: string]: Function} = {
   'ɵembeddedViewStart': r3.embeddedViewStart,
   'ɵembeddedViewEnd': r3.embeddedViewEnd,
 
-  'ɵzh': sanitization.sanitizeHtml,
-  'ɵzs': sanitization.sanitizeStyle,
-  'ɵzss': sanitization.defaultStyleSanitizer,
-  'ɵzr': sanitization.sanitizeResourceUrl,
-  'ɵzc': sanitization.sanitizeScript,
-  'ɵzu': sanitization.sanitizeUrl
+  'ɵsanitizeHtml': sanitization.sanitizeHtml,
+  'ɵsanitizeStyle': sanitization.sanitizeStyle,
+  'ɵdefaultStyleSanitizer': sanitization.defaultStyleSanitizer,
+  'ɵsanitizeResourceUrl': sanitization.sanitizeResourceUrl,
+  'ɵsanitizeScript': sanitization.sanitizeScript,
+  'ɵsanitizeUrl': sanitization.sanitizeUrl
 };

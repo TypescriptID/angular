@@ -120,6 +120,11 @@ export enum R3ResolvedDependencyType {
    * The dependency is for `ChangeDetectorRef`.
    */
   ChangeDetectorRef = 6,
+
+  /**
+   * The dependency is for `Renderer2`.
+   */
+  Renderer2 = 7,
 }
 
 /**
@@ -181,8 +186,10 @@ export function compileFactoryFunction(meta: R3FactoryMetadata):
   } else {
     const baseFactory = o.variable(`ɵ${meta.name}_BaseFactory`);
     const getInheritedFactory = o.importExpr(R3.getInheritedFactory);
-    const baseFactoryStmt = baseFactory.set(getInheritedFactory.callFn([meta.type]))
-                                .toDeclStmt(o.INFERRED_TYPE, [o.StmtModifier.Final]);
+    const baseFactoryStmt =
+        baseFactory.set(getInheritedFactory.callFn([meta.type])).toDeclStmt(o.INFERRED_TYPE, [
+          o.StmtModifier.Exported, o.StmtModifier.Final
+        ]);
     statements.push(baseFactoryStmt);
 
     // There is no constructor, use the base class' factory to construct typeForCtor.
@@ -206,8 +213,10 @@ export function compileFactoryFunction(meta: R3FactoryMetadata):
     if (meta.delegate.isEquivalent(meta.type)) {
       throw new Error(`Illegal state: compiling factory that delegates to itself`);
     }
-    const delegateFactoryStmt = delegateFactory.set(getFactoryOf.callFn([meta.delegate]))
-                                    .toDeclStmt(o.INFERRED_TYPE, [o.StmtModifier.Final]);
+    const delegateFactoryStmt =
+        delegateFactory.set(getFactoryOf.callFn([meta.delegate])).toDeclStmt(o.INFERRED_TYPE, [
+          o.StmtModifier.Exported, o.StmtModifier.Final
+        ]);
 
     statements.push(delegateFactoryStmt);
     const r = makeConditionalFactory(delegateFactory.callFn([]));
@@ -281,6 +290,8 @@ function compileInjectDependency(
       return o.importExpr(R3.injectViewContainerRef).callFn([]);
     case R3ResolvedDependencyType.ChangeDetectorRef:
       return o.importExpr(R3.injectChangeDetectorRef).callFn([]);
+    case R3ResolvedDependencyType.Renderer2:
+      return o.importExpr(R3.injectRenderer2).callFn([]);
     default:
       return unsupported(
           `Unknown R3ResolvedDependencyType: ${R3ResolvedDependencyType[dep.resolved]}`);
@@ -301,6 +312,7 @@ export function dependenciesFromGlobalMetadata(
   const templateRef = reflector.resolveExternalReference(Identifiers.TemplateRef);
   const viewContainerRef = reflector.resolveExternalReference(Identifiers.ViewContainerRef);
   const injectorRef = reflector.resolveExternalReference(Identifiers.Injector);
+  const renderer2 = reflector.resolveExternalReference(Identifiers.Renderer2);
 
   // Iterate through the type's DI dependencies and produce `R3DependencyMetadata` for each of them.
   const deps: R3DependencyMetadata[] = [];
@@ -316,6 +328,8 @@ export function dependenciesFromGlobalMetadata(
         resolved = R3ResolvedDependencyType.ViewContainerRef;
       } else if (tokenRef === injectorRef) {
         resolved = R3ResolvedDependencyType.Injector;
+      } else if (tokenRef === renderer2) {
+        resolved = R3ResolvedDependencyType.Renderer2;
       } else if (dependency.isAttribute) {
         resolved = R3ResolvedDependencyType.Attribute;
       }

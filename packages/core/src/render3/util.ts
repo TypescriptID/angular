@@ -5,13 +5,14 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
+
 import {devModeEqual} from '../change_detection/change_detection_util';
 import {assertLessThan} from './assert';
-import {LElementNode} from './interfaces/node';
-import {HEADER_OFFSET, LViewData} from './interfaces/view';
+import {LContainerNode, LElementContainerNode, LElementNode, TNode, TNodeFlags} from './interfaces/node';
+import {HEADER_OFFSET, LViewData, TData} from './interfaces/view';
 
 /**
- * Returns wether the values are different from a change detection stand point.
+ * Returns whether the values are different from a change detection stand point.
  *
  * Constraints are relaxed in checkNoChanges mode. See `devModeEqual` for details.
  */
@@ -66,8 +67,8 @@ export function flatten(list: any[]): any[] {
   return result;
 }
 
-/** Retrieves a value from any `LViewData`. */
-export function loadInternal<T>(index: number, arr: LViewData): T {
+/** Retrieves a value from any `LViewData` or `TData`. */
+export function loadInternal<T>(index: number, arr: LViewData | TData): T {
   ngDevMode && assertDataInRangeInternal(index + HEADER_OFFSET, arr);
   return arr[index + HEADER_OFFSET];
 }
@@ -88,4 +89,17 @@ export function loadElementInternal(index: number, arr: LViewData): LElementNode
 
 export function readElementValue(value: LElementNode | any[]): LElementNode {
   return (Array.isArray(value) ? (value as any as any[])[0] : value) as LElementNode;
+}
+
+export function getLNode(tNode: TNode, hostView: LViewData): LElementNode|LContainerNode|
+    LElementContainerNode {
+  return readElementValue(hostView[tNode.index]);
+}
+
+export function isContentQueryHost(tNode: TNode): boolean {
+  return (tNode.flags & TNodeFlags.hasContentQuery) !== 0;
+}
+
+export function isComponent(tNode: TNode): boolean {
+  return (tNode.flags & TNodeFlags.isComponent) === TNodeFlags.isComponent;
 }

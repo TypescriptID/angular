@@ -3,66 +3,50 @@ workspace(name = "angular")
 #
 # Download Bazel toolchain dependencies as needed by build actions
 #
-
-http_archive(
-    name = "build_bazel_rules_nodejs",
-    urls = ["https://github.com/bazelbuild/rules_nodejs/archive/0.11.4.zip"],
-    strip_prefix = "rules_nodejs-0.11.4",
-    sha256 = "c31c4ead696944a50fad2b3ee9dfbbeffe31a8dcca0b21b9bf5b3e6c6b069801",
-)
-
-http_archive(
-    name = "bazel_skylib",
-    urls = ["https://github.com/bazelbuild/bazel-skylib/archive/0.3.1.zip"],
-    strip_prefix = "bazel-skylib-0.3.1",
-    sha256 = "95518adafc9a2b656667bbf517a952e54ce7f350779d0dd95133db4eb5c27fb1",
-)
-
-http_archive(
-    name = "io_bazel_rules_webtesting",
-    url = "https://github.com/bazelbuild/rules_webtesting/archive/0.2.1.zip",
-    strip_prefix = "rules_webtesting-0.2.1",
-    sha256 = "7d490aadff9b5262e5251fa69427ab2ffd1548422467cb9f9e1d110e2c36f0fa",
-)
-
 http_archive(
     name = "build_bazel_rules_typescript",
-    url = "https://github.com/bazelbuild/rules_typescript/archive/0.16.0.zip",
-    strip_prefix = "rules_typescript-0.16.0",
-    sha256 = "e65c5639a42e2f6d3f9d2bda62487d6b42734830dda45be1620c3e2b1115070c",
+    url = "https://github.com/bazelbuild/rules_typescript/archive/0.17.0.zip",
+    strip_prefix = "rules_typescript-0.17.0",
+    sha256 = "1626ee2cc9770af6950bfc77dffa027f9aedf330fe2ea2ee7e504428927bd95d",
 )
+load("@build_bazel_rules_typescript//:package.bzl", "rules_typescript_dependencies")
+rules_typescript_dependencies()
 
 http_archive(
-    name = "io_bazel_rules_go",
-    url = "https://github.com/bazelbuild/rules_go/releases/download/0.10.3/rules_go-0.10.3.tar.gz",
-    sha256 = "feba3278c13cde8d67e341a837f69a029f698d7a27ddbb2a202be7a10b22142a",
+  name = "bazel_toolchains",
+  urls = [
+    "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/5124557861ebf4c0b67f98180bff1f8551e0b421.tar.gz",
+    "https://github.com/bazelbuild/bazel-toolchains/archive/5124557861ebf4c0b67f98180bff1f8551e0b421.tar.gz",
+  ],
+  strip_prefix = "bazel-toolchains-5124557861ebf4c0b67f98180bff1f8551e0b421",
+  sha256 = "c3b08805602cd1d2b67ebe96407c1e8c6ed3d4ce55236ae2efe2f1948f38168d",
 )
 
 http_archive(
     name = "io_bazel_rules_sass",
-    url = "https://github.com/bazelbuild/rules_sass/archive/0.1.0.zip",
-    strip_prefix = "rules_sass-0.1.0",
-    sha256 = "b243c4d64f054c174051785862ab079050d90b37a1cef7da93821c6981cb9ad4",
+    url = "https://github.com/bazelbuild/rules_sass/archive/1.11.0.zip",
+    strip_prefix = "rules_sass-1.11.0",
+    sha256 = "dbe9fb97d5a7833b2a733eebc78c9c1e3880f676ac8af16e58ccf2139cbcad03",
 )
 
 # This commit matches the version of buildifier in angular/ngcontainer
 # If you change this, also check if it matches the version in the angular/ngcontainer
 # version in /.circleci/config.yml
-BAZEL_BUILDTOOLS_VERSION = "82b21607e00913b16fe1c51bec80232d9d6de31c"
+BAZEL_BUILDTOOLS_VERSION = "49a6c199e3fbf5d94534b2771868677d3f9c6de9"
 
 http_archive(
     name = "com_github_bazelbuild_buildtools",
     url = "https://github.com/bazelbuild/buildtools/archive/%s.zip" % BAZEL_BUILDTOOLS_VERSION,
     strip_prefix = "buildtools-%s" % BAZEL_BUILDTOOLS_VERSION,
-    sha256 = "edb24c2f9c55b10a820ec74db0564415c0cf553fa55e9fc709a6332fb6685eff",
+    sha256 = "edf39af5fc257521e4af4c40829fffe8fba6d0ebff9f4dd69a6f8f1223ae047b",
 )
 
 # Fetching the Bazel source code allows us to compile the Skylark linter
 http_archive(
     name = "io_bazel",
-    url = "https://github.com/bazelbuild/bazel/archive/968f87900dce45a7af749a965b72dbac51b176b3.zip",
-    strip_prefix = "bazel-968f87900dce45a7af749a965b72dbac51b176b3",
-    sha256 = "e373d2ae24955c1254c495c9c421c009d88966565c35e4e8444c082cb1f0f48f",
+    url = "https://github.com/bazelbuild/bazel/archive/0.17.1.zip",
+    strip_prefix = "bazel-0.17.1",
+    sha256 = "ace8cced3b21e64a8fdad68508e9b0644201ec848ad583651719841d567fc66d",
 )
 
 http_archive(
@@ -88,9 +72,9 @@ http_archive(
 
 http_archive(
     name = "org_brotli",
-    url = "https://github.com/google/brotli/archive/f9b8c02673c576a3e807edbf3a9328e9e7af6d7c.zip",
-    strip_prefix = "brotli-f9b8c02673c576a3e807edbf3a9328e9e7af6d7c",
-    sha256 = "8a517806d2b7c8505ba5c53934e7d7c70d341b68ffd268e9044d35b564a48828",
+    url = "https://github.com/google/brotli/archive/v1.0.5.zip",
+    strip_prefix = "brotli-1.0.5",
+    sha256 = "774b893a0700b0692a76e2e5b7e7610dbbe330ffbe3fe864b4b52ca718061d5a",
 )
 
 #
@@ -113,12 +97,18 @@ local_repository(
 # Load and install our dependencies downloaded above.
 #
 
-load("@build_bazel_rules_nodejs//:defs.bzl", "check_bazel_version", "node_repositories", "yarn_install")
+load("@build_bazel_rules_nodejs//:defs.bzl", "check_bazel_version", "node_repositories")
 
-check_bazel_version("0.15.0")
+check_bazel_version("0.17.0", """
+If you are on a Mac and using Homebrew, there is a breaking change to the installation in Bazel 0.16
+See https://blog.bazel.build/2018/08/22/bazel-homebrew.html
+
+""")
 node_repositories(
-  package_json = ["//:package.json"],
-  preserve_symlinks = True,
+    package_json = ["//:package.json"],
+    preserve_symlinks = True,
+    node_version = "10.9.0",
+    yarn_version = "1.9.2",
 )
 
 load("@io_bazel_rules_go//go:def.bzl", "go_rules_dependencies", "go_register_toolchains")
@@ -141,24 +131,6 @@ ts_setup_workspace()
 load("@angular//:index.bzl", "ng_setup_workspace")
 
 ng_setup_workspace()
-
-#
-# Ask Bazel to manage these toolchain dependencies for us.
-# Bazel will run `yarn install` when one of these toolchains is requested during
-# a build.
-#
-
-yarn_install(
-    name = "ts-api-guardian_runtime_deps",
-    package_json = "//tools/ts-api-guardian:package.json",
-    yarn_lock = "//tools/ts-api-guardian:yarn.lock",
-)
-
-yarn_install(
-    name = "http-server_runtime_deps",
-    package_json = "//tools/http-server:package.json",
-    yarn_lock = "//tools/http-server:yarn.lock",
-)
 
 ##################################
 # Skylark documentation generation

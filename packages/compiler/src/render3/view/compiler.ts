@@ -16,6 +16,8 @@ import {LifecycleHooks} from '../../lifecycle_reflector';
 import * as o from '../../output/output_ast';
 import {typeSourceSpan} from '../../parse_util';
 import {CssSelector, SelectorMatcher} from '../../selector';
+import {ShadowCss} from '../../shadow_css';
+import {CONTENT_ATTR, HOST_ATTR} from '../../style_compiler';
 import {BindingParser} from '../../template_parser/binding_parser';
 import {OutputContext, error} from '../../util';
 import {compileFactoryFunction, dependenciesFromGlobalMetadata} from '../r3_factory';
@@ -24,8 +26,10 @@ import {Render3ParseResult} from '../r3_template_transform';
 import {typeWithParameters} from '../util';
 
 import {R3ComponentDef, R3ComponentMetadata, R3DirectiveDef, R3DirectiveMetadata, R3QueryMetadata} from './api';
-import {BindingScope, TemplateDefinitionBuilder, renderFlagCheckIfStmt} from './template';
-import {CONTEXT_NAME, DefinitionMap, RENDER_FLAGS, TEMPORARY_NAME, asLiteral, conditionallyCreateMapObjectLiteral, getQueryPredicate, temporaryAllocator} from './util';
+import {BindingScope, TemplateDefinitionBuilder, ValueConverter, renderFlagCheckIfStmt} from './template';
+import {CONTEXT_NAME, DefinitionMap, RENDER_FLAGS, TEMPORARY_NAME, asLiteral, conditionallyCreateMapObjectLiteral, getQueryPredicate, mapToExpression, temporaryAllocator} from './util';
+
+const EMPTY_ARRAY: any[] = [];
 
 function baseDirectiveFields(
     meta: R3DirectiveMetadata, constantPool: ConstantPool,
@@ -52,8 +56,22 @@ function baseDirectiveFields(
 
   definitionMap.set('contentQueriesRefresh', createContentQueriesRefreshFunction(meta));
 
+  // Initialize hostVars to number of bound host properties (interpolations illegal)
+  let hostVars = Object.keys(meta.host.properties).length;
+
   // e.g. `hostBindings: (dirIndex, elIndex) => { ... }
-  definitionMap.set('hostBindings', createHostBindingsFunction(meta, bindingParser));
+  definitionMap.set(
+      'hostBindings',
+      createHostBindingsFunction(meta, bindingParser, constantPool, (slots: number) => {
+        const originalSlots = hostVars;
+        hostVars += slots;
+        return originalSlots;
+      }));
+
+  if (hostVars) {
+    // e.g. `hostVars: 2
+    definitionMap.set('hostVars', o.literal(hostVars));
+  }
 
   // e.g. `attributes: ['role', 'listbox']`
   definitionMap.set('attributes', createHostAttributesArray(meta));
@@ -191,7 +209,8 @@ export function compileComponentFromMetadata(
   const template = meta.template;
   const templateBuilder = new TemplateDefinitionBuilder(
       constantPool, BindingScope.ROOT_SCOPE, 0, templateTypeName, templateName, meta.viewQueries,
-      directiveMatcher, directivesUsed, meta.pipes, pipesUsed, R3.namespaceHTML);
+      directiveMatcher, directivesUsed, meta.pipes, pipesUsed, R3.namespaceHTML,
+      meta.template.relativeContextFilePath);
 
   const templateFunctionExpression = templateBuilder.buildTemplateFunction(
       template.nodes, [], template.hasNgContent, template.ngContentSelectors);
@@ -216,6 +235,21 @@ export function compileComponentFromMetadata(
   // e.g. `pipes: [MyPipe]`
   if (pipesUsed.size) {
     definitionMap.set('pipes', o.literalArr(Array.from(pipesUsed)));
+  }
+
+  // e.g. `styles: [str1, str2]`
+  if (meta.styles && meta.styles.length) {
+    const styleValues = meta.encapsulation == core.ViewEncapsulation.Emulated ?
+        compileStyles(meta.styles, CONTENT_ATTR, HOST_ATTR) :
+        meta.styles;
+    const strings = styleValues.map(str => o.literal(str));
+    definitionMap.set('styles', o.literalArr(strings));
+  }
+
+  // e.g. `animations: [trigger('123', [])]`
+  if (meta.animations) {
+    const animationValues = meta.animations.map(entry => mapToExpression(entry));
+    definitionMap.set('animations', o.literalArr(animationValues));
   }
 
   // On the type side, remove newlines from the selector as it will need to fit into a TypeScript
@@ -273,6 +307,7 @@ export function compileComponentFromRender2(
   const definitionField = outputCtx.constantPool.propertyNameOf(DefinitionKind.Component);
 
   const summary = component.toSummary();
+  const animations = summary.template && summary.template.animations || null;
 
   // Compute the R3ComponentMetadata from the CompileDirectiveMetadata
   const meta: R3ComponentMetadata = {
@@ -282,11 +317,16 @@ export function compileComponentFromRender2(
       nodes: render3Ast.nodes,
       hasNgContent: render3Ast.hasNgContent,
       ngContentSelectors: render3Ast.ngContentSelectors,
+      relativeContextFilePath: '',
     },
     directives: typeMapToExpressionMap(directiveTypeBySel, outputCtx),
     pipes: typeMapToExpressionMap(pipeTypeByName, outputCtx),
     viewQueries: queriesFromGlobalMetadata(component.viewQueries, outputCtx),
     wrapDirectivesInClosure: false,
+    styles: (summary.template && summary.template.styles) || EMPTY_ARRAY,
+    encapsulation:
+        (summary.template && summary.template.encapsulation) || core.ViewEncapsulation.Emulated,
+    animations
   };
   const res = compileComponentFromMetadata(meta, outputCtx.constantPool, bindingParser);
 
@@ -505,7 +545,8 @@ function createViewQueriesFunction(
 
 // Return a host binding function or null if one is not necessary.
 function createHostBindingsFunction(
-    meta: R3DirectiveMetadata, bindingParser: BindingParser): o.Expression|null {
+    meta: R3DirectiveMetadata, bindingParser: BindingParser, constantPool: ConstantPool,
+    allocatePureFunctionSlots: (slots: number) => number): o.Expression|null {
   const statements: o.Statement[] = [];
 
   const hostBindingSourceSpan = meta.typeSourceSpan;
@@ -516,9 +557,16 @@ function createHostBindingsFunction(
   const bindings = bindingParser.createBoundHostProperties(directiveSummary, hostBindingSourceSpan);
   const bindingContext = o.importExpr(R3.loadDirective).callFn([o.variable('dirIndex')]);
   if (bindings) {
+    const valueConverter = new ValueConverter(
+        constantPool,
+        /* new nodes are illegal here */ () => error('Unexpected node'), allocatePureFunctionSlots,
+        /* pipes are illegal here */ () => error('Unexpected pipe'));
+
     for (const binding of bindings) {
+      // resolve literal arrays and literal objects
+      const value = binding.expression.visit(valueConverter);
       const bindingExpr = convertPropertyBinding(
-          null, bindingContext, binding.expression, 'b', BindingForm.TrySimple,
+          null, bindingContext, value, 'b', BindingForm.TrySimple,
           () => error('Unexpected interpolation'));
       statements.push(...bindingExpr.stmts);
       statements.push(o.importExpr(R3.elementProperty)
@@ -623,4 +671,9 @@ export function parseHostBindings(host: {[key: string]: string}): {
   });
 
   return {attributes, listeners, properties, animations};
+}
+
+function compileStyles(styles: string[], selector: string, hostSelector: string): string[] {
+  const shadowCss = new ShadowCss();
+  return styles.map(style => { return shadowCss !.shimCssText(style, selector, hostSelector); });
 }

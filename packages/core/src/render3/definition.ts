@@ -9,15 +9,17 @@
 import './ng_dev_mode';
 
 import {ChangeDetectionStrategy} from '../change_detection/constants';
-import {Provider, ViewEncapsulation} from '../core';
+import {Provider} from '../di/provider';
 import {NgModuleDef, NgModuleDefInternal} from '../metadata/ng_module';
+import {ViewEncapsulation} from '../metadata/view';
 import {Type} from '../type';
 
+import {NG_COMPONENT_DEF, NG_DIRECTIVE_DEF, NG_MODULE_DEF, NG_PIPE_DEF} from './fields';
 import {BaseDef, ComponentDefFeature, ComponentDefInternal, ComponentQuery, ComponentTemplate, ComponentType, DirectiveDefFeature, DirectiveDefInternal, DirectiveType, DirectiveTypesOrFactory, PipeDefInternal, PipeType, PipeTypesOrFactory} from './interfaces/definition';
 import {CssSelectorList, SelectorFlags} from './interfaces/projection';
 
-const EMPTY: {} = {};
-const EMPTY_ARRAY: any[] = [];
+export const EMPTY: {} = {};
+export const EMPTY_ARRAY: any[] = [];
 if (typeof ngDevMode !== 'undefined' && ngDevMode) {
   Object.freeze(EMPTY);
   Object.freeze(EMPTY_ARRAY);
@@ -56,7 +58,7 @@ export function defineComponent<T>(componentDefinition: {
   /**
    * The number of nodes, local refs, and pipes in this component template.
    *
-   * Used to calculate the length of the component's LViewData array, so we
+   * Used to calculate the length of this component's LViewData array, so we
    * can pre-fill the array and set the binding start index.
    */
   // TODO(kara): remove queries from this count
@@ -65,10 +67,18 @@ export function defineComponent<T>(componentDefinition: {
   /**
    * The number of bindings in this component template (including pure fn bindings).
    *
-   * Used to calculate the length of the component's LViewData array, so we
+   * Used to calculate the length of this component's LViewData array, so we
    * can pre-fill the array and set the host binding start index.
    */
   vars: number;
+
+  /**
+   * The number of host bindings (including pure fn bindings) in this component.
+   *
+   * Used to calculate the length of the LViewData array for the *parent* component
+   * of this component.
+   */
+  hostVars?: number;
 
   /**
    * Static attributes to set on host element.
@@ -253,17 +263,29 @@ export function defineComponent<T>(componentDefinition: {
    * `PipeDefs`s. The function is necessary to be able to support forward declarations.
    */
   pipes?: PipeTypesOrFactory | null;
+
+  /**
+   * Registry of the animation triggers present on the component that will be used by the view.
+   */
+  animations?: any[] | null;
 }): never {
   const type = componentDefinition.type;
   const pipeTypes = componentDefinition.pipes !;
   const directiveTypes = componentDefinition.directives !;
   const declaredInputs: {[key: string]: string} = {} as any;
-  const encapsulation = componentDefinition.encapsulation;
+  const encapsulation = componentDefinition.encapsulation || ViewEncapsulation.Emulated;
+  const styles: string[] = componentDefinition.styles || EMPTY_ARRAY;
+  const animations: any[]|null = componentDefinition.animations || null;
+  let data = componentDefinition.data || {};
+  if (animations) {
+    data.animations = animations;
+  }
   const def: ComponentDefInternal<any> = {
     type: type,
     diPublic: null,
     consts: componentDefinition.consts,
     vars: componentDefinition.vars,
+    hostVars: componentDefinition.hostVars || 0,
     factory: componentDefinition.factory,
     template: componentDefinition.template || null !,
     hostBindings: componentDefinition.hostBindings || null,
@@ -292,12 +314,13 @@ export function defineComponent<T>(componentDefinition: {
     selectors: componentDefinition.selectors,
     viewQuery: componentDefinition.viewQuery || null,
     features: componentDefinition.features || null,
-    data: componentDefinition.data || EMPTY,
+    data,
     // TODO(misko): convert ViewEncapsulation into const enum so that it can be used directly in the
     // next line. Also `None` should be 0 not 2.
-    encapsulation: encapsulation == null ? 2 /* ViewEncapsulation.None */ : encapsulation,
-    id: `c${_renderCompCount++}`,
-    styles: EMPTY_ARRAY,
+    encapsulation,
+    providers: EMPTY_ARRAY,
+    viewProviders: EMPTY_ARRAY,
+    id: `c${_renderCompCount++}`, styles,
   };
   const feature = componentDefinition.features;
   feature && feature.forEach((fn) => fn(def));
@@ -306,19 +329,19 @@ export function defineComponent<T>(componentDefinition: {
 
 export function extractDirectiveDef(type: DirectiveType<any>& ComponentType<any>):
     DirectiveDefInternal<any>|ComponentDefInternal<any> {
-  const def = type.ngComponentDef || type.ngDirectiveDef;
+  const def = getComponentDef(type) || getDirectiveDef(type);
   if (ngDevMode && !def) {
     throw new Error(`'${type.name}' is neither 'ComponentType' or 'DirectiveType'.`);
   }
-  return def;
+  return def !;
 }
 
 export function extractPipeDef(type: PipeType<any>): PipeDefInternal<any> {
-  const def = type.ngPipeDef;
+  const def = getPipeDef(type);
   if (ngDevMode && !def) {
     throw new Error(`'${type.name}' is not a 'PipeType'.`);
   }
-  return def;
+  return def !;
 }
 
 export function defineNgModule<T>(def: {type: T} & Partial<NgModuleDef<T, any, any, any>>): never {
@@ -503,7 +526,7 @@ export const defineDirective = defineComponent as any as<T>(directiveDefinition:
   /**
    * Factory method used to create an instance of directive.
    */
-  factory: () => T | ({0: T} & any[]); /* trying to say T | [T, ...any] */
+  factory: () => T;
 
   /**
    * Static attributes to set on host element.
@@ -578,6 +601,14 @@ export const defineDirective = defineComponent as any as<T>(directiveDefinition:
   features?: DirectiveDefFeature[];
 
   /**
+   * The number of host bindings (including pure fn bindings) in this directive.
+   *
+   * Used to calculate the length of the LViewData array for the *parent* component
+   * of this directive.
+   */
+  hostVars?: number;
+
+  /**
    * Function executed by the parent template to allow child directive to apply host bindings.
    */
   hostBindings?: (directiveIndex: number, elementIndex: number) => void;
@@ -631,4 +662,26 @@ export function definePipe<T>(pipeDef: {
     pure: pipeDef.pure !== false,
     onDestroy: pipeDef.type.prototype.ngOnDestroy || null
   }) as never;
+}
+
+/**
+ * The following getter methods retrieve the definition form the type. Currently the retrieval
+ * honors inheritance, but in the future we may change the rule to require that definitions are
+ * explicit. This would require some sort of migration strategy.
+ */
+
+export function getComponentDef<T>(type: any): ComponentDefInternal<T>|null {
+  return (type as any)[NG_COMPONENT_DEF] || null;
+}
+
+export function getDirectiveDef<T>(type: any): DirectiveDefInternal<T>|null {
+  return (type as any)[NG_DIRECTIVE_DEF] || null;
+}
+
+export function getPipeDef<T>(type: any): PipeDefInternal<T>|null {
+  return (type as any)[NG_PIPE_DEF] || null;
+}
+
+export function getNgModuleDef<T>(type: any): NgModuleDefInternal<T>|null {
+  return (type as any)[NG_MODULE_DEF] || null;
 }

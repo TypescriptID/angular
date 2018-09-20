@@ -7,13 +7,11 @@
  */
 import * as ts from 'typescript';
 import MagicString from 'magic-string';
-import {NgccReflectionHost} from '../host/ngcc_host';
+import {POST_NGCC_MARKER, PRE_NGCC_MARKER} from '../host/ngcc_host';
 import {AnalyzedClass} from '../analyzer';
 import {Renderer} from './renderer';
 
 export class Esm2015Renderer extends Renderer {
-  constructor(protected host: NgccReflectionHost) { super(); }
-
   /**
    *  Add the imports at the top of the file
    */
@@ -71,6 +69,16 @@ export class Esm2015Renderer extends Renderer {
           });
         }
       }
+    });
+  }
+
+  rewriteSwitchableDeclarations(outputText: MagicString, sourceFile: ts.SourceFile): void {
+    const declarations = this.host.getSwitchableDeclarations(sourceFile);
+    declarations.forEach(declaration => {
+      const start = declaration.initializer.getStart();
+      const end = declaration.initializer.getEnd();
+      const replacement = declaration.initializer.text.replace(PRE_NGCC_MARKER, POST_NGCC_MARKER);
+      outputText.overwrite(start, end, replacement);
     });
   }
 }

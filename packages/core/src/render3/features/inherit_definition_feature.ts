@@ -8,7 +8,9 @@
 
 import {Type} from '../../type';
 import {fillProperties} from '../../util/property';
-import {ComponentDefInternal, DirectiveDefFeature, DirectiveDefInternal} from '../interfaces/definition';
+import {EMPTY, EMPTY_ARRAY} from '../definition';
+import {ComponentDefInternal, ComponentTemplate, DirectiveDefFeature, DirectiveDefInternal, RenderFlags} from '../interfaces/definition';
+
 
 
 /**
@@ -37,15 +39,27 @@ export function InheritDefinitionFeature(
   while (superType) {
     let superDef: DirectiveDefInternal<any>|ComponentDefInternal<any>|undefined = undefined;
     if (isComponentDef(definition)) {
+      // Don't use getComponentDef/getDirectiveDef. This logic relies on inheritance.
       superDef = superType.ngComponentDef || superType.ngDirectiveDef;
     } else {
       if (superType.ngComponentDef) {
         throw new Error('Directives cannot inherit Components');
       }
+      // Don't use getComponentDef/getDirectiveDef. This logic relies on inheritance.
       superDef = superType.ngDirectiveDef;
     }
 
     const baseDef = (superType as any).ngBaseDef;
+
+    // Some fields in the definition may be empty, if there were no values to put in them that
+    // would've justified object creation. Unwrap them if necessary.
+    if (baseDef || superDef) {
+      const writeableDef = definition as any;
+      writeableDef.inputs = maybeUnwrapEmpty(definition.inputs);
+      writeableDef.declaredInputs = maybeUnwrapEmpty(definition.declaredInputs);
+      writeableDef.outputs = maybeUnwrapEmpty(definition.outputs);
+    }
+
     if (baseDef) {
       // Merge inputs and outputs
       fillProperties(definition.inputs, baseDef.inputs);
@@ -67,6 +81,51 @@ export function InheritDefinitionFeature(
           definition.hostBindings = superHostBindings;
         }
       }
+
+      // Merge View Queries
+      if (isComponentDef(definition) && isComponentDef(superDef)) {
+        const prevViewQuery = definition.viewQuery;
+        const superViewQuery = superDef.viewQuery;
+        if (superViewQuery) {
+          if (prevViewQuery) {
+            definition.viewQuery = <T>(rf: RenderFlags, ctx: T): void => {
+              superViewQuery(rf, ctx);
+              prevViewQuery(rf, ctx);
+            };
+          } else {
+            definition.viewQuery = superViewQuery;
+          }
+        }
+      }
+
+      // Merge Content Queries
+      const prevContentQueries = definition.contentQueries;
+      const superContentQueries = superDef.contentQueries;
+      if (superContentQueries) {
+        if (prevContentQueries) {
+          definition.contentQueries = () => {
+            superContentQueries();
+            prevContentQueries();
+          };
+        } else {
+          definition.contentQueries = superContentQueries;
+        }
+      }
+
+      // Merge Content Queries Refresh
+      const prevContentQueriesRefresh = definition.contentQueriesRefresh;
+      const superContentQueriesRefresh = superDef.contentQueriesRefresh;
+      if (superContentQueriesRefresh) {
+        if (prevContentQueriesRefresh) {
+          definition.contentQueriesRefresh = (directiveIndex: number, queryIndex: number) => {
+            superContentQueriesRefresh(directiveIndex, queryIndex);
+            prevContentQueriesRefresh(directiveIndex, queryIndex);
+          };
+        } else {
+          definition.contentQueriesRefresh = superContentQueriesRefresh;
+        }
+      }
+
 
       // Merge inputs and outputs
       fillProperties(definition.inputs, superDef.inputs);
@@ -114,5 +173,17 @@ export function InheritDefinitionFeature(
     }
 
     superType = Object.getPrototypeOf(superType);
+  }
+}
+
+function maybeUnwrapEmpty<T>(value: T[]): T[];
+function maybeUnwrapEmpty<T>(value: T): T;
+function maybeUnwrapEmpty(value: any): any {
+  if (value === EMPTY) {
+    return {};
+  } else if (value === EMPTY_ARRAY) {
+    return [];
+  } else {
+    return value;
   }
 }

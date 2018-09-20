@@ -27,7 +27,7 @@
     "name": "EMPTY$1"
   },
   {
-    "name": "EMPTY_ARRAY"
+    "name": "EMPTY_ARRAY$1"
   },
   {
     "name": "FLAGS"
@@ -45,16 +45,28 @@
     "name": "INJECTOR$1"
   },
   {
+    "name": "MONKEY_PATCH_KEY_NAME"
+  },
+  {
     "name": "NEXT"
+  },
+  {
+    "name": "NG_COMPONENT_DEF"
+  },
+  {
+    "name": "NG_DIRECTIVE_DEF"
   },
   {
     "name": "NG_ELEMENT_ID"
   },
   {
-    "name": "NG_HOST_SYMBOL"
+    "name": "NG_PIPE_DEF"
   },
   {
     "name": "NG_PROJECT_AS_ATTR_NAME"
+  },
+  {
+    "name": "NO_CHANGE"
   },
   {
     "name": "PARENT"
@@ -72,7 +84,7 @@
     "name": "RENDER_PARENT"
   },
   {
-    "name": "ROOT_DIRECTIVE_INDICES"
+    "name": "SANITIZER"
   },
   {
     "name": "TVIEW"
@@ -81,13 +93,13 @@
     "name": "VIEWS"
   },
   {
+    "name": "ViewEncapsulation$1"
+  },
+  {
     "name": "_CLEAN_PROMISE"
   },
   {
-    "name": "_ROOT_DIRECTIVE_INDICES"
-  },
-  {
-    "name": "_getComponentHostLElementNode"
+    "name": "_getViewData"
   },
   {
     "name": "_renderCompCount"
@@ -96,7 +108,13 @@
     "name": "appendChild"
   },
   {
+    "name": "attachPatchData"
+  },
+  {
     "name": "baseDirectiveCreate"
+  },
+  {
+    "name": "bindingRootIndex"
   },
   {
     "name": "bloomAdd"
@@ -120,13 +138,16 @@
     "name": "componentRefresh"
   },
   {
-    "name": "createLNode"
-  },
-  {
     "name": "createLNodeObject"
   },
   {
     "name": "createLViewData"
+  },
+  {
+    "name": "createNodeAtIndex"
+  },
+  {
+    "name": "createRootComponent"
   },
   {
     "name": "createRootContext"
@@ -139,6 +160,9 @@
   },
   {
     "name": "createTextNode"
+  },
+  {
+    "name": "createViewBlueprint"
   },
   {
     "name": "createViewQuery"
@@ -180,7 +204,31 @@
     "name": "firstTemplatePass"
   },
   {
-    "name": "getChildLNode"
+    "name": "getBeforeNodeForView"
+  },
+  {
+    "name": "getClosureSafeProperty"
+  },
+  {
+    "name": "getComponentDef"
+  },
+  {
+    "name": "getContainerNode"
+  },
+  {
+    "name": "getContainerRenderParent"
+  },
+  {
+    "name": "getDirectiveDef"
+  },
+  {
+    "name": "getHighestElementContainer"
+  },
+  {
+    "name": "getHostElementNode"
+  },
+  {
+    "name": "getLNode"
   },
   {
     "name": "getLViewChild"
@@ -198,16 +246,22 @@
     "name": "getParentLNode"
   },
   {
+    "name": "getParentOrContainerNode"
+  },
+  {
+    "name": "getPipeDef"
+  },
+  {
     "name": "getPreviousOrParentNode"
+  },
+  {
+    "name": "getPreviousOrParentTNode"
   },
   {
     "name": "getRenderFlags"
   },
   {
     "name": "getRenderParent"
-  },
-  {
-    "name": "getRootView"
   },
   {
     "name": "hostElement"
@@ -237,7 +291,16 @@
     "name": "nextNgElementId"
   },
   {
+    "name": "queueHostBindingForCheck"
+  },
+  {
     "name": "readElementValue"
+  },
+  {
+    "name": "readPatchedData"
+  },
+  {
+    "name": "readPatchedLViewData"
   },
   {
     "name": "refreshChildComponents"
@@ -261,7 +324,7 @@
     "name": "renderEmbeddedTemplate"
   },
   {
-    "name": "resetApplicationState"
+    "name": "resetComponentState"
   },
   {
     "name": "setHostBindings"

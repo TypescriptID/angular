@@ -14,6 +14,9 @@ import {main, readCommandLineAndConfiguration, watchMode} from '../../src/main';
 import {TestSupport, isInBazel, makeTempDir, setup} from '../test_support';
 
 function setupFakeCore(support: TestSupport): void {
+  if (!process.env.TEST_SRCDIR) {
+    throw new Error('`setupFakeCore` must be run within a Bazel test');
+  }
   const fakeCore = path.join(
       process.env.TEST_SRCDIR, 'angular/packages/compiler-cli/test/ngtsc/fake_core/npm_package');
 
@@ -182,6 +185,7 @@ describe('ngtsc behavioral tests', () => {
 
         @NgModule({
           declarations: [TestCmp],
+          bootstrap: [TestCmp],
         })
         export class TestModule {}
     `);
@@ -193,7 +197,7 @@ describe('ngtsc behavioral tests', () => {
     const jsContents = getContents('test.js');
     expect(jsContents)
         .toContain(
-            'i0.ɵdefineNgModule({ type: TestModule, bootstrap: [], ' +
+            'i0.ɵdefineNgModule({ type: TestModule, bootstrap: [TestCmp], ' +
             'declarations: [TestCmp], imports: [], exports: [] })');
 
     const dtsContents = getContents('test.d.ts');
@@ -405,7 +409,7 @@ describe('ngtsc behavioral tests', () => {
 
     const dtsContents = getContents('test.d.ts');
     expect(dtsContents)
-        .toContain('i0.ɵNgModuleDef<TestModule, [typeof TestPipe,typeof TestCmp], never, never>');
+        .toContain('i0.ɵNgModuleDef<TestModule, [typeof TestPipe, typeof TestCmp], never, never>');
   });
 
   it('should unwrap a ModuleWithProviders function if a generic type is provided for it', () => {
@@ -448,6 +452,7 @@ describe('ngtsc behavioral tests', () => {
           Component,
           ElementRef,
           Injector,
+          Renderer2,
           TemplateRef,
           ViewContainerRef,
         } from '@angular/core';
@@ -462,6 +467,7 @@ describe('ngtsc behavioral tests', () => {
             cdr: ChangeDetectorRef,
             er: ElementRef,
             i: Injector,
+            r2: Renderer2,
             tr: TemplateRef,
             vcr: ViewContainerRef,
           ) {}
@@ -474,7 +480,7 @@ describe('ngtsc behavioral tests', () => {
     const jsContents = getContents('test.js');
     expect(jsContents)
         .toContain(
-            `factory: function FooCmp_Factory(t) { return new (t || FooCmp)(i0.ɵinjectAttribute("test"), i0.ɵinjectChangeDetectorRef(), i0.ɵinjectElementRef(), i0.ɵdirectiveInject(i0.INJECTOR), i0.ɵinjectTemplateRef(), i0.ɵinjectViewContainerRef()); }`);
+            `factory: function FooCmp_Factory(t) { return new (t || FooCmp)(i0.ɵinjectAttribute("test"), i0.ɵinjectChangeDetectorRef(), i0.ɵinjectElementRef(), i0.ɵdirectiveInject(i0.INJECTOR), i0.ɵinjectRenderer2(), i0.ɵinjectTemplateRef(), i0.ɵinjectViewContainerRef()); }`);
   });
 
   it('should generate queries for components', () => {
@@ -720,6 +726,29 @@ describe('ngtsc behavioral tests', () => {
         .toContain('function Child_Factory(t) { return ɵChild_BaseFactory((t || Child)); }');
     expect(jsContents)
         .toContain('function GrandChild_Factory(t) { return new (t || GrandChild)(); }');
+  });
+
+  it('generates base factories for directives', () => {
+    writeConfig();
+    write(`test.ts`, `
+        import {Directive} from '@angular/core';
+
+        class Base {}
+
+        @Directive({
+          selector: '[test]',
+        })
+        class Dir extends Base {
+        }
+    `);
+
+
+    const exitCode = main(['-p', basePath], errorSpy);
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(exitCode).toBe(0);
+    const jsContents = getContents('test.js');
+
+    expect(jsContents).toContain('var ɵDir_BaseFactory = i0.ɵgetInheritedFactory(Dir)');
   });
 
   it('should wrap "directives" in component metadata in a closure when forward references are present',

@@ -116,7 +116,12 @@ export class Identifiers {
   static injectChangeDetectorRef:
       o.ExternalReference = {name: 'ɵinjectChangeDetectorRef', moduleName: CORE};
 
+  static injectRenderer2: o.ExternalReference = {name: 'ɵinjectRenderer2', moduleName: CORE};
+
   static directiveInject: o.ExternalReference = {name: 'ɵdirectiveInject', moduleName: CORE};
+
+  static templateRefExtractor:
+      o.ExternalReference = {name: 'ɵtemplateRefExtractor', moduleName: CORE};
 
   static defineBase: o.ExternalReference = {name: 'ɵdefineBase', moduleName: CORE};
 
@@ -187,14 +192,13 @@ export class Identifiers {
     moduleName: CORE,
   };
 
-  // Reserve slots for pure functions
-  static reserveSlots: o.ExternalReference = {name: 'ɵreserveSlots', moduleName: CORE};
-
   // sanitization-related functions
-  static sanitizeHtml: o.ExternalReference = {name: 'ɵzh', moduleName: CORE};
-  static sanitizeStyle: o.ExternalReference = {name: 'ɵzs', moduleName: CORE};
-  static defaultStyleSanitizer: o.ExternalReference = {name: 'ɵzss', moduleName: CORE};
-  static sanitizeResourceUrl: o.ExternalReference = {name: 'ɵzr', moduleName: CORE};
-  static sanitizeScript: o.ExternalReference = {name: 'ɵzc', moduleName: CORE};
-  static sanitizeUrl: o.ExternalReference = {name: 'ɵzu', moduleName: CORE};
+  static sanitizeHtml: o.ExternalReference = {name: 'ɵsanitizeHtml', moduleName: CORE};
+  static sanitizeStyle: o.ExternalReference = {name: 'ɵsanitizeStyle', moduleName: CORE};
+  static defaultStyleSanitizer:
+      o.ExternalReference = {name: 'ɵdefaultStyleSanitizer', moduleName: CORE};
+  static sanitizeResourceUrl:
+      o.ExternalReference = {name: 'ɵsanitizeResourceUrl', moduleName: CORE};
+  static sanitizeScript: o.ExternalReference = {name: 'ɵsanitizeScript', moduleName: CORE};
+  static sanitizeUrl: o.ExternalReference = {name: 'ɵsanitizeUrl', moduleName: CORE};
 }

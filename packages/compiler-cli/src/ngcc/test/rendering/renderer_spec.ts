@@ -12,7 +12,7 @@ import MagicString from 'magic-string';
 import {fromObject, generateMapFileComment} from 'convert-source-map';
 import {makeProgram} from '../helpers/utils';
 import {AnalyzedClass, Analyzer} from '../../src/analyzer';
-import {Esm2015ReflectionHost} from '../../src/host/esm2015_host';
+import {Fesm2015ReflectionHost} from '../../src/host/fesm2015_host';
 import {Esm2015FileParser} from '../../src/parsing/esm2015_parser';
 import {Renderer} from '../../src/rendering/renderer';
 
@@ -29,10 +29,13 @@ class TestRenderer extends Renderer {
   removeDecorators(output: MagicString, decoratorsToRemove: Map<ts.Node, ts.Node[]>) {
     output.prepend('\n// REMOVE DECORATORS\n');
   }
+  rewriteSwitchableDeclarations(output: MagicString, sourceFile: ts.SourceFile): void {
+    output.prepend('\n// REWRITTEN DECLARATIONS\n');
+  }
 }
 
 function createTestRenderer() {
-  const renderer = new TestRenderer();
+  const renderer = new TestRenderer({} as Fesm2015ReflectionHost);
   spyOn(renderer, 'addImports').and.callThrough();
   spyOn(renderer, 'addDefinitions').and.callThrough();
   spyOn(renderer, 'removeDecorators').and.callThrough();
@@ -41,9 +44,9 @@ function createTestRenderer() {
 
 function analyze(file: {name: string, contents: string}) {
   const program = makeProgram(file);
-  const host = new Esm2015ReflectionHost(program.getTypeChecker());
+  const host = new Fesm2015ReflectionHost(program.getTypeChecker());
   const parser = new Esm2015FileParser(program, host);
-  const analyzer = new Analyzer(program.getTypeChecker(), host);
+  const analyzer = new Analyzer(program.getTypeChecker(), host, ['']);
 
   const parsedFiles = parser.parseFile(program.getSourceFile(file.name) !);
   return parsedFiles.map(file => analyzer.analyzeFile(file));
@@ -68,7 +71,7 @@ describe('Renderer', () => {
     ]
   });
   const RENDERED_CONTENTS =
-      `\n// REMOVE DECORATORS\n\n// ADD IMPORTS\n\n// ADD CONSTANTS\n\n// ADD DEFINITIONS\n` +
+      `\n// REWRITTEN DECLARATIONS\n\n// REMOVE DECORATORS\n\n// ADD IMPORTS\n\n// ADD CONSTANTS\n\n// ADD DEFINITIONS\n` +
       INPUT_PROGRAM.contents;
   const OUTPUT_PROGRAM_MAP = fromObject({
     'version': 3,
@@ -78,14 +81,14 @@ describe('Renderer', () => {
       'import { Directive } from \'@angular/core\';\nexport class A {\n    foo(x) {\n        return x;\n    }\n}\nA.decorators = [\n    { type: Directive, args: [{ selector: \'[a]\' }] }\n];\n'
     ],
     'names': [],
-    'mappings': ';;;;;;;;AAAA;;;;;;;;;'
+    'mappings': ';;;;;;;;;;AAAA;;;;;;;;;'
   });
 
   const MERGED_OUTPUT_PROGRAM_MAP = fromObject({
     'version': 3,
     'sources': ['/file.ts'],
     'names': [],
-    'mappings': ';;;;;;;;AAAA',
+    'mappings': ';;;;;;;;;;AAAA',
     'file': '/output_file.js',
     'sourcesContent': [
       'import { Directive } from \'@angular/core\';\nexport class A {\n    foo(x: string): string {\n        return x;\n    }\n    static decorators = [\n        { type: Directive, args: [{ selector: \'[a]\' }] }\n    ];\n}'

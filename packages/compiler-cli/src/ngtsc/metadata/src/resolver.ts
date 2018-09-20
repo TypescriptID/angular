@@ -17,7 +17,7 @@ import * as ts from 'typescript';
 
 import {ClassMemberKind, ReflectionHost} from '../../host';
 
-const TS_DTS_EXTENSION = /(\.d)?\.ts$/;
+const TS_DTS_JS_EXTENSION = /(\.d)?\.ts|\.js$/;
 
 /**
  * Represents a value which cannot be determined statically.
@@ -53,7 +53,7 @@ export function isDynamicValue(value: any): value is DynamicValue {
  * non-primitive value, or a special `DynamicValue` type which indicates the value was not
  * available statically.
  */
-export type ResolvedValue = number | boolean | string | null | undefined | Reference |
+export type ResolvedValue = number | boolean | string | null | undefined | Reference | EnumValue |
     ResolvedValueArray | ResolvedValueMap | DynamicValue;
 
 /**
@@ -71,6 +71,15 @@ export interface ResolvedValueArray extends Array<ResolvedValue> {}
  * This is a reified type to allow the circular reference of `ResolvedValue` -> `ResolvedValueMap` ->
  * `ResolvedValue`.
  */ export interface ResolvedValueMap extends Map<string, ResolvedValue> {}
+
+/**
+ * A value member of an enumeration.
+ *
+ * Contains a `Reference` to the enumeration itself, and the name of the referenced member.
+ */
+export class EnumValue {
+  constructor(readonly enumRef: Reference<ts.EnumDeclaration>, readonly name: string) {}
+}
 
 /**
  * Tracks the scope of a function body, which includes `ResolvedValue`s for the parameters of that
@@ -147,7 +156,7 @@ export class ResolvedReference<T extends ts.Node = ts.Node> extends Reference<T>
       // TODO(alxhub): investigate the need to map such paths via the Host for proper g3 support.
       let relative =
           path.posix.relative(path.dirname(context.fileName), this.node.getSourceFile().fileName)
-              .replace(TS_DTS_EXTENSION, '');
+              .replace(TS_DTS_JS_EXTENSION, '');
 
       // path.relative() does not include the leading './'.
       if (!relative.startsWith('.')) {
@@ -202,7 +211,7 @@ function pickIdentifier(
     context: ts.SourceFile, primary: ts.Identifier, secondaries: ts.Identifier[],
     mode: ImportMode): ts.Identifier|null {
   context = ts.getOriginalNode(context) as ts.SourceFile;
-  let localIdentifier: ts.Identifier|null = null;
+
   if (ts.getOriginalNode(primary).getSourceFile() === context) {
     return primary;
   } else if (mode === ImportMode.UseExistingImport) {
@@ -430,19 +439,40 @@ class StaticInterpreter {
     if (this.host.isClass(node)) {
       return this.getReference(node, context);
     } else if (ts.isVariableDeclaration(node)) {
-      if (!node.initializer) {
-        return undefined;
-      }
-      return this.visitExpression(node.initializer, context);
+      return this.visitVariableDeclaration(node, context);
     } else if (ts.isParameter(node) && context.scope.has(node)) {
       return context.scope.get(node) !;
     } else if (ts.isExportAssignment(node)) {
       return this.visitExpression(node.expression, context);
+    } else if (ts.isEnumDeclaration(node)) {
+      return this.visitEnumDeclaration(node, context);
     } else if (ts.isSourceFile(node)) {
       return this.visitSourceFile(node, context);
     } else {
       return this.getReference(node, context);
     }
+  }
+
+  private visitVariableDeclaration(node: ts.VariableDeclaration, context: Context): ResolvedValue {
+    if (node.initializer !== undefined) {
+      return this.visitExpression(node.initializer, context);
+    } else if (isVariableDeclarationDeclared(node)) {
+      return this.getReference(node, context);
+    } else {
+      return undefined;
+    }
+  }
+
+  private visitEnumDeclaration(node: ts.EnumDeclaration, context: Context): ResolvedValue {
+    const enumRef = this.getReference(node, context) as Reference<ts.EnumDeclaration>;
+    const map = new Map<string, EnumValue>();
+    node.members.forEach(member => {
+      const name = this.stringNameFromPropertyName(member.name, context);
+      if (name !== undefined) {
+        map.set(name, new EnumValue(enumRef, name));
+      }
+    });
+    return map;
   }
 
   private visitElementAccessExpression(node: ts.ElementAccessExpression, context: Context):
@@ -547,11 +577,11 @@ class StaticInterpreter {
           `calling something that is not a function declaration? ${ts.SyntaxKind[lhs.node.kind]} (${node.getText()})`);
     }
 
-    const fn = lhs.node;
+    const fn = this.host.getDefinitionOfFunction(lhs.node);
 
     // If the function is foreign (declared through a d.ts file), attempt to resolve it with the
     // foreignFunctionResolver, if one is specified.
-    if (fn.body === undefined) {
+    if (fn.body === null) {
       let expr: ts.Expression|null = null;
       if (context.foreignFunctionResolver) {
         expr = context.foreignFunctionResolver(lhs, node.arguments);
@@ -572,10 +602,10 @@ class StaticInterpreter {
     }
 
     const body = fn.body;
-    if (body.statements.length !== 1 || !ts.isReturnStatement(body.statements[0])) {
+    if (body.length !== 1 || !ts.isReturnStatement(body[0])) {
       throw new Error('Function body must have a single return statement only.');
     }
-    const ret = body.statements[0] as ts.ReturnStatement;
+    const ret = body[0] as ts.ReturnStatement;
 
     const newScope: Scope = new Map<ts.ParameterDeclaration, ResolvedValue>();
     fn.parameters.forEach((param, index) => {
@@ -584,10 +614,10 @@ class StaticInterpreter {
         const arg = node.arguments[index];
         value = this.visitExpression(arg, context);
       }
-      if (value === undefined && param.initializer !== undefined) {
+      if (value === undefined && param.initializer !== null) {
         value = this.visitExpression(param.initializer, context);
       }
-      newScope.set(param, value);
+      newScope.set(param.node, value);
     });
 
     return ret.expression !== undefined ?
@@ -671,7 +701,8 @@ class StaticInterpreter {
 
 function isFunctionOrMethodReference(ref: Reference<ts.Node>):
     ref is Reference<ts.FunctionDeclaration|ts.MethodDeclaration|ts.FunctionExpression> {
-  return ts.isFunctionDeclaration(ref.node) || ts.isMethodDeclaration(ref.node);
+  return ts.isFunctionDeclaration(ref.node) || ts.isMethodDeclaration(ref.node) ||
+      ts.isFunctionExpression(ref.node);
 }
 
 function literal(value: ResolvedValue): any {
@@ -688,6 +719,8 @@ function literal(value: ResolvedValue): any {
 function identifierOfDeclaration(decl: ts.Declaration): ts.Identifier|undefined {
   if (ts.isClassDeclaration(decl)) {
     return decl.name;
+  } else if (ts.isEnumDeclaration(decl)) {
+    return decl.name;
   } else if (ts.isFunctionDeclaration(decl)) {
     return decl.name;
   } else if (ts.isVariableDeclaration(decl) && ts.isIdentifier(decl.name)) {
@@ -701,4 +734,17 @@ function identifierOfDeclaration(decl: ts.Declaration): ts.Identifier|undefined 
 
 function isPossibleClassDeclaration(node: ts.Node): node is ts.Declaration {
   return ts.isClassDeclaration(node) || ts.isVariableDeclaration(node);
+}
+
+function isVariableDeclarationDeclared(node: ts.VariableDeclaration): boolean {
+  if (node.parent === undefined || !ts.isVariableDeclarationList(node.parent)) {
+    return false;
+  }
+  const declList = node.parent;
+  if (declList.parent === undefined || !ts.isVariableStatement(declList.parent)) {
+    return false;
+  }
+  const varStmt = declList.parent;
+  return varStmt.modifiers !== undefined &&
+      varStmt.modifiers.some(mod => mod.kind === ts.SyntaxKind.DeclareKeyword);
 }

@@ -6,10 +6,7 @@
     "name": "CIRCULAR$2"
   },
   {
-    "name": "EMPTY_ARRAY$1"
-  },
-  {
-    "name": "GET_PROPERTY_NAME"
+    "name": "EMPTY_ARRAY$2"
   },
   {
     "name": "INJECTOR"
@@ -19,6 +16,12 @@
   },
   {
     "name": "InjectionToken"
+  },
+  {
+    "name": "NG_INJECTABLE_DEF"
+  },
+  {
+    "name": "NG_INJECTOR_DEF"
   },
   {
     "name": "NOT_YET"
@@ -85,6 +88,12 @@
   },
   {
     "name": "getClosureSafeProperty"
+  },
+  {
+    "name": "getInjectableDef"
+  },
+  {
+    "name": "getInjectorDef"
   },
   {
     "name": "getNullInjector"

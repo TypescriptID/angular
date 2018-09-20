@@ -6,83 +6,120 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import {cat, find} from 'shelljs';
+import {existsSync, readFileSync, readdirSync, statSync} from 'fs';
+import * as mockFs from 'mock-fs';
+import {join} from 'path';
+const Module = require('module');
 
 import {mainNgcc} from '../../src/ngcc/src/main';
 
-import {TestSupport, isInBazel, setup} from '../test_support';
-
-function setupNodeModules(support: TestSupport): void {
-  const corePath = path.join(process.env.TEST_SRCDIR, 'angular/packages/core/npm_package');
-  const commonPath = path.join(process.env.TEST_SRCDIR, 'angular/packages/common/npm_package');
-
-  const nodeModulesPath = path.join(support.basePath, 'node_modules');
-  const angularCoreDirectory = path.join(nodeModulesPath, '@angular/core');
-  const angularCommonDirectory = path.join(nodeModulesPath, '@angular/common');
-
-  // fs.symlinkSync(corePath, angularCoreDirectory);
-  // fs.symlinkSync(commonPath, angularCommonDirectory);
-}
-
-describe('ngcc behavioral tests', () => {
+describe('ngcc main()', () => {
   if (!isInBazel()) {
     // These tests should be excluded from the non-Bazel build.
     return;
   }
 
-  let basePath: string;
-  let outDir: string;
-  let write: (fileName: string, content: string) => void;
-  let errorSpy: jasmine.Spy&((s: string) => void);
+  beforeEach(createMockFileSystem);
+  afterEach(restoreRealFileSystem);
 
-  function shouldExist(fileName: string) {
-    if (!fs.existsSync(path.resolve(outDir, fileName))) {
-      throw new Error(`Expected ${fileName} to be emitted (outDir: ${outDir})`);
-    }
-  }
-
-  function shouldNotExist(fileName: string) {
-    if (fs.existsSync(path.resolve(outDir, fileName))) {
-      throw new Error(`Did not expect ${fileName} to be emitted (outDir: ${outDir})`);
-    }
-  }
-
-  function getContents(fileName: string): string {
-    shouldExist(fileName);
-    const modulePath = path.resolve(outDir, fileName);
-    return fs.readFileSync(modulePath, 'utf8');
-  }
-
-  function writeConfig(
-      tsconfig: string =
-          '{"extends": "./tsconfig-base.json", "angularCompilerOptions": {"enableIvy": "ngtsc"}}') {
-    write('tsconfig.json', tsconfig);
-  }
-
-  beforeEach(() => {
-    errorSpy = jasmine.createSpy('consoleError').and.callFake(console.error);
-    const support = setup();
-    basePath = support.basePath;
-    outDir = path.join(basePath, 'built');
-    process.chdir(basePath);
-    write = (fileName: string, content: string) => { support.write(fileName, content); };
-
-    setupNodeModules(support);
+  it('should run ngcc without errors for fesm2015', () => {
+    const format = 'fesm2015';
+    expect(mainNgcc(['-f', format, '-s', '/node_modules'])).toBe(0);
   });
 
-  it('should run ngcc without errors', () => {
-    const nodeModulesPath = path.join(basePath, 'node_modules');
-    console.error(nodeModulesPath);
-    const commonPath = path.join(nodeModulesPath, '@angular/common');
-    const exitCode = mainNgcc([commonPath]);
+  it('should run ngcc without errors for fesm5', () => {
+    const format = 'fesm5';
+    expect(mainNgcc(['-f', format, '-s', '/node_modules'])).toBe(0);
+  });
 
-    console.warn(find('node_modules_ngtsc').filter(p => p.endsWith('.js') || p.endsWith('map')));
+  it('should run ngcc without errors for esm2015', () => {
+    const format = 'esm2015';
+    expect(mainNgcc(['-f', format, '-s', '/node_modules'])).toBe(0);
+  });
 
-    console.warn(cat('node_modules_ngtsc/@angular/common/fesm2015/common.js').stdout);
-    console.warn(cat('node_modules_ngtsc/@angular/common/fesm2015/common.js.map').stdout);
-
-    expect(exitCode).toBe(0);
+  it('should run ngcc without errors for esm5', () => {
+    const format = 'esm5';
+    expect(mainNgcc(['-f', format, '-s', '/node_modules'])).toBe(0);
   });
 });
+
+
+function createMockFileSystem() {
+  const packagesPath = join(process.env.TEST_SRCDIR !, 'angular/packages');
+  mockFs({'/node_modules/@angular': loadPackages(packagesPath)});
+  spyOn(Module, '_resolveFilename').and.callFake(mockResolve);
+}
+
+function restoreRealFileSystem() {
+  mockFs.restore();
+}
+
+
+/**
+ * Load the built Angular packages into an in-memory structure.
+ * @param packagesPath the path to the folder containing the built packages.
+ */
+function loadPackages(packagesPath: string): Directory {
+  const packagesDirectory: Directory = {};
+  readdirSync(packagesPath).forEach(name => {
+    const packagePath = join(packagesPath, name);
+    if (!statSync(packagePath).isDirectory()) {
+      return;
+    }
+    const npmPackagePath = join(packagePath, 'npm_package');
+    if (!existsSync(npmPackagePath)) {
+      return;
+    }
+    packagesDirectory[name] = loadDirectory(npmPackagePath);
+  });
+  return packagesDirectory;
+}
+
+
+/**
+ * Load real files from the filesystem into an "in-memory" structure,
+ * which can be used with `mock-fs`.
+ * @param directoryPath the path to the directory we want to load.
+ */
+function loadDirectory(directoryPath: string): Directory {
+  const directory: Directory = {};
+
+  readdirSync(directoryPath).forEach(item => {
+    const itemPath = join(directoryPath, item);
+    if (statSync(itemPath).isDirectory()) {
+      directory[item] = loadDirectory(itemPath);
+    } else {
+      directory[item] = readFileSync(itemPath, 'utf-8');
+    }
+  });
+
+  return directory;
+}
+
+interface Directory {
+  [pathSegment: string]: string|Directory;
+}
+
+function isInBazel() {
+  return process.env.TEST_SRCDIR != null;
+}
+
+function mockResolve(p: string): string|null {
+  if (existsSync(p)) {
+    const stat = statSync(p);
+    if (stat.isFile()) {
+      return p;
+    } else if (stat.isDirectory()) {
+      const pIndex = mockResolve(p + '/index');
+      if (pIndex && existsSync(pIndex)) {
+        return pIndex;
+      }
+    }
+  }
+  for (const ext of ['.js', '.d.ts']) {
+    if (existsSync(p + ext)) {
+      return p + ext;
+    }
+  }
+  return null;
+}

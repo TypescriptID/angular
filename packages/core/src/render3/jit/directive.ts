@@ -10,11 +10,12 @@ import {ConstantPool, R3DirectiveMetadata, WrappedNodeExpr, compileComponentFrom
 
 import {Component, Directive, HostBinding, HostListener, Input, Output} from '../../metadata/directives';
 import {componentNeedsResolution, maybeQueueResolutionOfComponentResources} from '../../metadata/resource_loading';
+import {ViewEncapsulation} from '../../metadata/view';
 import {Type} from '../../type';
 import {stringify} from '../../util';
+import {NG_COMPONENT_DEF, NG_DIRECTIVE_DEF} from '../fields';
 
 import {angularCoreEnv} from './environment';
-import {NG_COMPONENT_DEF, NG_DIRECTIVE_DEF} from './fields';
 import {patchComponentDefWithScope, transitiveScopesFor} from './module';
 import {getReflect, reflectDependencies} from './util';
 
@@ -53,10 +54,11 @@ export function compileComponent(type: Type<any>, metadata: Component): void {
         const constantPool = new ConstantPool();
 
         // Parse the template and check for errors.
-        const template =
-            parseTemplate(metadata.template !, `ng://${stringify(type)}/template.html`, {
+        const template = parseTemplate(
+            metadata.template !, `ng://${stringify(type)}/template.html`, {
               preserveWhitespaces: metadata.preserveWhitespaces || false,
-            });
+            },
+            '');
         if (template.errors !== undefined) {
           const errors = template.errors.map(err => err.toString()).join(', ');
           throw new Error(
@@ -73,6 +75,9 @@ export function compileComponent(type: Type<any>, metadata: Component): void {
               pipes: new Map(),
               viewQueries: [],
               wrapDirectivesInClosure: false,
+              styles: metadata.styles || [],
+              encapsulation: metadata.encapsulation || ViewEncapsulation.Emulated,
+              animations: metadata.animations || null
             },
             constantPool, makeBindingParser());
         const preStatements = [...constantPool.statements, ...res.statements];
@@ -82,8 +87,8 @@ export function compileComponent(type: Type<any>, metadata: Component): void {
 
         // If component compilation is async, then the @NgModule annotation which declares the
         // component may execute and set an ngSelectorScope property on the component type. This
-        // allows the component to patch itself with directiveDefs from the module after it finishes
-        // compiling.
+        // allows the component to patch itself with directiveDefs from the module after it
+        // finishes compiling.
         if (hasSelectorScope(type)) {
           const scopes = transitiveScopesFor(type.ngSelectorScope);
           patchComponentDefWithScope(ngComponentDef, scopes);

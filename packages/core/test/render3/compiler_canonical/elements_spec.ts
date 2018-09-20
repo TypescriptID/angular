@@ -6,9 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {browserDetection} from '@angular/platform-browser/testing/src/browser_util';
-
-import {ChangeDetectionStrategy, ChangeDetectorRef, Component, ContentChild, ContentChildren, Directive, HostBinding, HostListener, Injectable, Input, NgModule, OnDestroy, Optional, Pipe, PipeTransform, QueryList, SimpleChanges, TemplateRef, ViewChild, ViewChildren, ViewContainerRef} from '../../../src/core';
+import {Component} from '../../../src/core';
 import * as $r3$ from '../../../src/core_render3_private_export';
 import {AttributeMarker} from '../../../src/render3';
 import {ComponentDefInternal, InitialStylingFlags} from '../../../src/render3/interfaces/definition';
@@ -91,7 +89,7 @@ describe('elements', () => {
         selectors: [['local-ref-comp']],
         factory: function LocalRefComp_Factory() { return new LocalRefComp(); },
         consts: 4,
-        vars: 1,
+        vars: 2,
         template: function LocalRefComp_Template(rf: $RenderFlags$, ctx: $LocalRefComp$) {
           if (rf & 1) {
             $r3$.ɵelement(0, 'div', $e0_attrs$, $e0_locals$);
@@ -135,7 +133,7 @@ describe('elements', () => {
         type: ListenerComp,
         selectors: [['listener-comp']],
         factory: function ListenerComp_Factory() { return new ListenerComp(); },
-        consts: 1,
+        consts: 2,
         vars: 0,
         template: function ListenerComp_Template(rf: $RenderFlags$, ctx: $ListenerComp$) {
           if (rf & 1) {
@@ -311,7 +309,11 @@ describe('elements', () => {
       }
 
       const comp = renderComponent(MyComponent);
-      expect(toHtml(comp)).toEqual('<div></div>');
+
+      // This is a fix for a change in how Domino renders this on the server in v2.1.0
+      const source = toHtml(comp);
+      const matches = source === '<div></div>' || source === '<div class=""></div>';
+      expect(matches).toBeTruthy();
 
       comp.someFlag = true;
       $r3$.ɵdetectChanges(comp);
@@ -353,20 +355,12 @@ describe('elements', () => {
       }
 
       const comp = renderComponent(MyComponent);
-      if (browserDetection.isIE) {
-        expect(toHtml(comp)).toEqual('<div style="width: 50px; color: red;"></div>');
-      } else {
-        expect(toHtml(comp)).toEqual('<div style="color: red; width: 50px;"></div>');
-      }
+      expect(toHtml(comp)).toEqual('<div style="color: red; width: 50px;"></div>');
 
       comp.someColor = 'blue';
       comp.someWidth = 100;
       $r3$.ɵdetectChanges(comp);
-      if (browserDetection.isIE) {
-        expect(toHtml(comp)).toEqual('<div style="width: 100px; color: blue;"></div>');
-      } else {
-        expect(toHtml(comp)).toEqual('<div style="color: blue; width: 100px;"></div>');
-      }
+      expect(toHtml(comp)).toEqual('<div style="color: blue; width: 100px;"></div>');
     });
 
     it('should bind to many and keep order', () => {

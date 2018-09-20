@@ -6,19 +6,22 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ChangeDetectorRef, ElementRef, Host, InjectFlags, Optional, Self, SkipSelf, TemplateRef, ViewContainerRef, defineInjectable} from '@angular/core';
+import {Attribute, ChangeDetectorRef, ElementRef, Host, InjectFlags, Optional, Renderer2, Self, SkipSelf, TemplateRef, ViewContainerRef, defineInjectable} from '@angular/core';
 import {RenderFlags} from '@angular/core/src/render3/interfaces/definition';
 
 import {defineComponent} from '../../src/render3/definition';
 import {bloomAdd, bloomFindPossibleInjector, getOrCreateNodeInjector, injectAttribute} from '../../src/render3/di';
-import {NgOnChangesFeature, PublicFeature, defineDirective, directiveInject, injectChangeDetectorRef, injectElementRef, injectTemplateRef, injectViewContainerRef} from '../../src/render3/index';
-import {bind, container, containerRefreshEnd, containerRefreshStart, createLNode, createLViewData, createTView, element, elementEnd, elementStart, embeddedViewEnd, embeddedViewStart, enterView, interpolation2, leaveView, projection, projectionDef, reference, template, text, textBinding} from '../../src/render3/instructions';
+import {NgOnChangesFeature, PublicFeature, defineDirective, directiveInject, injectChangeDetectorRef, injectElementRef, injectRenderer2, injectTemplateRef, injectViewContainerRef} from '../../src/render3/index';
+import {bind, container, containerRefreshEnd, containerRefreshStart, createNodeAtIndex, createLViewData, createTView, element, elementEnd, elementStart, embeddedViewEnd, embeddedViewStart, enterView, interpolation2, leaveView, projection, projectionDef, reference, template, text, textBinding, loadDirective, elementContainerStart, elementContainerEnd} from '../../src/render3/instructions';
 import {LInjector} from '../../src/render3/interfaces/injector';
+import {isProceduralRenderer} from '../../src/render3/interfaces/renderer';
 import {AttributeMarker, TNodeType} from '../../src/render3/interfaces/node';
+
 import {LViewFlags} from '../../src/render3/interfaces/view';
 import {ViewRef} from '../../src/render3/view_ref';
 
-import {ComponentFixture, createComponent, createDirective, renderComponent, renderToHtml, toHtml} from './render_util';
+import {getRendererFactory2} from './imported_renderer2';
+import {ComponentFixture, createComponent, createDirective, renderComponent, toHtml} from './render_util';
 
 describe('di', () => {
   describe('no dependencies', () => {
@@ -801,7 +804,7 @@ describe('di', () => {
       class DirectiveSameInstance {
         value: boolean;
         constructor(elementRef: ElementRef, directive: Directive) {
-          this.value = elementRef === directive.elementRef;
+          this.value = (elementRef === directive.elementRef) && elementRef instanceof ElementRef;
         }
         static ngDirectiveDef = defineDirective({
           type: DirectiveSameInstance,
@@ -828,7 +831,7 @@ describe('di', () => {
           const tmp2 = reference(2) as any;
           textBinding(3, interpolation2('', tmp2.value, '-', tmp1.value, ''));
         }
-      }, 4, 1, [Directive, DirectiveSameInstance]);
+      }, 4, 2, [Directive, DirectiveSameInstance]);
 
       const fixture = new ComponentFixture(App);
       expect(fixture.html).toEqual('<div dir="" dirsame="">ElementRef-true</div>');
@@ -872,7 +875,7 @@ describe('di', () => {
       const App = createComponent('app', function(rf: RenderFlags, ctx: any) {
         if (rf & RenderFlags.Create) {
           template(0, function() {
-          }, 0, 1, undefined, ['dir', '', 'dirSame', ''], ['dir', 'dir', 'dirSame', 'dirSame']);
+          }, 0, 0, undefined, ['dir', '', 'dirSame', ''], ['dir', 'dir', 'dirSame', 'dirSame']);
           text(3);
         }
         if (rf & RenderFlags.Update) {
@@ -880,7 +883,7 @@ describe('di', () => {
           const tmp2 = reference(2) as any;
           textBinding(3, interpolation2('', tmp1.value, '-', tmp2.value, ''));
         }
-      }, 4, 1, [Directive, DirectiveSameInstance]);
+      }, 4, 2, [Directive, DirectiveSameInstance]);
 
       const fixture = new ComponentFixture(App);
       expect(fixture.html).toEqual('TemplateRef-true');
@@ -933,7 +936,7 @@ describe('di', () => {
           const tmp2 = reference(2) as any;
           textBinding(3, interpolation2('', tmp1.value, '-', tmp2.value, ''));
         }
-      }, 4, 1, [Directive, DirectiveSameInstance]);
+      }, 4, 2, [Directive, DirectiveSameInstance]);
 
       const fixture = new ComponentFixture(App);
       expect(fixture.html).toEqual('<div dir="" dirsame="">ViewContainerRef-true</div>');
@@ -1205,7 +1208,54 @@ describe('di', () => {
     });
   });
 
+  describe('Renderer2', () => {
+    let comp: MyComp;
+
+    class MyComp {
+      constructor(public renderer: Renderer2) {}
+
+      static ngComponentDef = defineComponent({
+        type: MyComp,
+        selectors: [['my-comp']],
+        factory: () => comp = new MyComp(injectRenderer2()),
+        consts: 1,
+        vars: 0,
+        template: function(rf: RenderFlags, ctx: MyComp) {
+          if (rf & RenderFlags.Create) {
+            text(0, 'Foo');
+          }
+        }
+      });
+    }
+
+    it('should inject the Renderer2 used by the application', () => {
+      const rendererFactory = getRendererFactory2(document);
+      new ComponentFixture(MyComp, {rendererFactory: rendererFactory});
+      expect(isProceduralRenderer(comp.renderer)).toBeTruthy();
+    });
+
+    it('should throw when injecting Renderer2 but the application is using Renderer3',
+       () => { expect(() => new ComponentFixture(MyComp)).toThrow(); });
+  });
+
   describe('@Attribute', () => {
+
+    class MyDirective {
+      exists = 'wrong' as string | undefined;
+      myDirective = 'wrong' as string | undefined;
+      constructor(
+          @Attribute('exist') existAttrValue: string|undefined,
+          @Attribute('myDirective') myDirectiveAttrValue: string|undefined) {
+        this.exists = existAttrValue;
+        this.myDirective = myDirectiveAttrValue;
+      }
+
+      static ngDirectiveDef = defineDirective({
+        type: MyDirective,
+        selectors: [['', 'myDirective', '']],
+        factory: () => new MyDirective(injectAttribute('exist'), injectAttribute('myDirective'))
+      });
+    }
 
     it('should inject attribute', () => {
       let exist = 'wrong' as string | undefined;
@@ -1217,11 +1267,53 @@ describe('di', () => {
           exist = injectAttribute('exist');
           nonExist = injectAttribute('nonExist');
         }
-      });
+      }, 1);
 
       new ComponentFixture(MyApp);
       expect(exist).toEqual('existValue');
       expect(nonExist).toEqual(undefined);
+    });
+
+    // https://stackblitz.com/edit/angular-scawyi?file=src%2Fapp%2Fapp.component.ts
+    it('should inject attributes on <ng-template>', () => {
+      let myDirectiveInstance: MyDirective;
+
+      /* <ng-template myDirective="initial" exist="existValue" other="ignore"></ng-template>*/
+      const MyApp = createComponent('my-app', function(rf: RenderFlags, ctx: any) {
+        if (rf & RenderFlags.Create) {
+          template(
+              0, null, 0, 0, null,
+              ['myDirective', 'initial', 'exist', 'existValue', 'other', 'ignore']);
+        }
+        if (rf & RenderFlags.Update) {
+          myDirectiveInstance = loadDirective(0);
+        }
+      }, 1, 0, [MyDirective]);
+
+      new ComponentFixture(MyApp);
+      expect(myDirectiveInstance !.exists).toEqual('existValue');
+      expect(myDirectiveInstance !.myDirective).toEqual('initial');
+    });
+
+    // https://stackblitz.com/edit/angular-scawyi?file=src%2Fapp%2Fapp.component.ts
+    it('should inject attributes on <ng-container>', () => {
+      let myDirectiveInstance: MyDirective;
+
+      /* <ng-container myDirective="initial" exist="existValue" other="ignore"></ng-container>*/
+      const MyApp = createComponent('my-app', function(rf: RenderFlags, ctx: any) {
+        if (rf & RenderFlags.Create) {
+          elementContainerStart(
+              0, ['myDirective', 'initial', 'exist', 'existValue', 'other', 'ignore']);
+          elementContainerEnd();
+        }
+        if (rf & RenderFlags.Update) {
+          myDirectiveInstance = loadDirective(0);
+        }
+      }, 1, 0, [MyDirective]);
+
+      new ComponentFixture(MyApp);
+      expect(myDirectiveInstance !.exists).toEqual('existValue');
+      expect(myDirectiveInstance !.myDirective).toEqual('initial');
     });
 
     // https://stackblitz.com/edit/angular-8ytqkp?file=src%2Fapp%2Fapp.component.ts
@@ -1376,7 +1468,7 @@ describe('di', () => {
         if (rf & RenderFlags.Update) {
           containerRefreshStart(1);
           {
-            let rf1 = embeddedViewStart(0, 4, 1);
+            let rf1 = embeddedViewStart(0, 4, 2);
             if (rf1 & RenderFlags.Create) {
               elementStart(
                   0, 'span', ['childDir', '', 'child2Dir', ''],
@@ -1408,15 +1500,14 @@ describe('di', () => {
   describe('getOrCreateNodeInjector', () => {
     it('should handle initial undefined state', () => {
       const contentView = createLViewData(
-          null !, createTView(-1, null, 0, 0, null, null, null), null, LViewFlags.CheckAlways);
-      const oldView = enterView(contentView, null !);
+          null !, createTView(-1, null, 1, 0, null, null, null), null, LViewFlags.CheckAlways);
+      const oldView = enterView(contentView, null);
       try {
-        const parent = createLNode(0, TNodeType.Element, null, null, null, null);
-
+        const parentTNode = createNodeAtIndex(0, TNodeType.Element, null, null, null, null);
         // Simulate the situation where the previous parent is not initialized.
         // This happens on first bootstrap because we don't init existing values
         // so that we have smaller HelloWorld.
-        (parent.tNode as{parent: any}).parent = undefined;
+        (parentTNode as{parent: any}).parent = undefined;
 
         const injector: any = getOrCreateNodeInjector();  // TODO: Review use of `any` here (#19904)
         expect(injector).not.toBe(null);

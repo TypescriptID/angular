@@ -10,12 +10,13 @@ import {ConstantPool, Expression, R3ComponentMetadata, R3DirectiveMetadata, Wrap
 import * as path from 'path';
 import * as ts from 'typescript';
 
+import {ErrorCode, FatalDiagnosticError} from '../../diagnostics';
 import {Decorator, ReflectionHost} from '../../host';
 import {filterToMembersWithDecorator, reflectObjectLiteral, staticallyResolve} from '../../metadata';
 import {AnalysisOutput, CompileResult, DecoratorHandler} from '../../transform';
 
 import {ResourceLoader} from './api';
-import {extractDirectiveMetadata, extractQueriesFromDecorator, queriesFromFields} from './directive';
+import {extractDirectiveMetadata, extractQueriesFromDecorator, parseFieldArrayValue, queriesFromFields} from './directive';
 import {SelectorScopeRegistry} from './selector_scope';
 import {isAngularCore, unwrapExpression} from './util';
 
@@ -28,7 +29,7 @@ export class ComponentDecoratorHandler implements DecoratorHandler<R3ComponentMe
   constructor(
       private checker: ts.TypeChecker, private reflector: ReflectionHost,
       private scopeRegistry: SelectorScopeRegistry, private isCore: boolean,
-      private resourceLoader: ResourceLoader) {}
+      private resourceLoader: ResourceLoader, private rootDirs: string[]) {}
 
   private literalCache = new Map<Decorator, ts.ObjectLiteralExpression>();
 
@@ -46,10 +47,11 @@ export class ComponentDecoratorHandler implements DecoratorHandler<R3ComponentMe
     const component = reflectObjectLiteral(meta);
 
     if (this.resourceLoader.preload !== undefined && component.has('templateUrl')) {
-      const templateUrl =
-          staticallyResolve(component.get('templateUrl') !, this.reflector, this.checker);
+      const templateUrlExpr = component.get('templateUrl') !;
+      const templateUrl = staticallyResolve(templateUrlExpr, this.reflector, this.checker);
       if (typeof templateUrl !== 'string') {
-        throw new Error(`templateUrl should be a string`);
+        throw new FatalDiagnosticError(
+            ErrorCode.VALUE_HAS_WRONG_TYPE, templateUrlExpr, 'templateUrl must be a string');
       }
       const url = path.posix.resolve(path.dirname(node.getSourceFile().fileName), templateUrl);
       return this.resourceLoader.preload(url);
@@ -77,10 +79,11 @@ export class ComponentDecoratorHandler implements DecoratorHandler<R3ComponentMe
 
     let templateStr: string|null = null;
     if (component.has('templateUrl')) {
-      const templateUrl =
-          staticallyResolve(component.get('templateUrl') !, this.reflector, this.checker);
+      const templateUrlExpr = component.get('templateUrl') !;
+      const templateUrl = staticallyResolve(templateUrlExpr, this.reflector, this.checker);
       if (typeof templateUrl !== 'string') {
-        throw new Error(`templateUrl should be a string`);
+        throw new FatalDiagnosticError(
+            ErrorCode.VALUE_HAS_WRONG_TYPE, templateUrlExpr, 'templateUrl must be a string');
       }
       const url = path.posix.resolve(path.dirname(node.getSourceFile().fileName), templateUrl);
       templateStr = this.resourceLoader.load(url);
@@ -88,26 +91,41 @@ export class ComponentDecoratorHandler implements DecoratorHandler<R3ComponentMe
       const templateExpr = component.get('template') !;
       const resolvedTemplate = staticallyResolve(templateExpr, this.reflector, this.checker);
       if (typeof resolvedTemplate !== 'string') {
-        throw new Error(`Template must statically resolve to a string: ${node.name!.text}`);
+        throw new FatalDiagnosticError(
+            ErrorCode.VALUE_HAS_WRONG_TYPE, templateExpr, 'template must be a string');
       }
       templateStr = resolvedTemplate;
     } else {
-      throw new Error(`Component has no template or templateUrl`);
+      throw new FatalDiagnosticError(
+          ErrorCode.COMPONENT_MISSING_TEMPLATE, decorator.node, 'component is missing a template');
     }
 
     let preserveWhitespaces: boolean = false;
     if (component.has('preserveWhitespaces')) {
-      const value =
-          staticallyResolve(component.get('preserveWhitespaces') !, this.reflector, this.checker);
+      const expr = component.get('preserveWhitespaces') !;
+      const value = staticallyResolve(expr, this.reflector, this.checker);
       if (typeof value !== 'boolean') {
-        throw new Error(`preserveWhitespaces must resolve to a boolean if present`);
+        throw new FatalDiagnosticError(
+            ErrorCode.VALUE_HAS_WRONG_TYPE, expr, 'preserveWhitespaces must be a boolean');
       }
       preserveWhitespaces = value;
     }
 
+    // Go through the root directories for this project, and select the one with the smallest
+    // relative path representation.
+    const filePath = node.getSourceFile().fileName;
+    const relativeFilePath = this.rootDirs.reduce<string|undefined>((previous, rootDir) => {
+      const candidate = path.posix.relative(rootDir, filePath);
+      if (previous === undefined || candidate.length < previous.length) {
+        return candidate;
+      } else {
+        return previous;
+      }
+    }, undefined) !;
+
     const template = parseTemplate(
         templateStr, `${node.getSourceFile().fileName}#${node.name!.text}/template.html`,
-        {preserveWhitespaces});
+        {preserveWhitespaces}, relativeFilePath);
     if (template.errors !== undefined) {
       throw new Error(
           `Errors parsing template: ${template.errors.map(e => e.toString()).join(', ')}`);
@@ -135,17 +153,38 @@ export class ComponentDecoratorHandler implements DecoratorHandler<R3ComponentMe
       viewQueries.push(...queriesFromDecorator.view);
     }
 
+    let styles: string[]|null = null;
+    if (component.has('styles')) {
+      styles = parseFieldArrayValue(component, 'styles', this.reflector, this.checker);
+    }
+
+    let encapsulation: number = 0;
+    if (component.has('encapsulation')) {
+      encapsulation = parseInt(staticallyResolve(
+          component.get('encapsulation') !, this.reflector, this.checker) as string);
+    }
+
+    let animations: any[]|null = null;
+    if (component.has('animations')) {
+      animations =
+          (staticallyResolve(component.get('animations') !, this.reflector, this.checker) as any |
+           null[]);
+      animations = animations ? animations.map(entry => convertMapToStringMap(entry)) : null;
+    }
+
     return {
       analysis: {
         ...metadata,
         template,
         viewQueries,
+        encapsulation,
+        styles: styles || [],
 
         // These will be replaced during the compilation step, after all `NgModule`s have been
         // analyzed and the full compilation scope for the component can be realized.
         pipes: EMPTY_MAP,
         directives: EMPTY_MAP,
-        wrapDirectivesInClosure: false,
+        wrapDirectivesInClosure: false, animations,
       }
     };
   }
@@ -178,15 +217,24 @@ export class ComponentDecoratorHandler implements DecoratorHandler<R3ComponentMe
       return this.literalCache.get(decorator) !;
     }
     if (decorator.args === null || decorator.args.length !== 1) {
-      throw new Error(`Incorrect number of arguments to @Component decorator`);
+      throw new FatalDiagnosticError(
+          ErrorCode.DECORATOR_ARITY_WRONG, decorator.node,
+          `Incorrect number of arguments to @Component decorator`);
     }
     const meta = unwrapExpression(decorator.args[0]);
 
     if (!ts.isObjectLiteralExpression(meta)) {
-      throw new Error(`Decorator argument must be literal.`);
+      throw new FatalDiagnosticError(
+          ErrorCode.DECORATOR_ARG_NOT_LITERAL, meta, `Decorator argument must be literal.`);
     }
 
     this.literalCache.set(decorator, meta);
     return meta;
   }
+}
+
+function convertMapToStringMap<T>(map: Map<string, T>): {[key: string]: T} {
+  const stringMap: {[key: string]: T} = {};
+  map.forEach((value: T, key: string) => { stringMap[key] = value; });
+  return stringMap;
 }

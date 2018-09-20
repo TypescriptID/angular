@@ -6,9 +6,8 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {InitialStylingFlags} from '@angular/compiler/src/core';
-import {MockDirectory, setup} from '@angular/compiler/test/aot/test_util';
-
+import {AttributeMarker, InitialStylingFlags, ViewEncapsulation} from '@angular/compiler/src/core';
+import {setup} from '@angular/compiler/test/aot/test_util';
 import {compile, expectEmit} from './mock_compile';
 
 describe('compiler compliance: styling', () => {
@@ -16,6 +15,217 @@ describe('compiler compliance: styling', () => {
     compileAngular: false,
     compileFakeCore: true,
     compileAnimations: false,
+  });
+
+  describe('@Component.styles', () => {
+    it('should pass in the component metadata styles into the component definition and shim them using style encapsulation',
+       () => {
+         const files = {
+           app: {
+             'spec.ts': `
+                import {Component, NgModule} from '@angular/core';
+
+                @Component({
+                  selector: "my-component",
+                  styles: ["div.foo { color: red; }", ":host p:nth-child(even) { --webkit-transition: 1s linear all; }"],
+                  template: "..."
+                })
+                export class MyComponent {
+                }
+
+                @NgModule({declarations: [MyComponent]})
+                export class MyModule {}
+            `
+           }
+         };
+
+         const template =
+             'styles: ["div.foo[_ngcontent-%COMP%] { color: red; }", "[_nghost-%COMP%]   p[_ngcontent-%COMP%]:nth-child(even) { --webkit-transition: 1s linear all; }"]';
+         const result = compile(files, angularFiles);
+         expectEmit(result.source, template, 'Incorrect template');
+       });
+
+    it('should pass in styles, but skip shimming the styles if the view encapsulation signals not to',
+       () => {
+         const files = {
+           app: {
+             'spec.ts': `
+                import {Component, NgModule} from '@angular/core';
+
+                @Component({
+                  selector: "my-component",
+                  encapsulation: ${ViewEncapsulation.None},
+                  styles: ["div.tall { height: 123px; }", ":host.small p { height:5px; }"],
+                  template: "..."
+                })
+                export class MyComponent {
+                }
+
+                @NgModule({declarations: [MyComponent]})
+                export class MyModule {}
+            `
+           }
+         };
+
+         const template = 'div.tall { height: 123px; }", ":host.small p { height:5px; }';
+         const result = compile(files, angularFiles);
+         expectEmit(result.source, template, 'Incorrect template');
+       });
+
+    it('should pass in the component metadata styles into the component definition but skip shimming when style encapsulation is set to native',
+       () => {
+         const files = {
+           app: {
+             'spec.ts': `
+                import {Component, NgModule} from '@angular/core';
+
+                @Component({
+                  encapsulation: ${ViewEncapsulation.Native},
+                  selector: "my-component",
+                  styles: ["div.cool { color: blue; }", ":host.nice p { color: gold; }"],
+                  template: "..."
+                })
+                export class MyComponent {
+                }
+
+                @NgModule({declarations: [MyComponent]})
+                export class MyModule {}
+            `
+           }
+         };
+
+         const template = 'div.cool { color: blue; }", ":host.nice p { color: gold; }';
+         const result = compile(files, angularFiles);
+         expectEmit(result.source, template, 'Incorrect template');
+       });
+  });
+
+  describe('@Component.animations', () => {
+    it('should pass in the component metadata animations into the component definition', () => {
+      const files = {
+        app: {
+          'spec.ts': `
+                import {Component, NgModule} from '@angular/core';
+
+                @Component({
+                  selector: "my-component",
+                  animations: [{name: 'foo123'}, {name: 'trigger123'}],
+                  template: ""
+                })
+                export class MyComponent {
+                }
+
+                @NgModule({declarations: [MyComponent]})
+                export class MyModule {}
+            `
+        }
+      };
+
+      const template = `
+        MyComponent.ngComponentDef = $r3$.ɵdefineComponent({
+          type: MyComponent,
+          selectors:[["my-component"]],
+          factory:function MyComponent_Factory(t){
+            return new (t || MyComponent)();
+          },
+          features: [$r3$.ɵPublicFeature],
+          consts: 0,
+          vars: 0,
+          template:  function MyComponent_Template(rf, $ctx$) {
+          },
+          animations: [{name: "foo123"}, {name: "trigger123"}]
+        });
+      `;
+
+      const result = compile(files, angularFiles);
+      expectEmit(result.source, template, 'Incorrect template');
+    });
+
+    it('should include animations even if the provided array is empty', () => {
+      const files = {
+        app: {
+          'spec.ts': `
+                import {Component, NgModule} from '@angular/core';
+
+                @Component({
+                  selector: "my-component",
+                  animations: [],
+                  template: ""
+                })
+                export class MyComponent {
+                }
+
+                @NgModule({declarations: [MyComponent]})
+                export class MyModule {}
+            `
+        }
+      };
+
+      const template = `
+        MyComponent.ngComponentDef = $r3$.ɵdefineComponent({
+          type: MyComponent,
+          selectors:[["my-component"]],
+          factory:function MyComponent_Factory(t){
+            return new (t || MyComponent)();
+          },
+          features: [$r3$.ɵPublicFeature],
+          consts: 0,
+          vars: 0,
+          template:  function MyComponent_Template(rf, $ctx$) {
+          },
+          animations: []
+        });
+      `;
+
+      const result = compile(files, angularFiles);
+      expectEmit(result.source, template, 'Incorrect template');
+    });
+
+    it('should generate any animation triggers into the component template', () => {
+      const files = {
+        app: {
+          'spec.ts': `
+                import {Component, NgModule} from '@angular/core';
+
+                @Component({
+                  selector: "my-component",
+                  template: \`
+                    <div [@foo]='exp'></div>
+                    <div @bar></div>
+                    <div [@baz]></div>\`,
+                })
+                export class MyComponent {
+                }
+
+                @NgModule({declarations: [MyComponent]})
+                export class MyModule {}
+            `
+        }
+      };
+
+      const template = `
+        const $e0_attrs$ = ["@foo", ""];
+        const $e1_attrs$ = ["@bar", ""];
+        const $e2_attrs$ = ["@baz", ""];
+        …
+        MyComponent.ngComponentDef = $r3$.ɵdefineComponent({
+          …
+          template:  function MyComponent_Template(rf, $ctx$) {
+            if (rf & 1) {
+              $r3$.ɵelement(0, "div", $e0_attrs$);
+              $r3$.ɵelement(1, "div", $e1_attrs$);
+              $r3$.ɵelement(2, "div", $e2_attrs$);
+            }
+            if (rf & 2) {
+              $r3$.ɵelementAttribute(0, "@foo", $r3$.ɵbind(ctx.exp));
+            }
+          }
+        });
+      `;
+
+      const result = compile(files, angularFiles);
+      expectEmit(result.source, template, 'Incorrect template');
+    });
   });
 
   describe('[style] and [style.prop]', () => {
@@ -43,7 +253,7 @@ describe('compiler compliance: styling', () => {
           template: function MyComponent_Template(rf, $ctx$) {
             if (rf & 1) {
               $r3$.ɵelementStart(0, "div");
-              $r3$.ɵelementStyling(null, null, $r3$.ɵzss);
+              $r3$.ɵelementStyling(null, null, $r3$.ɵdefaultStyleSanitizer);
               $r3$.ɵelementEnd();
             }
             if (rf & 2) {
@@ -85,7 +295,8 @@ describe('compiler compliance: styling', () => {
          };
 
          const template = `
-          const _c0 = ["opacity","width","height",${InitialStylingFlags.VALUES_MODE},"opacity","1"];
+          const $e0_attrs$ = [${AttributeMarker.SelectOnly}, "style"];
+          const $e0_styling$ = ["opacity","width","height",${InitialStylingFlags.VALUES_MODE},"opacity","1"];
           …
           MyComponent.ngComponentDef = $r3$.ɵdefineComponent({
               type: MyComponent,
@@ -98,8 +309,8 @@ describe('compiler compliance: styling', () => {
               vars: 1,
               template:  function MyComponent_Template(rf, $ctx$) {
                 if (rf & 1) {
-                  $r3$.ɵelementStart(0, "div");
-                  $r3$.ɵelementStyling(null, _c0, $r3$.ɵzss);
+                  $r3$.ɵelementStart(0, "div", $e0_attrs$);
+                  $r3$.ɵelementStyling(null, $e0_styling$, $r3$.ɵdefaultStyleSanitizer);
                   $r3$.ɵelementEnd();
                 }
                 if (rf & 2) {
@@ -107,7 +318,7 @@ describe('compiler compliance: styling', () => {
                   $r3$.ɵelementStylingProp(0, 1, $ctx$.myWidth);
                   $r3$.ɵelementStylingProp(0, 2, $ctx$.myHeight);
                   $r3$.ɵelementStylingApply(0);
-                  $r3$.ɵelementAttribute(0, "style", $r3$.ɵbind("border-width: 10px"), $r3$.ɵzs);
+                  $r3$.ɵelementAttribute(0, "style", $r3$.ɵbind("border-width: 10px"), $r3$.ɵsanitizeStyle);
                 }
               }
             });
@@ -158,7 +369,7 @@ describe('compiler compliance: styling', () => {
             template:  function MyComponent_Template(rf, ctx) {
               if (rf & 1) {
                 $r3$.ɵelementStart(0, "div");
-                $r3$.ɵelementStyling(null, _c0, $r3$.ɵzss);
+                $r3$.ɵelementStyling(null, _c0, $r3$.ɵdefaultStyleSanitizer);
                 $r3$.ɵelementEnd();
               }
               if (rf & 2) {
@@ -241,7 +452,8 @@ describe('compiler compliance: styling', () => {
          };
 
          const template = `
-          const _c0 = ["grape","apple","orange",${InitialStylingFlags.VALUES_MODE},"grape",true];
+          const $e0_attrs$ = [${AttributeMarker.SelectOnly}, "class"];
+          const $e0_cd$ = ["grape","apple","orange",${InitialStylingFlags.VALUES_MODE},"grape",true];
           …
           MyComponent.ngComponentDef = $r3$.ɵdefineComponent({
               type: MyComponent,
@@ -254,8 +466,8 @@ describe('compiler compliance: styling', () => {
               vars: 1,
               template:  function MyComponent_Template(rf, $ctx$) {
                 if (rf & 1) {
-                  $r3$.ɵelementStart(0, "div");
-                  $r3$.ɵelementStyling(_c0);
+                  $r3$.ɵelementStart(0, "div", $e0_attrs$);
+                  $r3$.ɵelementStyling($e0_cd$);
                   $r3$.ɵelementEnd();
                 }
                 if (rf & 2) {
@@ -296,8 +508,9 @@ describe('compiler compliance: styling', () => {
          };
 
          const template = `
-          const _c0 = ["foo",${InitialStylingFlags.VALUES_MODE},"foo",true];
-          const _c1 = ["width",${InitialStylingFlags.VALUES_MODE},"width","100px"];
+          const $e0_attrs$ = [${AttributeMarker.SelectOnly}, "class", "style"];
+          const $e0_cd$ = ["foo",${InitialStylingFlags.VALUES_MODE},"foo",true];
+          const $e0_sd$ = ["width",${InitialStylingFlags.VALUES_MODE},"width","100px"];
           …
           MyComponent.ngComponentDef = $r3$.ɵdefineComponent({
               type: MyComponent,
@@ -310,13 +523,13 @@ describe('compiler compliance: styling', () => {
               vars: 2,
               template:  function MyComponent_Template(rf, $ctx$) {
                 if (rf & 1) {
-                  $r3$.ɵelementStart(0, "div");
-                  $r3$.ɵelementStyling(_c0, _c1);
+                  $r3$.ɵelementStart(0, "div", $e0_attrs$);
+                  $r3$.ɵelementStyling($e0_cd$, $e0_sd$);
                   $r3$.ɵelementEnd();
                 }
                 if (rf & 2) {
                   $r3$.ɵelementAttribute(0, "class", $r3$.ɵbind("round"));
-                  $r3$.ɵelementAttribute(0, "style", $r3$.ɵbind("height:100px"), $r3$.ɵzs);
+                  $r3$.ɵelementAttribute(0, "style", $r3$.ɵbind("height:100px"), $r3$.ɵsanitizeStyle);
                 }
               }
             });
