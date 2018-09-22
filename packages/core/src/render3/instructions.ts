@@ -13,7 +13,7 @@ import {Sanitizer} from '../sanitization/security';
 import {StyleSanitizeFn} from '../sanitization/style_sanitizer';
 
 import {assertDefined, assertEqual, assertLessThan, assertNotEqual} from './assert';
-import {attachPatchData, getLElementFromComponent, readPatchedLViewData} from './context_discovery';
+import {attachPatchData, getLElementFromComponent, readElementValue, readPatchedLViewData} from './context_discovery';
 import {throwCyclicDependencyError, throwErrorIfNoChangesMode, throwMultipleComponentError} from './errors';
 import {executeHooks, executeInitHooks, queueInitHooks, queueLifecycleHooks} from './hooks';
 import {ACTIVE_INDEX, LContainer, RENDER_PARENT, VIEWS} from './interfaces/container';
@@ -23,12 +23,12 @@ import {AttributeMarker, InitialInputData, InitialInputs, LContainerNode, LEleme
 import {CssSelectorList, NG_PROJECT_AS_ATTR_NAME} from './interfaces/projection';
 import {LQueries} from './interfaces/query';
 import {ProceduralRenderer3, RComment, RElement, RNode, RText, Renderer3, RendererFactory3, isProceduralRenderer} from './interfaces/renderer';
-import {BINDING_INDEX, CLEANUP, CONTAINER_INDEX, CONTENT_QUERIES, CONTEXT, CurrentMatchesList, DECLARATION_VIEW, DIRECTIVES, FLAGS, HEADER_OFFSET, HOST_NODE, INJECTOR, LViewData, LViewFlags, NEXT, OpaqueViewState, PARENT, QUERIES, RENDERER, RootContext, SANITIZER, TAIL, TVIEW, TView} from './interfaces/view';
+import {BINDING_INDEX, CLEANUP, CONTAINER_INDEX, CONTENT_QUERIES, CONTEXT, CurrentMatchesList, DECLARATION_VIEW, DIRECTIVES, FLAGS, HEADER_OFFSET, HOST_NODE, INJECTOR, LViewData, LViewFlags, NEXT, OpaqueViewState, PARENT, QUERIES, RENDERER, RootContext, RootContextFlags, SANITIZER, TAIL, TVIEW, TView} from './interfaces/view';
 import {assertNodeOfPossibleTypes, assertNodeType} from './node_assert';
 import {appendChild, appendProjectedNode, createTextNode, findComponentView, getContainerNode, getHostElementNode, getLViewChild, getParentOrContainerNode, getRenderParent, insertView, removeView} from './node_manipulation';
 import {isNodeMatchingSelectorList, matchingSelectorIndex} from './node_selector_matcher';
 import {StylingContext, allocStylingContext, createStylingContextTemplate, renderStyling as renderElementStyles, updateClassProp as updateElementClassProp, updateStyleProp as updateElementStyleProp, updateStylingMap} from './styling';
-import {assertDataInRangeInternal, getLNode, isContentQueryHost, isDifferent, loadElementInternal, loadInternal, readElementValue, stringify} from './util';
+import {assertDataInRangeInternal, getLNode, getRootContext, getRootView, isContentQueryHost, isDifferent, loadElementInternal, loadInternal, stringify} from './util';
 import {ViewRef} from './view_ref';
 
 
@@ -899,12 +899,18 @@ function findDirectiveMatches(tNode: TNode): CurrentMatchesList|null {
     for (let i = 0; i < registry.length; i++) {
       const def = registry[i];
       if (isNodeMatchingSelectorList(tNode, def.selectors !)) {
+        matches || (matches = []);
         if ((def as ComponentDefInternal<any>).template) {
           if (tNode.flags & TNodeFlags.isComponent) throwMultipleComponentError(tNode);
+          addComponentLogic(def as ComponentDefInternal<any>);
           tNode.flags = TNodeFlags.isComponent;
+
+          // The component is always stored first with directives after.
+          matches.unshift(def, null);
+        } else {
+          matches.push(def, null);
         }
         if (def.diPublic) def.diPublic(def);
-        (matches || (matches = [])).push(def, null);
       }
     }
   }
@@ -948,14 +954,6 @@ export function queueHostBindingForCheck(dirIndex: number, hostVars: number): vo
    ])).push(dirIndex, previousOrParentTNode.index - HEADER_OFFSET);
 }
 
-/** Sets the context for a ChangeDetectorRef to the given instance. */
-export function initChangeDetectorIfExisting(
-    injector: LInjector | null, instance: any, view: LViewData): void {
-  if (injector && injector.changeDetectorRef != null) {
-    (injector.changeDetectorRef as ViewRef<any>)._setComponentContext(view, instance);
-  }
-}
-
 /**
  * This function instantiates the given directives.
  */
@@ -976,6 +974,12 @@ function instantiateDirectivesDirectly() {
 
     for (let i = start; i < end; i++) {
       const def: DirectiveDefInternal<any> = tDirectives[i];
+
+      // Component view must be set on node before the factory is created so
+      // ChangeDetectorRefs have a way to store component view on creation.
+      if ((def as ComponentDefInternal<any>).template) {
+        addComponentLogic(def as ComponentDefInternal<any>);
+      }
       directiveCreate(i, def.factory(), def);
     }
   }
@@ -1698,13 +1702,11 @@ export function textBinding<T>(index: number, value: T | NO_CHANGE): void {
 export function directiveCreate<T>(
     directiveDefIdx: number, directive: T,
     directiveDef: DirectiveDefInternal<T>| ComponentDefInternal<T>): T {
-  const hostNode = getPreviousOrParentNode() !;
+  const hostNode = getLNode(previousOrParentTNode, viewData);
   const instance = baseDirectiveCreate(directiveDefIdx, directive, directiveDef, hostNode);
 
-  const isComponent = (directiveDef as ComponentDefInternal<T>).template;
-  if (isComponent) {
-    addComponentLogic(
-        directiveDefIdx, directive, directiveDef as ComponentDefInternal<T>, hostNode);
+  if ((directiveDef as ComponentDefInternal<T>).template) {
+    hostNode.data ![CONTEXT] = directive;
   }
 
   if (firstTemplatePass) {
@@ -1727,8 +1729,9 @@ export function directiveCreate<T>(
   return instance;
 }
 
-function addComponentLogic<T>(
-    directiveIndex: number, instance: T, def: ComponentDefInternal<T>, hostNode: LNode): void {
+function addComponentLogic<T>(def: ComponentDefInternal<T>): void {
+  const hostNode = getLNode(previousOrParentTNode, viewData);
+
   const tView = getOrCreateTView(
       def.template, def.consts, def.vars, def.directiveDefs, def.pipeDefs, def.viewQuery);
 
@@ -1737,15 +1740,13 @@ function addComponentLogic<T>(
   const componentView = addToViewTree(
       viewData, previousOrParentTNode.index as number,
       createLViewData(
-          rendererFactory.createRenderer(hostNode.native as RElement, def), tView, instance,
+          rendererFactory.createRenderer(hostNode.native as RElement, def), tView, null,
           def.onPush ? LViewFlags.Dirty : LViewFlags.CheckAlways, getCurrentSanitizer()));
 
   // We need to set the host node/data here because when the component LNode was created,
   // we didn't yet know it was a component (just an element).
   (hostNode as{data: LViewData}).data = componentView;
-  (componentView as LViewData)[HOST_NODE] = getPreviousOrParentTNode() as TElementNode;
-
-  initChangeDetectorIfExisting(hostNode.nodeInjector, instance, componentView);
+  (componentView as LViewData)[HOST_NODE] = previousOrParentTNode as TElementNode;
 
   if (firstTemplatePass) queueComponentIndexForCheck();
 }
@@ -2353,9 +2354,14 @@ export function markViewDirty(view: LViewData): void {
   }
   currentView[FLAGS] |= LViewFlags.Dirty;
   ngDevMode && assertDefined(currentView[CONTEXT], 'rootContext should be defined');
-  scheduleTick(currentView[CONTEXT] as RootContext);
-}
 
+  const rootContext = currentView[CONTEXT] as RootContext;
+  const nothingScheduled = rootContext.flags === RootContextFlags.Empty;
+  rootContext.flags |= RootContextFlags.DetectChanges;
+  if (nothingScheduled) {
+    scheduleTick(rootContext);
+  }
+}
 
 /**
  * Used to schedule change detection on the whole application.
@@ -2373,9 +2379,21 @@ export function scheduleTick<T>(rootContext: RootContext) {
     let res: null|((val: null) => void);
     rootContext.clean = new Promise<null>((r) => res = r);
     rootContext.scheduler(() => {
-      tickRootContext(rootContext);
-      res !(null);
+      if (rootContext.flags & RootContextFlags.DetectChanges) {
+        rootContext.flags &= ~RootContextFlags.DetectChanges;
+        tickRootContext(rootContext);
+      }
+
+      if (rootContext.flags & RootContextFlags.FlushPlayers) {
+        rootContext.flags &= ~RootContextFlags.FlushPlayers;
+        const playerHandler = rootContext.playerHandler;
+        if (playerHandler) {
+          playerHandler.flushPlayers();
+        }
+      }
+
       rootContext.clean = _CLEAN_PROMISE;
+      res !(null);
     });
   }
 }
@@ -2403,22 +2421,6 @@ function tickRootContext(rootContext: RootContext) {
     const rootComponent = rootContext.components[i];
     renderComponentOrTemplate(readPatchedLViewData(rootComponent) !, rootComponent);
   }
-}
-
-/**
- * Retrieve the root view from any component by walking the parent `LViewData` until
- * reaching the root `LViewData`.
- *
- * @param component any component
- */
-
-export function getRootView(component: any): LViewData {
-  ngDevMode && assertDefined(component, 'component');
-  let lViewData = readPatchedLViewData(component) !;
-  while (lViewData && !(lViewData[FLAGS] & LViewFlags.IsRoot)) {
-    lViewData = lViewData[PARENT] !;
-  }
-  return lViewData;
 }
 
 /**

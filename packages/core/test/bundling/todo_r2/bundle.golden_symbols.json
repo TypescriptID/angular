@@ -1275,10 +1275,19 @@
     "name": "couldBeInjectableType"
   },
   {
+    "name": "createContainerRef"
+  },
+  {
     "name": "createDirectivesAndLocals"
   },
   {
+    "name": "createElementRef"
+  },
+  {
     "name": "createEmbeddedViewAndNode"
+  },
+  {
+    "name": "createEmptyStylingContext"
   },
   {
     "name": "createInjector"
@@ -1326,6 +1335,9 @@
     "name": "createTView"
   },
   {
+    "name": "createTemplateRef"
+  },
+  {
     "name": "createTextNode"
   },
   {
@@ -1333,6 +1345,9 @@
   },
   {
     "name": "createViewQuery"
+  },
+  {
+    "name": "createViewRef"
   },
   {
     "name": "dateGetter"
@@ -1707,18 +1722,6 @@
     "name": "getNumberOfCurrencyDigits"
   },
   {
-    "name": "getOrCreateChangeDetectorRef"
-  },
-  {
-    "name": "getOrCreateContainerRef"
-  },
-  {
-    "name": "getOrCreateElementRef"
-  },
-  {
-    "name": "getOrCreateHostChangeDetector"
-  },
-  {
     "name": "getOrCreateInjectable"
   },
   {
@@ -1732,9 +1735,6 @@
   },
   {
     "name": "getOrCreateTView"
-  },
-  {
-    "name": "getOrCreateTemplateRef"
   },
   {
     "name": "getOriginalError"
@@ -1843,9 +1843,6 @@
   },
   {
     "name": "identity"
-  },
-  {
-    "name": "initChangeDetectorIfExisting"
   },
   {
     "name": "initDomAdapter"
