@@ -11,9 +11,9 @@ import './ng_dev_mode';
 import {QueryList} from '../linker';
 import {Sanitizer} from '../sanitization/security';
 import {StyleSanitizeFn} from '../sanitization/style_sanitizer';
-
 import {assertDefined, assertEqual, assertLessThan, assertNotEqual} from './assert';
 import {attachPatchData, getLElementFromComponent, readElementValue, readPatchedLViewData} from './context_discovery';
+import {getRootView} from './discovery_utils';
 import {throwCyclicDependencyError, throwErrorIfNoChangesMode, throwMultipleComponentError} from './errors';
 import {executeHooks, executeInitHooks, queueInitHooks, queueLifecycleHooks} from './hooks';
 import {ACTIVE_INDEX, LContainer, RENDER_PARENT, VIEWS} from './interfaces/container';
@@ -28,10 +28,7 @@ import {assertNodeOfPossibleTypes, assertNodeType} from './node_assert';
 import {appendChild, appendProjectedNode, createTextNode, findComponentView, getContainerNode, getHostElementNode, getLViewChild, getParentOrContainerNode, getRenderParent, insertView, removeView} from './node_manipulation';
 import {isNodeMatchingSelectorList, matchingSelectorIndex} from './node_selector_matcher';
 import {StylingContext, allocStylingContext, createStylingContextTemplate, renderStyling as renderElementStyles, updateClassProp as updateElementClassProp, updateStyleProp as updateElementStyleProp, updateStylingMap} from './styling';
-import {assertDataInRangeInternal, getLNode, getRootContext, getRootView, isContentQueryHost, isDifferent, loadElementInternal, loadInternal, stringify} from './util';
-import {ViewRef} from './view_ref';
-
-
+import {assertDataInRangeInternal, getLNode, isContentQueryHost, isDifferent, loadElementInternal, loadInternal, stringify} from './util';
 
 /**
  * A permanent marker promise which signifies that the current CD tree is
@@ -140,6 +137,10 @@ export function getPreviousOrParentTNode(): TNode {
   return previousOrParentTNode;
 }
 
+export function setEnvironment(tNode: TNode, view: LViewData) {
+  previousOrParentTNode = tNode;
+  viewData = view;
+}
 
 /**
  * If `isParent` is:
