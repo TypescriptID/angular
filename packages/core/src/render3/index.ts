@@ -67,6 +67,9 @@ export {
   namespaceMathML,
   namespaceSVG,
 
+  enableBindings,
+  disableBindings,
+
   projection,
   projectionDef,
 
@@ -119,7 +122,6 @@ export {
   QueryList,
   query,
   queryRefresh,
-  QUERY_READ_CONTAINER_REF, QUERY_READ_ELEMENT_REF, QUERY_READ_FROM_NODE, QUERY_READ_TEMPLATE_REF
 } from './query';
 export  {
   registerContentQuery,
@@ -139,7 +141,7 @@ export {
   pureFunctionV,
 } from './pure_function';
 
-export {templateRefExtractor} from './view_engine_compatibility';
+export {templateRefExtractor, QUERY_READ_ELEMENT_REF, QUERY_READ_CONTAINER_REF, QUERY_READ_FROM_NODE, QUERY_READ_TEMPLATE_REF} from './view_engine_compatibility_prebound';
 
 
 // clang-format on

@@ -100,6 +100,26 @@ export function getCurrentSanitizer(): Sanitizer|null {
 let elementDepthCount !: number;
 
 /**
+ * Stores whether directives should be matched to elements.
+ *
+ * When template contains `ngNonBindable` than we need to prevent the runtime form matching
+ * directives on children of that element.
+ *
+ * Example:
+ * ```
+ * <my-comp my-directive>
+ *   Should match component / directive.
+ * </my-comp>
+ * <div ngNonBindable>
+ *   <my-comp my-directive>
+ *     Should not match component / directive because we are in ngNonBindable.
+ *   </my-comp>
+ * </div>
+ * ```
+ */
+let bindingsEnabled !: boolean;
+
+/**
  * Returns the current OpaqueViewState instance.
  *
  * Used in conjunction with the restoreView() instruction to save a snapshot
@@ -538,6 +558,7 @@ export function resetComponentState() {
   isParent = false;
   previousOrParentTNode = null !;
   elementDepthCount = 0;
+  bindingsEnabled = true;
 }
 
 /**
@@ -862,6 +883,7 @@ function nativeNodeLocalRefExtractor(tNode: TNode, currentView: LViewData): RNod
 function createDirectivesAndLocals(
     localRefs: string[] | null | undefined,
     localRefExtractor: LocalRefExtractor = nativeNodeLocalRefExtractor) {
+  if (!bindingsEnabled) return;
   if (firstTemplatePass) {
     ngDevMode && ngDevMode.firstTemplatePass++;
     cacheMatchingDirectivesForNode(previousOrParentTNode, tView, localRefs || null);
@@ -1392,6 +1414,48 @@ export function elementProperty<T>(
                                      (native.setProperty ? native.setProperty(propName, value) :
                                                            (native as any)[propName] = value);
   }
+}
+
+/**
+ * Enables directive matching on elements.
+ *
+ *  * Example:
+ * ```
+ * <my-comp my-directive>
+ *   Should match component / directive.
+ * </my-comp>
+ * <div ngNonBindable>
+ *   <!-- disabledBindings() -->
+ *   <my-comp my-directive>
+ *     Should not match component / directive because we are in ngNonBindable.
+ *   </my-comp>
+ *   <!-- enableBindings() -->
+ * </div>
+ * ```
+ */
+export function enableBindings(): void {
+  bindingsEnabled = true;
+}
+
+/**
+ * Disables directive matching on element.
+ *
+ *  * Example:
+ * ```
+ * <my-comp my-directive>
+ *   Should match component / directive.
+ * </my-comp>
+ * <div ngNonBindable>
+ *   <!-- disabledBindings() -->
+ *   <my-comp my-directive>
+ *     Should not match component / directive because we are in ngNonBindable.
+ *   </my-comp>
+ *   <!-- enableBindings() -->
+ * </div>
+ * ```
+ */
+export function disableBindings(): void {
+  bindingsEnabled = false;
 }
 
 /**

@@ -60,6 +60,10 @@ export class Identifiers {
 
   static bind: o.ExternalReference = {name: 'ɵbind', moduleName: CORE};
 
+  static enableBindings: o.ExternalReference = {name: 'ɵenableBindings', moduleName: CORE};
+
+  static disableBindings: o.ExternalReference = {name: 'ɵdisableBindings', moduleName: CORE};
+
   static getCurrentView: o.ExternalReference = {name: 'ɵgetCurrentView', moduleName: CORE};
 
   static restoreView: o.ExternalReference = {name: 'ɵrestoreView', moduleName: CORE};
