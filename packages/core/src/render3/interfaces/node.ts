@@ -6,12 +6,11 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {StylingContext} from '../styling';
-
 import {LContainer} from './container';
 import {LInjector} from './injector';
 import {LQueries} from './query';
 import {RComment, RElement, RText} from './renderer';
+import {StylingContext} from './styling';
 import {LViewData, TView} from './view';
 
 
@@ -80,9 +79,6 @@ export interface LNode {
    * If LContainerNode, then `data` contains LContainer.
    */
   readonly data: LViewData|LContainer|null;
-
-  /** The injector associated with this node. Necessary for DI. */
-  nodeInjector: LInjector|null;
 
   /**
    * A pointer to an LContainerNode created by directives requesting ViewContainerRef
@@ -195,6 +191,21 @@ export interface TNode {
    * If index is -1, this is a dynamically created container node or embedded view node.
    */
   index: number;
+
+  /**
+   * The index of the closest injector in this node's LViewData.
+   *
+   * If the index === -1, there is no injector on this node or any ancestor node in this view.
+   *
+   * If the index !== -1, it is the index of this node's injector OR the index of a parent injector
+   * in the same view. We pass the parent injector index down the node tree of a view so it's
+   * possible to find the parent injector without walking a potentially deep node tree. Injector
+   * indices are not set across view boundaries because there could be multiple component hosts.
+   *
+   * If tNode.injectorIndex === tNode.parent.injectorIndex, then the index belongs to a parent
+   * injector.
+   */
+  injectorIndex: number;
 
   /**
    * This number stores two values using its bits:

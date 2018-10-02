@@ -276,7 +276,7 @@
     "name": "addToViewTree"
   },
   {
-    "name": "allocAnimationContext"
+    "name": "allocPlayerContext"
   },
   {
     "name": "allocStylingContext"
@@ -582,6 +582,9 @@
     "name": "getInjectableDef"
   },
   {
+    "name": "getInjector$1"
+  },
+  {
     "name": "getLElementFromComponent"
   },
   {
@@ -600,9 +603,6 @@
     "name": "getMultiStartIndex"
   },
   {
-    "name": "getOrCreateAnimationContext"
-  },
-  {
     "name": "getOrCreateInjectable"
   },
   {
@@ -612,16 +612,19 @@
     "name": "getOrCreateNodeInjectorForNode"
   },
   {
+    "name": "getOrCreatePlayerContext"
+  },
+  {
     "name": "getOrCreateRenderer2"
   },
   {
     "name": "getOrCreateTView"
   },
   {
-    "name": "getParentLNode"
+    "name": "getParentInjector"
   },
   {
-    "name": "getParentOrContainerNode"
+    "name": "getParentLNode"
   },
   {
     "name": "getParentState"
