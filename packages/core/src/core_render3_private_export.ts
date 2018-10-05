@@ -100,9 +100,11 @@ export {
   pipe as ɵpipe,
   BaseDef as ɵBaseDef,
   ComponentDef as ɵComponentDef,
-  ComponentDefInternal as ɵComponentDefInternal,
+  ComponentDefWithMeta as ɵComponentDefWithMeta,
   DirectiveDef as ɵDirectiveDef,
+  DirectiveDefWithMeta as ɵDirectiveDefWithMeta,
   PipeDef as ɵPipeDef,
+  PipeDefWithMeta as ɵPipeDefWithMeta,
   whenRendered as ɵwhenRendered,
   i18nApply as ɵi18nApply,
   i18nExpMapping as ɵi18nExpMapping,
@@ -118,7 +120,7 @@ export {
   i18nMapping as ɵi18nMapping,
   I18nInstruction as ɵI18nInstruction,
   I18nExpInstruction as ɵI18nExpInstruction,
-  WRAP_RENDERER_FACTORY2 as ɵWRAP_RENDERER_FACTORY2,
+  WRAP_RENDERER_FACTORY2 as ɵWRAP_RENDERER_FACTORY2
 } from './render3/index';
 
 export {  Render3DebugRendererFactory2 as ɵRender3DebugRendererFactory2 } from './render3/debug';
@@ -134,7 +136,7 @@ export {
 
 export {
   NgModuleDef as ɵNgModuleDef,
-  NgModuleDefInternal as ɵNgModuleDefInternal,
+  NgModuleDefWithMeta as ɵNgModuleDefWithMeta,
   NgModuleTransitiveScopes as ɵNgModuleTransitiveScopes,
 } from './metadata/ng_module';
 

@@ -12,7 +12,7 @@ import {Sanitizer} from '../../sanitization/security';
 import {PlayerHandler} from '../interfaces/player';
 
 import {LContainer} from './container';
-import {ComponentQuery, ComponentTemplate, DirectiveDefInternal, DirectiveDefList, PipeDefInternal, PipeDefList} from './definition';
+import {ComponentQuery, ComponentTemplate, DirectiveDef, DirectiveDefList, PipeDef, PipeDefList} from './definition';
 import {LElementNode, LViewNode, TElementNode, TNode, TViewNode} from './node';
 import {LQueries} from './query';
 import {Renderer3} from './renderer';
@@ -550,14 +550,18 @@ export type HookData = (number | (() => void))[];
  * Static data that corresponds to the instance-specific data array on an LView.
  *
  * Each node's static data is stored in tData at the same index that it's stored
- * in the data array. Each pipe's definition is stored here at the same index
- * as its pipe instance in the data array. Any nodes that do not have static
- * data store a null value in tData to avoid a sparse array.
+ * in the data array.  Any nodes that do not have static data store a null value in
+ * tData to avoid a sparse array.
+ *
+ * Each pipe's definition is stored here at the same index as its pipe instance in
+ * the data array.
+ *
+ * Injector bloom filters are also stored here.
  */
-export type TData = (TNode | PipeDefInternal<any>| null)[];
+export type TData = (TNode | PipeDef<any>| number | null)[];
 
 /** Type for TView.currentMatches */
-export type CurrentMatchesList = [DirectiveDefInternal<any>, (string | number | null)];
+export type CurrentMatchesList = [DirectiveDef<any>, (string | number | null)];
 
 // Note: This hack is necessary so we don't erroneously get a circular dependency
 // failure based on types.
