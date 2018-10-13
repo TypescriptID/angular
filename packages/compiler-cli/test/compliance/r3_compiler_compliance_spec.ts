@@ -588,7 +588,7 @@ describe('compiler compliance', () => {
           selectors: [["", "hostBindingDir", ""]],
           factory: function HostBindingDir_Factory(t) { return new (t || HostBindingDir)(); },
           hostBindings: function HostBindingDir_HostBindings(dirIndex, elIndex) {
-            $r3$.ɵelementProperty(elIndex, "id", $r3$.ɵbind($r3$.ɵloadDirective(dirIndex).dirId));
+            $r3$.ɵelementProperty(elIndex, "id", $r3$.ɵbind($r3$.ɵload(dirIndex).dirId));
           },
           hostVars: 1,
           features: [$r3$.ɵPublicFeature]
@@ -632,7 +632,7 @@ describe('compiler compliance', () => {
           selectors: [["host-binding-comp"]],
           factory: function HostBindingComp_Factory(t) { return new (t || HostBindingComp)(); },
           hostBindings: function HostBindingComp_HostBindings(dirIndex, elIndex) {
-            $r3$.ɵelementProperty(elIndex, "id", $r3$.ɵbind($r3$.ɵpureFunction1(1, $ff$, $r3$.ɵloadDirective(dirIndex).id)));
+            $r3$.ɵelementProperty(elIndex, "id", $r3$.ɵbind($r3$.ɵpureFunction1(1, $ff$, $r3$.ɵload(dirIndex).id)));
           },
           hostVars: 3,
           features: [$r3$.ɵPublicFeature],
@@ -1150,11 +1150,12 @@ describe('compiler compliance', () => {
             @Component({
               selector: 'view-query-component',
               template: \`
-              <div someDir></div>
+                <div someDir></div>
               \`
             })
             export class ViewQueryComponent {
               @ViewChild(SomeDirective) someDir: SomeDirective;
+              @ViewChildren(SomeDirective) someDirs: QueryList<SomeDirective>;
             }
 
             @NgModule({declarations: [SomeDirective, ViewQueryComponent]})
@@ -1205,8 +1206,8 @@ describe('compiler compliance', () => {
             @Component({
               selector: 'view-query-component',
               template: \`
-              <div #myRef></div>
-              <div #myRef1></div>
+                <div #myRef></div>
+                <div #myRef1></div>
               \`
             })
             export class ViewQueryComponent {
@@ -1221,15 +1222,15 @@ describe('compiler compliance', () => {
         };
 
         const ViewQueryComponentDefinition = `
-          const $e0_attrs$ = ["myRef", ""];
-          const $e1_attrs$ = ["myRef1", ""];
+          const $e0_attrs$ = ["myRef"];
+          const $e1_attrs$ = ["myRef1", "myRef2", "myRef3"];
           …
           ViewQueryComponent.ngComponentDef = $r3$.ɵdefineComponent({
             …
             viewQuery: function ViewQueryComponent_Query(rf, ctx) {
               if (rf & 1) {
-                $r3$.ɵquery(0, ["myRef"], true);
-                $r3$.ɵquery(1, ["myRef1", "myRef2", "myRef3"], true);
+                $r3$.ɵquery(0, $e0_attrs$, true);
+                $r3$.ɵquery(1, $e1_attrs$, true);
               }
               if (rf & 2) {
                 var $tmp$;
@@ -1249,19 +1250,24 @@ describe('compiler compliance', () => {
       it('should support view queries with read tokens specified', () => {
         const files = {
           app: {
+            ...directive,
             'view_query.component.ts': `
-            import {Component, NgModule, ViewChild, ViewChildren, QueryList, ElementRef} from '@angular/core';
+            import {Component, NgModule, ViewChild, ViewChildren, QueryList, ElementRef, TemplateRef} from '@angular/core';
+            import {SomeDirective} from './some.directive';
 
             @Component({
               selector: 'view-query-component',
               template: \`
-              <div #myRef></div>
-              <div #myRef1></div>
+                <div someDir></div>
+                <div #myRef></div>
+                <div #myRef1></div>
               \`
             })
             export class ViewQueryComponent {
-              @ViewChild('myRef', {read: ElementRef}) myRef: any;
-              @ViewChildren('myRef1, myRef2, myRef3', {read: ElementRef}) myRefs: QueryList<any>;
+              @ViewChild('myRef', {read: TemplateRef}) myRef: TemplateRef;
+              @ViewChildren('myRef1, myRef2, myRef3', {read: ElementRef}) myRefs: QueryList<ElementRef>;
+              @ViewChild(SomeDirective, {read: ElementRef}) someDir: ElementRef;
+              @ViewChildren(SomeDirective, {read: TemplateRef}) someDirs: QueryList<TemplateRef>;
             }
 
             @NgModule({declarations: [ViewQueryComponent]})
@@ -1271,20 +1277,24 @@ describe('compiler compliance', () => {
         };
 
         const ViewQueryComponentDefinition = `
-          const $e0_attrs$ = ["myRef", ""];
-          const $e1_attrs$ = ["myRef1", ""];
+          const $e0_attrs$ = ["myRef"];
+          const $e1_attrs$ = ["myRef1", "myRef2", "myRef3"];
           …
           ViewQueryComponent.ngComponentDef = $r3$.ɵdefineComponent({
             …
             viewQuery: function ViewQueryComponent_Query(rf, ctx) {
               if (rf & 1) {
-                $r3$.ɵquery(0, ["myRef"], true, ElementRef);
-                $r3$.ɵquery(1, ["myRef1", "myRef2", "myRef3"], true, ElementRef);
+                $r3$.ɵquery(0, $e0_attrs$, true, TemplateRef);
+                $r3$.ɵquery(1, SomeDirective, true, ElementRef);
+                $r3$.ɵquery(2, $e1_attrs$, true, ElementRef);
+                $r3$.ɵquery(3, SomeDirective, true, TemplateRef);
               }
               if (rf & 2) {
                 var $tmp$;
                 ($r3$.ɵqueryRefresh(($tmp$ = $r3$.ɵload(0))) && (ctx.myRef = $tmp$.first));
-                ($r3$.ɵqueryRefresh(($tmp$ = $r3$.ɵload(1))) && (ctx.myRefs = $tmp$));
+                ($r3$.ɵqueryRefresh(($tmp$ = $r3$.ɵload(1))) && (ctx.someDir = $tmp$.first));
+                ($r3$.ɵqueryRefresh(($tmp$ = $r3$.ɵload(2))) && (ctx.myRefs = $tmp$));
+                ($r3$.ɵqueryRefresh(($tmp$ = $r3$.ɵload(3))) && (ctx.someDirs = $tmp$));
               }
             },
             …
@@ -1343,7 +1353,7 @@ describe('compiler compliance', () => {
               $r3$.ɵregisterContentQuery($r3$.ɵquery(null, SomeDirective, false));
             },
             contentQueriesRefresh: function ContentQueryComponent_ContentQueriesRefresh(dirIndex, queryStartIndex) {
-              const instance = $r3$.ɵloadDirective(dirIndex);
+              const instance = $r3$.ɵload(dirIndex);
               var $tmp$;
               ($r3$.ɵqueryRefresh(($tmp$ = $r3$.ɵloadQueryList(queryStartIndex))) && ($instance$.someDir = $tmp$.first));
               ($r3$.ɵqueryRefresh(($tmp$ = $r3$.ɵloadQueryList((queryStartIndex + 1)))) && ($instance$.someDirList = $tmp$));
@@ -1366,104 +1376,112 @@ describe('compiler compliance', () => {
 
         expectEmit(source, ContentQueryComponentDefinition, 'Invalid ContentQuery declaration');
       });
-    });
 
-    it('should support content queries with local refs', () => {
-      const files = {
-        app: {
-          'content_query.component.ts': `
-          import {Component, ContentChild, ContentChildren, NgModule, QueryList} from '@angular/core';
+      it('should support content queries with local refs', () => {
+        const files = {
+          app: {
+            'content_query.component.ts': `
+            import {Component, ContentChild, ContentChildren, NgModule, QueryList} from '@angular/core';
 
-          @Component({
-            selector: 'content-query-component',
-            template: \`
-            <div #myRef></div>
-            <div #myRef1></div>
-            \`
-          })
-          export class ContentQueryComponent {
-            @ContentChild('myRef') myRef: any;
-            @ContentChildren('myRef1, myRef2, myRef3') myRefs: QueryList<any>;
+            @Component({
+              selector: 'content-query-component',
+              template: \`
+                <div #myRef></div>
+                <div #myRef1></div>
+              \`
+            })
+            export class ContentQueryComponent {
+              @ContentChild('myRef') myRef: any;
+              @ContentChildren('myRef1, myRef2, myRef3') myRefs: QueryList<any>;
+            }
+            @NgModule({declarations: [ContentQueryComponent]})
+            export class MyModule {}
+          `
           }
+        };
 
-          @NgModule({declarations: [ContentQueryComponent]})
-          export class MyModule {}
-        `
-        }
-      };
-
-      const ContentQueryComponentDefinition = `
-        const $e0_attrs$ = ["myRef", ""];
-        const $e1_attrs$ = ["myRef1", ""];
-        …
-        ContentQueryComponent.ngComponentDef = $r3$.ɵdefineComponent({
+        const ContentQueryComponentDefinition = `
+          const $e0_attrs$ = ["myRef"];
+          const $e1_attrs$ = ["myRef1", "myRef2", "myRef3"];
           …
-          contentQueries: function ContentQueryComponent_ContentQueries() {
-            $r3$.ɵregisterContentQuery($r3$.ɵquery(null, ["myRef"], true));
-            $r3$.ɵregisterContentQuery($r3$.ɵquery(null, ["myRef1", "myRef2", "myRef3"], false));
-          },
-          contentQueriesRefresh: function ContentQueryComponent_ContentQueriesRefresh(dirIndex, queryStartIndex) {
-            const instance = $r3$.ɵloadDirective(dirIndex);
-            var $tmp$;
-            ($r3$.ɵqueryRefresh(($tmp$ = $r3$.ɵloadQueryList(queryStartIndex))) && (instance.myRef = $tmp$.first));
-            ($r3$.ɵqueryRefresh(($tmp$ = $r3$.ɵloadQueryList((queryStartIndex + 1)))) && (instance.myRefs = $tmp$));
-          },
-          …
-        });`;
+          ContentQueryComponent.ngComponentDef = $r3$.ɵdefineComponent({
+            …
+            contentQueries: function ContentQueryComponent_ContentQueries() {
+              $r3$.ɵregisterContentQuery($r3$.ɵquery(null, $e0_attrs$, true));
+              $r3$.ɵregisterContentQuery($r3$.ɵquery(null, $e1_attrs$, false));
+            },
+            contentQueriesRefresh: function ContentQueryComponent_ContentQueriesRefresh(dirIndex, queryStartIndex) {
+              const instance = $r3$.ɵload(dirIndex);
+              var $tmp$;
+              ($r3$.ɵqueryRefresh(($tmp$ = $r3$.ɵloadQueryList(queryStartIndex))) && (instance.myRef = $tmp$.first));
+              ($r3$.ɵqueryRefresh(($tmp$ = $r3$.ɵloadQueryList((queryStartIndex + 1)))) && (instance.myRefs = $tmp$));
+            },
+            …
+          });`;
 
-      const result = compile(files, angularFiles);
-      const source = result.source;
+        const result = compile(files, angularFiles);
+        const source = result.source;
 
-      expectEmit(source, ContentQueryComponentDefinition, 'Invalid ContentQuery declaration');
-    });
+        expectEmit(source, ContentQueryComponentDefinition, 'Invalid ContentQuery declaration');
+      });
 
-    it('should support content queries with read tokens specified', () => {
-      const files = {
-        app: {
-          'content_query.component.ts': `
-          import {Component, ContentChild, ContentChildren, NgModule, QueryList, ElementRef} from '@angular/core';
+      it('should support content queries with read tokens specified', () => {
+        const files = {
+          app: {
+            ...directive,
+            'content_query.component.ts': `
+            import {Component, ContentChild, ContentChildren, NgModule, QueryList, ElementRef, TemplateRef} from '@angular/core';
+            import {SomeDirective} from './some.directive';
 
-          @Component({
-            selector: 'content-query-component',
-            template: \`
-            <div #myRef></div>
-            <div #myRef1></div>
-            \`
-          })
-          export class ContentQueryComponent {
-            @ContentChild('myRef', {read: ElementRef}) myRef: any;
-            @ContentChildren('myRef1, myRef2, myRef3', {read: ElementRef}) myRefs: QueryList<any>;
+            @Component({
+              selector: 'content-query-component',
+              template: \`
+                <div someDir></div>
+                <div #myRef></div>
+                <div #myRef1></div>
+              \`
+            })
+            export class ContentQueryComponent {
+              @ContentChild('myRef', {read: TemplateRef}) myRef: TemplateRef;
+              @ContentChildren('myRef1, myRef2, myRef3', {read: ElementRef}) myRefs: QueryList<ElementRef>;
+              @ContentChild(SomeDirective, {read: ElementRef}) someDir: ElementRef;
+              @ContentChildren(SomeDirective, {read: TemplateRef}) someDirs: QueryList<TemplateRef>;
+            }
+            @NgModule({declarations: [ContentQueryComponent]})
+            export class MyModule {}
+          `
           }
+        };
 
-          @NgModule({declarations: [ContentQueryComponent]})
-          export class MyModule {}
-        `
-        }
-      };
-
-      const ContentQueryComponentDefinition = `
-        const $e0_attrs$ = ["myRef", ""];
-        const $e1_attrs$ = ["myRef1", ""];
-        …
-        ContentQueryComponent.ngComponentDef = $r3$.ɵdefineComponent({
+        const ContentQueryComponentDefinition = `
+          const $e0_attrs$ = ["myRef"];
+          const $e1_attrs$ = ["myRef1", "myRef2", "myRef3"];
           …
-          contentQueries: function ContentQueryComponent_ContentQueries() {
-            $r3$.ɵregisterContentQuery($r3$.ɵquery(null, ["myRef"], true, ElementRef));
-            $r3$.ɵregisterContentQuery($r3$.ɵquery(null, ["myRef1", "myRef2", "myRef3"], false, ElementRef));
-          },
-          contentQueriesRefresh: function ContentQueryComponent_ContentQueriesRefresh(dirIndex, queryStartIndex) {
-            const instance = $r3$.ɵloadDirective(dirIndex);
-            var $tmp$;
-            ($r3$.ɵqueryRefresh(($tmp$ = $r3$.ɵloadQueryList(queryStartIndex))) && (instance.myRef = $tmp$.first));
-            ($r3$.ɵqueryRefresh(($tmp$ = $r3$.ɵloadQueryList((queryStartIndex + 1)))) && (instance.myRefs = $tmp$));
-          },
-          …
-        });`;
+          ContentQueryComponent.ngComponentDef = $r3$.ɵdefineComponent({
+            …
+            contentQueries: function ContentQueryComponent_ContentQueries() {
+              $r3$.ɵregisterContentQuery($r3$.ɵquery(null, $e0_attrs$ , true, TemplateRef));
+              $r3$.ɵregisterContentQuery($r3$.ɵquery(null, SomeDirective, true, ElementRef));
+              $r3$.ɵregisterContentQuery($r3$.ɵquery(null, $e1_attrs$, false, ElementRef));
+              $r3$.ɵregisterContentQuery($r3$.ɵquery(null, SomeDirective, false, TemplateRef));
+            },
+            contentQueriesRefresh: function ContentQueryComponent_ContentQueriesRefresh(dirIndex, queryStartIndex) {
+              const instance = $r3$.ɵload(dirIndex);
+              var $tmp$;
+              ($r3$.ɵqueryRefresh(($tmp$ = $r3$.ɵloadQueryList(queryStartIndex))) && (instance.myRef = $tmp$.first));
+              ($r3$.ɵqueryRefresh(($tmp$ = $r3$.ɵloadQueryList((queryStartIndex + 1)))) && (instance.someDir = $tmp$.first));
+              ($r3$.ɵqueryRefresh(($tmp$ = $r3$.ɵloadQueryList((queryStartIndex + 2)))) && (instance.myRefs = $tmp$));
+              ($r3$.ɵqueryRefresh(($tmp$ = $r3$.ɵloadQueryList((queryStartIndex + 3)))) && (instance.someDirs = $tmp$));
+            },
+            …
+          });`;
 
-      const result = compile(files, angularFiles);
-      const source = result.source;
+        const result = compile(files, angularFiles);
+        const source = result.source;
 
-      expectEmit(source, ContentQueryComponentDefinition, 'Invalid ContentQuery declaration');
+        expectEmit(source, ContentQueryComponentDefinition, 'Invalid ContentQuery declaration');
+      });
+
     });
 
     describe('pipes', () => {

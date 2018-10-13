@@ -11,7 +11,7 @@ import { CONTENT_URL_PREFIX } from 'app/documents/document.service';
 import { CurrentNodes, NavigationNode, NavigationResponse, NavigationViews, VersionInfo } from './navigation.model';
 export { CurrentNodes, CurrentNode, NavigationNode, NavigationResponse, NavigationViews, VersionInfo } from './navigation.model';
 
-const navigationPath = CONTENT_URL_PREFIX + 'navigation.json';
+export const navigationPath = CONTENT_URL_PREFIX + 'navigation.json';
 
 @Injectable()
 export class NavigationService {
@@ -95,7 +95,7 @@ export class NavigationService {
       this.location.currentPath,
 
       (navMap, url) => {
-        const matchSpecialUrls = /^api|^cli/.exec(url);
+        const matchSpecialUrls = /^api/.exec(url);
         if (matchSpecialUrls) {
           url = matchSpecialUrls[0];
         }

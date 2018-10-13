@@ -380,10 +380,18 @@ describe('ngtsc behavioral tests', () => {
     const jsContents = env.getContents('test.js');
     expect(jsContents)
         .toContain(
-            `factory: function FooCmp_Factory(t) { return new (t || FooCmp)(i0.ɵinjectAttribute("test"), i0.ɵdirectiveInject(ChangeDetectorRef), i0.ɵdirectiveInject(ElementRef), i0.ɵdirectiveInject(i0.INJECTOR), i0.ɵinjectRenderer2(), i0.ɵdirectiveInject(TemplateRef), i0.ɵdirectiveInject(ViewContainerRef)); }`);
+            `factory: function FooCmp_Factory(t) { return new (t || FooCmp)(i0.ɵinjectAttribute("test"), i0.ɵdirectiveInject(ChangeDetectorRef), i0.ɵdirectiveInject(ElementRef), i0.ɵdirectiveInject(i0.INJECTOR), i0.ɵdirectiveInject(Renderer2), i0.ɵdirectiveInject(TemplateRef), i0.ɵdirectiveInject(ViewContainerRef)); }`);
   });
 
   it('should generate queries for components', () => {
+
+    // Helper functions to construct RegExps for output validation
+    const varRegExp = (name: string): RegExp => new RegExp(`var \\w+ = \\[\"${name}\"\\];`);
+    const queryRegExp = (id: number | null, descend: boolean, ref?: string): RegExp => {
+      const maybeRef = ref ? `, ${ref}` : ``;
+      return new RegExp(`i0\\.ɵquery\\(${id}, \\w+, ${descend}${maybeRef}\\)`);
+    };
+
     env.tsconfig();
     env.write(`test.ts`, `
         import {Component, ContentChild, ContentChildren, TemplateRef, ViewChild} from '@angular/core';
@@ -406,11 +414,17 @@ describe('ngtsc behavioral tests', () => {
 
     env.driveMain();
     const jsContents = env.getContents('test.js');
-    expect(jsContents).toContain(`i0.ɵquery(null, ["bar"], true, TemplateRef)`);
+    expect(jsContents).toMatch(varRegExp('bar'));
+    expect(jsContents).toMatch(varRegExp('test1'));
+    expect(jsContents).toMatch(varRegExp('test2'));
+    expect(jsContents).toMatch(varRegExp('accessor'));
     expect(jsContents).toContain(`i0.ɵquery(null, TemplateRef, false)`);
-    expect(jsContents).toContain(`i0.ɵquery(null, ["test2"], true)`);
-    expect(jsContents).toContain(`i0.ɵquery(0, ["accessor"], true)`);
-    expect(jsContents).toContain(`i0.ɵquery(1, ["test1"], true)`);
+    expect(jsContents)
+        .toMatch(queryRegExp(
+            null, true, 'TemplateRef'));  // match `i0.ɵquery(null, _c0, true, TemplateRef)`
+    expect(jsContents).toMatch(queryRegExp(null, true));  // match `i0.ɵquery(null, _c0, true)`
+    expect(jsContents).toMatch(queryRegExp(0, true));     // match `i0.ɵquery(0, _c0, true)`
+    expect(jsContents).toMatch(queryRegExp(1, true));     // match `i0.ɵquery(1, _c0, true)`
   });
 
   it('should handle queries that use forwardRef', () => {
@@ -463,17 +477,14 @@ describe('ngtsc behavioral tests', () => {
     env.driveMain();
     const jsContents = env.getContents('test.js');
     expect(jsContents)
-        .toContain(
-            `i0.ɵelementProperty(elIndex, "attr.hello", i0.ɵbind(i0.ɵloadDirective(dirIndex).foo));`);
+        .toContain(`i0.ɵelementProperty(elIndex, "attr.hello", i0.ɵbind(i0.ɵload(dirIndex).foo));`);
+    expect(jsContents)
+        .toContain(`i0.ɵelementProperty(elIndex, "prop", i0.ɵbind(i0.ɵload(dirIndex).bar));`);
     expect(jsContents)
         .toContain(
-            `i0.ɵelementProperty(elIndex, "prop", i0.ɵbind(i0.ɵloadDirective(dirIndex).bar));`);
-    expect(jsContents)
-        .toContain(
-            'i0.ɵelementProperty(elIndex, "class.someclass", i0.ɵbind(i0.ɵloadDirective(dirIndex).someClass))');
-    expect(jsContents).toContain('i0.ɵloadDirective(dirIndex).onClick($event)');
-    expect(jsContents)
-        .toContain('i0.ɵloadDirective(dirIndex).onChange(i0.ɵloadDirective(dirIndex).arg)');
+            'i0.ɵelementProperty(elIndex, "class.someclass", i0.ɵbind(i0.ɵload(dirIndex).someClass))');
+    expect(jsContents).toContain('i0.ɵload(dirIndex).onClick($event)');
+    expect(jsContents).toContain('i0.ɵload(dirIndex).onChange(i0.ɵload(dirIndex).arg)');
   });
 
   it('should correctly recognize local symbols', () => {

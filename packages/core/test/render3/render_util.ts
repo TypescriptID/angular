@@ -10,20 +10,22 @@ import {ChangeDetectorRef} from '@angular/core/src/change_detection/change_detec
 import {ElementRef} from '@angular/core/src/linker/element_ref';
 import {TemplateRef} from '@angular/core/src/linker/template_ref';
 import {ViewContainerRef} from '@angular/core/src/linker/view_container_ref';
+import {Renderer2} from '@angular/core/src/render/api';
 import {stringifyElement} from '@angular/platform-browser/testing/src/browser_util';
 
 import {Injector} from '../../src/di/injector';
-import {R3_CHANGE_DETECTOR_REF_FACTORY, R3_ELEMENT_REF_FACTORY, R3_TEMPLATE_REF_FACTORY, R3_VIEW_CONTAINER_REF_FACTORY} from '../../src/ivy_switch/runtime/ivy_switch_on';
+import {R3_CHANGE_DETECTOR_REF_FACTORY, R3_ELEMENT_REF_FACTORY, R3_RENDERER2_FACTORY, R3_TEMPLATE_REF_FACTORY, R3_VIEW_CONTAINER_REF_FACTORY} from '../../src/ivy_switch/runtime/ivy_switch_on';
 import {CreateComponentOptions} from '../../src/render3/component';
-import {getContext, isComponentInstance} from '../../src/render3/context_discovery';
+import {discoverDirectives, getContext, isComponentInstance} from '../../src/render3/context_discovery';
 import {extractDirectiveDef, extractPipeDef} from '../../src/render3/definition';
 import {NG_ELEMENT_ID} from '../../src/render3/fields';
 import {ComponentTemplate, ComponentType, DirectiveDef, DirectiveType, PublicFeature, RenderFlags, defineComponent, defineDirective, renderComponent as _renderComponent, tick} from '../../src/render3/index';
-import {renderTemplate} from '../../src/render3/instructions';
+import {_getViewData, renderTemplate} from '../../src/render3/instructions';
 import {DirectiveDefList, DirectiveTypesOrFactory, PipeDef, PipeDefList, PipeTypesOrFactory} from '../../src/render3/interfaces/definition';
 import {LElementNode} from '../../src/render3/interfaces/node';
 import {PlayerHandler} from '../../src/render3/interfaces/player';
 import {RElement, RText, Renderer3, RendererFactory3, domRendererFactory3} from '../../src/render3/interfaces/renderer';
+import {HEADER_OFFSET} from '../../src/render3/interfaces/view';
 import {Sanitizer} from '../../src/sanitization/security';
 import {Type} from '../../src/type';
 
@@ -290,6 +292,15 @@ export function createDirective(
   };
 }
 
+/** Gets the directive on the given node at the given index */
+export function getDirectiveOnNode(nodeIndex: number, dirIndex: number = 0) {
+  const directives = discoverDirectives(nodeIndex + HEADER_OFFSET, _getViewData(), true);
+  if (directives == null) {
+    throw new Error(`No directives exist on node in slot ${nodeIndex}`);
+  }
+  return directives[dirIndex];
+}
+
 
 // Verify that DOM is a type of render. This is here for error checking only and has no use.
 export const renderer: Renderer3 = null as any as Document;
@@ -308,4 +319,5 @@ export function enableIvyInjectableFactories() {
   (ViewContainerRef as any)[NG_ELEMENT_ID] = () =>
       R3_VIEW_CONTAINER_REF_FACTORY(ViewContainerRef, ElementRef);
   (ChangeDetectorRef as any)[NG_ELEMENT_ID] = () => R3_CHANGE_DETECTOR_REF_FACTORY();
+  (Renderer2 as any)[NG_ELEMENT_ID] = () => R3_RENDERER2_FACTORY();
 }

@@ -133,7 +133,7 @@ describe('compiler compliance: styling', () => {
           vars: 0,
           template:  function MyComponent_Template(rf, $ctx$) {
           },
-          animations: [{name: "foo123"}, {name: "trigger123"}]
+          animations: [{name: 'foo123'}, {name: 'trigger123'}]
         });
       `;
 
@@ -383,6 +383,47 @@ describe('compiler compliance: styling', () => {
          const result = compile(files, angularFiles);
          expectEmit(result.source, template, 'Incorrect template');
        });
+
+    it('should support [style.foo.suffix] style bindings with a suffix', () => {
+
+      const files = {
+        app: {
+          'spec.ts': `
+             import {Component, NgModule} from '@angular/core';
+
+             @Component({
+               selector: 'my-component',
+               template: \`<div [style.font-size.px]="12">\`
+             })
+             export class MyComponent {
+             }
+
+             @NgModule({declarations: [MyComponent]})
+             export class MyModule {}
+         `
+        }
+      };
+
+      const template = `
+          const $e0_styles$= ["font-size"];
+          …
+          template:  function MyComponent_Template(rf, ctx) {
+            if (rf & 1) {
+              $r3$.ɵelementStart(0, "div");
+              $r3$.ɵelementStyling(null, _c0);
+              $r3$.ɵelementEnd();
+            }
+            if (rf & 2) {
+              $r3$.ɵelementStyleProp(0, 0, 12, "px");
+              $r3$.ɵelementStylingApply(0);
+            }
+          }
+     `;
+
+      const result = compile(files, angularFiles);
+      expectEmit(result.source, template, 'Incorrect template');
+
+    });
   });
 
   describe('[class]', () => {

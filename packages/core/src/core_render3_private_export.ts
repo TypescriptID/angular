@@ -21,7 +21,6 @@ export {
   DirectiveType as ɵDirectiveType,
   RenderFlags as ɵRenderFlags,
   directiveInject as ɵdirectiveInject,
-  injectRenderer2 as ɵinjectRenderer2,
   injectAttribute as ɵinjectAttribute,
   getFactoryOf as ɵgetFactoryOf,
   getInheritedFactory as ɵgetInheritedFactory,
@@ -47,7 +46,6 @@ export {
   embeddedViewStart as ɵembeddedViewStart,
   query as ɵquery,
   registerContentQuery as ɵregisterContentQuery,
-  loadDirective as ɵloadDirective,
   projection as ɵprojection,
   bind as ɵbind,
   interpolation1 as ɵinterpolation1,
@@ -106,6 +104,10 @@ export {
   PipeDef as ɵPipeDef,
   PipeDefWithMeta as ɵPipeDefWithMeta,
   whenRendered as ɵwhenRendered,
+  i18nAttribute as ɵi18nAttribute,
+  i18nExp as ɵi18nExp,
+  i18nStart as ɵi18nStart,
+  i18nEnd as ɵi18nEnd,
   i18nApply as ɵi18nApply,
   i18nExpMapping as ɵi18nExpMapping,
   i18nInterpolation1 as ɵi18nInterpolation1,
@@ -192,6 +194,7 @@ export {
   R3_TEMPLATE_REF_FACTORY__POST_NGCC__ as ɵR3_TEMPLATE_REF_FACTORY__POST_NGCC__,
   R3_CHANGE_DETECTOR_REF_FACTORY__POST_NGCC__ as ɵR3_CHANGE_DETECTOR_REF_FACTORY__POST_NGCC__,
   R3_VIEW_CONTAINER_REF_FACTORY__POST_NGCC__ as ɵR3_VIEW_CONTAINER_REF_FACTORY__POST_NGCC__,
+  R3_RENDERER2_FACTORY__POST_NGCC__ as ɵR3_RENDERER2_FACTORY__POST_NGCC__,
 } from './ivy_switch/runtime/legacy';
 
 

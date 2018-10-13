@@ -95,8 +95,13 @@ export class Identifiers {
   static pipeBind4: o.ExternalReference = {name: 'ɵpipeBind4', moduleName: CORE};
   static pipeBindV: o.ExternalReference = {name: 'ɵpipeBindV', moduleName: CORE};
 
+  static i18nAttribute: o.ExternalReference = {name: 'ɵi18nAttribute', moduleName: CORE};
+  static i18nExp: o.ExternalReference = {name: 'ɵi18nExp', moduleName: CORE};
+  static i18nStart: o.ExternalReference = {name: 'ɵi18nStart', moduleName: CORE};
+  static i18nEnd: o.ExternalReference = {name: 'ɵi18nEnd', moduleName: CORE};
+  static i18nApply: o.ExternalReference = {name: 'ɵi18nApply', moduleName: CORE};
+
   static load: o.ExternalReference = {name: 'ɵload', moduleName: CORE};
-  static loadDirective: o.ExternalReference = {name: 'ɵloadDirective', moduleName: CORE};
   static loadQueryList: o.ExternalReference = {name: 'ɵloadQueryList', moduleName: CORE};
 
   static pipe: o.ExternalReference = {name: 'ɵpipe', moduleName: CORE};
@@ -109,8 +114,6 @@ export class Identifiers {
   static inject: o.ExternalReference = {name: 'inject', moduleName: CORE};
 
   static injectAttribute: o.ExternalReference = {name: 'ɵinjectAttribute', moduleName: CORE};
-
-  static injectRenderer2: o.ExternalReference = {name: 'ɵinjectRenderer2', moduleName: CORE};
 
   static directiveInject: o.ExternalReference = {name: 'ɵdirectiveInject', moduleName: CORE};
 

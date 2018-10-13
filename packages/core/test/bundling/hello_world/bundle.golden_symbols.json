@@ -24,9 +24,6 @@
     "name": "DECLARATION_VIEW"
   },
   {
-    "name": "DIRECTIVES"
-  },
-  {
     "name": "EMPTY$1"
   },
   {
@@ -42,6 +39,9 @@
     "name": "HEADER_OFFSET"
   },
   {
+    "name": "HOST_NATIVE"
+  },
+  {
     "name": "HOST_NODE"
   },
   {
@@ -52,6 +52,9 @@
   },
   {
     "name": "MONKEY_PATCH_KEY_NAME"
+  },
+  {
+    "name": "NATIVE"
   },
   {
     "name": "NEXT"
@@ -94,6 +97,9 @@
   },
   {
     "name": "RENDER_PARENT"
+  },
+  {
+    "name": "ROOT_EXPANDO_INSTRUCTIONS"
   },
   {
     "name": "SANITIZER"
@@ -225,9 +231,6 @@
     "name": "getComponentDef"
   },
   {
-    "name": "getContainerNode"
-  },
-  {
     "name": "getContainerRenderParent"
   },
   {
@@ -241,6 +244,9 @@
   },
   {
     "name": "getInjectorIndex"
+  },
+  {
+    "name": "getLContainer"
   },
   {
     "name": "getLNode"
@@ -301,6 +307,9 @@
   },
   {
     "name": "nextNgElementId"
+  },
+  {
+    "name": "prefillHostVars"
   },
   {
     "name": "queueHostBindingForCheck"

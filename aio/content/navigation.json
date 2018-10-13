@@ -473,6 +473,27 @@
           "url": "guide/universal",
           "title": "Server-side Rendering",
           "tooltip": "Render HTML server-side with Angular Universal."
+        },  
+        {
+          "title": "Upgrading from AngularJS",
+          "tooltip": "Incrementally upgrade an AngularJS application to Angular.",
+          "children": [
+            {
+              "url": "guide/upgrade",
+              "title": "Upgrading Instructions",
+              "tooltip": "Incrementally upgrade an AngularJS application to Angular."
+            },
+            {
+              "url": "guide/upgrade-performance",
+              "title": "Upgrading for Performance",
+              "tooltip": "Upgrade from AngularJS to Angular in a more flexible way."
+            },
+            {
+              "url": "guide/ajs-quick-reference",
+              "title": "AngularJS-Angular Concepts",
+              "tooltip": "Learn how AngularJS concepts and techniques map to Angular."
+            }
+          ]
         }
       ]
     },
@@ -532,7 +553,7 @@
 
         { 
           "title": "Dev Tool Integration",
-          "tooltip": "Integration with your development environment and tool information.",
+          "tooltip": "Integrate with your development environment and tools.",
           "children": [
            {
              "url": "guide/language-service",
@@ -541,8 +562,9 @@
            },
            {
              "url": "guide/visual-studio-2015",
-             "title": "Visual Studio 2015 QuickStart",
-             "tooltip": "Use Visual Studio 2015 with the QuickStart files."
+             "title": "Visual Studio 2015",
+             "tooltip": "Using Angular with Visual Studio 2015.",
+             "hidden": true
            }
           ]
         },
@@ -570,22 +592,6 @@
            "url": "guide/updating",
             "title": "Keeping Up-to-Date",
             "tooltip": "Information about updating Angular applications and libraries to the latest version."
-        },       
-        {
-          "title": "Upgrading from AngularJS",
-          "tooltip": "Incrementally upgrade an AngularJS application to Angular.",
-          "children": [
-            {
-              "url": "guide/upgrade",
-              "title": "Upgrading Instructions",
-              "tooltip": "Incrementally upgrade an AngularJS application to Angular."
-            },
-            {
-              "url": "guide/ajs-quick-reference",
-              "title": "AngularJS-Angular Concepts",
-              "tooltip": "Learn how AngularJS concepts and techniques map to Angular."
-            }
-          ]
         }
       ]
     },
@@ -612,22 +618,21 @@
         }
       ]
     },
-
-    {
-      "title": "API",
-      "tooltip": "Details of the Angular packages, classes, interfaces, and other types.",
-      "url": "api"
-    },
     {
       "title": "CLI Commands",
       "tooltip": "Angular CLI command reference.",
       "children": [
         {
-          "title": "Using the CLI",
-          "tooltip": "An overview of how to use the CLI tool",
+          "title": "Overview",
+          "tooltip": "An introduction to the CLI tool, commands, and syntax.",
           "url": "cli"
         }
       ]
+    },
+    {
+      "title": "API",
+      "tooltip": "Details of the Angular packages, classes, interfaces, and other types.",
+      "url": "api"
     },
     {
       "url": "guide/change-log",

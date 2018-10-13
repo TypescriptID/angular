@@ -23,8 +23,8 @@ import {_getViewData, assertPreviousIsParent, getOrCreateCurrentQueries, store, 
 import {DirectiveDef, unusedValueExportToPlacateAjd as unused1} from './interfaces/definition';
 import {unusedValueExportToPlacateAjd as unused2} from './interfaces/injector';
 import {TContainerNode, TElementContainerNode, TElementNode, TNode, TNodeFlags, TNodeType, unusedValueExportToPlacateAjd as unused3} from './interfaces/node';
-import {LQueries, QueryReadType, unusedValueExportToPlacateAjd as unused4} from './interfaces/query';
-import {DIRECTIVES, LViewData, TVIEW} from './interfaces/view';
+import {LQueries, unusedValueExportToPlacateAjd as unused4} from './interfaces/query';
+import {LViewData, TVIEW} from './interfaces/view';
 import {flatten, isContentQueryHost} from './util';
 import {createElementRef, createTemplateRef} from './view_engine_compatibility';
 
@@ -48,7 +48,7 @@ export interface QueryPredicate<T> {
   /**
    * Indicates which token should be read from DI for this query.
    */
-  read: QueryReadType<T>|Type<T>|null;
+  read: Type<T>|null;
 }
 
 /**
@@ -95,7 +95,7 @@ export class LQueries_ implements LQueries {
 
   track<T>(
       queryList: viewEngine_QueryList<T>, predicate: Type<T>|string[], descend?: boolean,
-      read?: QueryReadType<T>|Type<T>): void {
+      read?: Type<T>): void {
     if (descend) {
       this.deep = createQuery(this.deep, queryList, predicate, read != null ? read : null);
     } else {
@@ -251,7 +251,7 @@ function getIdxOfMatchingSelector(tNode: TNode, selector: string): number|null {
  */
 function getIdxOfMatchingDirective(tNode: TNode, currentView: LViewData, type: Type<any>): number|
     null {
-  const defs = currentView[TVIEW].directives;
+  const defs = currentView[TVIEW].data;
   if (defs) {
     const flags = tNode.flags;
     const count = flags & TNodeFlags.DirectiveCountMask;
@@ -275,7 +275,7 @@ function queryRead(tNode: TNode, currentView: LViewData, read: any): any {
   } else {
     const matchingIdx = getIdxOfMatchingDirective(tNode, currentView, read as Type<any>);
     if (matchingIdx !== null) {
-      return currentView[DIRECTIVES] ![matchingIdx];
+      return currentView[matchingIdx];
     }
   }
   return null;
@@ -314,7 +314,7 @@ function add(
             result = queryRead(tNode, currentView, predicate.read);
           } else {
             if (directiveIdx > -1) {
-              result = currentView[DIRECTIVES] ![directiveIdx];
+              result = currentView[directiveIdx];
             } else {
               // if read token and / or strategy is not specified,
               // detect it using appropriate tNode type
@@ -337,8 +337,7 @@ function addMatch(query: LQuery<any>, matchingValue: any): void {
   query.list.setDirty();
 }
 
-function createPredicate<T>(
-    predicate: Type<T>| string[], read: QueryReadType<T>| Type<T>| null): QueryPredicate<T> {
+function createPredicate<T>(predicate: Type<T>| string[], read: Type<T>| null): QueryPredicate<T> {
   const isArray = Array.isArray(predicate);
   return {
     type: isArray ? null : predicate as Type<T>,
@@ -349,7 +348,7 @@ function createPredicate<T>(
 
 function createQuery<T>(
     previous: LQuery<any>| null, queryList: QueryList<T>, predicate: Type<T>| string[],
-    read: QueryReadType<T>| Type<T>| null): LQuery<T> {
+    read: Type<T>| null): LQuery<T> {
   return {
     next: previous,
     list: queryList,

@@ -39,9 +39,6 @@
     "name": "DECLARATION_VIEW"
   },
   {
-    "name": "DIRECTIVES"
-  },
-  {
     "name": "DefaultIterableDiffer"
   },
   {
@@ -72,6 +69,9 @@
     "name": "HEADER_OFFSET"
   },
   {
+    "name": "HOST_NATIVE"
+  },
+  {
     "name": "HOST_NODE"
   },
   {
@@ -88,6 +88,9 @@
   },
   {
     "name": "MONKEY_PATCH_KEY_NAME"
+  },
+  {
+    "name": "NATIVE"
   },
   {
     "name": "NEXT"
@@ -165,10 +168,10 @@
     "name": "RENDER_PARENT"
   },
   {
-    "name": "RecordViewTuple"
+    "name": "ROOT_EXPANDO_INSTRUCTIONS"
   },
   {
-    "name": "Renderer2"
+    "name": "RecordViewTuple"
   },
   {
     "name": "RendererStyleFlags3"
@@ -528,6 +531,9 @@
     "name": "firstTemplatePass"
   },
   {
+    "name": "generateExpandoBlock"
+  },
+  {
     "name": "generateInitialInputs"
   },
   {
@@ -544,9 +550,6 @@
   },
   {
     "name": "getComponentDef"
-  },
-  {
-    "name": "getContainerNode"
   },
   {
     "name": "getContainerRenderParent"
@@ -585,6 +588,9 @@
     "name": "getInjectorIndex"
   },
   {
+    "name": "getLContainer"
+  },
+  {
     "name": "getLElementFromComponent"
   },
   {
@@ -613,9 +619,6 @@
   },
   {
     "name": "getOrCreatePlayerContext"
-  },
-  {
-    "name": "getOrCreateRenderer2"
   },
   {
     "name": "getOrCreateTView"
@@ -759,6 +762,9 @@
     "name": "isJsObject"
   },
   {
+    "name": "isLContainer"
+  },
+  {
     "name": "isListLikeIterable"
   },
   {
@@ -784,9 +790,6 @@
   },
   {
     "name": "listener"
-  },
-  {
-    "name": "load"
   },
   {
     "name": "loadElement"
@@ -832,6 +835,9 @@
   },
   {
     "name": "pointers"
+  },
+  {
+    "name": "prefillHostVars"
   },
   {
     "name": "prepareInitialFlag"
@@ -906,9 +912,6 @@
     "name": "resolveDirective"
   },
   {
-    "name": "sameHostView"
-  },
-  {
     "name": "saveNameToExportMap"
   },
   {
@@ -967,6 +970,9 @@
   },
   {
     "name": "setValue"
+  },
+  {
+    "name": "shouldNotSearchParent"
   },
   {
     "name": "storeCleanupFn"

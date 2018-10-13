@@ -104,13 +104,17 @@ export function getDirectives(target: {}): Array<{}> {
   const context = loadContext(target) !;
 
   if (context.directives === undefined) {
-    context.directives = discoverDirectives(context.nodeIndex, context.lViewData);
+    context.directives = discoverDirectives(context.nodeIndex, context.lViewData, false);
   }
 
   return context.directives || [];
 }
 
-function loadContext(target: {}): LContext {
+/**
+ * Returns LContext associated with a target passed as an argument.
+ * Throws if a given target doesn't have associated LContext.
+ */
+export function loadContext(target: {}): LContext {
   const context = getContext(target);
   if (!context) {
     throw new Error(
