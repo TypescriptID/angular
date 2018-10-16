@@ -321,10 +321,10 @@
     "name": "HEADER_OFFSET"
   },
   {
-    "name": "HOST_ATTR$1"
+    "name": "HOST"
   },
   {
-    "name": "HOST_NATIVE"
+    "name": "HOST_ATTR$1"
   },
   {
     "name": "HOST_NODE"
@@ -1320,9 +1320,6 @@
     "name": "createLContext"
   },
   {
-    "name": "createLNodeObject"
-  },
-  {
     "name": "createLViewData"
   },
   {
@@ -1339,6 +1336,9 @@
   },
   {
     "name": "createRootComponent"
+  },
+  {
+    "name": "createRootComponentView"
   },
   {
     "name": "createRootContext"
@@ -1363,6 +1363,9 @@
   },
   {
     "name": "createViewBlueprint"
+  },
+  {
+    "name": "createViewNode"
   },
   {
     "name": "createViewQuery"
@@ -1611,6 +1614,12 @@
     "name": "getComponentDef"
   },
   {
+    "name": "getComponentViewByIndex"
+  },
+  {
+    "name": "getComponentViewByInstance"
+  },
+  {
     "name": "getContainerRenderParent"
   },
   {
@@ -1653,7 +1662,7 @@
     "name": "getHighestElementContainer"
   },
   {
-    "name": "getHostElementNode"
+    "name": "getHostNative"
   },
   {
     "name": "getInitialIndex"
@@ -1672,12 +1681,6 @@
   },
   {
     "name": "getLContainer"
-  },
-  {
-    "name": "getLElementFromComponent"
-  },
-  {
-    "name": "getLNode"
   },
   {
     "name": "getLViewChild"
@@ -1737,6 +1740,12 @@
     "name": "getNamedFormat"
   },
   {
+    "name": "getNativeByIndex"
+  },
+  {
+    "name": "getNativeByTNode"
+  },
+  {
     "name": "getNgModuleDef"
   },
   {
@@ -1773,7 +1782,7 @@
     "name": "getParentInjectorView"
   },
   {
-    "name": "getParentLNode"
+    "name": "getParentNative"
   },
   {
     "name": "getParentState"
@@ -1792,9 +1801,6 @@
   },
   {
     "name": "getPreviousIndex"
-  },
-  {
-    "name": "getPreviousOrParentNode"
   },
   {
     "name": "getPreviousOrParentTNode"
@@ -1864,9 +1870,6 @@
   },
   {
     "name": "hasValueChanged"
-  },
-  {
-    "name": "hostElement"
   },
   {
     "name": "hostReportError"
@@ -2019,6 +2022,9 @@
     "name": "isScheduler"
   },
   {
+    "name": "isStylingContext"
+  },
+  {
     "name": "isTemplateElement"
   },
   {
@@ -2047,12 +2053,6 @@
   },
   {
     "name": "listener"
-  },
-  {
-    "name": "loadElement"
-  },
-  {
-    "name": "loadElementInternal"
   },
   {
     "name": "loadInternal"
@@ -2110,9 +2110,6 @@
   },
   {
     "name": "nativeInsertBefore"
-  },
-  {
-    "name": "nativeNodeLocalRefExtractor"
   },
   {
     "name": "nextContext"

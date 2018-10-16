@@ -8,26 +8,10 @@
 
 import {StyleSanitizeFn} from '../../sanitization/style_sanitizer';
 import {InitialStylingFlags} from '../interfaces/definition';
-import {LElementNode} from '../interfaces/node';
 import {Renderer3, RendererStyleFlags3, isProceduralRenderer} from '../interfaces/renderer';
 import {InitialStyles, StylingContext, StylingFlags, StylingIndex} from '../interfaces/styling';
 
 import {EMPTY_ARR, EMPTY_OBJ, createEmptyStylingContext} from './util';
-
-
-/**
- * Used clone a copy of a pre-computed template of a styling context.
- *
- * A pre-computed template is designed to be computed once for a given element
- * (instructions.ts has logic for caching this).
- */
-export function allocStylingContext(
-    lElement: LElementNode | null, templateStyleContext: StylingContext): StylingContext {
-  // each instance gets a copy
-  const context = templateStyleContext.slice() as any as StylingContext;
-  context[StylingIndex.ElementPosition] = lElement;
-  return context;
-}
 
 /**
  * Creates a styling context template where styling information is stored.
@@ -403,7 +387,7 @@ export function renderStyling(
     context: StylingContext, renderer: Renderer3, styleStore?: {[key: string]: any},
     classStore?: {[key: string]: boolean}) {
   if (isContextDirty(context)) {
-    const native = context[StylingIndex.ElementPosition] !.native;
+    const native = context[StylingIndex.ElementPosition] !;
     const multiStartIndex = getMultiStartIndex(context);
     const styleSanitizer = getStyleSanitizer(context);
     for (let i = StylingIndex.SingleStylesStartPosition; i < context.length;

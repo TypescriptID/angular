@@ -7,8 +7,8 @@
  */
 
 import {StyleSanitizeFn} from '../../sanitization/style_sanitizer';
+import {RElement} from '../interfaces/renderer';
 
-import {LElementNode} from './node';
 import {PlayerContext} from './player';
 
 
@@ -118,14 +118,8 @@ import {PlayerContext} from './player';
  * `updateStyleProp` or `updateClassProp` cannot be called with a new property (only
  * `updateStylingMap` can include new CSS properties that will be added to the context).
  */
-export interface StylingContext extends
-    Array<InitialStyles|{[key: string]: any}|number|string|boolean|LElementNode|StyleSanitizeFn|
-          PlayerContext|null> {
-  /**
-   * Location of element that is used as a target for this context.
-   */
-  [StylingIndex.ElementPosition]: LElementNode|null;
-
+export interface StylingContext extends Array<InitialStyles|{[key: string]: any}|number|string|
+                                              boolean|RElement|StyleSanitizeFn|PlayerContext|null> {
   /**
    * Location of animation context (which contains the active players) for this element styling
    * context.
@@ -155,6 +149,11 @@ export interface StylingContext extends
    * need to take into account any style values that exist in the context.
    */
   [StylingIndex.ClassOffsetPosition]: number;
+
+  /**
+   * Location of element that is used as a target for this context.
+   */
+  [StylingIndex.ElementPosition]: RElement|null;
 
   /**
    * The last class value that was interpreted by elementStylingMap. This is cached
@@ -201,17 +200,18 @@ export const enum StylingFlags {
 /** Used as numeric pointer values to determine what cells to update in the `StylingContext` */
 export const enum StylingIndex {
   // Position of where the initial styles are stored in the styling context
-  ElementPosition = 0,
-  // Position of where the initial styles are stored in the styling context
-  PlayerContext = 1,
+  PlayerContext = 0,
   // Position of where the style sanitizer is stored within the styling context
-  StyleSanitizerPosition = 2,
+  StyleSanitizerPosition = 1,
   // Position of where the initial styles are stored in the styling context
-  InitialStylesPosition = 3,
+  InitialStylesPosition = 2,
   // Index of location where the start of single properties are stored. (`updateStyleProp`)
-  MasterFlagPosition = 4,
+  MasterFlagPosition = 3,
   // Index of location where the class index offset value is located
-  ClassOffsetPosition = 5,
+  ClassOffsetPosition = 4,
+  // Position of where the initial styles are stored in the styling context
+  // This index must align with HOST, see interfaces/view.ts
+  ElementPosition = 5,
   // Position of where the last string-based CSS class value was stored
   PreviousMultiClassValue = 6,
   // Position of where the last string-based CSS class value was stored

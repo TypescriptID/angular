@@ -39,7 +39,7 @@
     "name": "HEADER_OFFSET"
   },
   {
-    "name": "HOST_NATIVE"
+    "name": "HOST"
   },
   {
     "name": "HOST_NODE"
@@ -156,9 +156,6 @@
     "name": "componentRefresh"
   },
   {
-    "name": "createLNodeObject"
-  },
-  {
     "name": "createLViewData"
   },
   {
@@ -166,6 +163,9 @@
   },
   {
     "name": "createRootComponent"
+  },
+  {
+    "name": "createRootComponentView"
   },
   {
     "name": "createRootContext"
@@ -231,6 +231,9 @@
     "name": "getComponentDef"
   },
   {
+    "name": "getComponentViewByIndex"
+  },
+  {
     "name": "getContainerRenderParent"
   },
   {
@@ -240,7 +243,7 @@
     "name": "getHighestElementContainer"
   },
   {
-    "name": "getHostElementNode"
+    "name": "getHostNative"
   },
   {
     "name": "getInjectorIndex"
@@ -249,10 +252,10 @@
     "name": "getLContainer"
   },
   {
-    "name": "getLNode"
+    "name": "getLViewChild"
   },
   {
-    "name": "getLViewChild"
+    "name": "getNativeByTNode"
   },
   {
     "name": "getOrCreateNodeInjector"
@@ -270,7 +273,7 @@
     "name": "getParentInjectorView"
   },
   {
-    "name": "getParentLNode"
+    "name": "getParentNative"
   },
   {
     "name": "getPipeDef"
@@ -283,9 +286,6 @@
   },
   {
     "name": "getRenderParent"
-  },
-  {
-    "name": "hostElement"
   },
   {
     "name": "invertObject"
