@@ -34,7 +34,7 @@ Another simple way to deploy your Angular app is to use [GitHub Pages](https://h
 1. You need to [create a GitHub account](https://github.com/join) if you don't have one, and then [create a repository](https://help.github.com/articles/create-a-repo/) for your project. 
 Make a note of the user name and project name in GitHub.
 
-1. Build your project using Github project name, with the following CLI command:
+1. Build your project using Github project name, with the Angular CLI command [`ng build`](cli/build) and the options shown here:
    <code-example language="none" class="code-shell">
      ng build --prod --output-path docs --base-href <project_name>
     </code-example>
@@ -47,7 +47,7 @@ Make a note of the user name and project name in GitHub.
 
 You can see your deployed page at `https://<user_name>.github.io/<project_name>/`.
 
-<div class="alert-is-helpful>
+<div class="alert is-helpful>
 
  Check out [angular-cli-ghpages](https://github.com/angular-buch/angular-cli-ghpages), a full featured package that does all this for you and has extra functionality.
 
@@ -99,7 +99,7 @@ The list is by no means exhaustive, but should provide you with a good starting 
 
 #### Development servers
 
-During development, the `ng serve` command lets you run your app in a local browser. 
+During development, the [`ng serve`](cli/serve) CLI command lets you run your app in a local browser. 
 The CLI recompiles the application each time you save a file, 
 and reloads the browser with the newly compiled application. 
 
@@ -253,8 +253,7 @@ The `--prod` _meta-flag_ engages the following optimization features.
 
 The remaining [copy deployment steps](#copy-files) are the same as before.
 
-See [Building and serving Angular apps](guide/build) 
-for more about CLI build options and what they do.
+See [`ng build`](cli/build) for more about CLI build options and what they do.
 
 {@a enable-prod-mode}
 
@@ -284,7 +283,7 @@ Configure the Angular Router to defer loading of all other modules (and their as
 or by [_lazy loading_](guide/router#asynchronous-routing "Lazy loading")
 them on demand.
 
-<div class="alert-is-helpful>
+<div class="alert is-helpful>
 
 #### Don't eagerly import something from a lazy-loaded module
 
@@ -410,4 +409,4 @@ ng build --watch
 ```
 Like the `ng serve` command, this regenerates output files when source files change. 
 
-For complete details of the CLI commands and configuration options, see the [CLI command reference](cli).
+For complete details of the CLI commands, see the [CLI command reference](cli).

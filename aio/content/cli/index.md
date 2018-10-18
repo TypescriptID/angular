@@ -58,9 +58,9 @@ When you use the [ng serve](cli/serve) command to build an app and serve it loca
 A single workspace configuration file, `angular.json`, is created at the top level of the workspace. 
 This is where you can set workspace-wide defaults, and specify configurations to use when the CLI builds a project for different targets.
 
-The `[ng config](cli/config) command lets you set and retrieve configuration values from the command line, or you can edit the `angular.json` file directly.
+The [ng config](cli/config) command lets you set and retrieve configuration values from the command line, or you can edit the `angular.json` file directly.
 
-* See the [complete schema](https://github.com/angular/angular-cli/wiki/angular-workspace) for `angular.json`. 
+* See the [complete schema](https://github.com/angular/angular-cli/wiki/angular-workspace) for `angular.json`.
 <!-- * Learn more about *configuration options for Angular(links to new guide or topics TBD)*. -->
 
 
@@ -88,9 +88,7 @@ Command syntax is shown as follows:
 Boolean options have two forms: `--thisOption` sets the flag, `--noThisOption` clears it.  
 If neither option is supplied, the flag remains in its default state, as listed in the reference documentation.
 
-Allowed values are given with each enumerated option description, with the default value in **bold**. For example:
-
- `--optionNameOrAlias=`**allowedValue1**`|allowedValue2|allowedValue3`
+Allowed values are given with each enumerated option description, with the default value in **bold**.
 
 ### Relative paths
 
