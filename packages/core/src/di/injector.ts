@@ -26,7 +26,7 @@ export const THROW_IF_NOT_FOUND = _THROW_IF_NOT_FOUND;
  * Requesting this token instead of `Injector` allows `StaticInjector` to be tree-shaken from a
  * project.
  *
- * @experimental
+ * @publicApi
  */
 export const INJECTOR = new InjectionToken<Injector>('INJECTOR');
 
@@ -57,7 +57,7 @@ export class NullInjector implements Injector {
  *
  * {@example core/di/ts/injector_spec.ts region='injectInjector'}
  *
- *
+ * @publicApi
  */
 export abstract class Injector {
   static THROW_IF_NOT_FOUND = _THROW_IF_NOT_FOUND;
@@ -399,6 +399,8 @@ function staticError(text: string, obj: any): Error {
 
 /**
  * Injection flags for DI.
+ *
+ * @publicApi
  */
 export const enum InjectFlags {
   Default = 0b0000,
@@ -445,7 +447,7 @@ export function setCurrentInjector(injector: Injector | null | undefined): Injec
  * of providing an additional array of dependencies as was common to do with `useFactory` providers.
  * `inject` is faster and more type-safe.
  *
- * @experimental
+ * @publicApi
  */
 export function inject<T>(token: Type<T>| InjectionToken<T>): T;
 export function inject<T>(token: Type<T>| InjectionToken<T>, flags?: InjectFlags): T|null;

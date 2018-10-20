@@ -1,4 +1,3 @@
-
 /**
  * @license
  * Copyright Google Inc. All Rights Reserved.
@@ -7,4 +6,4 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-export * from './ivy_switch_on';
+module.exports = require('./src/protractor/utils');
