@@ -5,11 +5,17 @@ ts_library(
     testonly = True,
     srcs = glob(["**/*.ts"]),
     deps = [
+        "//packages:types",
+        "//packages/animations",
+        "//packages/animations/browser",
+        "//packages/animations/browser/testing",
+        "//packages/common",
+        "//packages/compiler",
         "//packages/core",
         "//packages/core/testing",
-        "//packages/http",
-        "//packages/http/testing",
         "//packages/platform-browser",
+        "//packages/platform-browser-dynamic",
+        "//packages/platform-browser/animations",
         "//packages/platform-browser/testing",
         "@rxjs",
     ],
@@ -18,7 +24,10 @@ ts_library(
 jasmine_node_test(
     name = "test",
     bootstrap = ["angular/tools/testing/init_node_spec.js"],
-    tags = ["fixme-ivy-aot"],
+    tags = [
+        "fixme-ivy-aot",
+        "fixme-ivy-jit",
+    ],
     deps = [
         ":test_lib",
         "//tools/testing:node",
@@ -27,9 +36,11 @@ jasmine_node_test(
 
 ts_web_test_suite(
     name = "test_web",
-    tags = ["fixme-ivy-aot"],
+    tags = [
+        "fixme-ivy-aot",
+        "fixme-ivy-jit",
+    ],
     deps = [
         ":test_lib",
-        "@ngdeps//karma",
     ],
 )
