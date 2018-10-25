@@ -25,7 +25,7 @@ export {
   getFactoryOf as ɵgetFactoryOf,
   getInheritedFactory as ɵgetInheritedFactory,
   templateRefExtractor as ɵtemplateRefExtractor,
-  PublicFeature as ɵPublicFeature,
+  ProvidersFeature as ɵProvidersResolver,
   InheritDefinitionFeature as ɵInheritDefinitionFeature,
   NgOnChangesFeature as ɵNgOnChangesFeature,
   NgModuleType as ɵNgModuleType,
@@ -223,5 +223,11 @@ export {
   SWITCH_RENDERER2_FACTORY__POST_R3__ as ɵSWITCH_RENDERER2_FACTORY__POST_R3__,
 } from './render/api';
 
+export {
+  publishGlobalUtil as ɵpublishGlobalUtil
+} from './render3/publish_global_util';
+export {
+  SWITCH_INJECTOR_FACTORY__POST_R3__ as ɵSWITCH_INJECTOR_FACTORY__POST_R3__,
+} from './di/injector';
 
 // clang-format on

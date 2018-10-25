@@ -8,9 +8,10 @@
 
 import {EventEmitter} from '@angular/core';
 
-import {AttributeMarker, PublicFeature, defineComponent, template, defineDirective} from '../../src/render3/index';
-import {NO_CHANGE, bind, container, containerRefreshEnd, containerRefreshStart, element, elementEnd, elementProperty, elementStart, embeddedViewEnd, embeddedViewStart, interpolation1, listener, load, reference, text, textBinding} from '../../src/render3/instructions';
+import {AttributeMarker, defineComponent, template, defineDirective} from '../../src/render3/index';
+import {bind, container, containerRefreshEnd, containerRefreshStart, element, elementEnd, elementProperty, elementStart, embeddedViewEnd, embeddedViewStart, interpolation1, listener, load, reference, text, textBinding} from '../../src/render3/instructions';
 import {RenderFlags} from '../../src/render3/interfaces/definition';
+import {NO_CHANGE} from '../../src/render3/tokens';
 import {pureFunction1, pureFunction2} from '../../src/render3/pure_function';
 
 import {ComponentFixture, TemplateFixture, createComponent, renderToHtml, createDirective} from './render_util';
@@ -167,8 +168,7 @@ describe('elementProperty', () => {
           hostVars: 1,
           hostBindings: (directiveIndex: number, elementIndex: number) => {
             elementProperty(elementIndex, 'id', bind(load<HostBindingDir>(directiveIndex).id));
-          },
-          features: [PublicFeature]
+          }
         });
       }
 
@@ -189,8 +189,7 @@ describe('elementProperty', () => {
             const ctx = load(dirIndex) as HostBindingComp;
             elementProperty(elIndex, 'title', bind(ctx.title));
           },
-          template: (rf: RenderFlags, ctx: HostBindingComp) => {},
-          features: [PublicFeature]
+          template: (rf: RenderFlags, ctx: HostBindingComp) => {}
         });
       }
 
@@ -230,8 +229,7 @@ describe('elementProperty', () => {
           hostVars: 1,
           hostBindings: (directiveIndex: number, elementIndex: number) => {
             elementProperty(elementIndex, 'id', bind(load<HostBindingDir>(directiveIndex).id));
-          },
-          features: [PublicFeature]
+          }
         });
       }
 
@@ -271,8 +269,7 @@ describe('elementProperty', () => {
           hostVars: 1,
           hostBindings: (directiveIndex: number, elementIndex: number) => {
             elementProperty(elementIndex, 'id', bind(load<HostBindingDir>(directiveIndex).id));
-          },
-          features: [PublicFeature]
+          }
         });
       }
 

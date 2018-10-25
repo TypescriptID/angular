@@ -9,11 +9,12 @@ import {Injector} from '../di/injector';
 
 import {assertDefined} from './assert';
 import {discoverDirectives, discoverLocalRefs, getContext, isComponentInstance} from './context_discovery';
-import {NodeInjector} from './di';
 import {LContext} from './interfaces/context';
 import {TElementNode, TNode, TNodeFlags} from './interfaces/node';
 import {CONTEXT, FLAGS, LViewData, LViewFlags, PARENT, RootContext, TVIEW} from './interfaces/view';
 import {getComponentViewByIndex, readPatchedLViewData} from './util';
+import {NodeInjector} from './view_engine_compatibility';
+
 
 
 /**
@@ -37,14 +38,14 @@ export function getComponent<T = {}>(target: {}): T|null {
   const context = loadContext(target) !;
 
   if (context.component === undefined) {
-    let lViewData = context.lViewData;
+    let lViewData: LViewData|null = context.lViewData;
     while (lViewData) {
       const ctx = lViewData ![CONTEXT] !as{};
       if (ctx && isComponentInstance(ctx)) {
         context.component = ctx;
         break;
       }
-      lViewData = lViewData ![PARENT] !;
+      lViewData = lViewData[FLAGS] & LViewFlags.IsRoot ? null : lViewData ![PARENT] !;
     }
     if (context.component === undefined) {
       context.component = null;

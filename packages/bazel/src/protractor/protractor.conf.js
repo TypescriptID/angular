@@ -100,17 +100,15 @@ if (process.env['WEB_TEST_METADATA']) {
     const webTestNamedFiles = webTestMetadata['webTestFiles'][0]['namedFiles'];
     const headless = !process.env['DISPLAY'];
     if (webTestNamedFiles['CHROMIUM']) {
-      const chromeBin = path.join(process.cwd(), 'external', webTestNamedFiles['CHROMIUM']);
+      const chromeBin = require.resolve(webTestNamedFiles['CHROMIUM']);
+      const chromeDriver = require.resolve(webTestNamedFiles['CHROMEDRIVER']);
       const args = [];
       if (headless) {
         args.push('--headless');
         args.push('--disable-gpu');
       }
       setConf(conf, 'directConnect', true, 'is set to true for chrome');
-      setConf(
-          conf, 'chromeDriver',
-          path.join(process.cwd(), 'external', webTestNamedFiles['CHROMEDRIVER']),
-          'is determined by the browsers attribute');
+      setConf(conf, 'chromeDriver', chromeDriver, 'is determined by the browsers attribute');
       setConf(
           conf, 'capabilities', {
             browserName: 'chrome',
@@ -125,7 +123,7 @@ if (process.env['WEB_TEST_METADATA']) {
       // TODO(gmagolan): implement firefox support for protractor
       throw new Error('Firefox not yet support by protractor_web_test_suite');
 
-      // const firefoxBin = path.join('external', webTestNamedFiles['FIREFOX']);
+      // const firefoxBin = require.resolve(webTestNamedFiles['FIREFOX'])
       // const args = [];
       // if (headless) {
       //   args.push("--headless")

@@ -14,7 +14,7 @@ import {Renderer2} from '@angular/core/src/render/api';
 import {stringifyElement} from '@angular/platform-browser/testing/src/browser_util';
 
 import {SWITCH_CHANGE_DETECTOR_REF_FACTORY__POST_R3__ as R3_CHANGE_DETECTOR_REF_FACTORY} from '../../src/change_detection/change_detector_ref';
-import {Injector} from '../../src/di/injector';
+import {Injector, SWITCH_INJECTOR_FACTORY__POST_R3__ as R3_INJECTOR_FACTORY} from '../../src/di/injector';
 import {SWITCH_ELEMENT_REF_FACTORY__POST_R3__ as R3_ELEMENT_REF_FACTORY} from '../../src/linker/element_ref';
 import {SWITCH_TEMPLATE_REF_FACTORY__POST_R3__ as R3_TEMPLATE_REF_FACTORY} from '../../src/linker/template_ref';
 import {SWITCH_VIEW_CONTAINER_REF_FACTORY__POST_R3__ as R3_VIEW_CONTAINER_REF_FACTORY} from '../../src/linker/view_container_ref';
@@ -23,12 +23,13 @@ import {CreateComponentOptions} from '../../src/render3/component';
 import {discoverDirectives, getContext, isComponentInstance} from '../../src/render3/context_discovery';
 import {extractDirectiveDef, extractPipeDef} from '../../src/render3/definition';
 import {NG_ELEMENT_ID} from '../../src/render3/fields';
-import {ComponentTemplate, ComponentType, DirectiveDef, DirectiveType, PublicFeature, RenderFlags, defineComponent, defineDirective, renderComponent as _renderComponent, tick} from '../../src/render3/index';
-import {_getViewData, renderTemplate} from '../../src/render3/instructions';
+import {ComponentTemplate, ComponentType, DirectiveDef, DirectiveType, RenderFlags, defineComponent, defineDirective, renderComponent as _renderComponent, tick} from '../../src/render3/index';
+import {renderTemplate} from '../../src/render3/instructions';
 import {DirectiveDefList, DirectiveTypesOrFactory, PipeDef, PipeDefList, PipeTypesOrFactory} from '../../src/render3/interfaces/definition';
 import {PlayerHandler} from '../../src/render3/interfaces/player';
 import {RElement, RText, Renderer3, RendererFactory3, domRendererFactory3} from '../../src/render3/interfaces/renderer';
 import {HEADER_OFFSET, LViewData} from '../../src/render3/interfaces/view';
+import {getViewData} from '../../src/render3/state';
 import {Sanitizer} from '../../src/sanitization/security';
 import {Type} from '../../src/type';
 
@@ -275,7 +276,6 @@ export function createComponent(
       factory: () => new Component,
       template: template,
       viewQuery: viewQuery,
-      features: [PublicFeature],
       directives: directives,
       pipes: pipes
     });
@@ -289,7 +289,6 @@ export function createDirective(
       type: Directive,
       selectors: [['', name, '']],
       factory: () => new Directive(),
-      features: [PublicFeature],
       exportAs: exportAs,
     });
   };
@@ -297,7 +296,7 @@ export function createDirective(
 
 /** Gets the directive on the given node at the given index */
 export function getDirectiveOnNode(nodeIndex: number, dirIndex: number = 0) {
-  const directives = discoverDirectives(nodeIndex + HEADER_OFFSET, _getViewData(), true);
+  const directives = discoverDirectives(nodeIndex + HEADER_OFFSET, getViewData(), true);
   if (directives == null) {
     throw new Error(`No directives exist on node in slot ${nodeIndex}`);
   }
@@ -323,4 +322,5 @@ export function enableIvyInjectableFactories() {
       R3_VIEW_CONTAINER_REF_FACTORY(ViewContainerRef, ElementRef);
   (ChangeDetectorRef as any)[NG_ELEMENT_ID] = () => R3_CHANGE_DETECTOR_REF_FACTORY();
   (Renderer2 as any)[NG_ELEMENT_ID] = () => R3_RENDERER2_FACTORY();
+  (Injector as any)[NG_ELEMENT_ID] = () => R3_INJECTOR_FACTORY();
 }
