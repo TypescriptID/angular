@@ -86,7 +86,7 @@ export interface R3DirectiveMetadata {
   /**
    * A mapping of input field names to the property names.
    */
-  inputs: {[field: string]: string};
+  inputs: {[field: string]: string | string[]};
 
   /**
    * A mapping of output field names to the property names.
@@ -159,11 +159,11 @@ export interface R3ComponentMetadata extends R3DirectiveMetadata {
   directives: Map<string, o.Expression>;
 
   /**
-   * Whether to wrap the 'directives' array, if one is generated, in a closure.
+   * Whether to wrap the 'directives' and/or `pipes` array, if one is generated, in a closure.
    *
-   * This is done when the directives contain forward references.
+   * This is done when the directives or pipes contain forward references.
    */
-  wrapDirectivesInClosure: boolean;
+  wrapDirectivesAndPipesInClosure: boolean;
 
   /**
    * A collection of styling data that will be applied and scoped to the component.

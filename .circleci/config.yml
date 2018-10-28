@@ -19,21 +19,7 @@ var_2: &cache_key v2-angular-{{ .Branch }}-{{ checksum "yarn.lock" }}-0.7.0
 var_3: &define_env_vars
   run:
     name: Define environment variables
-    command: |
-      echo "export PROJECT_ROOT=$(pwd)" | tee -a $BASH_ENV
-      echo "export CI_AIO_MIN_PWA_SCORE=95" | tee -a $BASH_ENV
-      # This is the branch being built; e.g. `pull/12345` for PR builds.
-      echo "export CI_BRANCH=$CIRCLE_BRANCH" | tee -a $BASH_ENV
-      echo "export CI_COMMIT=$CIRCLE_SHA1" | tee -a $BASH_ENV
-      # `CI_COMMIT_RANGE` will only be available when `CIRCLE_COMPARE_URL` is also available,
-      # i.e. on push builds (a.k.a. non-PR builds). That is fine, since we only need it in push builds.
-      echo "export CI_COMMIT_RANGE=$(sed -r 's|^.*/([0-9a-f]+\.\.\.[0-9a-f]+)$|\1|i' <<< ${CIRCLE_COMPARE_URL:-})" | tee -a $BASH_ENV
-      echo "export CI_PULL_REQUEST=${CIRCLE_PR_NUMBER:-false}" | tee -a $BASH_ENV
-      echo "export CI_REPO_NAME=$CIRCLE_PROJECT_REPONAME" | tee -a $BASH_ENV
-      echo "export CI_REPO_OWNER=$CIRCLE_PROJECT_USERNAME" | tee -a $BASH_ENV
-      # WARNING: Secrets (do not print).
-      echo "export CI_SECRET_AIO_DEPLOY_FIREBASE_TOKEN=$AIO_DEPLOY_TOKEN" >> $BASH_ENV
-      echo "export CI_SECRET_PAYLOAD_FIREBASE_TOKEN=$ANGULAR_PAYLOAD_TOKEN" >> $BASH_ENV
+    command: ./.circleci/env.sh
 
 # See remote cache documentation in /docs/BAZEL.md
 var_4: &setup-bazel-remote-cache
@@ -46,6 +32,12 @@ var_5: &setup_bazel_remote_execution
   run:
     name: "Setup bazel RBE remote execution"
     command: openssl aes-256-cbc -d -in .circleci/gcp_token -k "$CI_REPO_NAME" -out /home/circleci/.gcp_credentials && echo "export GOOGLE_APPLICATION_CREDENTIALS=/home/circleci/.gcp_credentials" >> $BASH_ENV && sudo bash -c "cat .circleci/rbe-bazel.rc >> /etc/bazel.bazelrc"
+
+var_7: &start-xvfb
+  run:
+    name: Running X virtual framebuffer
+    command: Xvfb :99 -screen 0 1280x1024x24
+    background: true
 
 # Settings common to each job
 anchor_1: &job_defaults
@@ -65,9 +57,9 @@ jobs:
     <<: *job_defaults
     resource_class: xlarge
     steps:
-      - *define_env_vars
       - checkout:
           <<: *post_checkout
+      - *define_env_vars
       - run: sudo cp .circleci/bazel.rc /etc/bazel.bazelrc
 
       # Check BUILD.bazel formatting before we have a node_modules directory
@@ -88,9 +80,9 @@ jobs:
     <<: *job_defaults
     resource_class: xlarge
     steps:
-      - *define_env_vars
       - checkout:
           <<: *post_checkout
+      - *define_env_vars
       - run: sudo cp .circleci/bazel.rc /etc/bazel.bazelrc
 
       - run: bazel info release
@@ -132,34 +124,35 @@ jobs:
     <<: *job_defaults
     resource_class: xlarge
     steps:
-      - *define_env_vars
       - checkout:
           <<: *post_checkout
+      - *define_env_vars
       - run: sudo cp .circleci/bazel.rc /etc/bazel.bazelrc
 
       - run: bazel run @yarn//:yarn
       - *setup_bazel_remote_execution
-      - run: bazel test //... --define=compile=jit --build_tag_filters=ivy-jit --test_tag_filters=ivy-jit
+      - run: yarn test-ivy-jit //...
 
   test_ivy_aot:
     <<: *job_defaults
     resource_class: xlarge
     steps:
-      - *define_env_vars
       - checkout:
           <<: *post_checkout
+      - *define_env_vars
       - run: sudo cp .circleci/bazel.rc /etc/bazel.bazelrc
 
       - run: bazel run @yarn//:yarn
       - *setup_bazel_remote_execution
-      - run: bazel test //... --define=compile=aot --build_tag_filters=ivy-aot --test_tag_filters=ivy-aot
+      - run: yarn test-ivy-aot //...
 
-  test_and_deploy_aio:
+  test_aio:
     <<: *job_defaults
     steps:
-      - *define_env_vars
       - checkout:
           <<: *post_checkout
+      - *define_env_vars
+      - *start-xvfb
       - restore_cache:
           key: *cache_key
         # Build aio
@@ -168,28 +161,37 @@ jobs:
       - run: yarn --cwd aio lint
         # Run PWA-score tests
         # (Run before unit and e2e tests, which destroy the `dist/` directory.)
-      - run:
-          name: Run PWA-score tests
-          command: xvfb-run --auto-servernum yarn --cwd aio test-pwa-score-localhost $CI_AIO_MIN_PWA_SCORE
+      - run: yarn --cwd aio test-pwa-score-localhost $CI_AIO_MIN_PWA_SCORE
         # Check the bundle sizes.
         # (Run before unit and e2e tests, which destroy the `dist/` directory.)
       - run: yarn --cwd aio payload-size
         # Run unit tests
-      - run: xvfb-run --auto-servernum yarn --cwd aio test --watch=false
+      - run: yarn --cwd aio test --watch=false
         # Run e2e tests
-      - run: xvfb-run --auto-servernum yarn --cwd aio e2e
+      - run: yarn --cwd aio e2e
         # Run unit tests for Firebase redirects
       - run: yarn --cwd aio redirects-test
+
+  deploy_aio:
+    <<: *job_defaults
+    steps:
+      - checkout:
+          <<: *post_checkout
+      - *define_env_vars
+      - *start-xvfb
+      - restore_cache:
+          key: *cache_key
         # Deploy angular.io to production (if necessary)
-      - run: echo "export CI_STABLE_BRANCH=$(npm info @angular/core dist-tags.latest | sed -r 's/^\s*([0-9]+\.[0-9]+)\.[0-9]+.*$/\1.x/')" | tee -a $BASH_ENV
-      - run: xvfb-run --auto-servernum yarn --cwd aio deploy-production
+      - run: setPublicVar CI_STABLE_BRANCH "$(npm info @angular/core dist-tags.latest | sed -r 's/^\s*([0-9]+\.[0-9]+)\.[0-9]+.*$/\1.x/')"
+      - run: yarn --cwd aio deploy-production
 
   test_aio_local:
     <<: *job_defaults
     steps:
-      - *define_env_vars
       - checkout:
           <<: *post_checkout
+      - *define_env_vars
+      - *start-xvfb
       - attach_workspace:
           at: dist
       - restore_cache:
@@ -198,20 +200,18 @@ jobs:
       - run: yarn --cwd aio build-local --progress=false
         # Run PWA-score tests
         # (Run before unit and e2e tests, which destroy the `dist/` directory.)
-      - run:
-          name: Run PWA-score tests
-          command: xvfb-run --auto-servernum yarn --cwd aio test-pwa-score-localhost $CI_AIO_MIN_PWA_SCORE
+      - run: yarn --cwd aio test-pwa-score-localhost $CI_AIO_MIN_PWA_SCORE
         # Run unit tests
-      - run: xvfb-run --auto-servernum yarn --cwd aio test --watch=false
+      - run: yarn --cwd aio test --watch=false
         # Run e2e tests
-      - run: xvfb-run --auto-servernum yarn --cwd aio e2e
+      - run: yarn --cwd aio e2e
 
   test_aio_tools:
     <<: *job_defaults
     steps:
-      - *define_env_vars
       - checkout:
           <<: *post_checkout
+      - *define_env_vars
       - attach_workspace:
           at: dist
       - restore_cache:
@@ -226,9 +226,10 @@ jobs:
   test_docs_examples_0:
     <<: *job_defaults
     steps:
-      - *define_env_vars
       - checkout:
           <<: *post_checkout
+      - *define_env_vars
+      - *start-xvfb
       - attach_workspace:
           at: dist
       - restore_cache:
@@ -238,14 +239,15 @@ jobs:
         # Install aio
       - run: yarn --cwd aio install --frozen-lockfile --non-interactive
         # Run examples tests
-      - run: xvfb-run --auto-servernum yarn --cwd aio example-e2e --setup --local --shard=0/2
+      - run: yarn --cwd aio example-e2e --setup --local --shard=0/2
 
   test_docs_examples_1:
     <<: *job_defaults
     steps:
-      - *define_env_vars
       - checkout:
           <<: *post_checkout
+      - *define_env_vars
+      - *start-xvfb
       - attach_workspace:
           at: dist
       - restore_cache:
@@ -255,7 +257,7 @@ jobs:
         # Install aio
       - run: yarn --cwd aio install --frozen-lockfile --non-interactive
         # Run examples tests
-      - run: xvfb-run --auto-servernum yarn --cwd aio example-e2e --setup --local --shard=1/2
+      - run: yarn --cwd aio example-e2e --setup --local --shard=1/2
 
   # This job should only be run on PR builds, where `CI_PULL_REQUEST` is not `false`.
   aio_preview:
@@ -263,9 +265,9 @@ jobs:
     environment:
        AIO_SNAPSHOT_ARTIFACT_PATH: &aio_preview_artifact_path 'aio/tmp/snapshot.tgz'
     steps:
-      - *define_env_vars
       - checkout:
           <<: *post_checkout
+      - *define_env_vars
       - restore_cache:
           key: *cache_key
       - run: yarn install --frozen-lockfile --non-interactive
@@ -280,15 +282,16 @@ jobs:
   test_aio_preview:
     <<: *job_defaults
     steps:
-      - *define_env_vars
       - checkout:
           <<: *post_checkout
+      - *define_env_vars
+      - *start-xvfb
       - restore_cache:
           key: *cache_key
       - run: yarn install --cwd aio --frozen-lockfile --non-interactive
       - run:
           name: Wait for preview and run tests
-          command: xvfb-run --auto-servernum node aio/scripts/test-preview.js $CI_PULL_REQUEST $CI_COMMIT $CI_AIO_MIN_PWA_SCORE
+          command: node aio/scripts/test-preview.js $CI_PULL_REQUEST $CI_COMMIT $CI_AIO_MIN_PWA_SCORE
 
   # This job exists only for backwards-compatibility with old scripts and tests
   # that rely on the pre-Bazel dist/packages-dist layout.
@@ -301,9 +304,9 @@ jobs:
     <<: *job_defaults
     resource_class: xlarge
     steps:
-      - *define_env_vars
       - checkout:
           <<: *post_checkout
+      - *define_env_vars
       - run: sudo cp .circleci/bazel.rc /etc/bazel.bazelrc
       - run: bazel run @nodejs//:yarn
       - *setup_bazel_remote_execution
@@ -331,18 +334,21 @@ jobs:
     # on a 4G worker so we use a larger machine here too.
     resource_class: xlarge
     steps:
-      - *define_env_vars
       - checkout:
           <<: *post_checkout
+      - *define_env_vars
+      - *start-xvfb
       - attach_workspace:
           at: dist
-      - run: xvfb-run --auto-servernum ./integration/run_tests.sh
+      - run: ./integration/run_tests.sh
 
   # This job updates the content of repos like github.com/angular/core-builds
   # for every green build on angular/angular.
   publish_snapshot:
     <<: *job_defaults
     steps:
+      - checkout:
+          <<: *post_checkout
       - *define_env_vars
       # See below - ideally this job should not trigger for non-upstream builds.
       # But since it does, we have to check this condition.
@@ -354,8 +360,6 @@ jobs:
               || "$CI_REPO_OWNER" != "angular"
               || "$CI_REPO_NAME" != "angular"
           ]] && circleci step halt || true'
-      - checkout:
-          <<: *post_checkout
       - attach_workspace:
           at: dist
       # CircleCI has a config setting to force SSH for all github connections
@@ -370,14 +374,15 @@ jobs:
   aio_monitoring:
     <<: *job_defaults
     steps:
-      - *define_env_vars
       - checkout:
           <<: *post_checkout
+      - *define_env_vars
+      - *start-xvfb
       - restore_cache:
           key: *cache_key
       - run:
           name: Run tests against the deployed apps
-          command: xvfb-run --auto-servernum ./aio/scripts/test-production.sh $CI_AIO_MIN_PWA_SCORE
+          command: ./aio/scripts/test-production.sh $CI_AIO_MIN_PWA_SCORE
 
 workflows:
   version: 2
@@ -388,7 +393,10 @@ workflows:
       - test_ivy_jit
       - test_ivy_aot
       - build-packages-dist
-      - test_and_deploy_aio
+      - test_aio
+      - deploy_aio:
+          requires:
+            - test_aio
       - test_aio_local:
           requires:
             - build-packages-dist

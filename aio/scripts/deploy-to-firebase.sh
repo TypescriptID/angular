@@ -93,7 +93,7 @@ fi
   cd "`dirname $0`/.."
 
   # Build the app
-  yarn build-for $deployEnv
+  yarn build-for $deployEnv --progress=false
 
   # Include any mode-specific files
   cp -rf src/extra-files/$deployEnv/. dist/
@@ -106,8 +106,8 @@ fi
   yarn payload-size
 
   # Deploy to Firebase
-  firebase use "$projectId" --token "$firebaseToken"
-  firebase deploy --message "Commit: $CI_COMMIT" --non-interactive --token "$firebaseToken"
+  yarn firebase use "$projectId" --token "$firebaseToken"
+  yarn firebase deploy --message "Commit: $CI_COMMIT" --non-interactive --token "$firebaseToken"
 
   # Run PWA-score tests
   yarn test-pwa-score "$deployedUrl" "$CI_AIO_MIN_PWA_SCORE"

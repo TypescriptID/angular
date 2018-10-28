@@ -239,7 +239,7 @@ export function compileComponentFromMetadata(
   // e.g. `directives: [MyDirective]`
   if (directivesUsed.size) {
     let directivesExpr: o.Expression = o.literalArr(Array.from(directivesUsed));
-    if (meta.wrapDirectivesInClosure) {
+    if (meta.wrapDirectivesAndPipesInClosure) {
       directivesExpr = o.fn([], [new o.ReturnStatement(directivesExpr)]);
     }
     definitionMap.set('directives', directivesExpr);
@@ -247,7 +247,11 @@ export function compileComponentFromMetadata(
 
   // e.g. `pipes: [MyPipe]`
   if (pipesUsed.size) {
-    definitionMap.set('pipes', o.literalArr(Array.from(pipesUsed)));
+    let pipesExpr: o.Expression = o.literalArr(Array.from(pipesUsed));
+    if (meta.wrapDirectivesAndPipesInClosure) {
+      pipesExpr = o.fn([], [new o.ReturnStatement(pipesExpr)]);
+    }
+    definitionMap.set('pipes', pipesExpr);
   }
 
   // e.g. `styles: [str1, str2]`
@@ -331,7 +335,7 @@ export function compileComponentFromRender2(
     directives: typeMapToExpressionMap(directiveTypeBySel, outputCtx),
     pipes: typeMapToExpressionMap(pipeTypeByName, outputCtx),
     viewQueries: queriesFromGlobalMetadata(component.viewQueries, outputCtx),
-    wrapDirectivesInClosure: false,
+    wrapDirectivesAndPipesInClosure: false,
     styles: (summary.template && summary.template.styles) || EMPTY_ARRAY,
     encapsulation:
         (summary.template && summary.template.encapsulation) || core.ViewEncapsulation.Emulated,
@@ -528,12 +532,15 @@ function stringAsType(str: string): o.Type {
   return o.expressionType(o.literal(str));
 }
 
-function stringMapAsType(map: {[key: string]: string}): o.Type {
-  const mapValues = Object.keys(map).map(key => ({
-                                           key,
-                                           value: o.literal(map[key]),
-                                           quoted: true,
-                                         }));
+function stringMapAsType(map: {[key: string]: string | string[]}): o.Type {
+  const mapValues = Object.keys(map).map(key => {
+    const value = Array.isArray(map[key]) ? map[key][0] : map[key];
+    return {
+      key,
+      value: o.literal(value),
+      quoted: true,
+    };
+  });
   return o.expressionType(o.literalMap(mapValues));
 }
 
