@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Attribute, ChangeDetectorRef, ElementRef, Host, InjectFlags, Injector, Optional, Renderer2, Self, SkipSelf, TemplateRef, ViewContainerRef, defineInjectable} from '@angular/core';
+import {Attribute, ChangeDetectorRef, ElementRef, Host, InjectFlags, Injector, Optional, Renderer2, Self, SkipSelf, TemplateRef, ViewContainerRef, createInjector, defineInjectable, defineInjector} from '@angular/core';
 import {RenderFlags} from '@angular/core/src/render3/interfaces/definition';
 
 import {defineComponent} from '../../src/render3/definition';
@@ -857,8 +857,8 @@ describe('di', () => {
         });
       }
 
-      it('should not throw if dependency is @Optional', () => {
-        let dirA: DirA;
+      describe('Optional', () => {
+        let dirA: DirA|null = null;
 
         class DirA {
           constructor(@Optional() public dirB: DirB|null) {}
@@ -870,47 +870,94 @@ describe('di', () => {
           });
         }
 
-        /** <div dirA></div> */
-        const App = createComponent('app', function(rf: RenderFlags, ctx: any) {
-          if (rf & RenderFlags.Create) {
-            element(0, 'div', ['dirA', '']);
-          }
-        }, 1, 0, [DirA, DirB]);
+        beforeEach(() => dirA = null);
 
-        expect(() => {
-          new ComponentFixture(App);
+        it('should not throw if dependency is @Optional (limp mode)', () => {
+
+          /** <div dirA></div> */
+          const App = createComponent('app', function(rf: RenderFlags, ctx: any) {
+            if (rf & RenderFlags.Create) {
+              element(0, 'div', ['dirA', '']);
+            }
+          }, 1, 0, [DirA, DirB]);
+
+          expect(() => { new ComponentFixture(App); }).not.toThrow();
           expect(dirA !.dirB).toEqual(null);
-        }).not.toThrow();
-      });
+        });
 
-      it('should not throw if dependency is @Optional but defined elsewhere', () => {
-        let dirA: DirA;
-
-        class DirA {
-          constructor(@Optional() public dirB: DirB|null) {}
-
-          static ngDirectiveDef = defineDirective({
-            type: DirA,
-            selectors: [['', 'dirA', '']],
-            factory: () => dirA = new DirA(directiveInject(DirB, InjectFlags.Optional))
-          });
-        }
-
-        /**
-         * <div dirB></div>
-         * <div dirA></div>
-         */
-        const App = createComponent('app', function(rf: RenderFlags, ctx: any) {
-          if (rf & RenderFlags.Create) {
-            element(0, 'div', ['dirB', '']);
-            element(1, 'div', ['dirA', '']);
+        it('should not throw if dependency is @Optional (module injector)', () => {
+          class SomeModule {
+            static ngInjectorDef = defineInjector({factory: () => new SomeModule()});
           }
-        }, 2, 0, [DirA, DirB]);
 
-        expect(() => {
-          new ComponentFixture(App);
+          /** <div dirA></div> */
+          const App = createComponent('app', function(rf: RenderFlags, ctx: any) {
+            if (rf & RenderFlags.Create) {
+              element(0, 'div', ['dirA', '']);
+            }
+          }, 1, 0, [DirA, DirB]);
+
+          expect(() => {
+            const injector = createInjector(SomeModule);
+            new ComponentFixture(App, {injector});
+          }).not.toThrow();
           expect(dirA !.dirB).toEqual(null);
-        }).not.toThrow();
+        });
+
+        it('should return null if @Optional dependency has @Self flag', () => {
+          let dirC !: DirC;
+
+          class DirC {
+            constructor(@Optional() @Self() public dirB: DirB|null) {}
+
+            static ngDirectiveDef = defineDirective({
+              type: DirC,
+              selectors: [['', 'dirC', '']],
+              factory: () => dirC =
+                           new DirC(directiveInject(DirB, InjectFlags.Optional|InjectFlags.Self))
+            });
+          }
+
+          /** <div dirC></div> */
+          const App = createComponent('app', function(rf: RenderFlags, ctx: any) {
+            if (rf & RenderFlags.Create) {
+              element(0, 'div', ['dirC', '']);
+            }
+          }, 1, 0, [DirC, DirB]);
+
+          expect(() => { new ComponentFixture(App); }).not.toThrow();
+          expect(dirC !.dirB).toEqual(null);
+        });
+
+        it('should not throw if dependency is @Optional but defined elsewhere', () => {
+          let dirA: DirA;
+
+          class DirA {
+            constructor(@Optional() public dirB: DirB|null) {}
+
+            static ngDirectiveDef = defineDirective({
+              type: DirA,
+              selectors: [['', 'dirA', '']],
+              factory: () => dirA = new DirA(directiveInject(DirB, InjectFlags.Optional))
+            });
+          }
+
+          /**
+           * <div dirB></div>
+           * <div dirA></div>
+           */
+          const App = createComponent('app', function(rf: RenderFlags, ctx: any) {
+            if (rf & RenderFlags.Create) {
+              element(0, 'div', ['dirB', '']);
+              element(1, 'div', ['dirA', '']);
+            }
+          }, 2, 0, [DirA, DirB]);
+
+          expect(() => {
+            new ComponentFixture(App);
+            expect(dirA !.dirB).toEqual(null);
+          }).not.toThrow();
+        });
       });
 
       it('should skip the current node with @SkipSelf', () => {
@@ -1010,8 +1057,10 @@ describe('di', () => {
         }).toThrowError(/NodeInjector: NOT_FOUND \[DirB\]/);
       });
 
-      it('should not pass component boundary with @Host', () => {
-        let dirA: DirA;
+      describe('@Host', () => {
+        let dirA: DirA|null = null;
+
+        beforeEach(() => dirA = null);
 
         class DirA {
           constructor(@Host() public dirB: DirB) {}
@@ -1023,28 +1072,106 @@ describe('di', () => {
           });
         }
 
-        /** <div dirA></div> */
-        const Comp = createComponent('comp', function(rf: RenderFlags, ctx: any) {
-          if (rf & RenderFlags.Create) {
-            element(0, 'div', ['dirA', '']);
+        it('should not find providers across component boundaries', () => {
+          /** <div dirA></div> */
+          const Comp = createComponent('comp', function(rf: RenderFlags, ctx: any) {
+            if (rf & RenderFlags.Create) {
+              element(0, 'div', ['dirA', '']);
+            }
+          }, 1, 0, [DirA, DirB]);
+
+          /* <comp dirB></comp> */
+          const App = createComponent('app', function(rf: RenderFlags, ctx: any) {
+            if (rf & RenderFlags.Create) {
+              element(0, 'comp', ['dirB', '']);
+            }
+          }, 1, 0, [Comp, DirB]);
+
+          expect(() => {
+            new ComponentFixture(App);
+          }).toThrowError(/NodeInjector: NOT_FOUND \[DirB\]/);
+        });
+
+        it('should not find providers across component boundaries if in inline view', () => {
+          let comp !: any;
+
+          /**
+           * % if (showing) {
+           *   <div dirA></div>
+           * % }
+           */
+          const Comp = createComponent('comp', function(rf: RenderFlags, ctx: any) {
+            if (rf & RenderFlags.Create) {
+              container(0);
+            }
+            if (rf & RenderFlags.Update) {
+              containerRefreshStart(0);
+              {
+                if (ctx.showing) {
+                  let rf1 = embeddedViewStart(0, 1, 0);
+                  if (rf1 & RenderFlags.Create) {
+                    element(0, 'div', ['dirA', '']);
+                  }
+                  embeddedViewEnd();
+                }
+              }
+              containerRefreshEnd();
+            }
+          }, 1, 0, [DirA, DirB]);
+
+          /* <comp dirB></comp> */
+          const App = createComponent('app', function(rf: RenderFlags, ctx: any) {
+            if (rf & RenderFlags.Create) {
+              element(0, 'comp', ['dirB', '']);
+            }
+            if (rf & RenderFlags.Update) {
+              comp = getDirectiveOnNode(0);
+            }
+          }, 1, 0, [Comp, DirB]);
+
+          const fixture = new ComponentFixture(App);
+          expect(() => {
+            comp.showing = true;
+            fixture.update();
+          }).toThrowError(/NodeInjector: NOT_FOUND \[DirB\]/);
+        });
+
+        it('should find providers across embedded views if not passing component boundary', () => {
+          let dirB !: DirB;
+
+          function IfTemplate(rf: RenderFlags, ctx: any) {
+            if (rf & RenderFlags.Create) {
+              element(0, 'div', ['dirA', '']);
+            }
           }
-        }, 1, 0, [DirA, DirB]);
 
-        /* <comp dirB></comp> */
-        const App = createComponent('app', function(rf: RenderFlags, ctx: any) {
-          if (rf & RenderFlags.Create) {
-            element(0, 'comp', ['dirB', '']);
-          }
-        }, 1, 0, [Comp, DirB]);
+          /**
+           * <div dirB>
+           *   <div *ngIf="showing" dirA></div>
+           * </div>
+           */
+          const App = createComponent('app', function(rf: RenderFlags, ctx: any) {
+            if (rf & RenderFlags.Create) {
+              elementStart(0, 'div', ['dirB', '']);
+              { template(1, IfTemplate, 1, 0, '', ['ngIf', '']); }
+              elementEnd();
+            }
+            if (rf & RenderFlags.Update) {
+              elementProperty(1, 'ngIf', bind(ctx.showing));
 
-        expect(() => {
-          new ComponentFixture(App);
-        }).toThrowError(/NodeInjector: NOT_FOUND \[DirB\]/);
+              // testing only
+              dirB = getDirectiveOnNode(0);
+            }
+          }, 2, 1, [NgIf, DirA, DirB]);
 
+          const fixture = new ComponentFixture(App);
+          fixture.component.showing = true;
+          fixture.update();
+
+          expect(dirA !.dirB).toEqual(dirB);
+        });
       });
-
     });
-
   });
 
   describe('Special tokens', () => {
