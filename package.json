@@ -1,6 +1,6 @@
 {
   "name": "angular-srcs",
-  "version": "7.1.0-beta.0",
+  "version": "7.1.0-beta.1",
   "private": true,
   "branchPattern": "2.0.*",
   "description": "Angular - a web framework for modern web apps",
@@ -26,8 +26,6 @@
     "update-webdriver": "webdriver-manager update --gecko false $CHROMEDRIVER_VERSION_ARG",
     "check-env": "gulp check-env",
     "commitmsg": "node ./scripts/git/commit-msg.js",
-    "test-ivy-jit": "bazel test --define=compile=jit --build_tag_filters=-no-ivy-jit,-fixme-ivy-jit --test_tag_filters=-no-ivy-jit,-fixme-ivy-jit",
-    "test-fixme-ivy-jit": "bazel test --define=compile=jit --build_tag_filters=-no-ivy-jit --test_tag_filters=-no-ivy-jit",
     "test-ivy-aot": "bazel test --define=compile=aot --build_tag_filters=-no-ivy-aot,-fixme-ivy-aot --test_tag_filters=-no-ivy-aot,-fixme-ivy-aot",
     "test-fixme-ivy-aot": "bazel test --define=compile=aot --build_tag_filters=-no-ivy-aot --test_tag_filters=-no-ivy-aot",
     "bazel": "bazel"
@@ -57,7 +55,7 @@
     "angular-mocks-1.5": "npm:angular-mocks@1.5",
     "angular-mocks-1.6": "npm:angular-mocks@1.6",
     "base64-js": "1.2.1",
-    "canonical-path": "0.0.2",
+    "canonical-path": "1.0.0",
     "chokidar": "1.7.0",
     "convert-source-map": "^1.5.1",
     "dependency-graph": "^0.7.2",

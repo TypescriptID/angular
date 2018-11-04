@@ -33,24 +33,18 @@ var_6: &job_defaults
   docker:
   - image: *default_docker_image
 
-var_7: &start-xvfb
-  run:
-    name: Running X virtual framebuffer
-    command: Xvfb :99 -screen 0 1280x1024x24
-    background: true
-
 # After checkout, rebase on top of master.
 # Similar to travis behavior, but not quite the same.
 # See https://discuss.circleci.com/t/1662
-var_8: &post_checkout
+var_7: &post_checkout
   post: git pull --ff-only origin "refs/pull/${CI_PULL_REQUEST//*pull\//}/merge"
 
-var_9: &yarn_install
+var_8: &yarn_install
   run:
     name: Running Yarn install
     command: yarn install --frozen-lockfile --non-interactive
 
-var_10: &setup_circleci_bazel_config
+var_9: &setup_circleci_bazel_config
   run:
     name: Setting up CircleCI bazel configuration
     command: sudo cp .circleci/bazel.rc /etc/bazel.bazelrc
@@ -122,21 +116,6 @@ jobs:
             - "~/bazel_repository_cache"
 
   # Temporary job to test what will happen when we flip the Ivy flag to true
-  test_ivy_jit:
-    <<: *job_defaults
-    resource_class: xlarge
-    steps:
-      - checkout:
-          <<: *post_checkout
-      - restore_cache:
-          key: *cache_key
-      - *define_env_vars
-      - *setup_circleci_bazel_config
-      - *yarn_install
-      - *setup_bazel_remote_execution
-
-      - run: yarn test-ivy-jit //...
-
   test_ivy_aot:
     <<: *job_defaults
     resource_class: xlarge
@@ -163,7 +142,6 @@ jobs:
       - restore_cache:
           key: *cache_key
       - *define_env_vars
-      - *start-xvfb
         # Build aio
       - run: yarn --cwd aio build --progress=false
         # Lint the code
@@ -192,7 +170,6 @@ jobs:
       - restore_cache:
           key: *cache_key
       - *define_env_vars
-      - *start-xvfb
         # Deploy angular.io to production (if necessary)
       - run: setPublicVar CI_STABLE_BRANCH "$(npm info @angular/core dist-tags.latest | sed -r 's/^\s*([0-9]+\.[0-9]+)\.[0-9]+.*$/\1.x/')"
       - run: yarn --cwd aio deploy-production
@@ -210,7 +187,6 @@ jobs:
       - attach_workspace:
           at: dist
       - *define_env_vars
-      - *start-xvfb
         # Build aio (with local Angular packages)
       - run: yarn --cwd aio build-local --progress=false
         # Run PWA-score tests
@@ -251,7 +227,6 @@ jobs:
       - attach_workspace:
           at: dist
       - *define_env_vars
-      - *start-xvfb
         # Install root
       - *yarn_install
         # Install aio
@@ -272,7 +247,6 @@ jobs:
       - attach_workspace:
           at: dist
       - *define_env_vars
-      - *start-xvfb
         # Install root
       - *yarn_install
         # Install aio
@@ -311,7 +285,6 @@ jobs:
       - restore_cache:
           key: *cache_key
       - *define_env_vars
-      - *start-xvfb
       - run: yarn install --cwd aio --frozen-lockfile --non-interactive
       - run:
           name: Wait for preview and run tests
@@ -371,7 +344,6 @@ jobs:
       - attach_workspace:
           at: dist
       - *define_env_vars
-      - *start-xvfb
       - run: ./integration/run_tests.sh
 
   # This job updates the content of repos like github.com/angular/core-builds
@@ -415,7 +387,6 @@ jobs:
       - restore_cache:
           key: *cache_key
       - *define_env_vars
-      - *start-xvfb
       - run:
           name: Run tests against the deployed apps
           command: ./aio/scripts/test-production.sh $CI_AIO_MIN_PWA_SCORE
@@ -430,7 +401,6 @@ workflows:
     jobs:
       - lint
       - test
-      - test_ivy_jit
       - test_ivy_aot
       - build-packages-dist
       - test_aio
@@ -468,7 +438,6 @@ workflows:
           requires:
             # Only publish if tests and integration tests pass
             - test
-            - test_ivy_jit
             - test_ivy_aot
             - integration_test
             # Only publish if `aio`/`docs` tests using the locally built Angular packages pass

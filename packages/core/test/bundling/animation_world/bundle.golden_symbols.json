@@ -501,9 +501,6 @@
     "name": "executeHooks"
   },
   {
-    "name": "executeInitAndContentHooks"
-  },
-  {
     "name": "executeInitHooks"
   },
   {
@@ -940,6 +937,9 @@
   },
   {
     "name": "noSideEffects"
+  },
+  {
+    "name": "noop"
   },
   {
     "name": "pointers"

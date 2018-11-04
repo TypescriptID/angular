@@ -201,9 +201,6 @@
     "name": "executeHooks"
   },
   {
-    "name": "executeInitAndContentHooks"
-  },
-  {
     "name": "executeInitHooks"
   },
   {
@@ -366,10 +363,16 @@
     "name": "noSideEffects"
   },
   {
+    "name": "noop"
+  },
+  {
     "name": "postProcessBaseDirective"
   },
   {
     "name": "prefillHostVars"
+  },
+  {
+    "name": "queueComponentIndexForCheck"
   },
   {
     "name": "queueHostBindingForCheck"

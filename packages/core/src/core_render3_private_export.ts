@@ -7,12 +7,15 @@
  */
 
 // clang-format off
+// We need to have `ɵdefineNgModule` defined locally for flat-file ngcc compilation.
+// More details in the commit where this is added.
+import {defineNgModule} from './render3/index';
+export const ɵdefineNgModule = defineNgModule;
 export {
   defineBase as ɵdefineBase,
   defineComponent as ɵdefineComponent,
   defineDirective as ɵdefineDirective,
   definePipe as ɵdefinePipe,
-  defineNgModule as ɵdefineNgModule,
   detectChanges as ɵdetectChanges,
   renderComponent as ɵrenderComponent,
   ComponentType as ɵComponentType,
@@ -25,7 +28,7 @@ export {
   getFactoryOf as ɵgetFactoryOf,
   getInheritedFactory as ɵgetInheritedFactory,
   templateRefExtractor as ɵtemplateRefExtractor,
-  ProvidersFeature as ɵProvidersResolver,
+  ProvidersFeature as ɵProvidersFeature,
   InheritDefinitionFeature as ɵInheritDefinitionFeature,
   NgOnChangesFeature as ɵNgOnChangesFeature,
   NgModuleType as ɵNgModuleType,
@@ -122,7 +125,8 @@ export {
   i18nMapping as ɵi18nMapping,
   I18nInstruction as ɵI18nInstruction,
   I18nExpInstruction as ɵI18nExpInstruction,
-  WRAP_RENDERER_FACTORY2 as ɵWRAP_RENDERER_FACTORY2
+  WRAP_RENDERER_FACTORY2 as ɵWRAP_RENDERER_FACTORY2,
+  setClassMetadata as ɵsetClassMetadata,
 } from './render3/index';
 
 export {  Render3DebugRendererFactory2 as ɵRender3DebugRendererFactory2 } from './render3/debug';
