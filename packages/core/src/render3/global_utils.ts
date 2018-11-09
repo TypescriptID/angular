@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 import {global} from '../util';
-import {getComponent, getDirectives, getHostComponent, getInjector, getRootComponents} from './discovery_utils';
+import {getComponent, getDirectives, getHostComponent, getInjector, getPlayers, getRootComponents} from './global_utils_api';
 
 /**
  * This file introduces series of globally accessible debug tools
@@ -41,6 +41,7 @@ export function publishDefaultGlobalUtils() {
     publishGlobalUtil('getInjector', getInjector);
     publishGlobalUtil('getRootComponents', getRootComponents);
     publishGlobalUtil('getDirectives', getDirectives);
+    publishGlobalUtil('getPlayers', getPlayers);
   }
 }
 
