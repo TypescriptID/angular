@@ -8,6 +8,7 @@
 
 import './ng_dev_mode';
 
+import {resolveForwardRef} from '../di/forward_ref';
 import {InjectionToken} from '../di/injection_token';
 import {InjectFlags} from '../di/injector_compatibility';
 import {QueryList} from '../linker';
@@ -83,8 +84,6 @@ export function refreshDescendantViews(viewData: LViewData, rf: RenderFlags | nu
       executeInitHooks(viewData, tView, creationMode);
     }
 
-    setHostBindings(tView, viewData);
-
     refreshDynamicEmbeddedViews(viewData);
 
     // Content query results must be refreshed before content hooks are called.
@@ -93,6 +92,8 @@ export function refreshDescendantViews(viewData: LViewData, rf: RenderFlags | nu
     if (!checkNoChangesMode) {
       executeHooks(viewData, tView.contentHooks, tView.contentCheckHooks, creationMode);
     }
+
+    setHostBindings(tView, viewData);
   }
 
   refreshChildComponents(tView.components, parentFirstTemplatePass, rf);
@@ -2653,6 +2654,7 @@ export function directiveInject<T>(token: Type<T>| InjectionToken<T>): T;
 export function directiveInject<T>(token: Type<T>| InjectionToken<T>, flags: InjectFlags): T;
 export function directiveInject<T>(
     token: Type<T>| InjectionToken<T>, flags = InjectFlags.Default): T|null {
+  token = resolveForwardRef(token);
   return getOrCreateInjectable<T>(
       getPreviousOrParentTNode() as TElementNode | TContainerNode | TElementContainerNode,
       getViewData(), token, flags);

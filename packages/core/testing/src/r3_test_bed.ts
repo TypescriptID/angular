@@ -12,7 +12,7 @@ import {ComponentFixture} from './component_fixture';
 import {MetadataOverride} from './metadata_override';
 import {ComponentResolver, DirectiveResolver, NgModuleResolver, PipeResolver, Resolver} from './resolvers';
 import {TestBed} from './test_bed';
-import {ComponentFixtureAutoDetect, TestBedStatic, TestComponentRenderer, TestModuleMetadata} from './test_bed_common';
+import {ComponentFixtureAutoDetect, ComponentFixtureNoNgZone, TestBedStatic, TestComponentRenderer, TestModuleMetadata} from './test_bed_common';
 
 let _nextRootElementId = 0;
 
@@ -251,7 +251,13 @@ export class TestBedRender3 implements Injector, TestBed {
   }
 
   configureCompiler(config: {providers?: any[]; useJit?: boolean;}): void {
-    throw new Error('the Render3 compiler is not configurable !');
+    if (config.useJit != null) {
+      throw new Error('the Render3 compiler JiT mode is not configurable !');
+    }
+
+    if (config.providers) {
+      this._providerOverrides.push(...config.providers);
+    }
   }
 
   configureTestingModule(moduleDef: TestModuleMetadata): void {
@@ -357,11 +363,16 @@ export class TestBedRender3 implements Injector, TestBed {
           `It looks like '${stringify(type)}' has not been IVY compiled - it has no 'ngComponentDef' field`);
     }
 
-    const componentFactory = new ComponentFactory(componentDef);
-    const componentRef =
-        componentFactory.create(Injector.NULL, [], `#${rootElId}`, this._moduleRef);
+    const noNgZone: boolean = this.get(ComponentFixtureNoNgZone, false);
     const autoDetect: boolean = this.get(ComponentFixtureAutoDetect, false);
-    const fixture = new ComponentFixture<any>(componentRef, this.get(NgZone), autoDetect);
+    const ngZone: NgZone = noNgZone ? null : this.get(NgZone, null);
+    const componentFactory = new ComponentFactory(componentDef);
+    const initComponent = () => {
+      const componentRef =
+          componentFactory.create(Injector.NULL, [], `#${rootElId}`, this._moduleRef);
+      return new ComponentFixture<any>(componentRef, ngZone, autoDetect);
+    };
+    const fixture = ngZone ? ngZone.run(initComponent) : initComponent();
     this._activeFixtures.push(fixture);
     return fixture;
   }

@@ -30,7 +30,7 @@ import {htmlAstToRender3Ast} from '../r3_template_transform';
 
 import {R3QueryMetadata} from './api';
 import {I18N_ATTR, I18N_ATTR_PREFIX, I18nContext, assembleI18nBoundString} from './i18n';
-import {parseStyle} from './styling';
+import {StylingBuilder, StylingInstruction} from './styling';
 import {CONTEXT_NAME, IMPLICIT_REFERENCE, NON_BINDABLE_ATTR, REFERENCE_PREFIX, RENDER_FLAGS, asLiteral, getAttrsForDirectiveMatching, invalid, trimTrailingNulls, unsupported} from './util';
 
 function mapBindingToInstruction(type: BindingType): o.ExternalReference|undefined {
@@ -209,7 +209,8 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     const updateStatements = this._updateCodeFns.map((fn: () => o.Statement) => fn());
 
     //  Variable declaration must occur after binding resolution so we can generate context
-    //  instructions that build on each other. e.g. const b = x().$implicit(); const b = x();
+    //  instructions that build on each other.
+    // e.g. const b = nextContext().$implicit(); const b = nextContext();
     const creationVariables = this._bindingScope.viewSnapshotStatements();
     const updateVariables = this._bindingScope.variableDeclarations().concat(this._tempVariables);
 
@@ -337,6 +338,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
 
   visitElement(element: t.Element) {
     const elementIndex = this.allocateDataSlot();
+    const stylingBuilder = new StylingBuilder(elementIndex);
 
     let isNonBindableMode: boolean = false;
     let isI18nRootElement: boolean = false;
@@ -363,6 +365,10 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
         i18nMeta = value;
       } else if (name.startsWith(I18N_ATTR_PREFIX)) {
         attrI18nMetas[name.slice(I18N_ATTR_PREFIX.length)] = value;
+      } else if (name == 'style') {
+        stylingBuilder.registerStyleAttr(value);
+      } else if (name == 'class') {
+        stylingBuilder.registerClassAttr(value);
       } else {
         outputAttrs[name] = value;
       }
@@ -379,131 +385,33 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
 
     // Add the attributes
     const attributes: o.Expression[] = [];
-    const initialStyleDeclarations: o.Expression[] = [];
-    const initialClassDeclarations: o.Expression[] = [];
-
-    const styleInputs: t.BoundAttribute[] = [];
-    const classInputs: t.BoundAttribute[] = [];
     const allOtherInputs: t.BoundAttribute[] = [];
 
     const i18nAttrs: Array<{name: string, value: string | AST}> = [];
-
     element.inputs.forEach((input: t.BoundAttribute) => {
-      switch (input.type) {
-        // [attr.style] or [attr.class] should not be treated as styling-based
-        // bindings since they are intended to be written directly to the attr
-        // and therefore will skip all style/class resolution that is present
-        // with style="", [style]="" and [style.prop]="", class="",
-        // [class.prop]="". [class]="" assignments
-        case BindingType.Property:
-          if (input.name == 'style') {
-            // this should always go first in the compilation (for [style])
-            styleInputs.splice(0, 0, input);
-          } else if (isClassBinding(input)) {
-            // this should always go first in the compilation (for [class])
-            classInputs.splice(0, 0, input);
-          } else if (attrI18nMetas.hasOwnProperty(input.name)) {
+      if (!stylingBuilder.registerInput(input)) {
+        if (input.type == BindingType.Property) {
+          if (attrI18nMetas.hasOwnProperty(input.name)) {
             i18nAttrs.push({name: input.name, value: input.value});
           } else {
             allOtherInputs.push(input);
           }
-          break;
-        case BindingType.Style:
-          styleInputs.push(input);
-          break;
-        case BindingType.Class:
-          classInputs.push(input);
-          break;
-        default:
-          allOtherInputs.push(input);
-          break;
-      }
-    });
-
-    let currStyleIndex = 0;
-    let currClassIndex = 0;
-    let staticStylesMap: {[key: string]: any}|null = null;
-    let staticClassesMap: {[key: string]: boolean}|null = null;
-    const stylesIndexMap: {[key: string]: number} = {};
-    const classesIndexMap: {[key: string]: number} = {};
-    Object.getOwnPropertyNames(outputAttrs).forEach(name => {
-      const value = outputAttrs[name];
-      if (name == 'style') {
-        staticStylesMap = parseStyle(value);
-        Object.keys(staticStylesMap).forEach(prop => { stylesIndexMap[prop] = currStyleIndex++; });
-      } else if (name == 'class') {
-        staticClassesMap = {};
-        value.split(/\s+/g).forEach(className => {
-          classesIndexMap[className] = currClassIndex++;
-          staticClassesMap ![className] = true;
-        });
-      } else {
-        if (attrI18nMetas.hasOwnProperty(name)) {
-          i18nAttrs.push({name, value});
         } else {
-          attributes.push(o.literal(name), o.literal(value));
+          allOtherInputs.push(input);
         }
       }
     });
 
-    let hasMapBasedStyling = false;
-    for (let i = 0; i < styleInputs.length; i++) {
-      const input = styleInputs[i];
-      const isMapBasedStyleBinding = i === 0 && input.name === 'style';
-      if (isMapBasedStyleBinding) {
-        hasMapBasedStyling = true;
-      } else if (!stylesIndexMap.hasOwnProperty(input.name)) {
-        stylesIndexMap[input.name] = currStyleIndex++;
+    Object.getOwnPropertyNames(outputAttrs).forEach(name => {
+      const value = outputAttrs[name];
+      if (attrI18nMetas.hasOwnProperty(name)) {
+        i18nAttrs.push({name, value});
+      } else {
+        attributes.push(o.literal(name), o.literal(value));
       }
-    }
-
-    for (let i = 0; i < classInputs.length; i++) {
-      const input = classInputs[i];
-      const isMapBasedClassBinding = i === 0 && isClassBinding(input);
-      if (!isMapBasedClassBinding && !stylesIndexMap.hasOwnProperty(input.name)) {
-        classesIndexMap[input.name] = currClassIndex++;
-      }
-    }
-
-    // in the event that a [style] binding is used then sanitization will
-    // always be imported because it is not possible to know ahead of time
-    // whether style bindings will use or not use any sanitizable properties
-    // that isStyleSanitizable() will detect
-    let useDefaultStyleSanitizer = hasMapBasedStyling;
+    });
 
     // this will build the instructions so that they fall into the following syntax
-    // => [prop1, prop2, prop3, 0, prop1, value1, prop2, value2]
-    Object.keys(stylesIndexMap).forEach(prop => {
-      useDefaultStyleSanitizer = useDefaultStyleSanitizer || isStyleSanitizable(prop);
-      initialStyleDeclarations.push(o.literal(prop));
-    });
-
-    if (staticStylesMap) {
-      initialStyleDeclarations.push(o.literal(core.InitialStylingFlags.VALUES_MODE));
-
-      Object.keys(staticStylesMap).forEach(prop => {
-        initialStyleDeclarations.push(o.literal(prop));
-        const value = staticStylesMap ![prop];
-        initialStyleDeclarations.push(o.literal(value));
-      });
-    }
-
-    Object.keys(classesIndexMap).forEach(prop => {
-      initialClassDeclarations.push(o.literal(prop));
-    });
-
-    if (staticClassesMap) {
-      initialClassDeclarations.push(o.literal(core.InitialStylingFlags.VALUES_MODE));
-
-      Object.keys(staticClassesMap).forEach(className => {
-        initialClassDeclarations.push(o.literal(className));
-        initialClassDeclarations.push(o.literal(true));
-      });
-    }
-
-    const hasStylingInstructions = initialStyleDeclarations.length || styleInputs.length ||
-        initialClassDeclarations.length || classInputs.length;
-
     // add attributes for directive matching purposes
     attributes.push(...this.prepareSyntheticAndSelectOnlyAttrs(allOtherInputs, element.outputs));
     parameters.push(this.toAttrsParam(attributes));
@@ -536,8 +444,8 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       return element.children.length > 0;
     };
 
-    const createSelfClosingInstruction = !hasStylingInstructions && !isNgContainer &&
-        element.outputs.length === 0 && i18nAttrs.length === 0 && !hasChildren();
+    const createSelfClosingInstruction = !stylingBuilder.hasBindingsOrInitialValues &&
+        !isNgContainer && element.outputs.length === 0 && i18nAttrs.length === 0 && !hasChildren();
 
     if (createSelfClosingInstruction) {
       this.creationInstruction(element.sourceSpan, R3.element, trimTrailingNulls(parameters));
@@ -589,40 +497,10 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
         }
       }
 
-      // initial styling for static style="..." attributes
-      if (hasStylingInstructions) {
-        const paramsList: (o.Expression)[] = [];
-
-        if (initialClassDeclarations.length) {
-          // the template compiler handles initial class styling (e.g. class="foo") values
-          // in a special command called `elementClass` so that the initial class
-          // can be processed during runtime. These initial class values are bound to
-          // a constant because the inital class values do not change (since they're static).
-          paramsList.push(
-              this.constantPool.getConstLiteral(o.literalArr(initialClassDeclarations), true));
-        } else if (initialStyleDeclarations.length || useDefaultStyleSanitizer) {
-          // no point in having an extra `null` value unless there are follow-up params
-          paramsList.push(o.NULL_EXPR);
-        }
-
-        if (initialStyleDeclarations.length) {
-          // the template compiler handles initial style (e.g. style="foo") values
-          // in a special command called `elementStyle` so that the initial styles
-          // can be processed during runtime. These initial styles values are bound to
-          // a constant because the inital style values do not change (since they're static).
-          paramsList.push(
-              this.constantPool.getConstLiteral(o.literalArr(initialStyleDeclarations), true));
-        } else if (useDefaultStyleSanitizer) {
-          // no point in having an extra `null` value unless there are follow-up params
-          paramsList.push(o.NULL_EXPR);
-        }
-
-        if (useDefaultStyleSanitizer) {
-          paramsList.push(o.importExpr(R3.defaultStyleSanitizer));
-        }
-
-        this.creationInstruction(null, R3.elementStyling, paramsList);
-      }
+      // initial styling for static style="..." and class="..." attributes
+      this.processStylingInstruction(
+          implicit,
+          stylingBuilder.buildCreateLevelInstruction(element.sourceSpan, this.constantPool), true);
 
       // Generate Listeners (outputs)
       element.outputs.forEach((outputAst: t.BoundEvent) => {
@@ -632,88 +510,9 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       });
     }
 
-    if ((styleInputs.length || classInputs.length) && hasStylingInstructions) {
-      const indexLiteral = o.literal(elementIndex);
-
-      const firstStyle = styleInputs[0];
-      const mapBasedStyleInput = firstStyle && firstStyle.name == 'style' ? firstStyle : null;
-
-      const firstClass = classInputs[0];
-      const mapBasedClassInput = firstClass && isClassBinding(firstClass) ? firstClass : null;
-
-      const stylingInput = mapBasedStyleInput || mapBasedClassInput;
-      if (stylingInput) {
-        // these values must be outside of the update block so that they can
-        // be evaluted (the AST visit call) during creation time so that any
-        // pipes can be picked up in time before the template is built
-        const mapBasedClassValue =
-            mapBasedClassInput ? mapBasedClassInput.value.visit(this._valueConverter) : null;
-        const mapBasedStyleValue =
-            mapBasedStyleInput ? mapBasedStyleInput.value.visit(this._valueConverter) : null;
-        this.updateInstruction(stylingInput.sourceSpan, R3.elementStylingMap, () => {
-          const params: o.Expression[] = [indexLiteral];
-
-          if (mapBasedClassValue) {
-            params.push(this.convertPropertyBinding(implicit, mapBasedClassValue, true));
-          } else if (mapBasedStyleInput) {
-            params.push(o.NULL_EXPR);
-          }
-
-          if (mapBasedStyleValue) {
-            params.push(this.convertPropertyBinding(implicit, mapBasedStyleValue, true));
-          }
-
-          return params;
-        });
-      }
-
-      let lastInputCommand: t.BoundAttribute|null = null;
-      if (styleInputs.length) {
-        let i = mapBasedStyleInput ? 1 : 0;
-        for (i; i < styleInputs.length; i++) {
-          const input = styleInputs[i];
-          const key = input.name;
-          const styleIndex: number = stylesIndexMap[key] !;
-          const value = input.value.visit(this._valueConverter);
-          this.updateInstruction(input.sourceSpan, R3.elementStyleProp, () => {
-            const params: o.Expression[] = [
-              indexLiteral, o.literal(styleIndex),
-              this.convertPropertyBinding(implicit, value, true)
-            ];
-
-            if (input.unit != null) {
-              params.push(o.literal(input.unit));
-            }
-
-            return params;
-          });
-        }
-
-        lastInputCommand = styleInputs[styleInputs.length - 1];
-      }
-
-      if (classInputs.length) {
-        let i = mapBasedClassInput ? 1 : 0;
-        for (i; i < classInputs.length; i++) {
-          const input = classInputs[i];
-          const params: any[] = [];
-          const sanitizationRef = resolveSanitizationFn(input, input.securityContext);
-          if (sanitizationRef) params.push(sanitizationRef);
-
-          const key = input.name;
-          const classIndex: number = classesIndexMap[key] !;
-          const value = input.value.visit(this._valueConverter);
-          this.updateInstruction(input.sourceSpan, R3.elementClassProp, () => {
-            const valueLiteral = this.convertPropertyBinding(implicit, value, true);
-            return [indexLiteral, o.literal(classIndex), valueLiteral];
-          });
-        }
-
-        lastInputCommand = classInputs[classInputs.length - 1];
-      }
-
-      this.updateInstruction(lastInputCommand !.sourceSpan, R3.elementStylingApply, [indexLiteral]);
-    }
+    stylingBuilder.buildUpdateLevelInstructions(this._valueConverter).forEach(instruction => {
+      this.processStylingInstruction(implicit, instruction, false);
+    });
 
     // Generate element input bindings
     allOtherInputs.forEach((input: t.BoundAttribute) => {
@@ -919,6 +718,19 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     });
   }
 
+  private processStylingInstruction(
+      implicit: any, instruction: StylingInstruction|null, createMode: boolean) {
+    if (instruction) {
+      const paramsFn = () =>
+          instruction.buildParams(value => this.convertPropertyBinding(implicit, value, true));
+      if (createMode) {
+        this.creationInstruction(instruction.sourceSpan, instruction.reference, paramsFn);
+      } else {
+        this.updateInstruction(instruction.sourceSpan, instruction.reference, paramsFn);
+      }
+    }
+  }
+
   private creationInstruction(
       span: ParseSourceSpan|null, reference: o.ExternalReference,
       paramsOrFn?: o.Expression[]|(() => o.Expression[])) {
@@ -1017,16 +829,16 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       const retrievalLevel = this.level;
       const lhs = o.variable(variableName);
       this._bindingScope.set(
-          retrievalLevel, reference.name, lhs, DeclarationPriority.DEFAULT,
-          (scope: BindingScope, relativeLevel: number) => {
-            // e.g. x(2);
+          retrievalLevel, reference.name, lhs,
+          DeclarationPriority.DEFAULT, (scope: BindingScope, relativeLevel: number) => {
+            // e.g. nextContext(2);
             const nextContextStmt =
                 relativeLevel > 0 ? [generateNextContextExpr(relativeLevel).toStmt()] : [];
 
-            // e.g. const $foo$ = r(1);
+            // e.g. const $foo$ = reference(1);
             const refExpr = lhs.set(o.importExpr(R3.reference).callFn([o.literal(slot)]));
             return nextContextStmt.concat(refExpr.toConstDecl());
-          });
+          }, true);
       return [reference.name, reference.value];
     }));
 
@@ -1201,13 +1013,14 @@ export type DeclareLocalVarCallback = (scope: BindingScope, relativeLevel: numbe
 const SHARED_CONTEXT_KEY = '$$shared_ctx$$';
 
 /**
- * This is used when one refers to variable such as: 'let abc = x(2).$implicit`.
+ * This is used when one refers to variable such as: 'let abc = nextContext(2).$implicit`.
  * - key to the map is the string literal `"abc"`.
  * - value `retrievalLevel` is the level from which this value can be retrieved, which is 2 levels
  * up in example.
  * - value `lhs` is the left hand side which is an AST representing `abc`.
  * - value `declareLocalCallback` is a callback that is invoked when declaring the local.
  * - value `declare` is true if this value needs to be declared.
+ * - value `localRef` is true if we are storing a local reference
  * - value `priority` dictates the sorting priority of this var declaration compared
  * to other var declarations on the same retrieval level. For example, if there is a
  * context variable and a local ref accessing the same parent view, the context var
@@ -1217,6 +1030,7 @@ type BindingData = {
   retrievalLevel: number; lhs: o.ReadVarExpr; declareLocalCallback?: DeclareLocalVarCallback;
   declare: boolean;
   priority: number;
+  localRef: boolean;
 };
 
 /**
@@ -1253,14 +1067,15 @@ export class BindingScope implements LocalResolver {
             lhs: value.lhs,
             declareLocalCallback: value.declareLocalCallback,
             declare: false,
-            priority: value.priority
+            priority: value.priority,
+            localRef: value.localRef
           };
 
           // Cache the value locally.
           this.map.set(name, value);
           // Possibly generate a shared context var
           this.maybeGenerateSharedContextVar(value);
-          this.maybeRestoreView(value.retrievalLevel);
+          this.maybeRestoreView(value.retrievalLevel, value.localRef);
         }
 
         if (value.declareLocalCallback && !value.declare) {
@@ -1286,10 +1101,11 @@ export class BindingScope implements LocalResolver {
    * @param lhs AST representing the left hand side of the `let lhs = rhs;`.
    * @param priority The sorting priority of this var
    * @param declareLocalCallback The callback to invoke when declaring this local var
+   * @param localRef Whether or not this is a local ref
    */
   set(retrievalLevel: number, name: string, lhs: o.ReadVarExpr,
       priority: number = DeclarationPriority.DEFAULT,
-      declareLocalCallback?: DeclareLocalVarCallback): BindingScope {
+      declareLocalCallback?: DeclareLocalVarCallback, localRef?: true): BindingScope {
     !this.map.has(name) ||
         error(`The name ${name} is already defined in scope to be ${this.map.get(name)}`);
     this.map.set(name, {
@@ -1297,7 +1113,8 @@ export class BindingScope implements LocalResolver {
       lhs: lhs,
       declare: false,
       declareLocalCallback: declareLocalCallback,
-      priority: priority
+      priority: priority,
+      localRef: localRef || false
     });
     return this;
   }
@@ -1332,25 +1149,31 @@ export class BindingScope implements LocalResolver {
       retrievalLevel: retrievalLevel,
       lhs: lhs,
       declareLocalCallback: (scope: BindingScope, relativeLevel: number) => {
-        // const ctx_r0 = x(2);
+        // const ctx_r0 = nextContext(2);
         return [lhs.set(generateNextContextExpr(relativeLevel)).toConstDecl()];
       },
       declare: false,
-      priority: DeclarationPriority.SHARED_CONTEXT
+      priority: DeclarationPriority.SHARED_CONTEXT,
+      localRef: false
     });
   }
 
   getComponentProperty(name: string): o.Expression {
     const componentValue = this.map.get(SHARED_CONTEXT_KEY + 0) !;
     componentValue.declare = true;
-    this.maybeRestoreView(0);
+    this.maybeRestoreView(0, false);
     return componentValue.lhs.prop(name);
   }
 
-  maybeRestoreView(retrievalLevel: number) {
-    if (this.isListenerScope() && retrievalLevel < this.bindingLevel) {
+  maybeRestoreView(retrievalLevel: number, localRefLookup: boolean) {
+    // We want to restore the current view in listener fns if:
+    // 1 - we are accessing a value in a parent view, which requires walking the view tree rather
+    // than using the ctx arg. In this case, the retrieval and binding level will be different.
+    // 2 - we are looking up a local ref, which requires restoring the view where the local
+    // ref is stored
+    if (this.isListenerScope() && (retrievalLevel < this.bindingLevel || localRefLookup)) {
       if (!this.parent !.restoreViewVariable) {
-        // parent saves variable to generate a shared `const $s$ = gV();` instruction
+        // parent saves variable to generate a shared `const $s$ = getCurrentView();` instruction
         this.parent !.restoreViewVariable = o.variable(this.parent !.freshReferenceName());
       }
       this.restoreViewVariable = this.parent !.restoreViewVariable;
@@ -1358,14 +1181,14 @@ export class BindingScope implements LocalResolver {
   }
 
   restoreViewStatement(): o.Statement[] {
-    // rV($state$);
+    // restoreView($state$);
     return this.restoreViewVariable ?
         [instruction(null, R3.restoreView, [this.restoreViewVariable]).toStmt()] :
         [];
   }
 
   viewSnapshotStatements(): o.Statement[] {
-    // const $state$ = gV();
+    // const $state$ = getCurrentView();
     const getCurrentViewInstruction = instruction(null, R3.getCurrentView, []);
     return this.restoreViewVariable ?
         [this.restoreViewVariable.set(getCurrentViewInstruction).toConstDecl()] :
@@ -1499,10 +1322,6 @@ export function makeBindingParser(): BindingParser {
       []);
 }
 
-function isClassBinding(input: t.BoundAttribute): boolean {
-  return input.name == 'className' || input.name == 'class';
-}
-
 function resolveSanitizationFn(input: t.BoundAttribute, context: core.SecurityContext) {
   switch (context) {
     case core.SecurityContext.HTML:
@@ -1521,19 +1340,6 @@ function resolveSanitizationFn(input: t.BoundAttribute, context: core.SecurityCo
     default:
       return null;
   }
-}
-
-function isStyleSanitizable(prop: string): boolean {
-  switch (prop) {
-    case 'background-image':
-    case 'background':
-    case 'border-image':
-    case 'filter':
-    case 'list-style':
-    case 'list-style-image':
-      return true;
-  }
-  return false;
 }
 
 function prepareSyntheticAttributeName(name: string) {
