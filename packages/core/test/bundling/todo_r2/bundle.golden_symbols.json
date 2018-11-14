@@ -504,6 +504,9 @@
     "name": "NOT_FOUND"
   },
   {
+    "name": "NOT_FOUND_CHECK_ONLY_ELEMENT_INJECTOR"
+  },
+  {
     "name": "NOT_YET"
   },
   {
@@ -1278,6 +1281,9 @@
     "name": "cleanUpView"
   },
   {
+    "name": "collectNativeNodes"
+  },
+  {
     "name": "compileNgModuleFactory"
   },
   {
@@ -1309,6 +1315,9 @@
   },
   {
     "name": "couldBeInjectableType"
+  },
+  {
+    "name": "createChainedInjector"
   },
   {
     "name": "createContainerRef"
