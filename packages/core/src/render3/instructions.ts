@@ -7,16 +7,15 @@
  */
 
 import './ng_dev_mode';
-
 import {resolveForwardRef} from '../di/forward_ref';
 import {InjectionToken} from '../di/injection_token';
+import {Injector} from '../di/injector';
 import {InjectFlags} from '../di/injector_compatibility';
 import {QueryList} from '../linker';
 import {Sanitizer} from '../sanitization/security';
 import {StyleSanitizeFn} from '../sanitization/style_sanitizer';
 import {Type} from '../type';
 import {noop} from '../util/noop';
-
 import {assertDefined, assertEqual, assertLessThan, assertNotEqual} from './assert';
 import {attachPatchData, getComponentViewByInstance} from './context_discovery';
 import {diPublicInInjector, getNodeInjectable, getOrCreateInjectable, getOrCreateNodeInjectorForNode, injectAttributeImpl} from './di';
@@ -25,11 +24,12 @@ import {executeHooks, executeInitHooks, queueInitHooks, queueLifecycleHooks} fro
 import {ACTIVE_INDEX, LContainer, VIEWS} from './interfaces/container';
 import {ComponentDef, ComponentQuery, ComponentTemplate, DirectiveDef, DirectiveDefListOrFactory, InitialStylingFlags, PipeDefListOrFactory, RenderFlags} from './interfaces/definition';
 import {INJECTOR_SIZE, NodeInjectorFactory} from './interfaces/injector';
-import {AttributeMarker, InitialInputData, InitialInputs, LocalRefExtractor, PropertyAliasValue, PropertyAliases, TAttributes, TContainerNode, TElementContainerNode, TElementNode, TNode, TNodeFlags, TNodeProviderIndexes, TNodeType, TProjectionNode, TViewNode} from './interfaces/node';
+import {AttributeMarker, InitialInputData, InitialInputs, LocalRefExtractor, PropertyAliasValue, PropertyAliases, TAttributes, TContainerNode, TElementContainerNode, TElementNode, TIcuContainerNode, TNode, TNodeFlags, TNodeProviderIndexes, TNodeType, TProjectionNode, TViewNode} from './interfaces/node';
 import {PlayerFactory} from './interfaces/player';
 import {CssSelectorList, NG_PROJECT_AS_ATTR_NAME} from './interfaces/projection';
 import {LQueries} from './interfaces/query';
 import {ProceduralRenderer3, RComment, RElement, RNode, RText, Renderer3, RendererFactory3, isProceduralRenderer} from './interfaces/renderer';
+import {SanitizerFn} from './interfaces/sanitization';
 import {StylingIndex} from './interfaces/styling';
 import {BINDING_INDEX, CLEANUP, CONTAINER_INDEX, CONTENT_QUERIES, CONTEXT, DECLARATION_VIEW, FLAGS, HEADER_OFFSET, HOST, HOST_NODE, INJECTOR, LViewData, LViewFlags, NEXT, OpaqueViewState, PARENT, QUERIES, RENDERER, RootContext, RootContextFlags, SANITIZER, TAIL, TVIEW, TView} from './interfaces/view';
 import {assertNodeOfPossibleTypes, assertNodeType} from './node_assert';
@@ -42,7 +42,6 @@ import {getStylingContext} from './styling/util';
 import {NO_CHANGE} from './tokens';
 import {getComponentViewByIndex, getNativeByIndex, getNativeByTNode, getRootContext, getRootView, getTNode, isComponent, isComponentDef, isDifferent, loadInternal, readPatchedLViewData, stringify} from './util';
 
-
 /**
  * A permanent marker promise which signifies that the current CD tree is
  * clean.
@@ -53,11 +52,6 @@ const enum BindingDirection {
   Input,
   Output,
 }
-
-/**
- * Function used to sanitize the value before writing it into the renderer.
- */
-type SanitizerFn = (value: any) => string;
 
 /**
  * Refreshes the view, executing the following steps in that order:
@@ -163,13 +157,14 @@ function refreshChildComponents(
 
 export function createLViewData<T>(
     renderer: Renderer3, tView: TView, context: T | null, flags: LViewFlags,
-    sanitizer?: Sanitizer | null): LViewData {
+    sanitizer?: Sanitizer | null, injector?: Injector | null): LViewData {
   const viewData = getViewData();
   const instance = tView.blueprint.slice() as LViewData;
   instance[FLAGS] = flags | LViewFlags.CreationMode | LViewFlags.Attached | LViewFlags.RunInit;
   instance[PARENT] = instance[DECLARATION_VIEW] = viewData;
   instance[CONTEXT] = context;
-  instance[INJECTOR] = viewData ? viewData[INJECTOR] : null;
+  instance[INJECTOR as any] =
+      injector === undefined ? (viewData ? viewData[INJECTOR] : null) : injector;
   instance[RENDERER] = renderer;
   instance[SANITIZER] = sanitizer || null;
   return instance;
@@ -198,8 +193,12 @@ export function createNodeAtIndex(
     index: number, type: TNodeType.ElementContainer, native: RComment, name: null,
     attrs: TAttributes | null): TElementContainerNode;
 export function createNodeAtIndex(
+    index: number, type: TNodeType.IcuContainer, native: RComment, name: null,
+    attrs: TAttributes | null): TElementContainerNode;
+export function createNodeAtIndex(
     index: number, type: TNodeType, native: RText | RElement | RComment | null, name: string | null,
-    attrs: TAttributes | null): TElementNode&TContainerNode&TElementContainerNode&TProjectionNode {
+    attrs: TAttributes | null): TElementNode&TContainerNode&TElementContainerNode&TProjectionNode&
+    TIcuContainerNode {
   const viewData = getViewData();
   const tView = getTView();
   const adjustedIndex = index + HEADER_OFFSET;
@@ -233,7 +232,7 @@ export function createNodeAtIndex(
   setPreviousOrParentTNode(tNode);
   setIsParent(true);
   return tNode as TElementNode & TViewNode & TContainerNode & TElementContainerNode &
-      TProjectionNode;
+      TProjectionNode & TIcuContainerNode;
 }
 
 export function createViewNode(index: number, view: LViewData) {
@@ -255,11 +254,12 @@ export function createViewNode(index: number, view: LViewData) {
  * i18nApply() or ComponentFactory.create), we need to adjust the blueprint for future
  * template passes.
  */
-export function adjustBlueprintForNewNode(view: LViewData) {
+export function allocExpando(view: LViewData) {
   const tView = view[TVIEW];
   if (tView.firstTemplatePass) {
     tView.expandoStartIndex++;
     tView.blueprint.push(null);
+    tView.data.push(null);
     view.push(null);
   }
 }
@@ -682,7 +682,7 @@ export function createTView(
   // that has a host binding, we will update the blueprint with that def's hostVars count.
   const initialViewLength = bindingStartIndex + vars;
   const blueprint = createViewBlueprint(bindingStartIndex, initialViewLength);
-  return blueprint[TVIEW] = {
+  return blueprint[TVIEW as any] = {
     id: viewIndex,
     blueprint: blueprint,
     template: templateFn,
@@ -914,7 +914,7 @@ export function elementEnd(): void {
  * @param sanitizer An optional function used to sanitize the value.
  */
 export function elementAttribute(
-    index: number, name: string, value: any, sanitizer?: SanitizerFn): void {
+    index: number, name: string, value: any, sanitizer?: SanitizerFn | null): void {
   if (value !== NO_CHANGE) {
     const viewData = getViewData();
     const renderer = getRenderer();
@@ -947,7 +947,7 @@ export function elementAttribute(
  */
 
 export function elementProperty<T>(
-    index: number, propName: string, value: T | NO_CHANGE, sanitizer?: SanitizerFn): void {
+    index: number, propName: string, value: T | NO_CHANGE, sanitizer?: SanitizerFn | null): void {
   if (value === NO_CHANGE) return;
   const viewData = getViewData();
   const element = getNativeByIndex(index, viewData) as RElement | RComment;
@@ -1072,9 +1072,11 @@ function generatePropertyAliases(
  * @param className Name of class to toggle. Because it is going to DOM, this is not subject to
  *        renaming as part of minification.
  * @param value A value indicating if a given class should be added or removed.
+ * @param directiveIndex the index for the directive that is attempting to change styling.
  */
 export function elementClassProp(
-    index: number, stylingIndex: number, value: boolean | PlayerFactory): void {
+    index: number, stylingIndex: number, value: boolean | PlayerFactory,
+    directiveIndex?: number): void {
   const val =
       (value instanceof BoundPlayerFactory) ? (value as BoundPlayerFactory<boolean>) : (!!value);
   updateElementClassProp(getStylingContext(index, getViewData()), stylingIndex, val);
@@ -1107,11 +1109,13 @@ export function elementClassProp(
  *   values that are passed in here will be applied to the element (if matched).
  * @param styleSanitizer An optional sanitizer function that will be used (if provided)
  *   to sanitize the any CSS property values that are applied to the element (during rendering).
+ * @param directiveIndex the index for the directive that is attempting to change styling.
  */
 export function elementStyling(
     classDeclarations?: (string | boolean | InitialStylingFlags)[] | null,
     styleDeclarations?: (string | boolean | InitialStylingFlags)[] | null,
-    styleSanitizer?: StyleSanitizeFn | null): void {
+    styleSanitizer?: StyleSanitizeFn | null, directiveIndex?: number): void {
+  if (directiveIndex) return;  // supported in next PR
   const tNode = getPreviousOrParentTNode();
   const inputData = initializeTNodeInputs(tNode);
 
@@ -1152,8 +1156,10 @@ export function elementStyling(
  *        (Note that this is not the element index, but rather an index value allocated
  *        specifically for element styling--the index must be the next index after the element
  *        index.)
+ * @param directiveIndex the index for the directive that is attempting to change styling.
  */
-export function elementStylingApply(index: number): void {
+export function elementStylingApply(index: number, directiveIndex?: number): void {
+  if (directiveIndex) return;  // supported in next PR
   const viewData = getViewData();
   const isFirstRender = (viewData[FLAGS] & LViewFlags.CreationMode) !== 0;
   const totalPlayersQueued = renderStyleAndClassBindings(
@@ -1183,10 +1189,12 @@ export function elementStylingApply(index: number): void {
  * @param suffix Optional suffix. Used with scalar values to add unit such as `px`.
  *        Note that when a suffix is provided then the underlying sanitizer will
  *        be ignored.
+ * @param directiveIndex the index for the directive that is attempting to change styling.
  */
 export function elementStyleProp(
     index: number, styleIndex: number, value: string | number | String | PlayerFactory | null,
-    suffix?: string): void {
+    suffix?: string, directiveIndex?: number): void {
+  if (directiveIndex) return;  // supported in next PR
   let valueToAdd: string|null = null;
   if (value) {
     if (suffix) {
@@ -1224,10 +1232,12 @@ export function elementStyleProp(
  * @param styles A key/value style map of the styles that will be applied to the given element.
  *        Any missing styles (that have already been applied to the element beforehand) will be
  *        removed (unset) from the element's styling.
+ * @param directiveIndex the index for the directive that is attempting to change styling.
  */
 export function elementStylingMap<T>(
     index: number, classes: {[key: string]: any} | string | NO_CHANGE | null,
-    styles?: {[styleName: string]: any} | NO_CHANGE | null): void {
+    styles?: {[styleName: string]: any} | NO_CHANGE | null, directiveIndex?: number): void {
+  if (directiveIndex) return;  // supported in next PR
   const viewData = getViewData();
   const tNode = getTNode(index, viewData);
   const stylingContext = getStylingContext(index, viewData);

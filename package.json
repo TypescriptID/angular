@@ -1,6 +1,6 @@
 {
   "name": "angular-srcs",
-  "version": "7.1.0-beta.2",
+  "version": "7.1.0-rc.0",
   "private": true,
   "branchPattern": "2.0.*",
   "description": "Angular - a web framework for modern web apps",
@@ -33,9 +33,10 @@
   },
   "// 1": "dependencies are used locally and by bazel",
   "dependencies": {
-    "@angular-devkit/schematics": "^0.5.5",
-    "@bazel/typescript": "0.20.3",
-    "@schematics/angular": "^0.5.4",
+    "@angular-devkit/core": "^7.0.4",
+    "@angular-devkit/schematics": "^7.0.4",
+    "@bazel/typescript": "0.21.0",
+    "@schematics/angular": "^7.0.4",
     "@types/chokidar": "1.7.3",
     "@types/convert-source-map": "^1.5.1",
     "@types/diff": "^3.2.2",
@@ -89,7 +90,7 @@
   "devDependencies": {
     "@bazel/bazel": "^0.18.1",
     "@bazel/ibazel": "^0.1.1",
-    "@bazel/karma": "0.20.3",
+    "@bazel/karma": "0.21.0",
     "@types/angular": "^1.6.47",
     "@types/base64-js": "1.2.5",
     "@types/jasminewd2": "^2.0.4",
