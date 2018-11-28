@@ -15,8 +15,8 @@ import {QueryList} from '../linker';
 import {Sanitizer} from '../sanitization/security';
 import {StyleSanitizeFn} from '../sanitization/style_sanitizer';
 import {Type} from '../type';
+import {normalizeDebugBindingName, normalizeDebugBindingValue} from '../util/ng_reflect';
 import {noop} from '../util/noop';
-
 import {assertDefined, assertEqual, assertLessThan, assertNotEqual} from './assert';
 import {attachPatchData, getComponentViewByInstance} from './context_discovery';
 import {diPublicInInjector, getNodeInjectable, getOrCreateInjectable, getOrCreateNodeInjectorForNode, injectAttributeImpl} from './di';
@@ -32,11 +32,11 @@ import {LQueries} from './interfaces/query';
 import {ProceduralRenderer3, RComment, RElement, RNode, RText, Renderer3, RendererFactory3, isProceduralRenderer} from './interfaces/renderer';
 import {SanitizerFn} from './interfaces/sanitization';
 import {StylingIndex} from './interfaces/styling';
-import {BINDING_INDEX, CLEANUP, CONTAINER_INDEX, CONTENT_QUERIES, CONTEXT, DECLARATION_VIEW, FLAGS, HEADER_OFFSET, HOST, HOST_NODE, INJECTOR, LViewData, LViewFlags, NEXT, OpaqueViewState, PARENT, QUERIES, RENDERER, RootContext, RootContextFlags, SANITIZER, TAIL, TVIEW, TView} from './interfaces/view';
+import {BINDING_INDEX, CLEANUP, CONTAINER_INDEX, CONTENT_QUERIES, CONTEXT, DECLARATION_VIEW, FLAGS, HEADER_OFFSET, HOST, HOST_NODE, INJECTOR, LViewData, LViewFlags, NEXT, OpaqueViewState, PARENT, QUERIES, RENDERER, RENDERER_FACTORY, RootContext, RootContextFlags, SANITIZER, TAIL, TVIEW, TView} from './interfaces/view';
 import {assertNodeOfPossibleTypes, assertNodeType} from './node_assert';
 import {appendChild, appendProjectedNode, createTextNode, findComponentView, getLViewChild, getRenderParent, insertView, removeView} from './node_manipulation';
 import {isNodeMatchingSelectorList, matchingSelectorIndex} from './node_selector_matcher';
-import {assertDataInRange, assertHasParent, assertPreviousIsParent, decreaseElementDepthCount, enterView, getBindingsEnabled, getCheckNoChangesMode, getCleanup, getContextViewData, getCreationMode, getCurrentQueries, getCurrentSanitizer, getElementDepthCount, getFirstTemplatePass, getIsParent, getPreviousOrParentTNode, getRenderer, getRendererFactory, getTView, getTViewCleanup, getViewData, increaseElementDepthCount, leaveView, nextContextImpl, resetComponentState, setBindingRoot, setCheckNoChangesMode, setCurrentQueries, setFirstTemplatePass, setIsParent, setPreviousOrParentTNode, setRenderer, setRendererFactory} from './state';
+import {assertDataInRange, assertHasParent, assertPreviousIsParent, decreaseElementDepthCount, enterView, getBindingsEnabled, getCheckNoChangesMode, getCleanup, getContextViewData, getCreationMode, getCurrentQueries, getCurrentSanitizer, getElementDepthCount, getFirstTemplatePass, getIsParent, getPreviousOrParentTNode, getRenderer, getRendererFactory, getTView, getTViewCleanup, getViewData, increaseElementDepthCount, leaveView, nextContextImpl, resetComponentState, setBindingRoot, setCheckNoChangesMode, setCurrentQueries, setFirstTemplatePass, setIsParent, setPreviousOrParentTNode} from './state';
 import {createStylingContextTemplate, renderStyleAndClassBindings, updateClassProp as updateElementClassProp, updateStyleProp as updateElementStyleProp, updateStylingMap} from './styling/class_and_style_bindings';
 import {BoundPlayerFactory} from './styling/player_factory';
 import {getStylingContext} from './styling/util';
@@ -62,7 +62,6 @@ const enum BindingDirection {
  */
 export function refreshDescendantViews(viewData: LViewData, rf: RenderFlags | null) {
   const tView = getTView();
-  const parentFirstTemplatePass = getFirstTemplatePass();
 
   // This needs to be set before children are processed to support recursive components
   tView.firstTemplatePass = false;
@@ -91,7 +90,7 @@ export function refreshDescendantViews(viewData: LViewData, rf: RenderFlags | nu
     setHostBindings(tView, viewData);
   }
 
-  refreshChildComponents(tView.components, parentFirstTemplatePass, rf);
+  refreshChildComponents(tView.components, rf);
 }
 
 
@@ -147,27 +146,29 @@ function refreshContentQueries(tView: TView): void {
 }
 
 /** Refreshes child components in the current view. */
-function refreshChildComponents(
-    components: number[] | null, parentFirstTemplatePass: boolean, rf: RenderFlags | null): void {
+function refreshChildComponents(components: number[] | null, rf: RenderFlags | null): void {
   if (components != null) {
     for (let i = 0; i < components.length; i++) {
-      componentRefresh(components[i], parentFirstTemplatePass, rf);
+      componentRefresh(components[i], rf);
     }
   }
 }
 
 export function createLViewData<T>(
-    parentViewData: LViewData | null, renderer: Renderer3, tView: TView, context: T | null,
-    flags: LViewFlags, sanitizer?: Sanitizer | null, injector?: Injector | null): LViewData {
-  const instance = tView.blueprint.slice() as LViewData;
-  instance[FLAGS] = flags | LViewFlags.CreationMode | LViewFlags.Attached | LViewFlags.RunInit;
-  instance[PARENT] = instance[DECLARATION_VIEW] = parentViewData;
-  instance[CONTEXT] = context;
-  instance[INJECTOR as any] =
-      injector === undefined ? (parentViewData ? parentViewData[INJECTOR] : null) : injector;
-  instance[RENDERER] = renderer;
-  instance[SANITIZER] = sanitizer || null;
-  return instance;
+    parentLView: LViewData | null, tView: TView, context: T | null, flags: LViewFlags,
+    rendererFactory?: RendererFactory3 | null, renderer?: Renderer3 | null,
+    sanitizer?: Sanitizer | null, injector?: Injector | null): LViewData {
+  const lView = tView.blueprint.slice() as LViewData;
+  lView[FLAGS] = flags | LViewFlags.CreationMode | LViewFlags.Attached | LViewFlags.RunInit;
+  lView[PARENT] = lView[DECLARATION_VIEW] = parentLView;
+  lView[CONTEXT] = context;
+  lView[RENDERER_FACTORY] = (rendererFactory || parentLView && parentLView[RENDERER_FACTORY]) !;
+  ngDevMode && assertDefined(lView[RENDERER_FACTORY], 'RendererFactory is required');
+  lView[RENDERER] = (renderer || parentLView && parentLView[RENDERER]) !;
+  ngDevMode && assertDefined(lView[RENDERER], 'Renderer is required');
+  lView[SANITIZER] = sanitizer || parentLView && parentLView[SANITIZER] || null !;
+  lView[INJECTOR as any] = injector || parentLView && parentLView[INJECTOR] || null;
+  return lView;
 }
 
 /**
@@ -287,20 +288,19 @@ export function renderTemplate<T>(
     sanitizer?: Sanitizer | null): LViewData {
   if (hostView == null) {
     resetComponentState();
-    setRendererFactory(providedRendererFactory);
     const renderer = providedRendererFactory.createRenderer(null, null);
-    setRenderer(renderer);
 
     // We need to create a root view so it's possible to look up the host element through its index
-    const lView = createLViewData(
-        null, renderer, createTView(-1, null, 1, 0, null, null, null), {},
-        LViewFlags.CheckAlways | LViewFlags.IsRoot);
-    enterView(lView, null);
+    const hostLView = createLViewData(
+        null, createTView(-1, null, 1, 0, null, null, null), {},
+        LViewFlags.CheckAlways | LViewFlags.IsRoot, providedRendererFactory, renderer);
+    enterView(hostLView, null);  // SUSPECT! why do we need to enter the View?
 
     const componentTView =
         getOrCreateTView(templateFn, consts, vars, directives || null, pipes || null, null);
     hostView = createLViewData(
-        lView, renderer, componentTView, context, LViewFlags.CheckAlways, sanitizer);
+        hostLView, componentTView, context, LViewFlags.CheckAlways, providedRendererFactory,
+        renderer, sanitizer);
     hostView[HOST_NODE] = createNodeAtIndex(0, TNodeType.Element, hostNode, null, null);
   }
   renderComponentOrTemplate(hostView, context, null, templateFn);
@@ -321,8 +321,7 @@ export function createEmbeddedViewAndNode<T>(
   setIsParent(true);
   setPreviousOrParentTNode(null !);
 
-  const lView = createLViewData(
-      declarationView, renderer, tView, context, LViewFlags.CheckAlways, getCurrentSanitizer());
+  const lView = createLViewData(declarationView, tView, context, LViewFlags.CheckAlways);
   lView[DECLARATION_VIEW] = declarationView;
 
   if (queries) {
@@ -405,7 +404,7 @@ export function nextContext<T = any>(level: number = 1): T {
 function renderComponentOrTemplate<T>(
     hostView: LViewData, componentOrContext: T, rf: RenderFlags | null,
     templateFn?: ComponentTemplate<T>) {
-  const rendererFactory = getRendererFactory();
+  const rendererFactory = hostView[RENDERER_FACTORY];
   const oldView = enterView(hostView, hostView[HOST_NODE]);
   try {
     if (rendererFactory.begin) {
@@ -767,7 +766,6 @@ export function createError(text: string, token: any) {
 export function locateHostElement(
     factory: RendererFactory3, elementOrSelector: RElement | string): RElement|null {
   ngDevMode && assertDataInRange(-1);
-  setRendererFactory(factory);
   const defaultRenderer = factory.createRenderer(null, null);
   const rNode = typeof elementOrSelector === 'string' ?
       (isProceduralRenderer(defaultRenderer) ?
@@ -956,6 +954,9 @@ export function elementProperty<T>(
   if (inputData && (dataValue = inputData[propName])) {
     setInputsForProperty(viewData, dataValue, value);
     if (isComponent(tNode)) markDirtyIfOnPush(viewData, index + HEADER_OFFSET);
+    if (ngDevMode && tNode.type === TNodeType.Element) {
+      setNgReflectProperties(element as RElement, propName, value);
+    }
   } else if (tNode.type === TNodeType.Element) {
     const renderer = getRenderer();
     // It is assumed that the sanitizer is only added when the compiler determines that the property
@@ -1023,6 +1024,15 @@ function setInputsForProperty(viewData: LViewData, inputs: PropertyAliasValue, v
     ngDevMode && assertDataInRange(inputs[i] as number, viewData);
     viewData[inputs[i] as number][inputs[i + 1]] = value;
   }
+}
+
+function setNgReflectProperties(element: RElement, propName: string, value: any) {
+  const renderer = getRenderer() as ProceduralRenderer3;
+  const isProcedural = isProceduralRenderer(renderer);
+  const attrName = normalizeDebugBindingName(propName);
+  const debugValue = normalizeDebugBindingValue(value);
+  isProcedural ? renderer.setAttribute(element, attrName, debugValue) :
+                 element.setAttribute(attrName, debugValue);
 }
 
 /**
@@ -1439,7 +1449,7 @@ function resolveDirectives(
  */
 function instantiateAllDirectives(tView: TView, viewData: LViewData, previousOrParentTNode: TNode) {
   const start = previousOrParentTNode.flags >> TNodeFlags.DirectiveStartingIndexShift;
-  const end = start + previousOrParentTNode.flags & TNodeFlags.DirectiveCountMask;
+  const end = start + (previousOrParentTNode.flags & TNodeFlags.DirectiveCountMask);
   if (!getFirstTemplatePass() && start < end) {
     getOrCreateNodeInjectorForNode(
         previousOrParentTNode as TElementNode | TContainerNode | TElementContainerNode, viewData);
@@ -1661,11 +1671,12 @@ function addComponentLogic<T>(
 
   // Only component views should be added to the view tree directly. Embedded views are
   // accessed through their containers because they may be removed / re-added later.
+  const rendererFactory = getRendererFactory();
   const componentView = addToViewTree(
       viewData, previousOrParentTNode.index as number,
       createLViewData(
-          getViewData(), getRendererFactory().createRenderer(native as RElement, def), tView, null,
-          def.onPush ? LViewFlags.Dirty : LViewFlags.CheckAlways, getCurrentSanitizer()));
+          getViewData(), tView, null, def.onPush ? LViewFlags.Dirty : LViewFlags.CheckAlways,
+          rendererFactory, getRendererFactory().createRenderer(native as RElement, def)));
 
   componentView[HOST_NODE] = previousOrParentTNode as TElementNode;
 
@@ -1992,9 +2003,9 @@ export function embeddedViewStart(viewBlockId: number, consts: number, vars: num
   } else {
     // When we create a new LView, we always reset the state of the instructions.
     viewToRender = createLViewData(
-        getViewData(), getRenderer(),
+        getViewData(),
         getOrCreateEmbeddedTView(viewBlockId, consts, vars, containerTNode as TContainerNode), null,
-        LViewFlags.CheckAlways, getCurrentSanitizer());
+        LViewFlags.CheckAlways);
 
     if (lContainer[QUERIES]) {
       viewToRender[QUERIES] = lContainer[QUERIES] !.createView();
@@ -2056,16 +2067,16 @@ export function embeddedViewEnd(): void {
  * Refreshes components by entering the component view and processing its bindings, queries, etc.
  *
  * @param adjustedElementIndex  Element index in LViewData[] (adjusted for HEADER_OFFSET)
+ * @param rf  The render flags that should be used to process this template
  */
-export function componentRefresh<T>(
-    adjustedElementIndex: number, parentFirstTemplatePass: boolean, rf: RenderFlags | null): void {
+export function componentRefresh<T>(adjustedElementIndex: number, rf: RenderFlags | null): void {
   ngDevMode && assertDataInRange(adjustedElementIndex);
   const hostView = getComponentViewByIndex(adjustedElementIndex, getViewData());
   ngDevMode && assertNodeType(getTView().data[adjustedElementIndex] as TNode, TNodeType.Element);
 
   // Only attached CheckAlways components or attached, dirty OnPush components should be checked
   if (viewAttached(hostView) && hostView[FLAGS] & (LViewFlags.CheckAlways | LViewFlags.Dirty)) {
-    parentFirstTemplatePass && syncViewWithBlueprint(hostView);
+    syncViewWithBlueprint(hostView);
     detectChangesInternal(hostView, hostView[CONTEXT], rf);
   }
 }

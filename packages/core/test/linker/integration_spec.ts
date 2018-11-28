@@ -940,24 +940,26 @@ function declareTests(config?: {useJit: boolean}) {
         expect(getDOM().getProperty(tc.nativeElement, 'id')).toEqual('newId');
       });
 
-      it('should not use template variables for expressions in hostProperties', () => {
-        @Directive({selector: '[host-properties]', host: {'[id]': 'id', '[title]': 'unknownProp'}})
-        class DirectiveWithHostProps {
-          id = 'one';
-        }
+      fixmeIvy('FW-681: not possible to retrieve host property bindings from TView') &&
+          it('should not use template variables for expressions in hostProperties', () => {
+            @Directive(
+                {selector: '[host-properties]', host: {'[id]': 'id', '[title]': 'unknownProp'}})
+            class DirectiveWithHostProps {
+              id = 'one';
+            }
 
-        const fixture =
-            TestBed.configureTestingModule({declarations: [MyComp, DirectiveWithHostProps]})
-                .overrideComponent(
-                    MyComp,
-                    {set: {template: `<div *ngFor="let id of ['forId']" host-properties></div>`}})
-                .createComponent(MyComp);
-        fixture.detectChanges();
+            const fixture =
+                TestBed.configureTestingModule({declarations: [MyComp, DirectiveWithHostProps]})
+                    .overrideComponent(MyComp, {
+                      set: {template: `<div *ngFor="let id of ['forId']" host-properties></div>`}
+                    })
+                    .createComponent(MyComp);
+            fixture.detectChanges();
 
-        const tc = fixture.debugElement.children[0];
-        expect(tc.properties['id']).toBe('one');
-        expect(tc.properties['title']).toBe(undefined);
-      });
+            const tc = fixture.debugElement.children[0];
+            expect(tc.properties['id']).toBe('one');
+            expect(tc.properties['title']).toBe(undefined);
+          });
 
       fixmeIvy('FW-725: Pipes in host bindings fail with a cryptic error') &&
           it('should not allow pipes in hostProperties', () => {
@@ -995,17 +997,18 @@ function declareTests(config?: {useJit: boolean}) {
         expect(dir.receivedArgs).toEqual(['one', undefined]);
       });
 
-      fixmeIvy('unknown') && it('should not allow pipes in hostListeners', () => {
-        @Directive({selector: '[host-listener]', host: {'(click)': 'doIt() | somePipe'}})
-        class DirectiveWithHostListener {
-        }
+      fixmeIvy('FW-742: Pipes in host listeners should throw a descriptive error') &&
+          it('should not allow pipes in hostListeners', () => {
+            @Directive({selector: '[host-listener]', host: {'(click)': 'doIt() | somePipe'}})
+            class DirectiveWithHostListener {
+            }
 
-        TestBed.configureTestingModule({declarations: [MyComp, DirectiveWithHostListener]});
-        const template = '<div host-listener></div>';
-        TestBed.overrideComponent(MyComp, {set: {template}});
-        expect(() => TestBed.createComponent(MyComp))
-            .toThrowError(/Cannot have a pipe in an action expression/);
-      });
+            TestBed.configureTestingModule({declarations: [MyComp, DirectiveWithHostListener]});
+            const template = '<div host-listener></div>';
+            TestBed.overrideComponent(MyComp, {set: {template}});
+            expect(() => TestBed.createComponent(MyComp))
+                .toThrowError(/Cannot have a pipe in an action expression/);
+          });
 
 
 
@@ -1112,7 +1115,7 @@ function declareTests(config?: {useJit: boolean}) {
                    .toHaveText('dynamic greet');
              }));
 
-          fixmeIvy('FW-561: Runtime compiler is not loaded') &&
+          fixmeIvy('FW-707: TestBed: No LViewData in getParentInjectorLocation') &&
               it('should create a component that has been freshly compiled', () => {
                 @Component({template: ''})
                 class RootComp {
@@ -1152,7 +1155,7 @@ function declareTests(config?: {useJit: boolean}) {
                 expect(compRef.instance.someToken).toBe('someRootValue');
               });
 
-          fixmeIvy('FW-561: Runtime compiler is not loaded') &&
+          fixmeIvy('FW-707: TestBed: No LViewData in getParentInjectorLocation') &&
               it('should create a component with the passed NgModuleRef', () => {
                 @Component({template: ''})
                 class RootComp {
@@ -1193,7 +1196,7 @@ function declareTests(config?: {useJit: boolean}) {
                 expect(compRef.instance.someToken).toBe('someValue');
               });
 
-          fixmeIvy('FW-561: Runtime compiler is not loaded') &&
+          fixmeIvy('FW-707: TestBed: No LViewData in getParentInjectorLocation') &&
               it('should create a component with the NgModuleRef of the ComponentFactoryResolver',
                  () => {
                    @Component({template: ''})
@@ -1238,37 +1241,35 @@ function declareTests(config?: {useJit: boolean}) {
         });
 
         describe('.insert', () => {
-          fixmeIvy('unknown') &&
-              it('should throw with destroyed views', async(() => {
-                   const fixture = TestBed.configureTestingModule({schemas: [NO_ERRORS_SCHEMA]})
-                                       .createComponent(MyComp);
-                   const tc = fixture.debugElement.children[0].children[0];
-                   const dynamicVp: DynamicViewport = tc.injector.get(DynamicViewport);
-                   const ref = dynamicVp.create();
-                   fixture.detectChanges();
+          it('should throw with destroyed views', async(() => {
+               const fixture = TestBed.configureTestingModule({schemas: [NO_ERRORS_SCHEMA]})
+                                   .createComponent(MyComp);
+               const tc = fixture.debugElement.children[0].children[0];
+               const dynamicVp: DynamicViewport = tc.injector.get(DynamicViewport);
+               const ref = dynamicVp.create();
+               fixture.detectChanges();
 
-                   ref.destroy();
-                   expect(() => {
-                     dynamicVp.insert(ref.hostView);
-                   }).toThrowError('Cannot insert a destroyed View in a ViewContainer!');
-                 }));
+               ref.destroy();
+               expect(() => {
+                 dynamicVp.insert(ref.hostView);
+               }).toThrowError('Cannot insert a destroyed View in a ViewContainer!');
+             }));
         });
 
         describe('.move', () => {
-          fixmeIvy('unknown') &&
-              it('should throw with destroyed views', async(() => {
-                   const fixture = TestBed.configureTestingModule({schemas: [NO_ERRORS_SCHEMA]})
-                                       .createComponent(MyComp);
-                   const tc = fixture.debugElement.children[0].children[0];
-                   const dynamicVp: DynamicViewport = tc.injector.get(DynamicViewport);
-                   const ref = dynamicVp.create();
-                   fixture.detectChanges();
+          it('should throw with destroyed views', async(() => {
+               const fixture = TestBed.configureTestingModule({schemas: [NO_ERRORS_SCHEMA]})
+                                   .createComponent(MyComp);
+               const tc = fixture.debugElement.children[0].children[0];
+               const dynamicVp: DynamicViewport = tc.injector.get(DynamicViewport);
+               const ref = dynamicVp.create();
+               fixture.detectChanges();
 
-                   ref.destroy();
-                   expect(() => {
-                     dynamicVp.move(ref.hostView, 1);
-                   }).toThrowError('Cannot move a destroyed View in a ViewContainer!');
-                 }));
+               ref.destroy();
+               expect(() => {
+                 dynamicVp.move(ref.hostView, 1);
+               }).toThrowError('Cannot move a destroyed View in a ViewContainer!');
+             }));
         });
 
       });

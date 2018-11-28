@@ -75,6 +75,9 @@
     "name": "INJECTOR_SIZE"
   },
   {
+    "name": "InjectFlags"
+  },
+  {
     "name": "IterableChangeRecord_"
   },
   {
@@ -166,6 +169,9 @@
   },
   {
     "name": "RENDERER"
+  },
+  {
+    "name": "RENDERER_FACTORY"
   },
   {
     "name": "RENDER_PARENT"
@@ -657,9 +663,6 @@
     "name": "getCurrentQueries"
   },
   {
-    "name": "getCurrentSanitizer"
-  },
-  {
     "name": "getCurrentView"
   },
   {
@@ -948,6 +951,9 @@
     "name": "loadInternal"
   },
   {
+    "name": "locateDirectiveOrProvider"
+  },
+  {
     "name": "locateHostElement"
   },
   {
@@ -1159,9 +1165,6 @@
   },
   {
     "name": "setProp"
-  },
-  {
-    "name": "setRendererFactory"
   },
   {
     "name": "setStyle"

@@ -108,6 +108,9 @@
     "name": "RENDERER"
   },
   {
+    "name": "RENDERER_FACTORY"
+  },
+  {
     "name": "RENDER_PARENT"
   },
   {
@@ -231,9 +234,6 @@
     "name": "extractPipeDef"
   },
   {
-    "name": "firstTemplatePass"
-  },
-  {
     "name": "generateExpandoInstructionBlock"
   },
   {
@@ -262,9 +262,6 @@
   },
   {
     "name": "getFirstParentNative"
-  },
-  {
-    "name": "getFirstTemplatePass"
   },
   {
     "name": "getHighestElementContainer"
@@ -325,9 +322,6 @@
   },
   {
     "name": "getRenderer"
-  },
-  {
-    "name": "getRendererFactory"
   },
   {
     "name": "getRootContext"
@@ -463,9 +457,6 @@
   },
   {
     "name": "setPreviousOrParentTNode"
-  },
-  {
-    "name": "setRendererFactory"
   },
   {
     "name": "setTNodeAndViewData"
