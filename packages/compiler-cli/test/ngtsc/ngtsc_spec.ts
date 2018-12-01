@@ -512,6 +512,7 @@ describe('ngtsc behavioral tests', () => {
     const hostBindingsFn = `
       hostBindings: function FooCmp_HostBindings(rf, ctx, elIndex) {
         if (rf & 1) {
+          i0.ɵallocHostVars(3);
           i0.ɵlistener("click", function FooCmp_click_HostBindingHandler($event) { return ctx.onClick($event); });
           i0.ɵlistener("change", function FooCmp_change_HostBindingHandler($event) { return ctx.onChange(ctx.arg1, ctx.arg2, ctx.arg3); });
           i0.ɵelementStyling(_c0, null, null, ctx);
@@ -553,6 +554,26 @@ describe('ngtsc behavioral tests', () => {
     expect(trim(jsContents)).toContain(trim(hostBindingsFn));
   });
 
+  it('should use proper default value for preserveWhitespaces config param', () => {
+    env.tsconfig();  // default is `false`
+    env.write(`test.ts`, `
+      import {Component} from '@angular/core';
+       @Component({
+        selector: 'test',
+        preserveWhitespaces: false,
+        template: \`
+          <div>
+            Template with whitespaces
+          </div>
+        \`
+      })
+      class FooCmp {}
+    `);
+    env.driveMain();
+    const jsContents = env.getContents('test.js');
+    expect(jsContents).toContain('text(1, " Template with whitespaces ");');
+  });
+
   it('should take preserveWhitespaces config option into account', () => {
     env.tsconfig({preserveWhitespaces: true});
     env.write(`test.ts`, `
@@ -591,6 +612,36 @@ describe('ngtsc behavioral tests', () => {
     env.driveMain();
     const jsContents = env.getContents('test.js');
     expect(jsContents).toContain('text(1, " Template with whitespaces ");');
+  });
+
+  it('should use proper default value for i18nUseExternalIds config param', () => {
+    env.tsconfig();  // default is `true`
+    env.write(`test.ts`, `
+      import {Component} from '@angular/core';
+       @Component({
+        selector: 'test',
+        template: '<div i18n>Some text</div>'
+      })
+      class FooCmp {}
+    `);
+    env.driveMain();
+    const jsContents = env.getContents('test.js');
+    expect(jsContents).toContain('i18n(1, MSG_EXTERNAL_8321000940098097247);');
+  });
+
+  it('should take i18nUseExternalIds config option into account', () => {
+    env.tsconfig({i18nUseExternalIds: false});
+    env.write(`test.ts`, `
+      import {Component} from '@angular/core';
+       @Component({
+        selector: 'test',
+        template: '<div i18n>Some text</div>'
+      })
+      class FooCmp {}
+    `);
+    env.driveMain();
+    const jsContents = env.getContents('test.js');
+    expect(jsContents).toContain('i18n(1, MSG_TEST_TS_0);');
   });
 
   it('should correctly recognize local symbols', () => {
@@ -831,5 +882,32 @@ describe('ngtsc behavioral tests', () => {
     expect(jsContents).toContain('ɵsetClassMetadata(TestInjectable, ');
     expect(jsContents).toContain('ɵsetClassMetadata(TestNgModule, ');
     expect(jsContents).toContain('ɵsetClassMetadata(TestPipe, ');
+  });
+
+  it('should compile a template using multiple directives with the same selector', () => {
+    env.tsconfig();
+    env.write('test.ts', `
+      import {Component, Directive, NgModule} from '@angular/core';
+
+      @Directive({selector: '[test]'})
+      class DirA {}
+
+      @Directive({selector: '[test]'})
+      class DirB {}
+
+      @Component({
+        template: '<div test></div>',
+      })
+      class Cmp {}
+
+      @NgModule({
+        declarations: [Cmp, DirA, DirB],
+      })
+      class Module {}
+    `);
+
+    env.driveMain();
+    const jsContents = env.getContents('test.js');
+    expect(jsContents).toMatch(/directives: \[DirA,\s+DirB\]/);
   });
 });

@@ -132,13 +132,6 @@ export interface R3ComponentMetadata extends R3DirectiveMetadata {
      * Selectors found in the <ng-content> tags in the template.
      */
     ngContentSelectors: string[];
-
-    /**
-     * Path to the .ts file in which this template's generated code will be included, relative to
-     * the compilation root. This will be used to generate identifiers that need to be globally
-     * unique in certain contexts (such as g3).
-     */
-    relativeContextFilePath: string;
   };
 
   /**
@@ -153,10 +146,10 @@ export interface R3ComponentMetadata extends R3DirectiveMetadata {
   pipes: Map<string, o.Expression>;
 
   /**
-   * A map of directive selectors to an expression referencing the directive type which are in the
+   * A list of directive selectors and an expression referencing the directive type which are in the
    * scope of the compilation.
    */
-  directives: Map<string, o.Expression>;
+  directives: {selector: string, expression: o.Expression}[];
 
   /**
    * Whether to wrap the 'directives' and/or `pipes` array, if one is generated, in a closure.
@@ -190,6 +183,20 @@ export interface R3ComponentMetadata extends R3DirectiveMetadata {
    * The list of view providers defined in the component.
    */
   viewProviders: o.Expression|null;
+
+
+  /**
+   * Path to the .ts file in which this template's generated code will be included, relative to
+   * the compilation root. This will be used to generate identifiers that need to be globally
+   * unique in certain contexts (such as g3).
+   */
+  relativeContextFilePath: string;
+
+  /**
+   * Whether translation variable name should contain external message id
+   * (used by Closure Compiler's output of `goog.getMsg` for transition period)
+   */
+  i18nUseExternalIds: boolean;
 }
 
 /**

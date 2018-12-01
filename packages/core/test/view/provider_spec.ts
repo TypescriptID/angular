@@ -114,7 +114,7 @@ import {fixmeIvy} from '@angular/private/testing';
         expect(debugCtx.nodeIndex).toBe(1);
       });
 
-      fixmeIvy('unknown') && describe('deps', () => {
+      describe('deps', () => {
         class Dep {}
 
         it('should inject deps from the same element', () => {
@@ -138,7 +138,7 @@ import {fixmeIvy} from '@angular/private/testing';
           expect(instance.dep instanceof Dep).toBeTruthy();
         });
 
-        it('should not inject deps from sibling root elements', () => {
+        fixmeIvy('unknown') && it('should not inject deps from sibling root elements', () => {
           const rootElNodes = [
             elementDef(0, NodeFlags.None, null, null, 1, 'span'),
             directiveDef(1, NodeFlags.None, null, 0, Dep, []),
@@ -181,7 +181,7 @@ import {fixmeIvy} from '@angular/private/testing';
           expect(instance.dep instanceof Dep).toBeTruthy();
         });
 
-        it('should throw for missing dependencies', () => {
+        fixmeIvy('unknown') && it('should throw for missing dependencies', () => {
           expect(() => createAndGetRootNodes(compViewDef([
                    elementDef(0, NodeFlags.None, null, null, 1, 'span'),
                    directiveDef(1, NodeFlags.None, null, 0, SomeService, ['nonExistingDep'])

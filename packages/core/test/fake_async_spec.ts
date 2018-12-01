@@ -18,7 +18,7 @@ const resolvedPromise = Promise.resolve(null);
 const ProxyZoneSpec: {assertPresent: () => void} = (Zone as any)['ProxyZoneSpec'];
 
 {
-  fixmeIvy('unknown') && describe('fake async', () => {
+  describe('fake async', () => {
     it('should run synchronous code', () => {
       let ran = false;
       fakeAsync(() => { ran = true; })();
@@ -33,9 +33,10 @@ const ProxyZoneSpec: {assertPresent: () => void} = (Zone as any)['ProxyZoneSpec'
       })('foo', 'bar');
     });
 
-    it('should work with inject()', fakeAsync(inject([Parser], (parser: any /** TODO #9100 */) => {
-         expect(parser).toBeAnInstanceOf(Parser);
-       })));
+    fixmeIvy('unknown') && it('should work with inject()',
+                              fakeAsync(inject([Parser], (parser: any /** TODO #9100 */) => {
+                                expect(parser).toBeAnInstanceOf(Parser);
+                              })));
 
     it('should throw on nested calls', () => {
       expect(() => {

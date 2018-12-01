@@ -136,14 +136,6 @@ export interface DirectiveDef<T> extends BaseDef<T> {
   /** Refreshes content queries associated with directives in a given view */
   contentQueriesRefresh: ((directiveIndex: number, queryIndex: number) => void)|null;
 
-  /**
-   * The number of host bindings (including pure fn bindings) in this directive/component.
-   *
-   * Used to calculate the length of the LViewData array for the *parent* component
-   * of this directive/component.
-   */
-  readonly hostVars: number;
-
   /** Refreshes host bindings on the associated directive. */
   hostBindings: HostBindingsFunction<T>|null;
 
@@ -205,7 +197,7 @@ export interface ComponentDef<T> extends DirectiveDef<T> {
   /**
    * The number of nodes, local refs, and pipes in this component template.
    *
-   * Used to calculate the length of the component's LViewData array, so we
+   * Used to calculate the length of the component's LView array, so we
    * can pre-fill the array and set the binding start index.
    */
   // TODO(kara): remove queries from this count
@@ -214,7 +206,7 @@ export interface ComponentDef<T> extends DirectiveDef<T> {
   /**
    * The number of bindings in this component template (including pure fn bindings).
    *
-   * Used to calculate the length of the component's LViewData array, so we
+   * Used to calculate the length of the component's LView array, so we
    * can pre-fill the array and set the host binding start index.
    */
   readonly vars: number;

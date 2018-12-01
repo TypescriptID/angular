@@ -62,8 +62,8 @@ function baseDirectiveFields(
 
   definitionMap.set('contentQueriesRefresh', createContentQueriesRefreshFunction(meta));
 
-  // Initialize hostVars to number of bound host properties (interpolations illegal)
-  let hostVars = Object.keys(meta.host.properties).length;
+  // Initialize hostVarsCount to number of bound host properties (interpolations illegal)
+  const hostVarsCount = Object.keys(meta.host.properties).length;
 
   const elVarExp = o.variable('elIndex');
   const contextVarExp = o.variable(CONTEXT_NAME);
@@ -94,18 +94,9 @@ function baseDirectiveFields(
 
   // e.g. `hostBindings: (rf, ctx, elIndex) => { ... }
   definitionMap.set(
-      'hostBindings', createHostBindingsFunction(
-                          meta, elVarExp, contextVarExp, styleBuilder, bindingParser, constantPool,
-                          (slots: number) => {
-                            const originalSlots = hostVars;
-                            hostVars += slots;
-                            return originalSlots;
-                          }));
-
-  if (hostVars) {
-    // e.g. `hostVars: 2
-    definitionMap.set('hostVars', o.literal(hostVars));
-  }
+      'hostBindings',
+      createHostBindingsFunction(
+          meta, elVarExp, contextVarExp, styleBuilder, bindingParser, constantPool, hostVarsCount));
 
   // e.g 'inputs: {a: 'a'}`
   definitionMap.set('inputs', conditionallyCreateMapObjectLiteral(meta.inputs));
@@ -231,11 +222,11 @@ export function compileComponentFromMetadata(
   // Generate the CSS matcher that recognize directive
   let directiveMatcher: SelectorMatcher|null = null;
 
-  if (meta.directives.size) {
+  if (meta.directives.length > 0) {
     const matcher = new SelectorMatcher();
-    meta.directives.forEach((expression, selector: string) => {
+    for (const {selector, expression} of meta.directives) {
       matcher.addSelectables(CssSelector.parse(selector), expression);
-    });
+    }
     directiveMatcher = matcher;
   }
 
@@ -254,7 +245,7 @@ export function compileComponentFromMetadata(
   const templateBuilder = new TemplateDefinitionBuilder(
       constantPool, BindingScope.ROOT_SCOPE, 0, templateTypeName, null, null, templateName,
       meta.viewQueries, directiveMatcher, directivesUsed, meta.pipes, pipesUsed, R3.namespaceHTML,
-      meta.template.relativeContextFilePath);
+      meta.relativeContextFilePath, meta.i18nUseExternalIds);
 
   const templateFunctionExpression = templateBuilder.buildTemplateFunction(
       template.nodes, [], template.hasNgContent, template.ngContentSelectors);
@@ -373,9 +364,8 @@ export function compileComponentFromRender2(
       nodes: render3Ast.nodes,
       hasNgContent: render3Ast.hasNgContent,
       ngContentSelectors: render3Ast.ngContentSelectors,
-      relativeContextFilePath: '',
     },
-    directives: typeMapToExpressionMap(directiveTypeBySel, outputCtx),
+    directives: [],
     pipes: typeMapToExpressionMap(pipeTypeByName, outputCtx),
     viewQueries: queriesFromGlobalMetadata(component.viewQueries, outputCtx),
     wrapDirectivesAndPipesInClosure: false,
@@ -384,7 +374,9 @@ export function compileComponentFromRender2(
         (summary.template && summary.template.encapsulation) || core.ViewEncapsulation.Emulated,
     animations: null,
     viewProviders:
-        component.viewProviders.length > 0 ? new o.WrappedNodeExpr(component.viewProviders) : null
+        component.viewProviders.length > 0 ? new o.WrappedNodeExpr(component.viewProviders) : null,
+    relativeContextFilePath: '',
+    i18nUseExternalIds: true,
   };
   const res = compileComponentFromMetadata(meta, outputCtx.constantPool, bindingParser);
 
@@ -644,12 +636,12 @@ function createViewQueriesFunction(
 function createHostBindingsFunction(
     meta: R3DirectiveMetadata, elVarExp: o.ReadVarExpr, bindingContext: o.ReadVarExpr,
     styleBuilder: StylingBuilder, bindingParser: BindingParser, constantPool: ConstantPool,
-    allocatePureFunctionSlots: (slots: number) => number): o.Expression|null {
+    hostVarsCount: number): o.Expression|null {
   const createStatements: o.Statement[] = [];
   const updateStatements: o.Statement[] = [];
 
+  let totalHostVarsCount = hostVarsCount;
   const hostBindingSourceSpan = meta.typeSourceSpan;
-
   const directiveSummary = metadataAsSummary(meta);
 
   // Calculate host event bindings
@@ -669,9 +661,13 @@ function createHostBindingsFunction(
   };
 
   if (bindings) {
+    const hostVarsCountFn = (numSlots: number): number => {
+      totalHostVarsCount += numSlots;
+      return hostVarsCount;
+    };
     const valueConverter = new ValueConverter(
         constantPool,
-        /* new nodes are illegal here */ () => error('Unexpected node'), allocatePureFunctionSlots,
+        /* new nodes are illegal here */ () => error('Unexpected node'), hostVarsCountFn,
         /* pipes are illegal here */ () => error('Unexpected pipe'));
 
     for (const binding of bindings) {
@@ -713,6 +709,11 @@ function createHostBindingsFunction(
         updateStatements.push(updateStmt);
       });
     }
+  }
+
+  if (totalHostVarsCount) {
+    createStatements.unshift(
+        o.importExpr(R3.allocHostVars).callFn([o.literal(totalHostVarsCount)]).toStmt());
   }
 
   if (createStatements.length > 0 || updateStatements.length > 0) {

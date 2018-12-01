@@ -61,7 +61,8 @@ describe('RouterPreloader', () => {
     });
 
 
-    fixmeIvy('unknown') &&
+    fixmeIvy(
+        'FW-765: NgModuleRef hierarchy is differently constructed when the router preloads modules') &&
         it('should work',
            fakeAsync(inject(
                [NgModuleFactoryLoader, RouterPreloader, Router, NgModuleRef],
@@ -129,7 +130,8 @@ describe('RouterPreloader', () => {
       });
     });
 
-    fixmeIvy('FW-???: Cannot read property \'declarations\' of undefined') &&
+    fixmeIvy(
+        'FW-765: NgModuleRef hierarchy is differently constructed when the router preloads modules') &&
         it('should work',
            fakeAsync(inject(
                [NgModuleFactoryLoader, RouterPreloader, Router, NgModuleRef, Compiler],

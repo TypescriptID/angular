@@ -169,7 +169,7 @@ class TestApp {
 }
 
 {
-  fixmeIvy('unknown') && describe('debug element', () => {
+  describe('debug element', () => {
     let fixture: ComponentFixture<any>;
 
     beforeEach(async(() => {
@@ -259,32 +259,35 @@ class TestApp {
       expect(list.children.length).toEqual(3);
     });
 
-    it('should list element attributes', () => {
-      fixture = TestBed.createComponent(TestApp);
-      fixture.detectChanges();
-      const bankElem = fixture.debugElement.children[0];
+    fixmeIvy('FW-719: DebugElement needs proper implementation of its methods.') &&
+        it('should list element attributes', () => {
+          fixture = TestBed.createComponent(TestApp);
+          fixture.detectChanges();
+          const bankElem = fixture.debugElement.children[0];
 
-      expect(bankElem.attributes['bank']).toEqual('RBC');
-      expect(bankElem.attributes['account']).toEqual('4747');
-    });
+          expect(bankElem.attributes['bank']).toEqual('RBC');
+          expect(bankElem.attributes['account']).toEqual('4747');
+        });
 
-    it('should list element classes', () => {
-      fixture = TestBed.createComponent(TestApp);
-      fixture.detectChanges();
-      const bankElem = fixture.debugElement.children[0];
+    fixmeIvy('FW-719: DebugElement needs proper implementation of its methods.') &&
+        it('should list element classes', () => {
+          fixture = TestBed.createComponent(TestApp);
+          fixture.detectChanges();
+          const bankElem = fixture.debugElement.children[0];
 
-      expect(bankElem.classes['closed']).toBe(true);
-      expect(bankElem.classes['open']).toBe(false);
-    });
+          expect(bankElem.classes['closed']).toBe(true);
+          expect(bankElem.classes['open']).toBe(false);
+        });
 
-    it('should list element styles', () => {
-      fixture = TestBed.createComponent(TestApp);
-      fixture.detectChanges();
-      const bankElem = fixture.debugElement.children[0];
+    fixmeIvy('FW-719: DebugElement needs proper implementation of its methods.') &&
+        it('should list element styles', () => {
+          fixture = TestBed.createComponent(TestApp);
+          fixture.detectChanges();
+          const bankElem = fixture.debugElement.children[0];
 
-      expect(bankElem.styles['width']).toEqual('200px');
-      expect(bankElem.styles['color']).toEqual('red');
-    });
+          expect(bankElem.styles['width']).toEqual('200px');
+          expect(bankElem.styles['color']).toEqual('red');
+        });
 
     it('should query child elements by css', () => {
       fixture = TestBed.createComponent(ParentComp);
@@ -309,12 +312,13 @@ class TestApp {
       expect(getDOM().hasClass(childTestEls[3].nativeElement, 'childnested')).toBe(true);
     });
 
-    it('should list providerTokens', () => {
-      fixture = TestBed.createComponent(ParentComp);
-      fixture.detectChanges();
+    fixmeIvy('FW-719: DebugElement needs proper implementation of its methods.') &&
+        it('should list providerTokens', () => {
+          fixture = TestBed.createComponent(ParentComp);
+          fixture.detectChanges();
 
-      expect(fixture.debugElement.providerTokens).toContain(Logger);
-    });
+          expect(fixture.debugElement.providerTokens).toContain(Logger);
+        });
 
     it('should list locals', () => {
       fixture = TestBed.createComponent(LocalsComp);
@@ -323,23 +327,25 @@ class TestApp {
       expect(fixture.debugElement.children[0].references !['alice']).toBeAnInstanceOf(MyDir);
     });
 
-    it('should allow injecting from the element injector', () => {
-      fixture = TestBed.createComponent(ParentComp);
-      fixture.detectChanges();
+    fixmeIvy('FW-719: DebugElement needs proper implementation of its methods.') &&
+        it('should allow injecting from the element injector', () => {
+          fixture = TestBed.createComponent(ParentComp);
+          fixture.detectChanges();
 
-      expect((<Logger>(fixture.debugElement.children[0].injector.get(Logger))).logs).toEqual([
-        'parent', 'nestedparent', 'child', 'nestedchild'
-      ]);
-    });
+          expect((<Logger>(fixture.debugElement.children[0].injector.get(Logger))).logs).toEqual([
+            'parent', 'nestedparent', 'child', 'nestedchild'
+          ]);
+        });
 
-    it('should list event listeners', () => {
-      fixture = TestBed.createComponent(EventsComp);
-      fixture.detectChanges();
+    fixmeIvy('FW-719: DebugElement needs proper implementation of its methods.') &&
+        it('should list event listeners', () => {
+          fixture = TestBed.createComponent(EventsComp);
+          fixture.detectChanges();
 
-      expect(fixture.debugElement.children[0].listeners.length).toEqual(1);
-      expect(fixture.debugElement.children[1].listeners.length).toEqual(1);
+          expect(fixture.debugElement.children[0].listeners.length).toEqual(1);
+          expect(fixture.debugElement.children[1].listeners.length).toEqual(1);
 
-    });
+        });
 
     it('should trigger event handlers', () => {
       fixture = TestBed.createComponent(EventsComp);

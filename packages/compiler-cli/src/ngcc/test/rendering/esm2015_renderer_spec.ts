@@ -6,31 +6,35 @@
  * found in the LICENSE file at https://angular.io/license
  */
 import {dirname} from 'canonical-path';
-import * as ts from 'typescript';
-
 import MagicString from 'magic-string';
-import {makeProgram} from '../helpers/utils';
+import * as ts from 'typescript';
 import {DecorationAnalyzer} from '../../src/analysis/decoration_analyzer';
+import {NgccReferencesRegistry} from '../../src/analysis/ngcc_references_registry';
 import {SwitchMarkerAnalyzer} from '../../src/analysis/switch_marker_analyzer';
-import {createBundleInfo} from '../../src/packages/bundle';
 import {Esm2015ReflectionHost} from '../../src/host/esm2015_host';
 import {EsmRenderer} from '../../src/rendering/esm_renderer';
+import {makeTestEntryPointBundle} from '../helpers/utils';
 
-function setup(file: {name: string, contents: string}, transformDts: boolean = false) {
+function setup(file: {name: string, contents: string}) {
   const dir = dirname(file.name);
-  const program = makeProgram(file);
-  const sourceFile = program.getSourceFile(file.name) !;
-  const host = new Esm2015ReflectionHost(false, program.getTypeChecker());
+  const bundle = makeTestEntryPointBundle('esm2015', [file]) !;
+  const typeChecker = bundle.src.program.getTypeChecker();
+  const host = new Esm2015ReflectionHost(false, typeChecker);
+  const referencesRegistry = new NgccReferencesRegistry(host);
   const decorationAnalyses =
-      new DecorationAnalyzer(program.getTypeChecker(), host, [''], false).analyzeProgram(program);
-  const switchMarkerAnalyses = new SwitchMarkerAnalyzer(host).analyzeProgram(program);
-  const bundle = createBundleInfo(false, null, null);
-  const renderer = new EsmRenderer(host, bundle, dir, dir, false);
-  return {host, program, sourceFile, renderer, decorationAnalyses, switchMarkerAnalyses};
+      new DecorationAnalyzer(typeChecker, host, referencesRegistry, [''], false)
+          .analyzeProgram(bundle.src.program);
+  const switchMarkerAnalyses = new SwitchMarkerAnalyzer(host).analyzeProgram(bundle.src.program);
+  const renderer = new EsmRenderer(host, false, bundle, dir, dir);
+  return {
+    host,
+    program: bundle.src.program,
+    sourceFile: bundle.src.file, renderer, decorationAnalyses, switchMarkerAnalyses
+  };
 }
 
 const PROGRAM = {
-  name: 'some/file.js',
+  name: '/some/file.js',
   contents: `
 /* A copyright notice */
 import {Directive} from '@angular/core';
@@ -65,7 +69,7 @@ function compileNgModuleFactory__POST_R3__(injector, options, moduleType) {
 };
 
 const PROGRAM_DECORATE_HELPER = {
-  name: 'some/file.js',
+  name: '/some/file.js',
   contents: `
 import * as tslib_1 from "tslib";
 var D_1;
@@ -117,6 +121,24 @@ import * as i1 from '@angular/common';
     });
   });
 
+  describe('addExports', () => {
+    it('should insert the given exports at the end of the source file', () => {
+      const {renderer} = setup(PROGRAM);
+      const output = new MagicString(PROGRAM.contents);
+      renderer.addExports(output, PROGRAM.name.replace(/\.js$/, ''), [
+        {from: '/some/a.js', identifier: 'ComponentA1'},
+        {from: '/some/a.js', identifier: 'ComponentA2'},
+        {from: '/some/foo/b.js', identifier: 'ComponentB'},
+        {from: PROGRAM.name, identifier: 'TopLevelComponent'},
+      ]);
+      expect(output.toString()).toContain(`
+// Some other content
+export {ComponentA1} from './a';
+export {ComponentA2} from './a';
+export {ComponentB} from './foo/b';
+export {TopLevelComponent};`);
+    });
+  });
 
   describe('addConstants', () => {
     it('should insert the given constants after imports in the source file', () => {
