@@ -38,11 +38,12 @@ import {assertNodeOfPossibleTypes, assertNodeType} from './node_assert';
 import {appendChild, appendProjectedNode, createTextNode, findComponentView, getLViewChild, getRenderParent, insertView, removeView} from './node_manipulation';
 import {isNodeMatchingSelectorList, matchingSelectorIndex} from './node_selector_matcher';
 import {decreaseElementDepthCount, enterView, getBindingsEnabled, getCheckNoChangesMode, getContextLView, getCreationMode, getCurrentDirectiveDef, getElementDepthCount, getFirstTemplatePass, getIsParent, getLView, getPreviousOrParentTNode, increaseElementDepthCount, leaveView, nextContextImpl, resetComponentState, setBindingRoot, setCheckNoChangesMode, setCurrentDirectiveDef, setFirstTemplatePass, setIsParent, setPreviousOrParentTNode} from './state';
-import {createStylingContextTemplate, renderStyleAndClassBindings, updateClassProp as updateElementClassProp, updateStyleProp as updateElementStyleProp, updateStylingMap} from './styling/class_and_style_bindings';
+import {createStylingContextTemplate, renderStyleAndClassBindings, setStyle, updateClassProp as updateElementClassProp, updateStyleProp as updateElementStyleProp, updateStylingMap} from './styling/class_and_style_bindings';
 import {BoundPlayerFactory} from './styling/player_factory';
 import {getStylingContext} from './styling/util';
 import {NO_CHANGE} from './tokens';
 import {getComponentViewByIndex, getNativeByIndex, getNativeByTNode, getRootContext, getRootView, getTNode, isComponent, isComponentDef, loadInternal, readElementValue, readPatchedLView, stringify} from './util';
+
 
 
 /**
@@ -1216,11 +1217,8 @@ export function elementStylingApply(index: number, directive?: {}): void {
 export function elementStyleProp(
     index: number, styleIndex: number, value: string | number | String | PlayerFactory | null,
     suffix?: string, directive?: {}): void {
-  if (directive != undefined)
-    return hackImplementationOfElementStyleProp(
-        index, styleIndex, value, suffix, directive);  // supported in next PR
   let valueToAdd: string|null = null;
-  if (value) {
+  if (value !== null) {
     if (suffix) {
       // when a suffix is applied then it will bypass
       // sanitization entirely (b/c a new string is created)
@@ -1233,7 +1231,11 @@ export function elementStyleProp(
       valueToAdd = value as any as string;
     }
   }
-  updateElementStyleProp(getStylingContext(index, getLView()), styleIndex, valueToAdd);
+  if (directive != undefined) {
+    hackImplementationOfElementStyleProp(index, styleIndex, valueToAdd, suffix, directive);
+  } else {
+    updateElementStyleProp(getStylingContext(index, getLView()), styleIndex, valueToAdd);
+  }
 }
 
 /**
@@ -1293,14 +1295,40 @@ function hackImplementationOfElementStyling(
     classDeclarations: (string | boolean | InitialStylingFlags)[] | null,
     styleDeclarations: (string | boolean | InitialStylingFlags)[] | null,
     styleSanitizer: StyleSanitizeFn | null, directive: {}): void {
-  const node = getNativeByTNode(getPreviousOrParentTNode(), getLView());
+  const node = getNativeByTNode(getPreviousOrParentTNode(), getLView()) as RElement;
   ngDevMode && assertDefined(node, 'expecting parent DOM node');
   const hostStylingHackMap: HostStylingHackMap =
       ((node as any).hostStylingHack || ((node as any).hostStylingHack = new Map()));
+  const squashedClassDeclarations = hackSquashDeclaration(classDeclarations);
   hostStylingHackMap.set(directive, {
-    classDeclarations: hackSquashDeclaration(classDeclarations),
+    classDeclarations: squashedClassDeclarations,
     styleDeclarations: hackSquashDeclaration(styleDeclarations), styleSanitizer
   });
+  hackSetStaticClasses(node, squashedClassDeclarations);
+}
+
+function hackSetStaticClasses(node: RElement, classDeclarations: (string | boolean)[]) {
+  // Static classes need to be set here because static classes don't generate
+  // elementClassProp instructions.
+  const lView = getLView();
+  const staticClassStartIndex =
+      classDeclarations.indexOf(InitialStylingFlags.VALUES_MODE as any) + 1;
+  const renderer = lView[RENDERER];
+
+  for (let i = staticClassStartIndex; i < classDeclarations.length; i += 2) {
+    const className = classDeclarations[i] as string;
+    const value = classDeclarations[i + 1];
+    // if value is true, then this is a static class and we should set it now.
+    // class bindings are set separately in elementClassProp.
+    if (value === true) {
+      if (isProceduralRenderer(renderer)) {
+        renderer.addClass(node, className);
+      } else {
+        const classList = (node as HTMLElement).classList;
+        classList.add(className);
+      }
+    }
+  }
 }
 
 function hackSquashDeclaration(declarations: (string | boolean | InitialStylingFlags)[] | null):
@@ -1330,9 +1358,15 @@ function hackImplementationOfElementStylingApply(index: number, directive?: {}):
 }
 
 function hackImplementationOfElementStyleProp(
-    index: number, styleIndex: number, value: string | number | String | PlayerFactory | null,
-    suffix?: string, directive?: {}): void {
-  throw new Error('unimplemented. Should not be needed by ViewEngine compatibility');
+    index: number, styleIndex: number, value: string | null, suffix?: string,
+    directive?: {}): void {
+  const lView = getLView();
+  const node = getNativeByIndex(index, lView);
+  ngDevMode && assertDefined(node, 'could not locate node');
+  const hostStylingHack: HostStylingHack = (node as any).hostStylingHack.get(directive);
+  const styleName = hostStylingHack.styleDeclarations[styleIndex];
+  const renderer = lView[RENDERER];
+  setStyle(node, styleName, value as string, renderer, null);
 }
 
 function hackImplementationOfElementStylingMap<T>(
@@ -1481,9 +1515,10 @@ function invokeDirectivesHostBindings(tView: TView, viewData: LView, previousOrP
       setCurrentDirectiveDef(null);
       // `hostBindings` function may or may not contain `allocHostVars` call
       // (e.g. it may not if it only contains host listeners), so we need to check whether
-      // `expandoInstructions` has changed and if not - we push `null` to keep indices in sync
+      // `expandoInstructions` has changed and if not - we still push `hostBindings` to
+      // expando block, to make sure we execute it for DI cycle
       if (previousExpandoLength === expando.length && firstTemplatePass) {
-        expando.push(null);
+        expando.push(def.hostBindings);
       }
     } else if (firstTemplatePass) {
       expando.push(null);
@@ -1624,10 +1659,15 @@ function queueHostBindingForCheck(
   ngDevMode &&
       assertEqual(getFirstTemplatePass(), true, 'Should only be called in first template pass.');
   const expando = tView.expandoInstructions !;
-  // check whether a given `hostBindings` function already exists in expandoInstructions,
+  const length = expando.length;
+  // Check whether a given `hostBindings` function already exists in expandoInstructions,
   // which can happen in case directive definition was extended from base definition (as a part of
-  // the `InheritDefinitionFeature` logic)
-  if (expando.length < 2 || expando[expando.length - 2] !== def.hostBindings) {
+  // the `InheritDefinitionFeature` logic). If we found the same `hostBindings` function in the
+  // list, we just increase the number of host vars associated with that function, but do not add it
+  // into the list again.
+  if (length >= 2 && expando[length - 2] === def.hostBindings) {
+    expando[length - 1] = (expando[length - 1] as number) + hostVars;
+  } else {
     expando.push(def.hostBindings !, hostVars);
   }
 }
