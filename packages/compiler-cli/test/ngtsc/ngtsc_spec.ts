@@ -89,6 +89,45 @@ describe('ngtsc behavioral tests', () => {
     expect(jsContents).toContain('Hello World');
   });
 
+  it('should compile Components with a templateUrl in a different rootDir', () => {
+    env.tsconfig({}, ['./extraRootDir']);
+    env.write('extraRootDir/test.html', '<p>Hello World</p>');
+    env.write('test.ts', `
+        import {Component} from '@angular/core';
+
+        @Component({
+          selector: 'test-cmp',
+          templateUrl: 'test.html',
+        })
+        export class TestCmp {}
+    `);
+
+    env.driveMain();
+
+    const jsContents = env.getContents('test.js');
+    expect(jsContents).toContain('Hello World');
+  });
+
+  it('should compile components with styleUrls', () => {
+    env.tsconfig();
+    env.write('test.ts', `
+        import {Component} from '@angular/core';
+
+        @Component({
+          selector: 'test-cmp',
+          styleUrls: ['./dir/style.css'],
+          template: '',
+        })
+        export class TestCmp {}
+    `);
+    env.write('dir/style.css', ':host { background-color: blue; }');
+
+    env.driveMain();
+
+    const jsContents = env.getContents('test.js');
+    expect(jsContents).toContain('background-color: blue');
+  });
+
   it('should compile NgModules without errors', () => {
     env.tsconfig();
     env.write('test.ts', `
@@ -642,6 +681,25 @@ describe('ngtsc behavioral tests', () => {
     env.driveMain();
     const jsContents = env.getContents('test.js');
     expect(jsContents).toContain('i18n(1, MSG_TEST_TS_0);');
+  });
+
+  it('@Component\'s `interpolation` should override default interpolation config', () => {
+    env.tsconfig();
+    env.write(`test.ts`, `
+      import {Component} from '@angular/core';
+      @Component({
+        selector: 'cmp-with-custom-interpolation-a',
+        template: \`<div>{%text%}</div>\`,
+        interpolation: ['{%', '%}']
+      })
+      class ComponentWithCustomInterpolationA {
+        text = 'Custom Interpolation A';
+      }
+    `);
+
+    env.driveMain();
+    const jsContents = env.getContents('test.js');
+    expect(jsContents).toContain('interpolation1("", ctx.text, "")');
   });
 
   it('should correctly recognize local symbols', () => {

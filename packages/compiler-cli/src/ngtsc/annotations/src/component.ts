@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ConstantPool, CssSelector, DomElementSchemaRegistry, ElementSchemaRegistry, Expression, R3ComponentMetadata, R3DirectiveMetadata, SelectorMatcher, Statement, TmplAstNode, WrappedNodeExpr, compileComponentFromMetadata, makeBindingParser, parseTemplate} from '@angular/compiler';
+import {ConstantPool, CssSelector, DEFAULT_INTERPOLATION_CONFIG, DomElementSchemaRegistry, ElementSchemaRegistry, Expression, InterpolationConfig, R3ComponentMetadata, R3DirectiveMetadata, SelectorMatcher, Statement, TmplAstNode, WrappedNodeExpr, compileComponentFromMetadata, makeBindingParser, parseTemplate} from '@angular/compiler';
 import * as path from 'path';
 import * as ts from 'typescript';
 
@@ -57,6 +57,8 @@ export class ComponentDecoratorHandler implements
   preanalyze(node: ts.ClassDeclaration, decorator: Decorator): Promise<void>|undefined {
     const meta = this._resolveLiteral(decorator);
     const component = reflectObjectLiteral(meta);
+    const promises: Promise<void>[] = [];
+    const containingFile = node.getSourceFile().fileName;
 
     if (this.resourceLoader.preload !== undefined && component.has('templateUrl')) {
       const templateUrlExpr = component.get('templateUrl') !;
@@ -65,13 +67,30 @@ export class ComponentDecoratorHandler implements
         throw new FatalDiagnosticError(
             ErrorCode.VALUE_HAS_WRONG_TYPE, templateUrlExpr, 'templateUrl must be a string');
       }
-      const url = path.posix.resolve(path.dirname(node.getSourceFile().fileName), templateUrl);
-      return this.resourceLoader.preload(url);
+      const promise = this.resourceLoader.preload(templateUrl, containingFile);
+      if (promise !== undefined) {
+        promises.push(promise);
+      }
     }
-    return undefined;
+
+    const styleUrls = this._extractStyleUrls(component);
+    if (this.resourceLoader.preload !== undefined && styleUrls !== null) {
+      for (const styleUrl of styleUrls) {
+        const promise = this.resourceLoader.preload(styleUrl, containingFile);
+        if (promise !== undefined) {
+          promises.push(promise);
+        }
+      }
+    }
+    if (promises.length !== 0) {
+      return Promise.all(promises).then(() => undefined);
+    } else {
+      return undefined;
+    }
   }
 
   analyze(node: ts.ClassDeclaration, decorator: Decorator): AnalysisOutput<ComponentHandlerData> {
+    const containingFile = node.getSourceFile().fileName;
     const meta = this._resolveLiteral(decorator);
     this.literalCache.delete(decorator);
 
@@ -98,8 +117,7 @@ export class ComponentDecoratorHandler implements
         throw new FatalDiagnosticError(
             ErrorCode.VALUE_HAS_WRONG_TYPE, templateUrlExpr, 'templateUrl must be a string');
       }
-      const url = path.posix.resolve(path.dirname(node.getSourceFile().fileName), templateUrl);
-      templateStr = this.resourceLoader.load(url);
+      templateStr = this.resourceLoader.load(templateUrl, containingFile);
     } else if (component.has('template')) {
       const templateExpr = component.get('template') !;
       const resolvedTemplate = staticallyResolve(templateExpr, this.reflector, this.checker);
@@ -140,9 +158,22 @@ export class ComponentDecoratorHandler implements
       }
     }, undefined) !;
 
+    let interpolation: InterpolationConfig = DEFAULT_INTERPOLATION_CONFIG;
+    if (component.has('interpolation')) {
+      const expr = component.get('interpolation') !;
+      const value = staticallyResolve(expr, this.reflector, this.checker);
+      if (!Array.isArray(value) || value.length !== 2 ||
+          !value.every(element => typeof element === 'string')) {
+        throw new FatalDiagnosticError(
+            ErrorCode.VALUE_HAS_WRONG_TYPE, expr,
+            'interpolation must be an array with 2 elements of string type');
+      }
+      interpolation = InterpolationConfig.fromArray(value as[string, string]);
+    }
+
     const template = parseTemplate(
         templateStr, `${node.getSourceFile().fileName}#${node.name!.text}/template.html`,
-        {preserveWhitespaces});
+        {preserveWhitespaces, interpolationConfig: interpolation});
     if (template.errors !== undefined) {
       throw new Error(
           `Errors parsing template: ${template.errors.map(e => e.toString()).join(', ')}`);
@@ -186,6 +217,14 @@ export class ComponentDecoratorHandler implements
       styles = parseFieldArrayValue(component, 'styles', this.reflector, this.checker);
     }
 
+    let styleUrls = this._extractStyleUrls(component);
+    if (styleUrls !== null) {
+      if (styles === null) {
+        styles = [];
+      }
+      styles.push(...styleUrls.map(styleUrl => this.resourceLoader.load(styleUrl, containingFile)));
+    }
+
     let encapsulation: number = 0;
     if (component.has('encapsulation')) {
       encapsulation = parseInt(staticallyResolve(
@@ -204,6 +243,7 @@ export class ComponentDecoratorHandler implements
           template,
           viewQueries,
           encapsulation,
+          interpolation,
           styles: styles || [],
 
           // These will be replaced during the compilation step, after all `NgModule`s have been
@@ -250,7 +290,8 @@ export class ComponentDecoratorHandler implements
       metadata = {...metadata, directives, pipes, wrapDirectivesAndPipesInClosure};
     }
 
-    const res = compileComponentFromMetadata(metadata, pool, makeBindingParser());
+    const res =
+        compileComponentFromMetadata(metadata, pool, makeBindingParser(metadata.interpolation));
 
     const statements = res.statements;
     if (analysis.metadataStmt !== null) {
@@ -281,5 +322,19 @@ export class ComponentDecoratorHandler implements
 
     this.literalCache.set(decorator, meta);
     return meta;
+  }
+
+  private _extractStyleUrls(component: Map<string, ts.Expression>): string[]|null {
+    if (!component.has('styleUrls')) {
+      return null;
+    }
+
+    const styleUrlsExpr = component.get('styleUrls') !;
+    const styleUrls = staticallyResolve(styleUrlsExpr, this.reflector, this.checker);
+    if (!Array.isArray(styleUrls) || !styleUrls.every(url => typeof url === 'string')) {
+      throw new FatalDiagnosticError(
+          ErrorCode.VALUE_HAS_WRONG_TYPE, styleUrlsExpr, 'styleUrls must be an array of strings');
+    }
+    return styleUrls as string[];
   }
 }
