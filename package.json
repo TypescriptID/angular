@@ -36,6 +36,7 @@
     "@angular-devkit/architect": "^0.10.6",
     "@angular-devkit/core": "^7.0.4",
     "@angular-devkit/schematics": "^7.0.4",
+    "@bazel/karma": "0.21.0",
     "@bazel/typescript": "0.21.0",
     "@schematics/angular": "^7.0.4",
     "@types/chokidar": "1.7.3",
@@ -85,13 +86,12 @@
     "zone.js": "^0.8.26"
   },
   "optionalDependencies": {
-    "fsevents": "1.1.2"
+    "fsevents": "2.0.1"
   },
   "// 2": "devDependencies are not used under Bazel. Many can be removed after test.sh is deleted.",
   "devDependencies": {
     "@bazel/bazel": "^0.18.1",
-    "@bazel/ibazel": "^0.1.1",
-    "@bazel/karma": "0.21.0",
+    "@bazel/ibazel": "~0.8.2",
     "@types/angular": "^1.6.47",
     "@types/base64-js": "1.2.5",
     "@types/jasminewd2": "^2.0.4",

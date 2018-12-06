@@ -12,7 +12,7 @@ import * as ts from 'typescript';
 import {relativePathBetween} from '../../util/src/path';
 
 import {ShimGenerator} from './host';
-import {isNonDeclarationTsFile} from './util';
+import {generatedModuleName, isNonDeclarationTsFile} from './util';
 
 const TS_DTS_SUFFIX = /(\.d)?\.ts$/;
 const STRIP_NG_FACTORY = /(.*)NgFactory$/;
@@ -47,22 +47,35 @@ export class FactoryGenerator implements ShimGenerator {
                             // Grab the symbol name.
                             .map(decl => decl.name !.text);
 
-    // For each symbol name, generate a constant export of the corresponding NgFactory.
-    // This will encompass a lot of symbols which don't need factories, but that's okay
-    // because it won't miss any that do.
-    const varLines = symbolNames.map(
-        name => `export const ${name}NgFactory = new i0.ɵNgModuleFactory(${name});`);
-    const sourceText = [
-      // This might be incorrect if the current package being compiled is Angular core, but it's
-      // okay to leave in at type checking time. TypeScript can handle this reference via its path
-      // mapping, but downstream bundlers can't. If the current package is core itself, this will be
-      // replaced in the factory transformer before emit.
-      `import * as i0 from '@angular/core';`,
-      `import {${symbolNames.join(', ')}} from '${relativePathToSource}';`,
-      ...varLines,
-    ].join('\n');
-    return ts.createSourceFile(
+    let sourceText = '';
+    if (symbolNames.length > 0) {
+      // For each symbol name, generate a constant export of the corresponding NgFactory.
+      // This will encompass a lot of symbols which don't need factories, but that's okay
+      // because it won't miss any that do.
+      const varLines = symbolNames.map(
+          name => `export const ${name}NgFactory = new i0.ɵNgModuleFactory(${name});`);
+      sourceText = [
+        // This might be incorrect if the current package being compiled is Angular core, but it's
+        // okay to leave in at type checking time. TypeScript can handle this reference via its path
+        // mapping, but downstream bundlers can't. If the current package is core itself, this will
+        // be replaced in the factory transformer before emit.
+        `import * as i0 from '@angular/core';`,
+        `import {${symbolNames.join(', ')}} from '${relativePathToSource}';`,
+        ...varLines,
+      ].join('\n');
+    }
+
+    // Add an extra export to ensure this module has at least one. It'll be removed later in the
+    // factory transformer if it ends up not being needed.
+    sourceText += '\nexport const ɵNonEmptyModule = true;';
+
+    const genFile = ts.createSourceFile(
         genFilePath, sourceText, original.languageVersion, true, ts.ScriptKind.TS);
+    if (original.moduleName !== undefined) {
+      genFile.moduleName =
+          generatedModuleName(original.moduleName, original.fileName, '.ngfactory');
+    }
+    return genFile;
   }
 
   static forRootFiles(files: ReadonlyArray<string>): FactoryGenerator {
@@ -106,38 +119,67 @@ function transformFactorySourceFile(
 
   const clone = ts.getMutableClone(file);
 
-  const transformedStatements = file.statements.map(stmt => {
+  // Not every exported factory statement is valid. They were generated before the program was
+  // analyzed, and before ngtsc knew which symbols were actually NgModules. factoryMap contains
+  // that knowledge now, so this transform filters the statement list and removes exported factories
+  // that aren't actually factories.
+  //
+  // This could leave the generated factory file empty. To prevent this (it causes issues with
+  // closure compiler) a 'ɵNonEmptyModule' export was added when the factory shim was created.
+  // Preserve that export if needed, and remove it otherwise.
+  //
+  // Additionally, an import to @angular/core is generated, but the current compilation unit could
+  // actually be @angular/core, in which case such an import is invalid and should be replaced with
+  // the proper path to access Ivy symbols in core.
+
+  // The filtered set of statements.
+  const transformedStatements: ts.Statement[] = [];
+
+  // The statement identified as the ɵNonEmptyModule export.
+  let nonEmptyExport: ts.Statement|null = null;
+
+  // Consider all the statements.
+  for (const stmt of file.statements) {
+    // Look for imports to @angular/core.
     if (coreImportsFrom !== null && ts.isImportDeclaration(stmt) &&
         ts.isStringLiteral(stmt.moduleSpecifier) && stmt.moduleSpecifier.text === '@angular/core') {
+      // Update the import path to point to the correct file (coreImportsFrom).
       const path = relativePathBetween(sourceFilePath, coreImportsFrom.fileName);
       if (path !== null) {
-        return ts.updateImportDeclaration(
-            stmt, stmt.decorators, stmt.modifiers, stmt.importClause, ts.createStringLiteral(path));
-      } else {
-        return ts.createNotEmittedStatement(stmt);
+        transformedStatements.push(ts.updateImportDeclaration(
+            stmt, stmt.decorators, stmt.modifiers, stmt.importClause,
+            ts.createStringLiteral(path)));
       }
     } else if (ts.isVariableStatement(stmt) && stmt.declarationList.declarations.length === 1) {
       const decl = stmt.declarationList.declarations[0];
+
+      // If this is the ɵNonEmptyModule export, then save it for later.
       if (ts.isIdentifier(decl.name)) {
-        const match = STRIP_NG_FACTORY.exec(decl.name.text);
-        if (match === null || !moduleSymbolNames.has(match[1])) {
-          // Remove the given factory as it wasn't actually for an NgModule.
-          return ts.createNotEmittedStatement(stmt);
+        if (decl.name.text === 'ɵNonEmptyModule') {
+          nonEmptyExport = stmt;
+          continue;
         }
+
+        // Otherwise, check if this export is a factory for a known NgModule, and retain it if so.
+        const match = STRIP_NG_FACTORY.exec(decl.name.text);
+        if (match !== null && moduleSymbolNames.has(match[1])) {
+          transformedStatements.push(stmt);
+        }
+      } else {
+        // Leave the statement alone, as it can't be understood.
+        transformedStatements.push(stmt);
       }
-      return stmt;
     } else {
-      return stmt;
+      // Include non-variable statements (imports, etc).
+      transformedStatements.push(stmt);
     }
-  });
-  if (!transformedStatements.some(ts.isVariableStatement)) {
+  }
+
+  // Check whether the empty module export is still needed.
+  if (!transformedStatements.some(ts.isVariableStatement) && nonEmptyExport !== null) {
     // If the resulting file has no factories, include an empty export to
     // satisfy closure compiler.
-    transformedStatements.push(ts.createVariableStatement(
-        [ts.createModifier(ts.SyntaxKind.ExportKeyword)],
-        ts.createVariableDeclarationList(
-            [ts.createVariableDeclaration('ɵNonEmptyModule', undefined, ts.createTrue())],
-            ts.NodeFlags.Const)));
+    transformedStatements.push(nonEmptyExport);
   }
   clone.statements = ts.createNodeArray(transformedStatements);
   return clone;

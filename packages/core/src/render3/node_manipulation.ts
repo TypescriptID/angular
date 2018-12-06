@@ -369,8 +369,9 @@ export function insertView(
  * @param lContainer The container from which to detach a view
  * @param removeIndex The index of the view to detach
  * @param detached Whether or not this view is already detached.
+ * @returns Detached LView instance.
  */
-export function detachView(lContainer: LContainer, removeIndex: number, detached: boolean) {
+export function detachView(lContainer: LContainer, removeIndex: number, detached: boolean): LView {
   const views = lContainer[VIEWS];
   const viewToDetach = views[removeIndex];
   if (removeIndex > 0) {
@@ -388,6 +389,7 @@ export function detachView(lContainer: LContainer, removeIndex: number, detached
   viewToDetach[PARENT] = null;
   // Unsets the attached flag
   viewToDetach[FLAGS] &= ~LViewFlags.Attached;
+  return viewToDetach;
 }
 
 /**
@@ -473,23 +475,37 @@ function cleanUpView(viewOrContainer: LView | LContainer): void {
 
 /** Removes listeners and unsubscribes from output subscriptions */
 function removeListeners(lView: LView): void {
-  const cleanup = lView[TVIEW].cleanup !;
-  if (cleanup != null) {
-    for (let i = 0; i < cleanup.length - 1; i += 2) {
-      if (typeof cleanup[i] === 'string') {
+  const tCleanup = lView[TVIEW].cleanup !;
+  if (tCleanup != null) {
+    const lCleanup = lView[CLEANUP] !;
+    for (let i = 0; i < tCleanup.length - 1; i += 2) {
+      if (typeof tCleanup[i] === 'string') {
         // This is a listener with the native renderer
-        const native = readElementValue(lView[cleanup[i + 1]]);
-        const listener = lView[CLEANUP] ![cleanup[i + 2]];
-        native.removeEventListener(cleanup[i], listener, cleanup[i + 3]);
+        const idx = tCleanup[i + 1];
+        const listener = lCleanup[tCleanup[i + 2]];
+        const native = readElementValue(lView[idx]);
+        const useCaptureOrSubIdx = tCleanup[i + 3];
+        if (typeof useCaptureOrSubIdx === 'boolean') {
+          // DOM listener
+          native.removeEventListener(tCleanup[i], listener, useCaptureOrSubIdx);
+        } else {
+          if (useCaptureOrSubIdx >= 0) {
+            // unregister
+            lCleanup[useCaptureOrSubIdx]();
+          } else {
+            // Subscription
+            lCleanup[-useCaptureOrSubIdx].unsubscribe();
+          }
+        }
         i += 2;
-      } else if (typeof cleanup[i] === 'number') {
+      } else if (typeof tCleanup[i] === 'number') {
         // This is a listener with renderer2 (cleanup fn can be found by index)
-        const cleanupFn = lView[CLEANUP] ![cleanup[i]];
+        const cleanupFn = lCleanup[tCleanup[i]];
         cleanupFn();
       } else {
         // This is a cleanup function that is grouped with the index of its context
-        const context = lView[CLEANUP] ![cleanup[i + 1]];
-        cleanup[i].call(context);
+        const context = lCleanup[tCleanup[i + 1]];
+        tCleanup[i].call(context);
       }
     }
     lView[CLEANUP] = null;

@@ -74,63 +74,63 @@ class SomeComponent {
       return MyModule;
     }
 
-    fixmeIvy('FW-776: Cannot bootstrap as there are still asynchronous initializers running') &&
-        it('should bootstrap a component from a child module',
-           async(inject([ApplicationRef, Compiler], (app: ApplicationRef, compiler: Compiler) => {
-             @Component({
-               selector: 'bootstrap-app',
-               template: '',
-             })
-             class SomeComponent {
-             }
+    fixmeIvy('FW-776: Cannot bootstrap as there are still asynchronous initializers running')
+        .it('should bootstrap a component from a child module',
+            async(inject([ApplicationRef, Compiler], (app: ApplicationRef, compiler: Compiler) => {
+              @Component({
+                selector: 'bootstrap-app',
+                template: '',
+              })
+              class SomeComponent {
+              }
 
-             @NgModule({
-               providers: [{provide: 'hello', useValue: 'component'}],
-               declarations: [SomeComponent],
-               entryComponents: [SomeComponent],
-             })
-             class SomeModule {
-             }
+              @NgModule({
+                providers: [{provide: 'hello', useValue: 'component'}],
+                declarations: [SomeComponent],
+                entryComponents: [SomeComponent],
+              })
+              class SomeModule {
+              }
 
-             createRootEl();
-             const modFactory = compiler.compileModuleSync(SomeModule);
-             const module = modFactory.create(TestBed);
-             const cmpFactory =
-                 module.componentFactoryResolver.resolveComponentFactory(SomeComponent) !;
-             const component = app.bootstrap(cmpFactory);
+              createRootEl();
+              const modFactory = compiler.compileModuleSync(SomeModule);
+              const module = modFactory.create(TestBed);
+              const cmpFactory =
+                  module.componentFactoryResolver.resolveComponentFactory(SomeComponent) !;
+              const component = app.bootstrap(cmpFactory);
 
-             // The component should see the child module providers
-             expect(component.injector.get('hello')).toEqual('component');
-           })));
+              // The component should see the child module providers
+              expect(component.injector.get('hello')).toEqual('component');
+            })));
 
-    fixmeIvy('FW-776: Cannot bootstrap as there are still asynchronous initializers running') &&
-        it('should bootstrap a component with a custom selector',
-           async(inject([ApplicationRef, Compiler], (app: ApplicationRef, compiler: Compiler) => {
-             @Component({
-               selector: 'bootstrap-app',
-               template: '',
-             })
-             class SomeComponent {
-             }
+    fixmeIvy('FW-776: Cannot bootstrap as there are still asynchronous initializers running')
+        .it('should bootstrap a component with a custom selector',
+            async(inject([ApplicationRef, Compiler], (app: ApplicationRef, compiler: Compiler) => {
+              @Component({
+                selector: 'bootstrap-app',
+                template: '',
+              })
+              class SomeComponent {
+              }
 
-             @NgModule({
-               providers: [{provide: 'hello', useValue: 'component'}],
-               declarations: [SomeComponent],
-               entryComponents: [SomeComponent],
-             })
-             class SomeModule {
-             }
+              @NgModule({
+                providers: [{provide: 'hello', useValue: 'component'}],
+                declarations: [SomeComponent],
+                entryComponents: [SomeComponent],
+              })
+              class SomeModule {
+              }
 
-             createRootEl('custom-selector');
-             const modFactory = compiler.compileModuleSync(SomeModule);
-             const module = modFactory.create(TestBed);
-             const cmpFactory =
-                 module.componentFactoryResolver.resolveComponentFactory(SomeComponent) !;
-             const component = app.bootstrap(cmpFactory, 'custom-selector');
+              createRootEl('custom-selector');
+              const modFactory = compiler.compileModuleSync(SomeModule);
+              const module = modFactory.create(TestBed);
+              const cmpFactory =
+                  module.componentFactoryResolver.resolveComponentFactory(SomeComponent) !;
+              const component = app.bootstrap(cmpFactory, 'custom-selector');
 
-             // The component should see the child module providers
-             expect(component.injector.get('hello')).toEqual('component');
-           })));
+              // The component should see the child module providers
+              expect(component.injector.get('hello')).toEqual('component');
+            })));
 
     describe('ApplicationRef', () => {
       beforeEach(() => { TestBed.configureTestingModule({imports: [createModule()]}); });
@@ -429,25 +429,25 @@ class SomeComponent {
         expect(appRef.viewCount).toBe(0);
       });
 
-      fixmeIvy('unknown') &&
-          it('should not allow to attach a view to both, a view container and the ApplicationRef',
-             () => {
-               const comp = TestBed.createComponent(MyComp);
-               let hostView = comp.componentRef.hostView;
-               const containerComp = TestBed.createComponent(ContainerComp);
-               containerComp.detectChanges();
-               const vc = containerComp.componentInstance.vc;
-               const appRef: ApplicationRef = TestBed.get(ApplicationRef);
 
-               vc.insert(hostView);
-               expect(() => appRef.attachView(hostView))
-                   .toThrowError('This view is already attached to a ViewContainer!');
-               hostView = vc.detach(0) !;
+      it('should not allow to attach a view to both, a view container and the ApplicationRef',
+         () => {
+           const comp = TestBed.createComponent(MyComp);
+           let hostView = comp.componentRef.hostView;
+           const containerComp = TestBed.createComponent(ContainerComp);
+           containerComp.detectChanges();
+           const vc = containerComp.componentInstance.vc;
+           const appRef: ApplicationRef = TestBed.get(ApplicationRef);
 
-               appRef.attachView(hostView);
-               expect(() => vc.insert(hostView))
-                   .toThrowError('This view is already attached directly to the ApplicationRef!');
-             });
+           vc.insert(hostView);
+           expect(() => appRef.attachView(hostView))
+               .toThrowError('This view is already attached to a ViewContainer!');
+           hostView = vc.detach(0) !;
+
+           appRef.attachView(hostView);
+           expect(() => vc.insert(hostView))
+               .toThrowError('This view is already attached directly to the ApplicationRef!');
+         });
     });
   });
 

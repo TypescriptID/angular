@@ -467,38 +467,38 @@ describe('Integration', () => {
        expect(location.path()).toEqual('/child/simple');
      })));
 
-  fixmeIvy('FW-768: markViewDirty instruction is scheduling a tick') &&
-      it('should work when an outlet is added/removed', fakeAsync(() => {
-           @Component({
-             selector: 'someRoot',
-             template: `[<div *ngIf="cond"><router-outlet></router-outlet></div>]`
-           })
-           class RootCmpWithLink {
-             cond: boolean = true;
-           }
-           TestBed.configureTestingModule({declarations: [RootCmpWithLink]});
+  fixmeIvy('FW-768: markViewDirty instruction is scheduling a tick')
+      .it('should work when an outlet is added/removed', fakeAsync(() => {
+            @Component({
+              selector: 'someRoot',
+              template: `[<div *ngIf="cond"><router-outlet></router-outlet></div>]`
+            })
+            class RootCmpWithLink {
+              cond: boolean = true;
+            }
+            TestBed.configureTestingModule({declarations: [RootCmpWithLink]});
 
-           const router: Router = TestBed.get(Router);
+            const router: Router = TestBed.get(Router);
 
-           const fixture = createRoot(router, RootCmpWithLink);
+            const fixture = createRoot(router, RootCmpWithLink);
 
-           router.resetConfig([
-             {path: 'simple', component: SimpleCmp},
-             {path: 'blank', component: BlankCmp},
-           ]);
+            router.resetConfig([
+              {path: 'simple', component: SimpleCmp},
+              {path: 'blank', component: BlankCmp},
+            ]);
 
-           router.navigateByUrl('/simple');
-           advance(fixture);
-           expect(fixture.nativeElement).toHaveText('[simple]');
+            router.navigateByUrl('/simple');
+            advance(fixture);
+            expect(fixture.nativeElement).toHaveText('[simple]');
 
-           fixture.componentInstance.cond = false;
-           advance(fixture);
-           expect(fixture.nativeElement).toHaveText('[]');
+            fixture.componentInstance.cond = false;
+            advance(fixture);
+            expect(fixture.nativeElement).toHaveText('[]');
 
-           fixture.componentInstance.cond = true;
-           advance(fixture);
-           expect(fixture.nativeElement).toHaveText('[simple]');
-         }));
+            fixture.componentInstance.cond = true;
+            advance(fixture);
+            expect(fixture.nativeElement).toHaveText('[simple]');
+          }));
 
   it('should update location when navigating', fakeAsync(() => {
        @Component({template: `record`})
@@ -531,153 +531,147 @@ describe('Integration', () => {
        expect(location.path()).toEqual('/record/33');
      }));
 
-  fixmeIvy('FW-726: Pipe instructions do not support WrappedValue') &&
-      it('should skip location update when using NavigationExtras.skipLocationChange with navigateByUrl',
-         fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
-           const fixture = TestBed.createComponent(RootCmp);
-           advance(fixture);
+  it('should skip location update when using NavigationExtras.skipLocationChange with navigateByUrl',
+     fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
+       const fixture = TestBed.createComponent(RootCmp);
+       advance(fixture);
 
-           router.resetConfig([{path: 'team/:id', component: TeamCmp}]);
+       router.resetConfig([{path: 'team/:id', component: TeamCmp}]);
 
-           router.navigateByUrl('/team/22');
-           advance(fixture);
-           expect(location.path()).toEqual('/team/22');
+       router.navigateByUrl('/team/22');
+       advance(fixture);
+       expect(location.path()).toEqual('/team/22');
 
-           expect(fixture.nativeElement).toHaveText('team 22 [ , right:  ]');
+       expect(fixture.nativeElement).toHaveText('team 22 [ , right:  ]');
 
-           router.navigateByUrl('/team/33', {skipLocationChange: true});
-           advance(fixture);
+       router.navigateByUrl('/team/33', {skipLocationChange: true});
+       advance(fixture);
 
-           expect(location.path()).toEqual('/team/22');
+       expect(location.path()).toEqual('/team/22');
 
-           expect(fixture.nativeElement).toHaveText('team 33 [ , right:  ]');
-         })));
+       expect(fixture.nativeElement).toHaveText('team 33 [ , right:  ]');
+     })));
 
-  fixmeIvy('FW-726: Pipe instructions do not support WrappedValue') &&
-      it('should skip location update when using NavigationExtras.skipLocationChange with navigate',
-         fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
-           const fixture = TestBed.createComponent(RootCmp);
-           advance(fixture);
+  it('should skip location update when using NavigationExtras.skipLocationChange with navigate',
+     fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
+       const fixture = TestBed.createComponent(RootCmp);
+       advance(fixture);
 
-           router.resetConfig([{path: 'team/:id', component: TeamCmp}]);
+       router.resetConfig([{path: 'team/:id', component: TeamCmp}]);
 
-           router.navigate(['/team/22']);
-           advance(fixture);
-           expect(location.path()).toEqual('/team/22');
+       router.navigate(['/team/22']);
+       advance(fixture);
+       expect(location.path()).toEqual('/team/22');
 
-           expect(fixture.nativeElement).toHaveText('team 22 [ , right:  ]');
+       expect(fixture.nativeElement).toHaveText('team 22 [ , right:  ]');
 
-           router.navigate(['/team/33'], {skipLocationChange: true});
-           advance(fixture);
+       router.navigate(['/team/33'], {skipLocationChange: true});
+       advance(fixture);
 
-           expect(location.path()).toEqual('/team/22');
+       expect(location.path()).toEqual('/team/22');
 
-           expect(fixture.nativeElement).toHaveText('team 33 [ , right:  ]');
-         })));
+       expect(fixture.nativeElement).toHaveText('team 33 [ , right:  ]');
+     })));
 
-  fixmeIvy('FW-726: Pipe instructions do not support WrappedValue') &&
-      it('should eagerly update the URL with urlUpdateStrategy="eagar"',
-         fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
-           const fixture = TestBed.createComponent(RootCmp);
-           advance(fixture);
+  it('should eagerly update the URL with urlUpdateStrategy="eagar"',
+     fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
+       const fixture = TestBed.createComponent(RootCmp);
+       advance(fixture);
 
-           router.resetConfig([{path: 'team/:id', component: TeamCmp}]);
+       router.resetConfig([{path: 'team/:id', component: TeamCmp}]);
 
-           router.navigateByUrl('/team/22');
-           advance(fixture);
-           expect(location.path()).toEqual('/team/22');
+       router.navigateByUrl('/team/22');
+       advance(fixture);
+       expect(location.path()).toEqual('/team/22');
 
-           expect(fixture.nativeElement).toHaveText('team 22 [ , right:  ]');
+       expect(fixture.nativeElement).toHaveText('team 22 [ , right:  ]');
 
-           router.urlUpdateStrategy = 'eager';
-           (router as any).hooks.beforePreactivation = () => {
-             expect(location.path()).toEqual('/team/33');
-             expect(fixture.nativeElement).toHaveText('team 22 [ , right:  ]');
-             return of (null);
-           };
-           router.navigateByUrl('/team/33');
+       router.urlUpdateStrategy = 'eager';
+       (router as any).hooks.beforePreactivation = () => {
+         expect(location.path()).toEqual('/team/33');
+         expect(fixture.nativeElement).toHaveText('team 22 [ , right:  ]');
+         return of (null);
+       };
+       router.navigateByUrl('/team/33');
 
-           advance(fixture);
-           expect(fixture.nativeElement).toHaveText('team 33 [ , right:  ]');
-         })));
+       advance(fixture);
+       expect(fixture.nativeElement).toHaveText('team 33 [ , right:  ]');
+     })));
 
-  fixmeIvy('FW-???: Error: ExpressionChangedAfterItHasBeenCheckedError') &&
-      it('should eagerly update URL after redirects are applied with urlUpdateStrategy="eagar"',
-         fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
-           const fixture = TestBed.createComponent(RootCmp);
-           advance(fixture);
+  it('should eagerly update URL after redirects are applied with urlUpdateStrategy="eagar"',
+     fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
+       const fixture = TestBed.createComponent(RootCmp);
+       advance(fixture);
 
-           router.resetConfig([{path: 'team/:id', component: TeamCmp}]);
+       router.resetConfig([{path: 'team/:id', component: TeamCmp}]);
 
-           router.navigateByUrl('/team/22');
-           advance(fixture);
-           expect(location.path()).toEqual('/team/22');
+       router.navigateByUrl('/team/22');
+       advance(fixture);
+       expect(location.path()).toEqual('/team/22');
 
-           expect(fixture.nativeElement).toHaveText('team 22 [ , right:  ]');
+       expect(fixture.nativeElement).toHaveText('team 22 [ , right:  ]');
 
-           router.urlUpdateStrategy = 'eager';
+       router.urlUpdateStrategy = 'eager';
 
-           let urlAtNavStart = '';
-           let urlAtRoutesRecognized = '';
-           router.events.subscribe(e => {
-             if (e instanceof NavigationStart) {
-               urlAtNavStart = location.path();
-             }
-             if (e instanceof RoutesRecognized) {
-               urlAtRoutesRecognized = location.path();
-             }
-           });
+       let urlAtNavStart = '';
+       let urlAtRoutesRecognized = '';
+       router.events.subscribe(e => {
+         if (e instanceof NavigationStart) {
+           urlAtNavStart = location.path();
+         }
+         if (e instanceof RoutesRecognized) {
+           urlAtRoutesRecognized = location.path();
+         }
+       });
 
-           router.navigateByUrl('/team/33');
+       router.navigateByUrl('/team/33');
 
-           advance(fixture);
-           expect(urlAtNavStart).toBe('/team/22');
-           expect(urlAtRoutesRecognized).toBe('/team/33');
-           expect(fixture.nativeElement).toHaveText('team 33 [ , right:  ]');
-         })));
+       advance(fixture);
+       expect(urlAtNavStart).toBe('/team/22');
+       expect(urlAtRoutesRecognized).toBe('/team/33');
+       expect(fixture.nativeElement).toHaveText('team 33 [ , right:  ]');
+     })));
 
-  fixmeIvy('FW-726: Pipe instructions do not support WrappedValue') &&
-      it('should navigate back and forward',
-         fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
-           const fixture = createRoot(router, RootCmp);
+  it('should navigate back and forward',
+     fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
+       const fixture = createRoot(router, RootCmp);
 
-           router.resetConfig([{
-             path: 'team/:id',
-             component: TeamCmp,
-             children: [
-               {path: 'simple', component: SimpleCmp}, {path: 'user/:name', component: UserCmp}
-             ]
-           }]);
+       router.resetConfig([{
+         path: 'team/:id',
+         component: TeamCmp,
+         children:
+             [{path: 'simple', component: SimpleCmp}, {path: 'user/:name', component: UserCmp}]
+       }]);
 
-           let event: NavigationStart;
-           router.events.subscribe(e => {
-             if (e instanceof NavigationStart) {
-               event = e;
-             }
-           });
+       let event: NavigationStart;
+       router.events.subscribe(e => {
+         if (e instanceof NavigationStart) {
+           event = e;
+         }
+       });
 
-           router.navigateByUrl('/team/33/simple');
-           advance(fixture);
-           expect(location.path()).toEqual('/team/33/simple');
-           const simpleNavStart = event !;
+       router.navigateByUrl('/team/33/simple');
+       advance(fixture);
+       expect(location.path()).toEqual('/team/33/simple');
+       const simpleNavStart = event !;
 
-           router.navigateByUrl('/team/22/user/victor');
-           advance(fixture);
-           const userVictorNavStart = event !;
+       router.navigateByUrl('/team/22/user/victor');
+       advance(fixture);
+       const userVictorNavStart = event !;
 
 
-           location.back();
-           advance(fixture);
-           expect(location.path()).toEqual('/team/33/simple');
-           expect(event !.navigationTrigger).toEqual('hashchange');
-           expect(event !.restoredState !.navigationId).toEqual(simpleNavStart.id);
+       location.back();
+       advance(fixture);
+       expect(location.path()).toEqual('/team/33/simple');
+       expect(event !.navigationTrigger).toEqual('hashchange');
+       expect(event !.restoredState !.navigationId).toEqual(simpleNavStart.id);
 
-           location.forward();
-           advance(fixture);
-           expect(location.path()).toEqual('/team/22/user/victor');
-           expect(event !.navigationTrigger).toEqual('hashchange');
-           expect(event !.restoredState !.navigationId).toEqual(userVictorNavStart.id);
-         })));
+       location.forward();
+       advance(fixture);
+       expect(location.path()).toEqual('/team/22/user/victor');
+       expect(event !.navigationTrigger).toEqual('hashchange');
+       expect(event !.restoredState !.navigationId).toEqual(userVictorNavStart.id);
+     })));
 
   it('should navigate to the same url when config changes',
      fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
@@ -698,36 +692,35 @@ describe('Integration', () => {
        expect(fixture.nativeElement).toHaveText('route');
      })));
 
-  fixmeIvy('FW-726: Pipe instructions do not support WrappedValue') &&
-      it('should navigate when locations changes',
-         fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
-           const fixture = createRoot(router, RootCmp);
+  it('should navigate when locations changes',
+     fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
+       const fixture = createRoot(router, RootCmp);
 
-           router.resetConfig([{
-             path: 'team/:id',
-             component: TeamCmp,
-             children: [{path: 'user/:name', component: UserCmp}]
-           }]);
+       router.resetConfig([{
+         path: 'team/:id',
+         component: TeamCmp,
+         children: [{path: 'user/:name', component: UserCmp}]
+       }]);
 
-           const recordedEvents: any[] = [];
-           router.events.forEach(e => onlyNavigationStartAndEnd(e) && recordedEvents.push(e));
+       const recordedEvents: any[] = [];
+       router.events.forEach(e => onlyNavigationStartAndEnd(e) && recordedEvents.push(e));
 
-           router.navigateByUrl('/team/22/user/victor');
-           advance(fixture);
+       router.navigateByUrl('/team/22/user/victor');
+       advance(fixture);
 
-           (<any>location).simulateHashChange('/team/22/user/fedor');
-           advance(fixture);
+       (<any>location).simulateHashChange('/team/22/user/fedor');
+       advance(fixture);
 
-           (<any>location).simulateUrlPop('/team/22/user/fedor');
-           advance(fixture);
+       (<any>location).simulateUrlPop('/team/22/user/fedor');
+       advance(fixture);
 
-           expect(fixture.nativeElement).toHaveText('team 22 [ user fedor, right:  ]');
+       expect(fixture.nativeElement).toHaveText('team 22 [ user fedor, right:  ]');
 
-           expectEvents(recordedEvents, [
-             [NavigationStart, '/team/22/user/victor'], [NavigationEnd, '/team/22/user/victor'],
-             [NavigationStart, '/team/22/user/fedor'], [NavigationEnd, '/team/22/user/fedor']
-           ]);
-         })));
+       expectEvents(recordedEvents, [
+         [NavigationStart, '/team/22/user/victor'], [NavigationEnd, '/team/22/user/victor'],
+         [NavigationStart, '/team/22/user/fedor'], [NavigationEnd, '/team/22/user/fedor']
+       ]);
+     })));
 
   it('should update the location when the matched route does not change',
      fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
@@ -871,20 +864,19 @@ describe('Integration', () => {
        expect(fixture.nativeElement).toHaveText('');
      })));
 
-  fixmeIvy('FW-726: Pipe instructions do not support WrappedValue') &&
-      it('should set query params and fragment', fakeAsync(inject([Router], (router: Router) => {
-           const fixture = createRoot(router, RootCmp);
+  it('should set query params and fragment', fakeAsync(inject([Router], (router: Router) => {
+       const fixture = createRoot(router, RootCmp);
 
-           router.resetConfig([{path: 'query', component: QueryParamsAndFragmentCmp}]);
+       router.resetConfig([{path: 'query', component: QueryParamsAndFragmentCmp}]);
 
-           router.navigateByUrl('/query?name=1#fragment1');
-           advance(fixture);
-           expect(fixture.nativeElement).toHaveText('query: 1 fragment: fragment1');
+       router.navigateByUrl('/query?name=1#fragment1');
+       advance(fixture);
+       expect(fixture.nativeElement).toHaveText('query: 1 fragment: fragment1');
 
-           router.navigateByUrl('/query?name=2#fragment2');
-           advance(fixture);
-           expect(fixture.nativeElement).toHaveText('query: 2 fragment: fragment2');
-         })));
+       router.navigateByUrl('/query?name=2#fragment2');
+       advance(fixture);
+       expect(fixture.nativeElement).toHaveText('query: 2 fragment: fragment2');
+     })));
 
   it('should ignore null and undefined query params',
      fakeAsync(inject([Router], (router: Router) => {
@@ -909,35 +901,33 @@ describe('Integration', () => {
        ])).toThrowError(`The requested path contains undefined segment at index 0`);
      })));
 
-  fixmeIvy('FW-726: Pipe instructions do not support WrappedValue') &&
-      it('should push params only when they change',
-         fakeAsync(inject([Router], (router: Router) => {
-           const fixture = createRoot(router, RootCmp);
+  it('should push params only when they change', fakeAsync(inject([Router], (router: Router) => {
+       const fixture = createRoot(router, RootCmp);
 
-           router.resetConfig([{
-             path: 'team/:id',
-             component: TeamCmp,
-             children: [{path: 'user/:name', component: UserCmp}]
-           }]);
+       router.resetConfig([{
+         path: 'team/:id',
+         component: TeamCmp,
+         children: [{path: 'user/:name', component: UserCmp}]
+       }]);
 
-           router.navigateByUrl('/team/22/user/victor');
-           advance(fixture);
-           const team = fixture.debugElement.children[1].componentInstance;
-           const user = fixture.debugElement.children[1].children[1].componentInstance;
+       router.navigateByUrl('/team/22/user/victor');
+       advance(fixture);
+       const team = fixture.debugElement.children[1].componentInstance;
+       const user = fixture.debugElement.children[1].children[1].componentInstance;
 
-           expect(team.recordedParams).toEqual([{id: '22'}]);
-           expect(team.snapshotParams).toEqual([{id: '22'}]);
-           expect(user.recordedParams).toEqual([{name: 'victor'}]);
-           expect(user.snapshotParams).toEqual([{name: 'victor'}]);
+       expect(team.recordedParams).toEqual([{id: '22'}]);
+       expect(team.snapshotParams).toEqual([{id: '22'}]);
+       expect(user.recordedParams).toEqual([{name: 'victor'}]);
+       expect(user.snapshotParams).toEqual([{name: 'victor'}]);
 
-           router.navigateByUrl('/team/22/user/fedor');
-           advance(fixture);
+       router.navigateByUrl('/team/22/user/fedor');
+       advance(fixture);
 
-           expect(team.recordedParams).toEqual([{id: '22'}]);
-           expect(team.snapshotParams).toEqual([{id: '22'}]);
-           expect(user.recordedParams).toEqual([{name: 'victor'}, {name: 'fedor'}]);
-           expect(user.snapshotParams).toEqual([{name: 'victor'}, {name: 'fedor'}]);
-         })));
+       expect(team.recordedParams).toEqual([{id: '22'}]);
+       expect(team.snapshotParams).toEqual([{id: '22'}]);
+       expect(user.recordedParams).toEqual([{name: 'victor'}, {name: 'fedor'}]);
+       expect(user.snapshotParams).toEqual([{name: 'victor'}, {name: 'fedor'}]);
+     })));
 
   it('should work when navigating to /', fakeAsync(inject([Router], (router: Router) => {
        const fixture = createRoot(router, RootCmp);
@@ -958,60 +948,59 @@ describe('Integration', () => {
        expect(fixture.nativeElement).toHaveText('simple');
      })));
 
-  fixmeIvy('FW-726: Pipe instructions do not support WrappedValue') &&
-      it('should cancel in-flight navigations', fakeAsync(inject([Router], (router: Router) => {
-           const fixture = createRoot(router, RootCmp);
+  it('should cancel in-flight navigations', fakeAsync(inject([Router], (router: Router) => {
+       const fixture = createRoot(router, RootCmp);
 
-           router.resetConfig([{path: 'user/:name', component: UserCmp}]);
+       router.resetConfig([{path: 'user/:name', component: UserCmp}]);
 
-           const recordedEvents: any[] = [];
-           router.events.forEach(e => recordedEvents.push(e));
+       const recordedEvents: any[] = [];
+       router.events.forEach(e => recordedEvents.push(e));
 
-           router.navigateByUrl('/user/init');
-           advance(fixture);
+       router.navigateByUrl('/user/init');
+       advance(fixture);
 
-           const user = fixture.debugElement.children[1].componentInstance;
+       const user = fixture.debugElement.children[1].componentInstance;
 
-           let r1: any, r2: any;
-           router.navigateByUrl('/user/victor') !.then(_ => r1 = _);
-           router.navigateByUrl('/user/fedor') !.then(_ => r2 = _);
-           advance(fixture);
+       let r1: any, r2: any;
+       router.navigateByUrl('/user/victor') !.then(_ => r1 = _);
+       router.navigateByUrl('/user/fedor') !.then(_ => r2 = _);
+       advance(fixture);
 
-           expect(r1).toEqual(false);  // returns false because it was canceled
-           expect(r2).toEqual(true);   // returns true because it was successful
+       expect(r1).toEqual(false);  // returns false because it was canceled
+       expect(r2).toEqual(true);   // returns true because it was successful
 
-           expect(fixture.nativeElement).toHaveText('user fedor');
-           expect(user.recordedParams).toEqual([{name: 'init'}, {name: 'fedor'}]);
+       expect(fixture.nativeElement).toHaveText('user fedor');
+       expect(user.recordedParams).toEqual([{name: 'init'}, {name: 'fedor'}]);
 
-           expectEvents(recordedEvents, [
-             [NavigationStart, '/user/init'],
-             [RoutesRecognized, '/user/init'],
-             [GuardsCheckStart, '/user/init'],
-             [ChildActivationStart],
-             [ActivationStart],
-             [GuardsCheckEnd, '/user/init'],
-             [ResolveStart, '/user/init'],
-             [ResolveEnd, '/user/init'],
-             [ActivationEnd],
-             [ChildActivationEnd],
-             [NavigationEnd, '/user/init'],
+       expectEvents(recordedEvents, [
+         [NavigationStart, '/user/init'],
+         [RoutesRecognized, '/user/init'],
+         [GuardsCheckStart, '/user/init'],
+         [ChildActivationStart],
+         [ActivationStart],
+         [GuardsCheckEnd, '/user/init'],
+         [ResolveStart, '/user/init'],
+         [ResolveEnd, '/user/init'],
+         [ActivationEnd],
+         [ChildActivationEnd],
+         [NavigationEnd, '/user/init'],
 
-             [NavigationStart, '/user/victor'],
-             [NavigationCancel, '/user/victor'],
+         [NavigationStart, '/user/victor'],
+         [NavigationCancel, '/user/victor'],
 
-             [NavigationStart, '/user/fedor'],
-             [RoutesRecognized, '/user/fedor'],
-             [GuardsCheckStart, '/user/fedor'],
-             [ChildActivationStart],
-             [ActivationStart],
-             [GuardsCheckEnd, '/user/fedor'],
-             [ResolveStart, '/user/fedor'],
-             [ResolveEnd, '/user/fedor'],
-             [ActivationEnd],
-             [ChildActivationEnd],
-             [NavigationEnd, '/user/fedor']
-           ]);
-         })));
+         [NavigationStart, '/user/fedor'],
+         [RoutesRecognized, '/user/fedor'],
+         [GuardsCheckStart, '/user/fedor'],
+         [ChildActivationStart],
+         [ActivationStart],
+         [GuardsCheckEnd, '/user/fedor'],
+         [ResolveStart, '/user/fedor'],
+         [ResolveEnd, '/user/fedor'],
+         [ActivationEnd],
+         [ChildActivationEnd],
+         [NavigationEnd, '/user/fedor']
+       ]);
+     })));
 
   it('should handle failed navigations gracefully', fakeAsync(inject([Router], (router: Router) => {
        const fixture = createRoot(router, RootCmp);
@@ -1222,74 +1211,71 @@ describe('Integration', () => {
      })));
 
 
-  fixmeIvy('FW-726: Pipe instructions do not support WrappedValue') &&
-      it('should replace state when path is equal to current path',
-         fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
-           const fixture = createRoot(router, RootCmp);
+  it('should replace state when path is equal to current path',
+     fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
+       const fixture = createRoot(router, RootCmp);
 
-           router.resetConfig([{
-             path: 'team/:id',
-             component: TeamCmp,
-             children: [
-               {path: 'simple', component: SimpleCmp}, {path: 'user/:name', component: UserCmp}
-             ]
-           }]);
+       router.resetConfig([{
+         path: 'team/:id',
+         component: TeamCmp,
+         children:
+             [{path: 'simple', component: SimpleCmp}, {path: 'user/:name', component: UserCmp}]
+       }]);
 
-           router.navigateByUrl('/team/33/simple');
-           advance(fixture);
+       router.navigateByUrl('/team/33/simple');
+       advance(fixture);
 
-           router.navigateByUrl('/team/22/user/victor');
-           advance(fixture);
+       router.navigateByUrl('/team/22/user/victor');
+       advance(fixture);
 
-           router.navigateByUrl('/team/22/user/victor');
-           advance(fixture);
+       router.navigateByUrl('/team/22/user/victor');
+       advance(fixture);
 
-           location.back();
-           advance(fixture);
-           expect(location.path()).toEqual('/team/33/simple');
-         })));
+       location.back();
+       advance(fixture);
+       expect(location.path()).toEqual('/team/33/simple');
+     })));
 
-  fixmeIvy('FW-726: Pipe instructions do not support WrappedValue') &&
-      it('should handle componentless paths',
-         fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
-           const fixture = createRoot(router, RootCmpWithTwoOutlets);
+  it('should handle componentless paths',
+     fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
+       const fixture = createRoot(router, RootCmpWithTwoOutlets);
 
-           router.resetConfig([
-             {
-               path: 'parent/:id',
-               children: [
-                 {path: 'simple', component: SimpleCmp},
-                 {path: 'user/:name', component: UserCmp, outlet: 'right'}
-               ]
-             },
-             {path: 'user/:name', component: UserCmp}
-           ]);
+       router.resetConfig([
+         {
+           path: 'parent/:id',
+           children: [
+             {path: 'simple', component: SimpleCmp},
+             {path: 'user/:name', component: UserCmp, outlet: 'right'}
+           ]
+         },
+         {path: 'user/:name', component: UserCmp}
+       ]);
 
 
-           // navigate to a componentless route
-           router.navigateByUrl('/parent/11/(simple//right:user/victor)');
-           advance(fixture);
-           expect(location.path()).toEqual('/parent/11/(simple//right:user/victor)');
-           expect(fixture.nativeElement).toHaveText('primary [simple] right [user victor]');
+       // navigate to a componentless route
+       router.navigateByUrl('/parent/11/(simple//right:user/victor)');
+       advance(fixture);
+       expect(location.path()).toEqual('/parent/11/(simple//right:user/victor)');
+       expect(fixture.nativeElement).toHaveText('primary [simple] right [user victor]');
 
-           // navigate to the same route with different params (reuse)
-           router.navigateByUrl('/parent/22/(simple//right:user/fedor)');
-           advance(fixture);
-           expect(location.path()).toEqual('/parent/22/(simple//right:user/fedor)');
-           expect(fixture.nativeElement).toHaveText('primary [simple] right [user fedor]');
+       // navigate to the same route with different params (reuse)
+       router.navigateByUrl('/parent/22/(simple//right:user/fedor)');
+       advance(fixture);
+       expect(location.path()).toEqual('/parent/22/(simple//right:user/fedor)');
+       expect(fixture.nativeElement).toHaveText('primary [simple] right [user fedor]');
 
-           // navigate to a normal route (check deactivation)
-           router.navigateByUrl('/user/victor');
-           advance(fixture);
-           expect(location.path()).toEqual('/user/victor');
-           expect(fixture.nativeElement).toHaveText('primary [user victor] right []');
+       // navigate to a normal route (check deactivation)
+       router.navigateByUrl('/user/victor');
+       advance(fixture);
+       expect(location.path()).toEqual('/user/victor');
+       expect(fixture.nativeElement).toHaveText('primary [user victor] right []');
 
-           // navigate back to a componentless route
-           router.navigateByUrl('/parent/11/(simple//right:user/victor)');
-           advance(fixture);
-           expect(location.path()).toEqual('/parent/11/(simple//right:user/victor)');
-           expect(fixture.nativeElement).toHaveText('primary [simple] right [user victor]');
-         })));
+       // navigate back to a componentless route
+       router.navigateByUrl('/parent/11/(simple//right:user/victor)');
+       advance(fixture);
+       expect(location.path()).toEqual('/parent/11/(simple//right:user/victor)');
+       expect(fixture.nativeElement).toHaveText('primary [simple] right [user victor]');
+     })));
 
   it('should not deactivate aux routes when navigating from a componentless routes',
      fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
@@ -1567,63 +1553,60 @@ describe('Integration', () => {
   });
 
   describe('router links', () => {
-    fixmeIvy('FW-726: Pipe instructions do not support WrappedValue') &&
-        it('should support skipping location update for anchor router links',
-           fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
-             const fixture = TestBed.createComponent(RootCmp);
-             advance(fixture);
+    it('should support skipping location update for anchor router links',
+       fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
+         const fixture = TestBed.createComponent(RootCmp);
+         advance(fixture);
 
-             router.resetConfig([{path: 'team/:id', component: TeamCmp}]);
+         router.resetConfig([{path: 'team/:id', component: TeamCmp}]);
 
-             router.navigateByUrl('/team/22');
-             advance(fixture);
-             expect(location.path()).toEqual('/team/22');
-             expect(fixture.nativeElement).toHaveText('team 22 [ , right:  ]');
+         router.navigateByUrl('/team/22');
+         advance(fixture);
+         expect(location.path()).toEqual('/team/22');
+         expect(fixture.nativeElement).toHaveText('team 22 [ , right:  ]');
 
-             const teamCmp = fixture.debugElement.childNodes[1].componentInstance;
+         const teamCmp = fixture.debugElement.childNodes[1].componentInstance;
 
-             teamCmp.routerLink = ['/team/0'];
-             advance(fixture);
-             const anchor = fixture.debugElement.query(By.css('a')).nativeElement;
-             anchor.click();
-             advance(fixture);
-             expect(fixture.nativeElement).toHaveText('team 0 [ , right:  ]');
-             expect(location.path()).toEqual('/team/22');
+         teamCmp.routerLink = ['/team/0'];
+         advance(fixture);
+         const anchor = fixture.debugElement.query(By.css('a')).nativeElement;
+         anchor.click();
+         advance(fixture);
+         expect(fixture.nativeElement).toHaveText('team 0 [ , right:  ]');
+         expect(location.path()).toEqual('/team/22');
 
-             teamCmp.routerLink = ['/team/1'];
-             advance(fixture);
-             const button = fixture.debugElement.query(By.css('button')).nativeElement;
-             button.click();
-             advance(fixture);
-             expect(fixture.nativeElement).toHaveText('team 1 [ , right:  ]');
-             expect(location.path()).toEqual('/team/22');
-           })));
+         teamCmp.routerLink = ['/team/1'];
+         advance(fixture);
+         const button = fixture.debugElement.query(By.css('button')).nativeElement;
+         button.click();
+         advance(fixture);
+         expect(fixture.nativeElement).toHaveText('team 1 [ , right:  ]');
+         expect(location.path()).toEqual('/team/22');
+       })));
 
-    fixmeIvy('FW-726: Pipe instructions do not support WrappedValue') &&
-        it('should support string router links', fakeAsync(inject([Router], (router: Router) => {
-             const fixture = createRoot(router, RootCmp);
+    it('should support string router links', fakeAsync(inject([Router], (router: Router) => {
+         const fixture = createRoot(router, RootCmp);
 
-             router.resetConfig([{
-               path: 'team/:id',
-               component: TeamCmp,
-               children: [
-                 {path: 'link', component: StringLinkCmp},
-                 {path: 'simple', component: SimpleCmp}
-               ]
-             }]);
+         router.resetConfig([{
+           path: 'team/:id',
+           component: TeamCmp,
+           children: [
+             {path: 'link', component: StringLinkCmp}, {path: 'simple', component: SimpleCmp}
+           ]
+         }]);
 
-             router.navigateByUrl('/team/22/link');
-             advance(fixture);
-             expect(fixture.nativeElement).toHaveText('team 22 [ link, right:  ]');
+         router.navigateByUrl('/team/22/link');
+         advance(fixture);
+         expect(fixture.nativeElement).toHaveText('team 22 [ link, right:  ]');
 
-             const native = fixture.nativeElement.querySelector('a');
-             expect(native.getAttribute('href')).toEqual('/team/33/simple');
-             expect(native.getAttribute('target')).toEqual('_self');
-             native.click();
-             advance(fixture);
+         const native = fixture.nativeElement.querySelector('a');
+         expect(native.getAttribute('href')).toEqual('/team/33/simple');
+         expect(native.getAttribute('target')).toEqual('_self');
+         native.click();
+         advance(fixture);
 
-             expect(fixture.nativeElement).toHaveText('team 33 [ simple, right:  ]');
-           })));
+         expect(fixture.nativeElement).toHaveText('team 33 [ simple, right:  ]');
+       })));
 
     it('should not preserve query params and fragment by default', fakeAsync(() => {
          @Component({
@@ -1741,56 +1724,52 @@ describe('Integration', () => {
          expect(native.getAttribute('href')).toEqual('/home?a=123&q=456');
        }));
 
-    fixmeIvy('FW-726: Pipe instructions do not support WrappedValue') &&
-        it('should support using links on non-a tags',
-           fakeAsync(inject([Router], (router: Router) => {
-             const fixture = createRoot(router, RootCmp);
+    it('should support using links on non-a tags', fakeAsync(inject([Router], (router: Router) => {
+         const fixture = createRoot(router, RootCmp);
 
-             router.resetConfig([{
-               path: 'team/:id',
-               component: TeamCmp,
-               children: [
-                 {path: 'link', component: StringLinkButtonCmp},
-                 {path: 'simple', component: SimpleCmp}
-               ]
-             }]);
+         router.resetConfig([{
+           path: 'team/:id',
+           component: TeamCmp,
+           children: [
+             {path: 'link', component: StringLinkButtonCmp},
+             {path: 'simple', component: SimpleCmp}
+           ]
+         }]);
 
-             router.navigateByUrl('/team/22/link');
-             advance(fixture);
-             expect(fixture.nativeElement).toHaveText('team 22 [ link, right:  ]');
+         router.navigateByUrl('/team/22/link');
+         advance(fixture);
+         expect(fixture.nativeElement).toHaveText('team 22 [ link, right:  ]');
 
-             const button = fixture.nativeElement.querySelector('button');
-             expect(button.getAttribute('tabindex')).toEqual('0');
-             button.click();
-             advance(fixture);
+         const button = fixture.nativeElement.querySelector('button');
+         expect(button.getAttribute('tabindex')).toEqual('0');
+         button.click();
+         advance(fixture);
 
-             expect(fixture.nativeElement).toHaveText('team 33 [ simple, right:  ]');
-           })));
+         expect(fixture.nativeElement).toHaveText('team 33 [ simple, right:  ]');
+       })));
 
-    fixmeIvy('FW-726: Pipe instructions do not support WrappedValue') &&
-        it('should support absolute router links', fakeAsync(inject([Router], (router: Router) => {
-             const fixture = createRoot(router, RootCmp);
+    it('should support absolute router links', fakeAsync(inject([Router], (router: Router) => {
+         const fixture = createRoot(router, RootCmp);
 
-             router.resetConfig([{
-               path: 'team/:id',
-               component: TeamCmp,
-               children: [
-                 {path: 'link', component: AbsoluteLinkCmp},
-                 {path: 'simple', component: SimpleCmp}
-               ]
-             }]);
+         router.resetConfig([{
+           path: 'team/:id',
+           component: TeamCmp,
+           children: [
+             {path: 'link', component: AbsoluteLinkCmp}, {path: 'simple', component: SimpleCmp}
+           ]
+         }]);
 
-             router.navigateByUrl('/team/22/link');
-             advance(fixture);
-             expect(fixture.nativeElement).toHaveText('team 22 [ link, right:  ]');
+         router.navigateByUrl('/team/22/link');
+         advance(fixture);
+         expect(fixture.nativeElement).toHaveText('team 22 [ link, right:  ]');
 
-             const native = fixture.nativeElement.querySelector('a');
-             expect(native.getAttribute('href')).toEqual('/team/33/simple');
-             native.click();
-             advance(fixture);
+         const native = fixture.nativeElement.querySelector('a');
+         expect(native.getAttribute('href')).toEqual('/team/33/simple');
+         native.click();
+         advance(fixture);
 
-             expect(fixture.nativeElement).toHaveText('team 33 [ simple, right:  ]');
-           })));
+         expect(fixture.nativeElement).toHaveText('team 33 [ simple, right:  ]');
+       })));
 
     it('should support relative router links', fakeAsync(inject([Router], (router: Router) => {
          const fixture = createRoot(router, RootCmp);
@@ -2284,6 +2263,18 @@ describe('Integration', () => {
               component: RouteCmp,
               canActivate: ['guard'],
               resolve: {data: 'resolver'}
+            },
+            {
+              path: 'd/:param',
+              component: WrapperCmp, runGuardsAndResolvers,
+              children: [
+                {
+                  path: 'e/:param',
+                  component: SimpleCmp,
+                  canActivate: ['guard'],
+                  resolve: {data: 'resolver'},
+                },
+              ]
             }
           ]);
 
@@ -2384,7 +2375,8 @@ describe('Integration', () => {
              expect(recordedData).toEqual([{data: 0}, {data: 1}, {data: 2}, {data: 3}, {data: 4}]);
            })));
 
-        it('should not rerun guards and resolvers', fakeAsync(inject([Router], (router: Router) => {
+        it('should rerun rerun guards and resolvers when path params change',
+           fakeAsync(inject([Router], (router: Router) => {
              const fixture = configureRouter(router, 'pathParamsChange');
 
              const cmp: RouteCmp = fixture.debugElement.children[1].componentInstance;
@@ -2431,6 +2423,67 @@ describe('Integration', () => {
              router.navigateByUrl('/c/paramValueChanged;p=1?q=2');
              advance(fixture);
              expect(guardRunCount).toEqual(3);
+           })));
+
+        it('should rerun when a parent segment changes',
+           fakeAsync(inject([Router], (router: Router) => {
+             const fixture = configureRouter(router, 'pathParamsChange');
+
+             const cmp: RouteCmp = fixture.debugElement.children[1].componentInstance;
+
+             // Land on an inital page
+             router.navigateByUrl('/d/1;dd=11/e/2;dd=22');
+             advance(fixture);
+
+             expect(guardRunCount).toEqual(2);
+
+             // Changes cause re-run on the config with the guard
+             router.navigateByUrl('/d/1;dd=11/e/3;ee=22');
+             advance(fixture);
+
+             expect(guardRunCount).toEqual(3);
+
+             // Changes to the parent also cause re-run
+             router.navigateByUrl('/d/2;dd=11/e/3;ee=22');
+             advance(fixture);
+
+             expect(guardRunCount).toEqual(4);
+           })));
+
+        it('should rerun rerun guards and resolvers when path or query params change',
+           fakeAsync(inject([Router], (router: Router) => {
+             const fixture = configureRouter(router, 'pathParamsOrQueryParamsChange');
+
+             const cmp: RouteCmp = fixture.debugElement.children[1].componentInstance;
+             const recordedData: any[] = [];
+             cmp.route.data.subscribe((data: any) => recordedData.push(data));
+
+             // First navigation has already run
+             expect(guardRunCount).toEqual(1);
+             expect(recordedData).toEqual([{data: 0}]);
+
+             // Changing matrix params will not result in running guards or resolvers
+             router.navigateByUrl('/a;p=1');
+             advance(fixture);
+             expect(guardRunCount).toEqual(1);
+             expect(recordedData).toEqual([{data: 0}]);
+
+             router.navigateByUrl('/a;p=2');
+             advance(fixture);
+             expect(guardRunCount).toEqual(1);
+             expect(recordedData).toEqual([{data: 0}]);
+
+             // Adding query params will re-run guards/resolvers
+             router.navigateByUrl('/a;p=2?q=1');
+             advance(fixture);
+             expect(guardRunCount).toEqual(2);
+             expect(recordedData).toEqual([{data: 0}, {data: 1}]);
+
+             // Changing query params will re-run guards/resolvers
+             router.navigateByUrl('/a;p=2?q=2');
+             advance(fixture);
+             expect(guardRunCount).toEqual(3);
+             expect(recordedData).toEqual([{data: 0}, {data: 1}, {data: 2}]);
            })));
       });
 
@@ -2556,72 +2609,69 @@ describe('Integration', () => {
       });
 
       describe('should not deactivate a route when CanDeactivate returns false', () => {
-        fixmeIvy('FW-726: Pipe instructions do not support WrappedValue') &&
-            it('works',
-               fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
-                 const fixture = createRoot(router, RootCmp);
+        it('works', fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
+             const fixture = createRoot(router, RootCmp);
 
-                 router.resetConfig([
-                   {path: 'team/:id', component: TeamCmp, canDeactivate: ['CanDeactivateTeam']}
-                 ]);
+             router.resetConfig(
+                 [{path: 'team/:id', component: TeamCmp, canDeactivate: ['CanDeactivateTeam']}]);
 
-                 router.navigateByUrl('/team/22');
-                 advance(fixture);
-                 expect(location.path()).toEqual('/team/22');
+             router.navigateByUrl('/team/22');
+             advance(fixture);
+             expect(location.path()).toEqual('/team/22');
 
-                 let successStatus: boolean = false;
-                 router.navigateByUrl('/team/33') !.then(res => successStatus = res);
-                 advance(fixture);
-                 expect(location.path()).toEqual('/team/33');
-                 expect(successStatus).toEqual(true);
+             let successStatus: boolean = false;
+             router.navigateByUrl('/team/33') !.then(res => successStatus = res);
+             advance(fixture);
+             expect(location.path()).toEqual('/team/33');
+             expect(successStatus).toEqual(true);
 
-                 let canceledStatus: boolean = false;
-                 router.navigateByUrl('/team/44') !.then(res => canceledStatus = res);
-                 advance(fixture);
-                 expect(location.path()).toEqual('/team/33');
-                 expect(canceledStatus).toEqual(false);
-               })));
+             let canceledStatus: boolean = false;
+             router.navigateByUrl('/team/44') !.then(res => canceledStatus = res);
+             advance(fixture);
+             expect(location.path()).toEqual('/team/33');
+             expect(canceledStatus).toEqual(false);
+           })));
 
-        fixmeIvy('FW-766: One router test is wrong') &&
-            it('works with componentless routes',
-               fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
-                 const fixture = createRoot(router, RootCmp);
+        fixmeIvy('FW-766: One router test is wrong')
+            .it('works with componentless routes',
+                fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
+                  const fixture = createRoot(router, RootCmp);
 
-                 router.resetConfig([
-                   {
-                     path: 'grandparent',
-                     canDeactivate: ['RecordingDeactivate'],
-                     children: [{
-                       path: 'parent',
-                       canDeactivate: ['RecordingDeactivate'],
-                       children: [{
-                         path: 'child',
-                         canDeactivate: ['RecordingDeactivate'],
-                         children: [{
-                           path: 'simple',
-                           component: SimpleCmp,
-                           canDeactivate: ['RecordingDeactivate']
-                         }]
-                       }]
-                     }]
-                   },
-                   {path: 'simple', component: SimpleCmp}
-                 ]);
+                  router.resetConfig([
+                    {
+                      path: 'grandparent',
+                      canDeactivate: ['RecordingDeactivate'],
+                      children: [{
+                        path: 'parent',
+                        canDeactivate: ['RecordingDeactivate'],
+                        children: [{
+                          path: 'child',
+                          canDeactivate: ['RecordingDeactivate'],
+                          children: [{
+                            path: 'simple',
+                            component: SimpleCmp,
+                            canDeactivate: ['RecordingDeactivate']
+                          }]
+                        }]
+                      }]
+                    },
+                    {path: 'simple', component: SimpleCmp}
+                  ]);
 
-                 router.navigateByUrl('/grandparent/parent/child/simple');
-                 advance(fixture);
-                 expect(location.path()).toEqual('/grandparent/parent/child/simple');
+                  router.navigateByUrl('/grandparent/parent/child/simple');
+                  advance(fixture);
+                  expect(location.path()).toEqual('/grandparent/parent/child/simple');
 
-                 router.navigateByUrl('/simple');
-                 advance(fixture);
+                  router.navigateByUrl('/simple');
+                  advance(fixture);
 
-                 const child = fixture.debugElement.children[1].componentInstance;
+                  const child = fixture.debugElement.children[1].componentInstance;
 
-                 expect(log.map((a: any) => a.path)).toEqual([
-                   'simple', 'child', 'parent', 'grandparent'
-                 ]);
-                 expect(log.map((a: any) => a.component)).toEqual([child, null, null, null]);
-               })));
+                  expect(log.map((a: any) => a.path)).toEqual([
+                    'simple', 'child', 'parent', 'grandparent'
+                  ]);
+                  expect(log.map((a: any) => a.component)).toEqual([child, null, null, null]);
+                })));
 
         it('works with aux routes',
            fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
@@ -2651,39 +2701,35 @@ describe('Integration', () => {
              expect(location.path()).toEqual('/two-outlets/(a)');
            })));
 
-        fixmeIvy('FW-726: Pipe instructions do not support WrappedValue') &&
-            it('works with a nested route',
-               fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
-                 const fixture = createRoot(router, RootCmp);
+        it('works with a nested route',
+           fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
+             const fixture = createRoot(router, RootCmp);
 
-                 router.resetConfig([{
-                   path: 'team/:id',
-                   component: TeamCmp,
-                   children: [
-                     {path: '', pathMatch: 'full', component: SimpleCmp}, {
-                       path: 'user/:name',
-                       component: UserCmp,
-                       canDeactivate: ['CanDeactivateUser']
-                     }
-                   ]
-                 }]);
+             router.resetConfig([{
+               path: 'team/:id',
+               component: TeamCmp,
+               children: [
+                 {path: '', pathMatch: 'full', component: SimpleCmp},
+                 {path: 'user/:name', component: UserCmp, canDeactivate: ['CanDeactivateUser']}
+               ]
+             }]);
 
-                 router.navigateByUrl('/team/22/user/victor');
-                 advance(fixture);
+             router.navigateByUrl('/team/22/user/victor');
+             advance(fixture);
 
-                 // this works because we can deactivate victor
-                 router.navigateByUrl('/team/33');
-                 advance(fixture);
-                 expect(location.path()).toEqual('/team/33');
+             // this works because we can deactivate victor
+             router.navigateByUrl('/team/33');
+             advance(fixture);
+             expect(location.path()).toEqual('/team/33');
 
-                 router.navigateByUrl('/team/33/user/fedor');
-                 advance(fixture);
+             router.navigateByUrl('/team/33/user/fedor');
+             advance(fixture);
 
-                 // this doesn't work cause we cannot deactivate fedor
-                 router.navigateByUrl('/team/44');
-                 advance(fixture);
-                 expect(location.path()).toEqual('/team/33/user/fedor');
-               })));
+             // this doesn't work cause we cannot deactivate fedor
+             router.navigateByUrl('/team/44');
+             advance(fixture);
+             expect(location.path()).toEqual('/team/33/user/fedor');
+           })));
       });
 
       it('should not create a route state if navigation is canceled',
@@ -2793,44 +2839,40 @@ describe('Integration', () => {
           });
         });
 
-        fixmeIvy('FW-726: Pipe instructions do not support WrappedValue') &&
-            it('should pass next state as the 4 argument when guard is a class',
-               fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
-                 const fixture = createRoot(router, RootCmp);
+        it('should pass next state as the 4 argument when guard is a class',
+           fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
+             const fixture = createRoot(router, RootCmp);
 
-                 router.resetConfig(
-                     [{path: 'team/:id', component: TeamCmp, canDeactivate: [ClassWithNextState]}]);
+             router.resetConfig(
+                 [{path: 'team/:id', component: TeamCmp, canDeactivate: [ClassWithNextState]}]);
 
-                 router.navigateByUrl('/team/22');
-                 advance(fixture);
-                 expect(location.path()).toEqual('/team/22');
+             router.navigateByUrl('/team/22');
+             advance(fixture);
+             expect(location.path()).toEqual('/team/22');
 
-                 router.navigateByUrl('/team/33');
-                 advance(fixture);
-                 expect(location.path()).toEqual('/team/33');
-                 expect(log).toEqual(['/team/22', '/team/33']);
-               })));
+             router.navigateByUrl('/team/33');
+             advance(fixture);
+             expect(location.path()).toEqual('/team/33');
+             expect(log).toEqual(['/team/22', '/team/33']);
+           })));
 
-        fixmeIvy('FW-726: Pipe instructions do not support WrappedValue') &&
-            it('should pass next state as the 4 argument when guard is a function',
-               fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
-                 const fixture = createRoot(router, RootCmp);
+        it('should pass next state as the 4 argument when guard is a function',
+           fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
+             const fixture = createRoot(router, RootCmp);
 
-                 router.resetConfig([{
-                   path: 'team/:id',
-                   component: TeamCmp,
-                   canDeactivate: ['FunctionWithNextState']
-                 }]);
+             router.resetConfig([
+               {path: 'team/:id', component: TeamCmp, canDeactivate: ['FunctionWithNextState']}
+             ]);
 
-                 router.navigateByUrl('/team/22');
-                 advance(fixture);
-                 expect(location.path()).toEqual('/team/22');
+             router.navigateByUrl('/team/22');
+             advance(fixture);
+             expect(location.path()).toEqual('/team/22');
 
-                 router.navigateByUrl('/team/33');
-                 advance(fixture);
-                 expect(location.path()).toEqual('/team/33');
-                 expect(log).toEqual(['/team/22', '/team/33']);
-               })));
+             router.navigateByUrl('/team/33');
+             advance(fixture);
+             expect(location.path()).toEqual('/team/33');
+             expect(log).toEqual(['/team/22', '/team/33']);
+           })));
       });
 
       describe('should work when given a class', () => {
@@ -2844,22 +2886,20 @@ describe('Integration', () => {
 
         beforeEach(() => { TestBed.configureTestingModule({providers: [AlwaysTrue]}); });
 
-        fixmeIvy('FW-726: Pipe instructions do not support WrappedValue') &&
-            it('works',
-               fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
-                 const fixture = createRoot(router, RootCmp);
+        it('works', fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
+             const fixture = createRoot(router, RootCmp);
 
-                 router.resetConfig(
-                     [{path: 'team/:id', component: TeamCmp, canDeactivate: [AlwaysTrue]}]);
+             router.resetConfig(
+                 [{path: 'team/:id', component: TeamCmp, canDeactivate: [AlwaysTrue]}]);
 
-                 router.navigateByUrl('/team/22');
-                 advance(fixture);
-                 expect(location.path()).toEqual('/team/22');
+             router.navigateByUrl('/team/22');
+             advance(fixture);
+             expect(location.path()).toEqual('/team/22');
 
-                 router.navigateByUrl('/team/33');
-                 advance(fixture);
-                 expect(location.path()).toEqual('/team/33');
-               })));
+             router.navigateByUrl('/team/33');
+             advance(fixture);
+             expect(location.path()).toEqual('/team/33');
+           })));
       });
 
 
@@ -3205,64 +3245,59 @@ describe('Integration', () => {
         });
       });
 
-      fixmeIvy('FW-726: Pipe instructions do not support WrappedValue') &&
-          it('should call guards in the right order',
-             fakeAsync(inject(
-                 [Router, Location, Logger],
-                 (router: Router, location: Location, logger: Logger) => {
-                   const fixture = createRoot(router, RootCmp);
+      it('should call guards in the right order',
+         fakeAsync(inject(
+             [Router, Location, Logger], (router: Router, location: Location, logger: Logger) => {
+               const fixture = createRoot(router, RootCmp);
 
-                   router.resetConfig([{
-                     path: '',
-                     canActivateChild: ['canActivateChild_parent'],
-                     children: [{
-                       path: 'team/:id',
-                       canActivate: ['canActivate_team'],
-                       canDeactivate: ['canDeactivate_team'],
-                       component: TeamCmp
-                     }]
-                   }]);
+               router.resetConfig([{
+                 path: '',
+                 canActivateChild: ['canActivateChild_parent'],
+                 children: [{
+                   path: 'team/:id',
+                   canActivate: ['canActivate_team'],
+                   canDeactivate: ['canDeactivate_team'],
+                   component: TeamCmp
+                 }]
+               }]);
 
-                   router.navigateByUrl('/team/22');
-                   advance(fixture);
+               router.navigateByUrl('/team/22');
+               advance(fixture);
 
-                   router.navigateByUrl('/team/33');
-                   advance(fixture);
+               router.navigateByUrl('/team/33');
+               advance(fixture);
 
-                   expect(logger.logs).toEqual([
-                     'canActivateChild_parent', 'canActivate_team',
+               expect(logger.logs).toEqual([
+                 'canActivateChild_parent', 'canActivate_team',
 
-                     'canDeactivate_team', 'canActivateChild_parent', 'canActivate_team'
-                   ]);
-                 })));
+                 'canDeactivate_team', 'canActivateChild_parent', 'canActivate_team'
+               ]);
+             })));
 
-      fixmeIvy('FW-726: Pipe instructions do not support WrappedValue') &&
-          it('should call deactivate guards from bottom to top',
-             fakeAsync(inject(
-                 [Router, Location, Logger],
-                 (router: Router, location: Location, logger: Logger) => {
-                   const fixture = createRoot(router, RootCmp);
+      it('should call deactivate guards from bottom to top',
+         fakeAsync(inject(
+             [Router, Location, Logger], (router: Router, location: Location, logger: Logger) => {
+               const fixture = createRoot(router, RootCmp);
 
-                   router.resetConfig([{
-                     path: '',
-                     children: [{
-                       path: 'team/:id',
-                       canDeactivate: ['canDeactivate_team'],
-                       children: [
-                         {path: '', component: SimpleCmp, canDeactivate: ['canDeactivate_simple']}
-                       ],
-                       component: TeamCmp
-                     }]
-                   }]);
+               router.resetConfig([{
+                 path: '',
+                 children: [{
+                   path: 'team/:id',
+                   canDeactivate: ['canDeactivate_team'],
+                   children:
+                       [{path: '', component: SimpleCmp, canDeactivate: ['canDeactivate_simple']}],
+                   component: TeamCmp
+                 }]
+               }]);
 
-                   router.navigateByUrl('/team/22');
-                   advance(fixture);
+               router.navigateByUrl('/team/22');
+               advance(fixture);
 
-                   router.navigateByUrl('/team/33');
-                   advance(fixture);
+               router.navigateByUrl('/team/33');
+               advance(fixture);
 
-                   expect(logger.logs).toEqual(['canDeactivate_simple', 'canDeactivate_team']);
-                 })));
+               expect(logger.logs).toEqual(['canDeactivate_simple', 'canDeactivate_team']);
+             })));
     });
   });
 
@@ -3526,94 +3561,94 @@ describe('Integration', () => {
              expect(fixture.nativeElement).toHaveText('lazy-loaded-parent [lazy-loaded-child]');
            })));
 
-    fixmeIvy('FW-646: Directive providers don\'t support primitive types as DI tokens') &&
-        it('should have 2 injector trees: module and element',
-           fakeAsync(inject(
-               [Router, Location, NgModuleFactoryLoader],
-               (router: Router, location: Location, loader: SpyNgModuleFactoryLoader) => {
-                 @Component({
-                   selector: 'lazy',
-                   template: 'parent[<router-outlet></router-outlet>]',
-                   viewProviders: [
-                     {provide: 'shadow', useValue: 'from parent component'},
-                   ],
-                 })
-                 class Parent {
-                 }
+    fixmeIvy('FW-646: Directive providers don\'t support primitive types as DI tokens')
+        .it('should have 2 injector trees: module and element',
+            fakeAsync(inject(
+                [Router, Location, NgModuleFactoryLoader],
+                (router: Router, location: Location, loader: SpyNgModuleFactoryLoader) => {
+                  @Component({
+                    selector: 'lazy',
+                    template: 'parent[<router-outlet></router-outlet>]',
+                    viewProviders: [
+                      {provide: 'shadow', useValue: 'from parent component'},
+                    ],
+                  })
+                  class Parent {
+                  }
 
-                 @Component({selector: 'lazy', template: 'child'})
-                 class Child {
-                 }
+                  @Component({selector: 'lazy', template: 'child'})
+                  class Child {
+                  }
 
-                 @NgModule({
-                   declarations: [Parent],
-                   imports: [RouterModule.forChild([{
-                     path: 'parent',
-                     component: Parent,
-                     children: [
-                       {path: 'child', loadChildren: 'child'},
-                     ]
-                   }])],
-                   providers: [
-                     {provide: 'moduleName', useValue: 'parent'},
-                     {provide: 'fromParent', useValue: 'from parent'},
-                   ],
-                 })
-                 class ParentModule {
-                 }
+                  @NgModule({
+                    declarations: [Parent],
+                    imports: [RouterModule.forChild([{
+                      path: 'parent',
+                      component: Parent,
+                      children: [
+                        {path: 'child', loadChildren: 'child'},
+                      ]
+                    }])],
+                    providers: [
+                      {provide: 'moduleName', useValue: 'parent'},
+                      {provide: 'fromParent', useValue: 'from parent'},
+                    ],
+                  })
+                  class ParentModule {
+                  }
 
-                 @NgModule({
-                   declarations: [Child],
-                   imports: [RouterModule.forChild([{path: '', component: Child}])],
-                   providers: [
-                     {provide: 'moduleName', useValue: 'child'},
-                     {provide: 'fromChild', useValue: 'from child'},
-                     {provide: 'shadow', useValue: 'from child module'},
-                   ],
-                 })
-                 class ChildModule {
-                 }
+                  @NgModule({
+                    declarations: [Child],
+                    imports: [RouterModule.forChild([{path: '', component: Child}])],
+                    providers: [
+                      {provide: 'moduleName', useValue: 'child'},
+                      {provide: 'fromChild', useValue: 'from child'},
+                      {provide: 'shadow', useValue: 'from child module'},
+                    ],
+                  })
+                  class ChildModule {
+                  }
 
-                 loader.stubbedModules = {
-                   parent: ParentModule,
-                   child: ChildModule,
-                 };
+                  loader.stubbedModules = {
+                    parent: ParentModule,
+                    child: ChildModule,
+                  };
 
-                 const fixture = createRoot(router, RootCmp);
-                 router.resetConfig([{path: 'lazy', loadChildren: 'parent'}]);
-                 router.navigateByUrl('/lazy/parent/child');
-                 advance(fixture);
-                 expect(location.path()).toEqual('/lazy/parent/child');
-                 expect(fixture.nativeElement).toHaveText('parent[child]');
+                  const fixture = createRoot(router, RootCmp);
+                  router.resetConfig([{path: 'lazy', loadChildren: 'parent'}]);
+                  router.navigateByUrl('/lazy/parent/child');
+                  advance(fixture);
+                  expect(location.path()).toEqual('/lazy/parent/child');
+                  expect(fixture.nativeElement).toHaveText('parent[child]');
 
-                 const pInj = fixture.debugElement.query(By.directive(Parent)).injector !;
-                 const cInj = fixture.debugElement.query(By.directive(Child)).injector !;
+                  const pInj = fixture.debugElement.query(By.directive(Parent)).injector !;
+                  const cInj = fixture.debugElement.query(By.directive(Child)).injector !;
 
-                 expect(pInj.get('moduleName')).toEqual('parent');
-                 expect(pInj.get('fromParent')).toEqual('from parent');
-                 expect(pInj.get(Parent)).toBeAnInstanceOf(Parent);
-                 expect(pInj.get('fromChild', null)).toEqual(null);
-                 expect(pInj.get(Child, null)).toEqual(null);
+                  expect(pInj.get('moduleName')).toEqual('parent');
+                  expect(pInj.get('fromParent')).toEqual('from parent');
+                  expect(pInj.get(Parent)).toBeAnInstanceOf(Parent);
+                  expect(pInj.get('fromChild', null)).toEqual(null);
+                  expect(pInj.get(Child, null)).toEqual(null);
 
-                 expect(cInj.get('moduleName')).toEqual('child');
-                 expect(cInj.get('fromParent')).toEqual('from parent');
-                 expect(cInj.get('fromChild')).toEqual('from child');
-                 expect(cInj.get(Parent)).toBeAnInstanceOf(Parent);
-                 expect(cInj.get(Child)).toBeAnInstanceOf(Child);
-                 // The child module can not shadow the parent component
-                 expect(cInj.get('shadow')).toEqual('from parent component');
+                  expect(cInj.get('moduleName')).toEqual('child');
+                  expect(cInj.get('fromParent')).toEqual('from parent');
+                  expect(cInj.get('fromChild')).toEqual('from child');
+                  expect(cInj.get(Parent)).toBeAnInstanceOf(Parent);
+                  expect(cInj.get(Child)).toBeAnInstanceOf(Child);
+                  // The child module can not shadow the parent component
+                  expect(cInj.get('shadow')).toEqual('from parent component');
 
-                 const pmInj = pInj.get(NgModuleRef).injector;
-                 const cmInj = cInj.get(NgModuleRef).injector;
+                  const pmInj = pInj.get(NgModuleRef).injector;
+                  const cmInj = cInj.get(NgModuleRef).injector;
 
-                 expect(pmInj.get('moduleName')).toEqual('parent');
-                 expect(cmInj.get('moduleName')).toEqual('child');
+                  expect(pmInj.get('moduleName')).toEqual('parent');
+                  expect(cmInj.get('moduleName')).toEqual('child');
 
-                 expect(pmInj.get(Parent, '-')).toEqual('-');
-                 expect(cmInj.get(Parent, '-')).toEqual('-');
-                 expect(pmInj.get(Child, '-')).toEqual('-');
-                 expect(cmInj.get(Child, '-')).toEqual('-');
-               })));
+                  expect(pmInj.get(Parent, '-')).toEqual('-');
+                  expect(cmInj.get(Parent, '-')).toEqual('-');
+                  expect(pmInj.get(Child, '-')).toEqual('-');
+                  expect(cmInj.get(Child, '-')).toEqual('-');
+                })));
 
     // https://github.com/angular/angular/issues/12889
     it('should create a single instance of lazy-loaded modules',
@@ -3655,56 +3690,56 @@ describe('Integration', () => {
 
     // https://github.com/angular/angular/issues/13870
     fixmeIvy(
-        'FW-767: Lazy loaded modules are not used when resolving dependencies in one of their components') &&
-        it('should create a single instance of guards for lazy-loaded modules',
-           fakeAsync(inject(
-               [Router, Location, NgModuleFactoryLoader],
-               (router: Router, location: Location, loader: SpyNgModuleFactoryLoader) => {
-                 @Injectable()
-                 class Service {
-                 }
+        'FW-767: Lazy loaded modules are not used when resolving dependencies in one of their components')
+        .it('should create a single instance of guards for lazy-loaded modules',
+            fakeAsync(inject(
+                [Router, Location, NgModuleFactoryLoader],
+                (router: Router, location: Location, loader: SpyNgModuleFactoryLoader) => {
+                  @Injectable()
+                  class Service {
+                  }
 
-                 @Injectable()
-                 class Resolver implements Resolve<Service> {
-                   constructor(public service: Service) {}
-                   resolve(route: ActivatedRouteSnapshot, state: RouterStateSnapshot) {
-                     return this.service;
-                   }
-                 }
+                  @Injectable()
+                  class Resolver implements Resolve<Service> {
+                    constructor(public service: Service) {}
+                    resolve(route: ActivatedRouteSnapshot, state: RouterStateSnapshot) {
+                      return this.service;
+                    }
+                  }
 
-                 @Component({selector: 'lazy', template: 'lazy'})
-                 class LazyLoadedComponent {
-                   resolvedService: Service;
-                   constructor(public injectedService: Service, route: ActivatedRoute) {
-                     this.resolvedService = route.snapshot.data['service'];
-                   }
-                 }
+                  @Component({selector: 'lazy', template: 'lazy'})
+                  class LazyLoadedComponent {
+                    resolvedService: Service;
+                    constructor(public injectedService: Service, route: ActivatedRoute) {
+                      this.resolvedService = route.snapshot.data['service'];
+                    }
+                  }
 
-                 @NgModule({
-                   declarations: [LazyLoadedComponent],
-                   providers: [Service, Resolver],
-                   imports: [
-                     RouterModule.forChild([{
-                       path: 'loaded',
-                       component: LazyLoadedComponent,
-                       resolve: {'service': Resolver},
-                     }]),
-                   ]
-                 })
-                 class LoadedModule {
-                 }
+                  @NgModule({
+                    declarations: [LazyLoadedComponent],
+                    providers: [Service, Resolver],
+                    imports: [
+                      RouterModule.forChild([{
+                        path: 'loaded',
+                        component: LazyLoadedComponent,
+                        resolve: {'service': Resolver},
+                      }]),
+                    ]
+                  })
+                  class LoadedModule {
+                  }
 
-                 loader.stubbedModules = {expected: LoadedModule};
-                 const fixture = createRoot(router, RootCmp);
-                 router.resetConfig([{path: 'lazy', loadChildren: 'expected'}]);
-                 router.navigateByUrl('/lazy/loaded');
-                 advance(fixture);
+                  loader.stubbedModules = {expected: LoadedModule};
+                  const fixture = createRoot(router, RootCmp);
+                  router.resetConfig([{path: 'lazy', loadChildren: 'expected'}]);
+                  router.navigateByUrl('/lazy/loaded');
+                  advance(fixture);
 
-                 expect(fixture.nativeElement).toHaveText('lazy');
-                 const lzc = fixture.debugElement.query(By.directive(LazyLoadedComponent))
-                                 .componentInstance;
-                 expect(lzc.injectedService).toBe(lzc.resolvedService);
-               })));
+                  expect(fixture.nativeElement).toHaveText('lazy');
+                  const lzc = fixture.debugElement.query(By.directive(LazyLoadedComponent))
+                                  .componentInstance;
+                  expect(lzc.injectedService).toBe(lzc.resolvedService);
+                })));
 
 
     it('should emit RouteConfigLoadStart and RouteConfigLoadEnd event when route is lazy loaded',
@@ -3956,27 +3991,27 @@ describe('Integration', () => {
       });
 
       fixmeIvy(
-          'FW-767: Lazy loaded modules are not used when resolving dependencies in one of their components') &&
-          it('should use the injector of the lazily-loaded configuration',
-             fakeAsync(inject(
-                 [Router, Location, NgModuleFactoryLoader],
-                 (router: Router, location: Location, loader: SpyNgModuleFactoryLoader) => {
-                   loader.stubbedModules = {expected: LoadedModule};
+          'FW-767: Lazy loaded modules are not used when resolving dependencies in one of their components')
+          .it('should use the injector of the lazily-loaded configuration',
+              fakeAsync(inject(
+                  [Router, Location, NgModuleFactoryLoader],
+                  (router: Router, location: Location, loader: SpyNgModuleFactoryLoader) => {
+                    loader.stubbedModules = {expected: LoadedModule};
 
-                   const fixture = createRoot(router, RootCmp);
+                    const fixture = createRoot(router, RootCmp);
 
-                   router.resetConfig([{
-                     path: 'eager-parent',
-                     component: EagerParentComponent,
-                     children: [{path: 'lazy', loadChildren: 'expected'}]
-                   }]);
+                    router.resetConfig([{
+                      path: 'eager-parent',
+                      component: EagerParentComponent,
+                      children: [{path: 'lazy', loadChildren: 'expected'}]
+                    }]);
 
-                   router.navigateByUrl('/eager-parent/lazy/lazy-parent/lazy-child');
-                   advance(fixture);
+                    router.navigateByUrl('/eager-parent/lazy/lazy-parent/lazy-child');
+                    advance(fixture);
 
-                   expect(location.path()).toEqual('/eager-parent/lazy/lazy-parent/lazy-child');
-                   expect(fixture.nativeElement).toHaveText('eager-parent lazy-parent lazy-child');
-                 })));
+                    expect(location.path()).toEqual('/eager-parent/lazy/lazy-parent/lazy-child');
+                    expect(fixture.nativeElement).toHaveText('eager-parent lazy-parent lazy-child');
+                  })));
     });
 
     it('works when given a callback',
@@ -4441,82 +4476,82 @@ describe('Integration', () => {
          expect(simpleCmp1).not.toBe(simpleCmp2);
        })));
 
-    fixmeIvy('FW-768: markViewDirty instruction is scheduling a tick') &&
-        it('should not mount the component of the previously reused route when the outlet was not instantiated at the time of route activation',
-           fakeAsync(() => {
-             @Component({
-               selector: 'root-cmp',
-               template:
-                   '<div *ngIf="isToolpanelShowing"><router-outlet name="toolpanel"></router-outlet></div>'
-             })
-             class RootCmpWithCondOutlet implements OnDestroy {
-               private subscription: Subscription;
-               public isToolpanelShowing: boolean = false;
+    fixmeIvy('FW-768: markViewDirty instruction is scheduling a tick')
+        .it('should not mount the component of the previously reused route when the outlet was not instantiated at the time of route activation',
+            fakeAsync(() => {
+              @Component({
+                selector: 'root-cmp',
+                template:
+                    '<div *ngIf="isToolpanelShowing"><router-outlet name="toolpanel"></router-outlet></div>'
+              })
+              class RootCmpWithCondOutlet implements OnDestroy {
+                private subscription: Subscription;
+                public isToolpanelShowing: boolean = false;
 
-               constructor(router: Router) {
-                 this.subscription =
-                     router.events.pipe(filter(event => event instanceof NavigationEnd))
-                         .subscribe(
-                             () => this.isToolpanelShowing =
-                                 !!router.parseUrl(router.url).root.children['toolpanel']);
-               }
+                constructor(router: Router) {
+                  this.subscription =
+                      router.events.pipe(filter(event => event instanceof NavigationEnd))
+                          .subscribe(
+                              () => this.isToolpanelShowing =
+                                  !!router.parseUrl(router.url).root.children['toolpanel']);
+                }
 
-               public ngOnDestroy(): void { this.subscription.unsubscribe(); }
-             }
+                public ngOnDestroy(): void { this.subscription.unsubscribe(); }
+              }
 
-             @Component({selector: 'tool-1-cmp', template: 'Tool 1 showing'})
-             class Tool1Component {
-             }
+              @Component({selector: 'tool-1-cmp', template: 'Tool 1 showing'})
+              class Tool1Component {
+              }
 
-             @Component({selector: 'tool-2-cmp', template: 'Tool 2 showing'})
-             class Tool2Component {
-             }
+              @Component({selector: 'tool-2-cmp', template: 'Tool 2 showing'})
+              class Tool2Component {
+              }
 
-             @NgModule({
-               declarations: [RootCmpWithCondOutlet, Tool1Component, Tool2Component],
-               imports: [
-                 CommonModule,
-                 RouterTestingModule.withRoutes([
-                   {path: 'a', outlet: 'toolpanel', component: Tool1Component},
-                   {path: 'b', outlet: 'toolpanel', component: Tool2Component},
-                 ]),
-               ],
-             })
-             class TestModule {
-             }
+              @NgModule({
+                declarations: [RootCmpWithCondOutlet, Tool1Component, Tool2Component],
+                imports: [
+                  CommonModule,
+                  RouterTestingModule.withRoutes([
+                    {path: 'a', outlet: 'toolpanel', component: Tool1Component},
+                    {path: 'b', outlet: 'toolpanel', component: Tool2Component},
+                  ]),
+                ],
+              })
+              class TestModule {
+              }
 
-             TestBed.configureTestingModule({imports: [TestModule]});
+              TestBed.configureTestingModule({imports: [TestModule]});
 
-             const router: Router = TestBed.get(Router);
-             router.routeReuseStrategy = new AttachDetachReuseStrategy();
+              const router: Router = TestBed.get(Router);
+              router.routeReuseStrategy = new AttachDetachReuseStrategy();
 
-             const fixture = createRoot(router, RootCmpWithCondOutlet);
+              const fixture = createRoot(router, RootCmpWithCondOutlet);
 
-             // Activate 'tool-1'
-             router.navigate([{outlets: {toolpanel: 'a'}}]);
-             advance(fixture);
-             expect(fixture).toContainComponent(Tool1Component, '(a)');
+              // Activate 'tool-1'
+              router.navigate([{outlets: {toolpanel: 'a'}}]);
+              advance(fixture);
+              expect(fixture).toContainComponent(Tool1Component, '(a)');
 
-             // Deactivate 'tool-1'
-             router.navigate([{outlets: {toolpanel: null}}]);
-             advance(fixture);
-             expect(fixture).not.toContainComponent(Tool1Component, '(b)');
+              // Deactivate 'tool-1'
+              router.navigate([{outlets: {toolpanel: null}}]);
+              advance(fixture);
+              expect(fixture).not.toContainComponent(Tool1Component, '(b)');
 
-             // Activate 'tool-1'
-             router.navigate([{outlets: {toolpanel: 'a'}}]);
-             advance(fixture);
-             expect(fixture).toContainComponent(Tool1Component, '(c)');
+              // Activate 'tool-1'
+              router.navigate([{outlets: {toolpanel: 'a'}}]);
+              advance(fixture);
+              expect(fixture).toContainComponent(Tool1Component, '(c)');
 
-             // Deactivate 'tool-1'
-             router.navigate([{outlets: {toolpanel: null}}]);
-             advance(fixture);
-             expect(fixture).not.toContainComponent(Tool1Component, '(d)');
+              // Deactivate 'tool-1'
+              router.navigate([{outlets: {toolpanel: null}}]);
+              advance(fixture);
+              expect(fixture).not.toContainComponent(Tool1Component, '(d)');
 
-             // Activate 'tool-2'
-             router.navigate([{outlets: {toolpanel: 'b'}}]);
-             advance(fixture);
-             expect(fixture).toContainComponent(Tool2Component, '(e)');
-           }));
+              // Activate 'tool-2'
+              router.navigate([{outlets: {toolpanel: 'b'}}]);
+              advance(fixture);
+              expect(fixture).toContainComponent(Tool2Component, '(e)');
+            }));
   });
 });
 

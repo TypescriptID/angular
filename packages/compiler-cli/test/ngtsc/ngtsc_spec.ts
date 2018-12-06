@@ -968,4 +968,150 @@ describe('ngtsc behavioral tests', () => {
     const jsContents = env.getContents('test.js');
     expect(jsContents).toMatch(/directives: \[DirA,\s+DirB\]/);
   });
+
+  describe('duplicate local refs', () => {
+    const getComponentScript = (template: string): string => `
+      import {Component, Directive, NgModule} from '@angular/core';
+
+      @Component({selector: 'my-cmp', template: \`${template}\`})
+      class Cmp {}
+
+      @NgModule({declarations: [Cmp]})
+      class Module {}
+    `;
+
+    // Components with templates listed below should
+    // throw the "ref is already defined" error
+    const invalidCases = [
+      `
+        <div #ref></div>
+        <div #ref></div>
+      `,
+      `
+        <div #ref>
+          <div #ref></div>
+        </div>
+      `,
+      `
+        <div>
+          <div #ref></div>
+        </div>
+        <div>
+          <div #ref></div>
+        </div>
+      `,
+      `
+        <ng-container>
+          <div #ref></div>
+        </ng-container>
+        <div #ref></div>
+      `
+    ];
+
+    // Components with templates listed below should not throw
+    // the error, since refs are located in different scopes
+    const validCases = [
+      `
+        <ng-template>
+          <div #ref></div>
+        </ng-template>
+        <div #ref></div>
+      `,
+      `
+        <div *ngIf="visible" #ref></div>
+        <div #ref></div>
+      `,
+      `
+        <div *ngFor="let item of items" #ref></div>
+        <div #ref></div>
+      `
+    ];
+
+    invalidCases.forEach(template => {
+      it('should throw in case of duplicate refs', () => {
+        env.tsconfig();
+        env.write('test.ts', getComponentScript(template));
+        const errors = env.driveDiagnostics();
+        expect(errors[0].messageText)
+            .toContain('Internal Error: The name ref is already defined in scope');
+      });
+    });
+
+    validCases.forEach(template => {
+      it('should not throw in case refs are in different scopes', () => {
+        env.tsconfig();
+        env.write('test.ts', getComponentScript(template));
+        const errors = env.driveDiagnostics();
+        expect(errors.length).toBe(0);
+      });
+    });
+  });
+
+  it('should compile programs with typeRoots', () => {
+    // Write out a custom tsconfig.json that includes 'typeRoots' and 'files'. 'files' is necessary
+    // because otherwise TS picks up the testTypeRoot/test/index.d.ts file into the program
+    // automatically. Shims are also turned on (via allowEmptyCodegenFiles) because the shim
+    // ts.CompilerHost wrapper can break typeRoot functionality (which this test is meant to
+    // detect).
+    env.write('tsconfig.json', `{
+      "extends": "./tsconfig-base.json",
+      "angularCompilerOptions": {
+        "allowEmptyCodegenFiles": true
+      },
+      "compilerOptions": {
+        "typeRoots": ["./testTypeRoot"],
+      },
+      "files": ["./test.ts"]
+    }`);
+    env.write('test.ts', `
+      import {Test} from 'ambient';
+      console.log(Test);
+    `);
+    env.write('testTypeRoot/.exists', '');
+    env.write('testTypeRoot/test/index.d.ts', `
+      declare module 'ambient' {
+        export const Test = 'This is a test';
+      }
+    `);
+
+    env.driveMain();
+
+    // Success is enough to indicate that this passes.
+  });
+
+  it('should not emit multiple references to the same directive', () => {
+    env.tsconfig();
+    env.write('node_modules/external/index.d.ts', `
+      import {ɵDirectiveDefWithMeta, ɵNgModuleDefWithMeta} from '@angular/core';
+
+      export declare class ExternalDir {
+        static ngDirectiveDef: ɵDirectiveDefWithMeta<ExternalDir, '[test]', never, never, never, never>;
+      }
+
+      export declare class ExternalModule {
+        static ngModuleDef: ɵNgModuleDefWithMeta<ExternalModule, [typeof ExternalDir], never, [typeof ExternalDir]>;
+      }
+    `);
+    env.write('test.ts', `
+      import {Component, Directive, NgModule} from '@angular/core';
+      import {ExternalModule} from 'external';
+
+      @Component({
+        template: '<div test></div>',
+      })
+      class Cmp {}
+
+      @NgModule({
+        declarations: [Cmp],
+        // Multiple imports of the same module used to result in duplicate directive references
+        // in the output.
+        imports: [ExternalModule, ExternalModule],
+      })
+      class Module {}
+    `);
+
+    env.driveMain();
+    const jsContents = env.getContents('test.js');
+    expect(jsContents).toMatch(/directives: \[i1\.ExternalDir\]/);
+  });
 });
