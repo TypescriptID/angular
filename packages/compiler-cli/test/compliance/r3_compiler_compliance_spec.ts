@@ -1026,7 +1026,7 @@ describe('compiler compliance', () => {
               selector: 'complex',
               template: \`
                 <div id="first"><ng-content select="span[title=toFirst]"></ng-content></div>
-                <div id="second"><ng-content select="span[title=toSecond]"></ng-content></div>\`
+                <div id="second"><ng-content SELECT="span[title=toSecond]"></ng-content></div>\`
               })
             export class ComplexComponent { }
 
@@ -1104,7 +1104,7 @@ describe('compiler compliance', () => {
             @Component({
               template: \`
                 <div id="second" *ngIf="visible">
-                  <ng-content select="span[title=toFirst]"></ng-content>
+                  <ng-content SELECT="span[title=toFirst]"></ng-content>
                 </div>
                 <div id="third" *ngIf="visible">
                   No ng-content, no instructions generated.
@@ -1182,7 +1182,7 @@ describe('compiler compliance', () => {
           app: {
             ...directive,
             'view_query.component.ts': `
-            import {Component, NgModule, ViewChild} from '@angular/core';
+            import {Component, NgModule, ViewChild, ViewChildren} from '@angular/core';
             import {SomeDirective} from './some.directive';
 
             @Component({
@@ -1212,17 +1212,19 @@ describe('compiler compliance', () => {
             viewQuery: function ViewQueryComponent_Query(rf, ctx) {
               if (rf & 1) {
                 $r3$.ɵquery(0, SomeDirective, true);
+                $r3$.ɵquery(1, SomeDirective, true);
               }
               if (rf & 2) {
                 var $tmp$;
                 ($r3$.ɵqueryRefresh(($tmp$ = $r3$.ɵload(0))) && (ctx.someDir = $tmp$.first));
+                ($r3$.ɵqueryRefresh(($tmp$ = $r3$.ɵload(1))) && (ctx.someDirs = $tmp$));
               }
             },
-            consts: 2,
+            consts: 3,
             vars: 0,
             template:  function ViewQueryComponent_Template(rf, ctx) {
               if (rf & 1) {
-                $r3$.ɵelement(1, "div", $e0_attrs$);
+                $r3$.ɵelement(2, "div", $e0_attrs$);
               }
             },
             directives: function () { return [SomeDirective]; },

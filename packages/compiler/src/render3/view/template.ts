@@ -41,11 +41,11 @@ import {CONTEXT_NAME, IMPLICIT_REFERENCE, NON_BINDABLE_ATTR, REFERENCE_PREFIX, R
 function mapBindingToInstruction(type: BindingType): o.ExternalReference|undefined {
   switch (type) {
     case BindingType.Property:
+    case BindingType.Animation:
       return R3.elementProperty;
     case BindingType.Class:
       return R3.elementClassProp;
     case BindingType.Attribute:
-    case BindingType.Animation:
       return R3.elementAttribute;
     default:
       return undefined;
@@ -59,7 +59,11 @@ export function renderFlagCheckIfStmt(
 }
 
 // Default selector used by `<ng-content>` if none specified
-const DEFAULT_CONTENT_SELECTOR = '*';
+const DEFAULT_NG_CONTENT_SELECTOR = '*';
+
+// Selector attribute name of `<ng-content>`
+const NG_CONTENT_SELECT_ATTR = 'select';
+
 export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver {
   private _dataIndex = 0;
   private _bindingContext = 0;
@@ -411,7 +415,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   visitContent(ngContent: t.Content) {
     this._hasNgContent = true;
     const slot = this.allocateDataSlot();
-    let selectorIndex = ngContent.selector === DEFAULT_CONTENT_SELECTOR ?
+    let selectorIndex = ngContent.selector === DEFAULT_NG_CONTENT_SELECTOR ?
         0 :
         this._ngContentSelectors.push(ngContent.selector);
     const parameters: o.Expression[] = [o.literal(slot)];
@@ -419,9 +423,9 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     const attributeAsList: string[] = [];
 
     ngContent.attributes.forEach((attribute) => {
-      const name = attribute.name;
-      if (name !== 'select') {
-        attributeAsList.push(name, attribute.value);
+      const {name, value} = attribute;
+      if (name.toLowerCase() !== NG_CONTENT_SELECT_ATTR) {
+        attributeAsList.push(name, value);
       }
     });
 
@@ -622,10 +626,11 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       const instruction = mapBindingToInstruction(input.type);
       if (input.type === BindingType.Animation) {
         const value = input.value.visit(this._valueConverter);
-        // setAttribute without a value doesn't make any sense
+        // setProperty without a value doesn't make any sense
         if (value.name || value.value) {
+          this.allocateBindingSlots(value);
           const name = prepareSyntheticAttributeName(input.name);
-          this.updateInstruction(input.sourceSpan, R3.elementAttribute, () => {
+          this.updateInstruction(input.sourceSpan, R3.elementProperty, () => {
             return [
               o.literal(elementIndex), o.literal(name), this.convertPropertyBinding(implicit, value)
             ];
