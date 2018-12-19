@@ -8,11 +8,12 @@
 import {dirname} from 'canonical-path';
 import {existsSync, writeFileSync} from 'fs';
 import {mkdir, mv} from 'shelljs';
+import * as ts from 'typescript';
 
-import {DecorationAnalyzer} from '../analysis/decoration_analyzer';
+import {CompiledFile, DecorationAnalyzer} from '../analysis/decoration_analyzer';
 import {NgccReferencesRegistry} from '../analysis/ngcc_references_registry';
-import {PrivateDeclarationsAnalyzer} from '../analysis/private_declarations_analyzer';
-import {SwitchMarkerAnalyzer} from '../analysis/switch_marker_analyzer';
+import {ExportInfo, PrivateDeclarationsAnalyzer} from '../analysis/private_declarations_analyzer';
+import {SwitchMarkerAnalyses, SwitchMarkerAnalyzer} from '../analysis/switch_marker_analyzer';
 import {Esm2015ReflectionHost} from '../host/esm2015_host';
 import {Esm5ReflectionHost} from '../host/esm5_host';
 import {NgccReflectionHost} from '../host/ngcc_host';
@@ -20,9 +21,9 @@ import {Esm5Renderer} from '../rendering/esm5_renderer';
 import {EsmRenderer} from '../rendering/esm_renderer';
 import {FileInfo, Renderer} from '../rendering/renderer';
 
-import {checkMarkerFile, writeMarkerFile} from './build_marker';
 import {EntryPoint} from './entry_point';
 import {EntryPointBundle} from './entry_point_bundle';
+
 
 /**
  * A Package is stored in a directory on disk and that directory can contain one or more package
@@ -53,11 +54,6 @@ export class Transformer {
    * @param bundle the bundle to transform.
    */
   transform(entryPoint: EntryPoint, isCore: boolean, bundle: EntryPointBundle): void {
-    if (checkMarkerFile(entryPoint, bundle.format)) {
-      console.warn(`Skipping ${entryPoint.name} : ${bundle.format} (already built).`);
-      return;
-    }
-
     console.warn(`Compiling ${entryPoint.name} - ${bundle.format}`);
 
     const reflectionHost = this.getHost(isCore, bundle);
@@ -73,9 +69,6 @@ export class Transformer {
 
     // Write out all the transformed files.
     renderedFiles.forEach(file => this.writeFile(file));
-
-    // Write the built-with-ngcc marker
-    writeMarkerFile(entryPoint, bundle.format);
   }
 
   getHost(isCore: boolean, bundle: EntryPointBundle): NgccReflectionHost {
@@ -105,7 +98,8 @@ export class Transformer {
     }
   }
 
-  analyzeProgram(reflectionHost: NgccReflectionHost, isCore: boolean, bundle: EntryPointBundle) {
+  analyzeProgram(reflectionHost: NgccReflectionHost, isCore: boolean, bundle: EntryPointBundle):
+      ProgramAnalyses {
     const typeChecker = bundle.src.program.getTypeChecker();
     const referencesRegistry = new NgccReferencesRegistry(reflectionHost);
     const decorationAnalyzer = new DecorationAnalyzer(
@@ -128,4 +122,11 @@ export class Transformer {
     }
     writeFileSync(file.path, file.contents, 'utf8');
   }
+}
+
+
+interface ProgramAnalyses {
+  decorationAnalyses: Map<ts.SourceFile, CompiledFile>;
+  switchMarkerAnalyses: SwitchMarkerAnalyses;
+  privateDeclarationsAnalyses: ExportInfo[];
 }
