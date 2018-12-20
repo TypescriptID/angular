@@ -412,8 +412,9 @@ function declareTests(config?: {useJit: boolean}) {
         const ngIfEl = fixture.debugElement.children[0];
         const someViewport: SomeViewport =
             ngIfEl.childNodes
-                .find(debugElement => debugElement.nativeNode.nodeType === Node.COMMENT_NODE)
-                .injector.get(SomeViewport);
+                .find(
+                    debugElement => debugElement.nativeNode.nodeType ===
+                        Node.COMMENT_NODE) !.injector.get(SomeViewport);
         expect(someViewport.container.length).toBe(2);
         expect(ngIfEl.children.length).toBe(2);
 
@@ -812,7 +813,7 @@ function declareTests(config?: {useJit: boolean}) {
                    })
                    .createComponent(MyComp);
            const tc = fixture.debugElement.childNodes.find(
-               debugElement => debugElement.nativeNode.nodeType === Node.COMMENT_NODE);
+               debugElement => debugElement.nativeNode.nodeType === Node.COMMENT_NODE) !;
 
            const emitter = tc.injector.get(DirectiveEmittingEvent);
            const myComp = fixture.debugElement.injector.get(MyComp);
@@ -1327,24 +1328,21 @@ function declareTests(config?: {useJit: boolean}) {
         expect(comp.injectable).toBeAnInstanceOf(InjectableService);
       });
 
-      fixmeIvy(
-          'FW-804: Injection of view providers with the @Host annotation works differently in ivy')
-          .it('should support viewProviders', () => {
-            TestBed.configureTestingModule({
-              declarations:
-                  [MyComp, DirectiveProvidingInjectableInView, DirectiveConsumingInjectable],
-              schemas: [NO_ERRORS_SCHEMA],
-            });
-            const template = `
+      it('should support viewProviders', () => {
+        TestBed.configureTestingModule({
+          declarations: [MyComp, DirectiveProvidingInjectableInView, DirectiveConsumingInjectable],
+          schemas: [NO_ERRORS_SCHEMA],
+        });
+        const template = `
               <directive-consuming-injectable #consuming>
               </directive-consuming-injectable>
           `;
-            TestBed.overrideComponent(DirectiveProvidingInjectableInView, {set: {template}});
-            const fixture = TestBed.createComponent(DirectiveProvidingInjectableInView);
+        TestBed.overrideComponent(DirectiveProvidingInjectableInView, {set: {template}});
+        const fixture = TestBed.createComponent(DirectiveProvidingInjectableInView);
 
-            const comp = fixture.debugElement.children[0].references !['consuming'];
-            expect(comp.injectable).toBeAnInstanceOf(InjectableService);
-          });
+        const comp = fixture.debugElement.children[0].references !['consuming'];
+        expect(comp.injectable).toBeAnInstanceOf(InjectableService);
+      });
 
       it('should support unbounded lookup', () => {
         TestBed.configureTestingModule({
