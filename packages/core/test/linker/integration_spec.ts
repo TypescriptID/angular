@@ -22,7 +22,7 @@ import {getDOM} from '@angular/platform-browser/src/dom/dom_adapter';
 import {DOCUMENT} from '@angular/platform-browser/src/dom/dom_tokens';
 import {dispatchEvent, el} from '@angular/platform-browser/testing/src/browser_util';
 import {expect} from '@angular/platform-browser/testing/src/matchers';
-import {fixmeIvy, modifiedInIvy} from '@angular/private/testing';
+import {fixmeIvy, modifiedInIvy, obsoleteInIvy} from '@angular/private/testing';
 
 import {stringify} from '../../src/util';
 
@@ -542,7 +542,8 @@ function declareTests(config?: {useJit: boolean}) {
           expect(value.tagName.toLowerCase()).toEqual('div');
         });
 
-        fixmeIvy('FW-709: Context discovery does not support templates (comment nodes)')
+        fixmeIvy(
+            'FW-870: DebugNode.references gets comment node instead of TemplateRef for template nodes')
             .it('should assign the TemplateRef to a user-defined variable', () => {
               const fixture =
                   TestBed.configureTestingModule({declarations: [MyComp]})
@@ -584,47 +585,43 @@ function declareTests(config?: {useJit: boolean}) {
 
       describe('OnPush components', () => {
 
-        fixmeIvy(
-            'FW-764: fixture.detectChanges() is not respecting OnPush flag on components in the root template')
-            .it('should use ChangeDetectorRef to manually request a check', () => {
-              TestBed.configureTestingModule({declarations: [MyComp, [[PushCmpWithRef]]]});
-              const template = '<push-cmp-with-ref #cmp></push-cmp-with-ref>';
-              TestBed.overrideComponent(MyComp, {set: {template}});
-              const fixture = TestBed.createComponent(MyComp);
+        it('should use ChangeDetectorRef to manually request a check', () => {
+          TestBed.configureTestingModule({declarations: [MyComp, [[PushCmpWithRef]]]});
+          const template = '<push-cmp-with-ref #cmp></push-cmp-with-ref>';
+          TestBed.overrideComponent(MyComp, {set: {template}});
+          const fixture = TestBed.createComponent(MyComp);
 
-              const cmp = fixture.debugElement.children[0].references !['cmp'];
+          const cmp = fixture.debugElement.children[0].references !['cmp'];
 
-              fixture.detectChanges();
-              expect(cmp.numberOfChecks).toEqual(1);
+          fixture.detectChanges();
+          expect(cmp.numberOfChecks).toEqual(1);
 
-              fixture.detectChanges();
-              expect(cmp.numberOfChecks).toEqual(1);
+          fixture.detectChanges();
+          expect(cmp.numberOfChecks).toEqual(1);
 
-              cmp.propagate();
+          cmp.propagate();
 
-              fixture.detectChanges();
-              expect(cmp.numberOfChecks).toEqual(2);
-            });
+          fixture.detectChanges();
+          expect(cmp.numberOfChecks).toEqual(2);
+        });
 
-        fixmeIvy(
-            'FW-764: fixture.detectChanges() is not respecting OnPush flag on components in the root template')
-            .it('should be checked when its bindings got updated', () => {
-              TestBed.configureTestingModule(
-                  {declarations: [MyComp, PushCmp, EventCmp], imports: [CommonModule]});
-              const template = '<push-cmp [prop]="ctxProp" #cmp></push-cmp>';
-              TestBed.overrideComponent(MyComp, {set: {template}});
-              const fixture = TestBed.createComponent(MyComp);
+        it('should be checked when its bindings got updated', () => {
+          TestBed.configureTestingModule(
+              {declarations: [MyComp, PushCmp, EventCmp], imports: [CommonModule]});
+          const template = '<push-cmp [prop]="ctxProp" #cmp></push-cmp>';
+          TestBed.overrideComponent(MyComp, {set: {template}});
+          const fixture = TestBed.createComponent(MyComp);
 
-              const cmp = fixture.debugElement.children[0].references !['cmp'];
+          const cmp = fixture.debugElement.children[0].references !['cmp'];
 
-              fixture.componentInstance.ctxProp = 'one';
-              fixture.detectChanges();
-              expect(cmp.numberOfChecks).toEqual(1);
+          fixture.componentInstance.ctxProp = 'one';
+          fixture.detectChanges();
+          expect(cmp.numberOfChecks).toEqual(1);
 
-              fixture.componentInstance.ctxProp = 'two';
-              fixture.detectChanges();
-              expect(cmp.numberOfChecks).toEqual(2);
-            });
+          fixture.componentInstance.ctxProp = 'two';
+          fixture.detectChanges();
+          expect(cmp.numberOfChecks).toEqual(2);
+        });
 
         if (getDOM().supportsDOMEvents()) {
           it('should allow to destroy a component from within a host event handler',
@@ -701,32 +698,29 @@ function declareTests(config?: {useJit: boolean}) {
           expect(cmp.prop).toEqual('two');
         });
 
-        fixmeIvy(
-            'FW-764: fixture.detectChanges() is not respecting OnPush flag on components in the root template')
-            .it('should be checked when an async pipe requests a check', fakeAsync(() => {
-                  TestBed.configureTestingModule(
-                      {declarations: [MyComp, PushCmpWithAsyncPipe], imports: [CommonModule]});
-                  const template = '<push-cmp-with-async #cmp></push-cmp-with-async>';
-                  TestBed.overrideComponent(MyComp, {set: {template}});
-                  const fixture = TestBed.createComponent(MyComp);
+        it('should be checked when an async pipe requests a check', fakeAsync(() => {
+             TestBed.configureTestingModule(
+                 {declarations: [MyComp, PushCmpWithAsyncPipe], imports: [CommonModule]});
+             const template = '<push-cmp-with-async #cmp></push-cmp-with-async>';
+             TestBed.overrideComponent(MyComp, {set: {template}});
+             const fixture = TestBed.createComponent(MyComp);
 
-                  tick();
+             tick();
 
-                  const cmp: PushCmpWithAsyncPipe =
-                      fixture.debugElement.children[0].references !['cmp'];
-                  fixture.detectChanges();
-                  expect(cmp.numberOfChecks).toEqual(1);
+             const cmp: PushCmpWithAsyncPipe = fixture.debugElement.children[0].references !['cmp'];
+             fixture.detectChanges();
+             expect(cmp.numberOfChecks).toEqual(1);
 
-                  fixture.detectChanges();
-                  fixture.detectChanges();
-                  expect(cmp.numberOfChecks).toEqual(1);
+             fixture.detectChanges();
+             fixture.detectChanges();
+             expect(cmp.numberOfChecks).toEqual(1);
 
-                  cmp.resolve(2);
-                  tick();
+             cmp.resolve(2);
+             tick();
 
-                  fixture.detectChanges();
-                  expect(cmp.numberOfChecks).toEqual(2);
-                }));
+             fixture.detectChanges();
+             expect(cmp.numberOfChecks).toEqual(2);
+           }));
       });
 
       it('should create a component that injects an @Host', () => {
@@ -1506,7 +1500,7 @@ function declareTests(config?: {useJit: boolean}) {
         }
       });
 
-      fixmeIvy('FW-722: getDebugContext needs to be replaced / re-implemented')
+      obsoleteInIvy('DebugContext is not patched on exceptions in ivy')
           .it('should provide an error context when an error happens in DI', () => {
             TestBed.configureTestingModule({
               declarations: [MyComp, DirectiveThrowingAnError],
@@ -1525,7 +1519,7 @@ function declareTests(config?: {useJit: boolean}) {
             }
           });
 
-      fixmeIvy('FW-722: getDebugContext needs to be replaced / re-implemented')
+      obsoleteInIvy('DebugContext is not patched on exceptions in ivy')
           .it('should provide an error context when an error happens in change detection', () => {
             TestBed.configureTestingModule({declarations: [MyComp, DirectiveThrowingAnError]});
             const template = `<input [value]="one.two.three" #local>`;
@@ -1544,7 +1538,7 @@ function declareTests(config?: {useJit: boolean}) {
             }
           });
 
-      fixmeIvy('FW-722: getDebugContext needs to be replaced / re-implemented')
+      obsoleteInIvy('DebugContext is not patched on exceptions in ivy')
           .it('should provide an error context when an error happens in change detection (text node)',
               () => {
                 TestBed.configureTestingModule({declarations: [MyComp]});
@@ -1560,35 +1554,33 @@ function declareTests(config?: {useJit: boolean}) {
                 }
               });
 
-      if (getDOM().supportsDOMEvents()) {  // this is required to use fakeAsync
-        fixmeIvy('FW-722: getDebugContext needs to be replaced / re-implemented')
-            .it('should provide an error context when an error happens in an event handler',
-                fakeAsync(() => {
-                  TestBed.configureTestingModule({
-                    declarations: [MyComp, DirectiveEmittingEvent, DirectiveListeningEvent],
-                    schemas: [NO_ERRORS_SCHEMA],
-                  });
-                  const template = `<span emitter listener (event)="throwError()" #local></span>`;
-                  TestBed.overrideComponent(MyComp, {set: {template}});
-                  const fixture = TestBed.createComponent(MyComp);
-                  tick();
+      obsoleteInIvy('DebugContext is not patched on exceptions in ivy')
+          .it('should provide an error context when an error happens in an event handler',
+              fakeAsync(() => {
+                TestBed.configureTestingModule({
+                  declarations: [MyComp, DirectiveEmittingEvent, DirectiveListeningEvent],
+                  schemas: [NO_ERRORS_SCHEMA],
+                });
+                const template = `<span emitter listener (event)="throwError()" #local></span>`;
+                TestBed.overrideComponent(MyComp, {set: {template}});
+                const fixture = TestBed.createComponent(MyComp);
+                tick();
 
-                  const tc = fixture.debugElement.children[0];
+                const tc = fixture.debugElement.children[0];
 
-                  const errorHandler = tc.injector.get(ErrorHandler);
-                  let err: any;
-                  spyOn(errorHandler, 'handleError').and.callFake((e: any) => err = e);
-                  tc.injector.get(DirectiveEmittingEvent).fireEvent('boom');
+                const errorHandler = tc.injector.get(ErrorHandler);
+                let err: any;
+                spyOn(errorHandler, 'handleError').and.callFake((e: any) => err = e);
+                tc.injector.get(DirectiveEmittingEvent).fireEvent('boom');
 
-                  expect(err).toBeTruthy();
-                  const c = getDebugContext(err);
-                  expect(getDOM().nodeName(c.renderNode).toUpperCase()).toEqual('SPAN');
-                  expect(getDOM().nodeName(c.componentRenderElement).toUpperCase()).toEqual('DIV');
-                  expect((<Injector>c.injector).get).toBeTruthy();
-                  expect(c.context).toBe(fixture.componentInstance);
-                  expect(c.references['local']).toBeDefined();
-                }));
-      }
+                expect(err).toBeTruthy();
+                const c = getDebugContext(err);
+                expect(getDOM().nodeName(c.renderNode).toUpperCase()).toEqual('SPAN');
+                expect(getDOM().nodeName(c.componentRenderElement).toUpperCase()).toEqual('DIV');
+                expect((<Injector>c.injector).get).toBeTruthy();
+                expect(c.context).toBe(fixture.componentInstance);
+                expect(c.references['local']).toBeDefined();
+              }));
     });
 
     it('should support imperative views', () => {

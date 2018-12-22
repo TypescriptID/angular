@@ -35,7 +35,7 @@ import {I18nContext} from './i18n/context';
 import {I18nMetaVisitor} from './i18n/meta';
 import {getSerializedI18nContent} from './i18n/serializer';
 import {I18N_ICU_MAPPING_PREFIX, assembleBoundTextPlaceholders, assembleI18nBoundString, formatI18nPlaceholderName, getTranslationConstPrefix, getTranslationDeclStmts, icuFromI18nMessage, isI18nRootNode, isSingleI18nIcu, metaFromI18nMessage, placeholdersToParams, wrapI18nPlaceholder} from './i18n/util';
-import {StylingBuilder, StylingInstruction} from './styling';
+import {StylingBuilder, StylingInstruction} from './styling_builder';
 import {CONTEXT_NAME, IMPLICIT_REFERENCE, NON_BINDABLE_ATTR, REFERENCE_PREFIX, RENDER_FLAGS, asLiteral, getAttrsForDirectiveMatching, invalid, trimTrailingNulls, unsupported} from './util';
 
 function mapBindingToInstruction(type: BindingType): o.ExternalReference|undefined {
@@ -114,6 +114,10 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   // Selectors found in the <ng-content> tags in the template.
   private _ngContentSelectors: string[] = [];
 
+  // Number of non-default selectors found in all parent templates of this template. We need to
+  // track it to properly adjust projection bucket index in the `projection` instruction.
+  private _ngContentSelectorsOffset = 0;
+
   constructor(
       private constantPool: ConstantPool, parentBindingScope: BindingScope, private level = 0,
       private contextName: string|null, private i18nContext: I18nContext|null,
@@ -166,7 +170,11 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
         });
   }
 
-  buildTemplateFunction(nodes: t.Node[], variables: t.Variable[], i18n?: i18n.AST): o.FunctionExpr {
+  buildTemplateFunction(
+      nodes: t.Node[], variables: t.Variable[], ngContentSelectorsOffset: number = 0,
+      i18n?: i18n.AST): o.FunctionExpr {
+    this._ngContentSelectorsOffset = ngContentSelectorsOffset;
+
     if (this._namespace !== R3.namespaceHTML) {
       this.creationInstruction(null, this._namespace);
     }
@@ -192,8 +200,23 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     // resolving bindings. We also count bindings in this pass as we walk bound expressions.
     t.visitAll(this, nodes);
 
-    // Output a `ProjectionDef` instruction when some `<ng-content>` are present
-    if (this._hasNgContent) {
+    // Add total binding count to pure function count so pure function instructions are
+    // generated with the correct slot offset when update instructions are processed.
+    this._pureFunctionSlots += this._bindingSlots;
+
+    // Pipes are walked in the first pass (to enqueue `pipe()` creation instructions and
+    // `pipeBind` update instructions), so we have to update the slot offsets manually
+    // to account for bindings.
+    this._valueConverter.updatePipeSlotOffsets(this._bindingSlots);
+
+    // Nested templates must be processed before creation instructions so template()
+    // instructions can be generated with the correct internal const count.
+    this._nestedTemplateFns.forEach(buildTemplateFn => buildTemplateFn());
+
+    // Output the `projectionDef` instruction when some `<ng-content>` are present.
+    // The `projectionDef` instruction only emitted for the component template and it is skipped for
+    // nested templates (<ng-template> tags).
+    if (this.level === 0 && this._hasNgContent) {
       const parameters: o.Expression[] = [];
 
       // Only selectors with a non-default value are generated
@@ -211,19 +234,6 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       // any `projection` instructions
       this.creationInstruction(null, R3.projectionDef, parameters, /* prepend */ true);
     }
-
-    // Add total binding count to pure function count so pure function instructions are
-    // generated with the correct slot offset when update instructions are processed.
-    this._pureFunctionSlots += this._bindingSlots;
-
-    // Pipes are walked in the first pass (to enqueue `pipe()` creation instructions and
-    // `pipeBind` update instructions), so we have to update the slot offsets manually
-    // to account for bindings.
-    this._valueConverter.updatePipeSlotOffsets(this._bindingSlots);
-
-    // Nested templates must be processed before creation instructions so template()
-    // instructions can be generated with the correct internal const count.
-    this._nestedTemplateFns.forEach(buildTemplateFn => buildTemplateFn());
 
     if (initI18nContext) {
       this.i18nEnd(null, selfClosingI18nInstruction);
@@ -419,7 +429,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     const slot = this.allocateDataSlot();
     let selectorIndex = ngContent.selector === DEFAULT_NG_CONTENT_SELECTOR ?
         0 :
-        this._ngContentSelectors.push(ngContent.selector);
+        this._ngContentSelectors.push(ngContent.selector) + this._ngContentSelectorsOffset;
     const parameters: o.Expression[] = [o.literal(slot)];
 
     const attributeAsList: string[] = [];
@@ -522,7 +532,8 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
 
     // this will build the instructions so that they fall into the following syntax
     // add attributes for directive matching purposes
-    attributes.push(...this.prepareSyntheticAndSelectOnlyAttrs(allOtherInputs, element.outputs));
+    attributes.push(...this.prepareSyntheticAndSelectOnlyAttrs(
+        allOtherInputs, element.outputs, stylingBuilder));
     parameters.push(this.toAttrsParam(attributes));
 
     // local refs (ex.: <div #foo #bar="baz">)
@@ -552,11 +563,11 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       return element.children.length > 0;
     };
 
-    const createSelfClosingInstruction = !stylingBuilder.hasBindingsOrInitialValues &&
+    const createSelfClosingInstruction = !stylingBuilder.hasBindingsOrInitialValues() &&
         !isNgContainer && element.outputs.length === 0 && i18nAttrs.length === 0 && !hasChildren();
 
     const createSelfClosingI18nInstruction = !createSelfClosingInstruction &&
-        !stylingBuilder.hasBindingsOrInitialValues && hasTextChildrenOnly(element.children);
+        !stylingBuilder.hasBindingsOrInitialValues() && hasTextChildrenOnly(element.children);
 
     if (createSelfClosingInstruction) {
       this.creationInstruction(element.sourceSpan, R3.element, trimTrailingNulls(parameters));
@@ -606,10 +617,16 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
         }
       }
 
-      // initial styling for static style="..." and class="..." attributes
+      // The style bindings code is placed into two distinct blocks within the template function AOT
+      // code: creation and update. The creation code contains the `elementStyling` instructions
+      // which will apply the collected binding values to the element. `elementStyling` is
+      // designed to run inside of `elementStart` and `elementEnd`. The update instructions
+      // (things like `elementStyleProp`, `elementClassProp`, etc..) are applied later on in this
+      // file
       this.processStylingInstruction(
           implicit,
-          stylingBuilder.buildCreateLevelInstruction(element.sourceSpan, this.constantPool), true);
+          stylingBuilder.buildElementStylingInstruction(element.sourceSpan, this.constantPool),
+          true);
 
       // Generate Listeners (outputs)
       element.outputs.forEach((outputAst: t.BoundEvent) => {
@@ -619,6 +636,10 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       });
     }
 
+    // the code here will collect all update-level styling instructions and add them to the
+    // update block of the template function AOT code. Instructions like `elementStyleProp`,
+    // `elementStylingMap`, `elementClassProp` and `elementStylingApply` are all generated
+    // and assign in the code below.
     stylingBuilder.buildUpdateLevelInstructions(this._valueConverter).forEach(instruction => {
       this.processStylingInstruction(implicit, instruction, false);
     });
@@ -738,8 +759,13 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     // template definition. e.g. <div *ngIf="showing"> {{ foo }} </div>  <div #foo></div>
     this._nestedTemplateFns.push(() => {
       const templateFunctionExpr = templateVisitor.buildTemplateFunction(
-          template.children, template.variables, template.i18n);
+          template.children, template.variables,
+          this._ngContentSelectors.length + this._ngContentSelectorsOffset, template.i18n);
       this.constantPool.statements.push(templateFunctionExpr.toDeclStmt(templateName, null));
+      if (templateVisitor._hasNgContent) {
+        this._hasNgContent = true;
+        this._ngContentSelectors.push(...templateVisitor._ngContentSelectors);
+      }
     });
 
     // e.g. template(1, MyComp_Template_1)
@@ -919,8 +945,26 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     }
   }
 
-  private prepareSyntheticAndSelectOnlyAttrs(inputs: t.BoundAttribute[], outputs: t.BoundEvent[]):
-      o.Expression[] {
+  /**
+   * Prepares all attribute expression values for the `TAttributes` array.
+   *
+   * The purpose of this function is to properly construct an attributes array that
+   * is passed into the `elementStart` (or just `element`) functions. Because there
+   * are many different types of attributes, the array needs to be constructed in a
+   * special way so that `elementStart` can properly evaluate them.
+   *
+   * The format looks like this:
+   *
+   * ```
+   * attrs = [prop, value, prop2, value2,
+   *   CLASSES, class1, class2,
+   *   STYLES, style1, value1, style2, value2,
+   *   SELECT_ONLY, name1, name2, name2, ...]
+   * ```
+   */
+  private prepareSyntheticAndSelectOnlyAttrs(
+      inputs: t.BoundAttribute[], outputs: t.BoundEvent[],
+      styles?: StylingBuilder): o.Expression[] {
     const attrExprs: o.Expression[] = [];
     const nonSyntheticInputs: t.BoundAttribute[] = [];
 
@@ -937,6 +981,13 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
           nonSyntheticInputs.push(input);
         }
       });
+    }
+
+    // it's important that this occurs before SelectOnly because once `elementStart`
+    // comes across the SelectOnly marker then it will continue reading each value as
+    // as single property value cell by cell.
+    if (styles) {
+      styles.populateInitialStylingAttrs(attrExprs);
     }
 
     if (nonSyntheticInputs.length || outputs.length) {
