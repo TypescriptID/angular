@@ -10,7 +10,7 @@ import {flatten, sanitizeIdentifier} from '../../compile_metadata';
 import {BindingForm, BuiltinFunctionCall, LocalResolver, convertActionBinding, convertPropertyBinding} from '../../compiler_util/expression_converter';
 import {ConstantPool} from '../../constant_pool';
 import * as core from '../../core';
-import {AST, AstMemoryEfficientTransformer, BindingPipe, BindingType, FunctionCall, ImplicitReceiver, Interpolation, LiteralArray, LiteralMap, LiteralPrimitive, ParsedEventType, PropertyRead} from '../../expression_parser/ast';
+import {AST, ASTWithSource, AstMemoryEfficientTransformer, BindingPipe, BindingType, FunctionCall, ImplicitReceiver, Interpolation, LiteralArray, LiteralMap, LiteralPrimitive, ParsedEvent, ParsedEventType, PropertyRead} from '../../expression_parser/ast';
 import {Lexer} from '../../expression_parser/lexer';
 import {Parser} from '../../expression_parser/parser';
 import * as i18n from '../../i18n/i18n_ast';
@@ -29,6 +29,7 @@ import {error} from '../../util';
 import * as t from '../r3_ast';
 import {Identifiers as R3} from '../r3_identifiers';
 import {htmlAstToRender3Ast} from '../r3_template_transform';
+import {getSyntheticPropertyName, prepareSyntheticListenerFunctionName, prepareSyntheticListenerName, prepareSyntheticPropertyName} from '../util';
 
 import {R3QueryMetadata} from './api';
 import {I18nContext} from './i18n/context';
@@ -490,9 +491,9 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       const {name, value} = attr;
       if (name === NON_BINDABLE_ATTR) {
         isNonBindableMode = true;
-      } else if (name == 'style') {
+      } else if (name === 'style') {
         stylingBuilder.registerStyleAttr(value);
-      } else if (name == 'class') {
+      } else if (name === 'class') {
         stylingBuilder.registerClassAttr(value);
       } else if (attr.i18n) {
         i18nAttrs.push(attr);
@@ -516,7 +517,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
 
     element.inputs.forEach((input: t.BoundAttribute) => {
       if (!stylingBuilder.registerBoundInput(input)) {
-        if (input.type == BindingType.Property) {
+        if (input.type === BindingType.Property) {
           if (input.i18n) {
             i18nAttrs.push(input);
           } else {
@@ -632,7 +633,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       element.outputs.forEach((outputAst: t.BoundEvent) => {
         this.creationInstruction(
             outputAst.sourceSpan, R3.listener,
-            this.prepareListenerParameter(element.name, outputAst));
+            this.prepareListenerParameter(element.name, outputAst, elementIndex));
       });
     }
 
@@ -651,11 +652,12 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
         const value = input.value.visit(this._valueConverter);
         // setProperty without a value doesn't make any sense
         if (value.name || value.value) {
+          const bindingName = prepareSyntheticPropertyName(input.name);
           this.allocateBindingSlots(value);
-          const name = prepareSyntheticAttributeName(input.name);
           this.updateInstruction(input.sourceSpan, R3.elementProperty, () => {
             return [
-              o.literal(elementIndex), o.literal(name), this.convertPropertyBinding(implicit, value)
+              o.literal(elementIndex), o.literal(bindingName),
+              this.convertPropertyBinding(implicit, value)
             ];
           });
         }
@@ -707,9 +709,8 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     }
 
     const tagName = sanitizeIdentifier(template.tagName || '');
-    const contextName = tagName ? `${this.contextName}_${tagName}` : '';
-    const templateName =
-        contextName ? `${contextName}_Template_${templateIndex}` : `Template_${templateIndex}`;
+    const contextName = `${tagName ? this.contextName + '_' + tagName : ''}_${templateIndex}`;
+    const templateName = `${contextName}_Template`;
 
     const parameters: o.Expression[] = [
       o.literal(templateIndex),
@@ -733,7 +734,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       parameters.push(o.importExpr(R3.templateRefExtractor));
     }
 
-    // handle property bindings e.g. p(1, 'forOf', ɵbind(ctx.items));
+    // handle property bindings e.g. p(1, 'ngForOf', ɵbind(ctx.items));
     const context = o.variable(CONTEXT_NAME);
     template.inputs.forEach(input => {
       const value = input.value.visit(this._valueConverter);
@@ -756,7 +757,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     // Nested templates must not be visited until after their parent templates have completed
     // processing, so they are queued here until after the initial pass. Otherwise, we wouldn't
     // be able to support bindings in nested templates to local refs that occur after the
-    // template definition. e.g. <div *ngIf="showing"> {{ foo }} </div>  <div #foo></div>
+    // template definition. e.g. <div *ngIf="showing">{{ foo }}</div>  <div #foo></div>
     this._nestedTemplateFns.push(() => {
       const templateFunctionExpr = templateVisitor.buildTemplateFunction(
           template.children, template.variables,
@@ -780,7 +781,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     template.outputs.forEach((outputAst: t.BoundEvent) => {
       this.creationInstruction(
           outputAst.sourceSpan, R3.listener,
-          this.prepareListenerParameter('ng_template', outputAst));
+          this.prepareListenerParameter('ng_template', outputAst, templateIndex));
     });
   }
 
@@ -967,6 +968,29 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       styles?: StylingBuilder): o.Expression[] {
     const attrExprs: o.Expression[] = [];
     const nonSyntheticInputs: t.BoundAttribute[] = [];
+    const alreadySeen = new Set<string>();
+
+    function isASTWithSource(ast: AST): ast is ASTWithSource {
+      return ast instanceof ASTWithSource;
+    }
+
+    function isLiteralPrimitive(ast: AST): ast is LiteralPrimitive {
+      return ast instanceof LiteralPrimitive;
+    }
+
+    function addAttrExpr(key: string | number, value?: o.Expression): void {
+      if (typeof key === 'string') {
+        if (!alreadySeen.has(key)) {
+          attrExprs.push(o.literal(key));
+          if (value !== undefined) {
+            attrExprs.push(value);
+          }
+          alreadySeen.add(key);
+        }
+      } else {
+        attrExprs.push(o.literal(key));
+      }
+    }
 
     if (inputs.length) {
       const EMPTY_STRING_EXPR = asLiteral('');
@@ -976,7 +1000,13 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
           // may be supported differently in future versions of angular. However,
           // @triggers should always just be treated as regular attributes (it's up
           // to the renderer to detect and use them in a special way).
-          attrExprs.push(asLiteral(prepareSyntheticAttributeName(input.name)), EMPTY_STRING_EXPR);
+          const valueExp = input.value;
+          if (isASTWithSource(valueExp)) {
+            const literal = valueExp.ast;
+            if (isLiteralPrimitive(literal) && literal.value === undefined) {
+              addAttrExpr(prepareSyntheticPropertyName(input.name), EMPTY_STRING_EXPR);
+            }
+          }
         } else {
           nonSyntheticInputs.push(input);
         }
@@ -991,9 +1021,13 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     }
 
     if (nonSyntheticInputs.length || outputs.length) {
-      attrExprs.push(o.literal(core.AttributeMarker.SelectOnly));
-      nonSyntheticInputs.forEach((i: t.BoundAttribute) => attrExprs.push(asLiteral(i.name)));
-      outputs.forEach((o: t.BoundEvent) => attrExprs.push(asLiteral(o.name)));
+      addAttrExpr(core.AttributeMarker.SelectOnly);
+      nonSyntheticInputs.forEach((i: t.BoundAttribute) => addAttrExpr(i.name));
+      outputs.forEach((o: t.BoundEvent) => {
+        const name =
+            o.type === ParsedEventType.Animation ? getSyntheticPropertyName(o.name) : o.name;
+        addAttrExpr(name);
+      });
     }
 
     return attrExprs;
@@ -1033,15 +1067,22 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     return this.constantPool.getConstLiteral(asLiteral(refsParam), true);
   }
 
-  private prepareListenerParameter(tagName: string, outputAst: t.BoundEvent): () => o.Expression[] {
+  private prepareListenerParameter(tagName: string, outputAst: t.BoundEvent, index: number):
+      () => o.Expression[] {
     let eventName: string = outputAst.name;
-    if (outputAst.type === ParsedEventType.Animation) {
-      eventName = prepareSyntheticAttributeName(`${outputAst.name}.${outputAst.phase}`);
-    }
-    const evNameSanitized = sanitizeIdentifier(eventName);
-    const tagNameSanitized = sanitizeIdentifier(tagName);
-    const functionName = `${this.templateName}_${tagNameSanitized}_${evNameSanitized}_listener`;
 
+    let bindingFnName;
+    if (outputAst.type === ParsedEventType.Animation) {
+      // synthetic @listener.foo values are treated the exact same as are standard listeners
+      bindingFnName = prepareSyntheticListenerFunctionName(eventName, outputAst.phase !);
+      eventName = prepareSyntheticListenerName(eventName, outputAst.phase !);
+    } else {
+      bindingFnName = sanitizeIdentifier(eventName);
+    }
+
+    const tagNameSanitized = sanitizeIdentifier(tagName);
+    const functionName =
+        `${this.templateName}_${tagNameSanitized}_${bindingFnName}_${index}_listener`;
     return () => {
 
       const listenerScope = this._bindingScope.nestedScope(this._bindingScope.bindingLevel);
@@ -1424,7 +1465,7 @@ function createCssSelector(tag: string, attributes: {[name: string]: string}): C
 
     cssSelector.addAttribute(name, value);
     if (name.toLowerCase() === 'class') {
-      const classes = value.trim().split(/\s+/g);
+      const classes = value.trim().split(/\s+/);
       classes.forEach(className => cssSelector.addClassName(className));
     }
   });
@@ -1533,16 +1574,14 @@ function resolveSanitizationFn(input: t.BoundAttribute, context: core.SecurityCo
   }
 }
 
-function prepareSyntheticAttributeName(name: string) {
-  return '@' + name;
-}
-
 function isSingleElementTemplate(children: t.Node[]): children is[t.Element] {
   return children.length === 1 && children[0] instanceof t.Element;
 }
 
+function isTextNode(node: t.Node): boolean {
+  return node instanceof t.Text || node instanceof t.BoundText || node instanceof t.Icu;
+}
+
 function hasTextChildrenOnly(children: t.Node[]): boolean {
-  return !children.find(
-      child =>
-          !(child instanceof t.Text || child instanceof t.BoundText || child instanceof t.Icu));
+  return children.every(isTextNode);
 }
