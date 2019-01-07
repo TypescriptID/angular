@@ -218,11 +218,12 @@ jobs:
       - run: yarn --cwd aio tools-test
       - run: ./aio/aio-builds-setup/scripts/test.sh
 
-  test_docs_examples_0:
+  test_docs_examples:
     <<: *job_defaults
     docker:
       # Needed because the example e2e tests depend on Chrome.
       - image: *browsers_docker_image
+    parallelism: 3
     steps:
       - checkout:
           <<: *post_checkout
@@ -235,28 +236,10 @@ jobs:
       - *yarn_install
         # Install aio
       - run: yarn --cwd aio install --frozen-lockfile --non-interactive
-        # Run examples tests
-      - run: yarn --cwd aio example-e2e --setup --local --shard=0/2
-
-  test_docs_examples_1:
-    <<: *job_defaults
-    docker:
-      # Needed because the example e2e tests depend on Chrome.
-      - image: *browsers_docker_image
-    steps:
-      - checkout:
-          <<: *post_checkout
-      - restore_cache:
-          key: *cache_key
-      - attach_workspace:
-          at: dist
-      - *define_env_vars
-        # Install root
-      - *yarn_install
-        # Install aio
-      - run: yarn --cwd aio install --frozen-lockfile --non-interactive
-        # Run examples tests
-      - run: yarn --cwd aio example-e2e --setup --local --shard=1/2
+        # Run examples tests. The "CIRCLE_NODE_INDEX" will be set if "parallelism" is enabled.
+        # Since the parallelism is set to "3", there will be three parallel CircleCI containers
+        # with either "0", "1" or "2" as node index. This can be passed to the "--shard" argument.
+      - run: yarn --cwd aio example-e2e --setup --local --shard=${CIRCLE_NODE_INDEX}/${CIRCLE_NODE_TOTAL}
 
   # This job should only be run on PR builds, where `CI_PULL_REQUEST` is not `false`.
   aio_preview:
@@ -333,6 +316,7 @@ jobs:
   # See comments inside the integration/run_tests.sh script.
   integration_test:
     <<: *job_defaults
+    parallelism: 4
     docker:
       # Needed because the integration tests expect Chrome to be installed (e.g cli-hello-world)
       - image: *browsers_docker_image
@@ -348,7 +332,9 @@ jobs:
       - attach_workspace:
           at: dist
       - *define_env_vars
-      - run: ./integration/run_tests.sh
+      # Runs the integration tests in parallel across multiple CircleCI container instances. The
+      # amount of container nodes for this job is controlled by the "parallelism" option.
+      - run: ./integration/run_tests.sh ${CIRCLE_NODE_INDEX} ${CIRCLE_NODE_TOTAL}
 
   # This job updates the content of repos like github.com/angular/core-builds
   # for every green build on angular/angular.
@@ -399,6 +385,95 @@ jobs:
           command: 'curl --request POST --header "Content-Type: application/json" --data "{\"text\":\":x: \`$CIRCLE_JOB\` job failed on build $CIRCLE_BUILD_NUM: $CIRCLE_BUILD_URL :scream:\"}" $CI_SECRET_SLACK_CARETAKER_WEBHOOK_URL'
           when: on_fail
 
+  legacy-unit-tests-local:
+    <<: *job_defaults
+    docker:
+      - image: *browsers_docker_image
+    steps:
+      - checkout:
+          <<: *post_checkout
+      - restore_cache:
+          key: *cache_key
+      - *define_env_vars
+      - *yarn_install
+      - run: yarn tsc -p packages
+      - run: yarn tsc -p packages/examples
+      - run: yarn tsc -p modules
+      - run: yarn karma start ./karma-js.conf.js --single-run --browsers=ChromeNoSandbox
+
+  legacy-unit-tests-saucelabs:
+    <<: *job_defaults
+    # In order to avoid the bottleneck of having a slow host machine, we acquire a better
+    # container for this job. This is necessary because we launch a lot of browsers concurrently
+    # and therefore the tunnel and Karma need to process a lot of file requests and tests.
+    resource_class: xlarge
+    steps:
+      - checkout:
+          <<: *post_checkout
+      - restore_cache:
+          key: *cache_key
+      - *define_env_vars
+      - *yarn_install
+      - run:
+          name: Preparing environment for running tests on Saucelabs.
+          command: |
+            setPublicVar KARMA_JS_BROWSERS $(node -e 'console.log(require("./browser-providers.conf").sauceAliases.CI_REQUIRED.join(","))')
+            setSecretVar SAUCE_ACCESS_KEY $(echo $SAUCE_ACCESS_KEY | rev)
+      - run:
+          name: Starting Saucelabs tunnel
+          command: ./scripts/saucelabs/start-tunnel.sh
+          background: true
+      - run: yarn tsc -p packages
+      - run: yarn tsc -p packages/examples
+      - run: yarn tsc -p modules
+        # Waits for the Saucelabs tunnel to be ready. This ensures that we don't run tests
+        # too early without Saucelabs not being ready.
+      - run: ./scripts/saucelabs/wait-for-tunnel.sh
+      - run: yarn karma start ./karma-js.conf.js --single-run --browsers=${KARMA_JS_BROWSERS}
+      - run: ./scripts/saucelabs/stop-tunnel.sh
+
+  legacy-e2e-tests:
+    <<: *job_defaults
+    docker:
+      - image: *browsers_docker_image
+    steps:
+      - checkout:
+          <<: *post_checkout
+      - restore_cache:
+          key: *cache_key
+      - *define_env_vars
+      - *setup_circleci_bazel_config
+      - *yarn_install
+      - *setup_bazel_remote_execution
+      - attach_workspace:
+          at: dist
+        # Build the e2e tests using the existing Bazel "packages-dist" output that has been
+        # attached to this job. This avoids multiple rebuilds across various CI jobs.
+      - run: ./scripts/build-e2e-tests.sh --use-existing-packages-dist
+      - run:
+          name: Starting servers for e2e tests
+          command: yarn gulp serve serve-examples
+          background: true
+      - run: NODE_PATH=$NODE_PATH:./dist/all yarn protractor ./protractor-e2e.conf.js --bundles=true
+      - run: NODE_PATH=$NODE_PATH:./dist/all yarn protractor ./protractor-examples-e2e.conf.js --bundles=true
+      - run: NODE_PATH=$NODE_PATH:./dist/all yarn protractor ./protractor-perf.conf.js --bundles=true --dryrun
+
+  legacy-misc-tests:
+    <<: *job_defaults
+    steps:
+      - checkout:
+          <<: *post_checkout
+      - restore_cache:
+          key: *cache_key
+      - *define_env_vars
+      - *yarn_install
+      - attach_workspace:
+          at: dist
+      - run: yarn gulp check-cycle
+      # TODO: disabled because the Bazel packages-dist does not seem to have map files for
+      # the ESM5/ES2015 output. See: https://github.com/angular/angular/issues/27966
+      # - run: yarn gulp source-map-test
+
 workflows:
   version: 2
   default_workflow:
@@ -408,19 +483,24 @@ workflows:
       - test_ivy_aot
       - build-packages-dist
       - test_aio
+      - legacy-unit-tests-local
+      - legacy-unit-tests-saucelabs
       - deploy_aio:
           requires:
             - test_aio
+      - legacy-e2e-tests:
+          requires:
+            - build-packages-dist
+      - legacy-misc-tests:
+          requires:
+            - build-packages-dist
       - test_aio_local:
           requires:
             - build-packages-dist
       - test_aio_tools:
           requires:
             - build-packages-dist
-      - test_docs_examples_0:
-          requires:
-            - build-packages-dist
-      - test_docs_examples_1:
+      - test_docs_examples:
           requires:
             - build-packages-dist
       - aio_preview:
@@ -446,11 +526,15 @@ workflows:
             - integration_test
             # Only publish if `aio`/`docs` tests using the locally built Angular packages pass
             - test_aio_local
-            - test_docs_examples_0
-            - test_docs_examples_1
+            - test_docs_examples
             # Get the artifacts to publish from the build-packages-dist job
             # since the publishing script expects the legacy outputs layout.
             - build-packages-dist
+            - legacy-e2e-tests
+            - legacy-misc-tests
+            - legacy-unit-tests-local
+            - legacy-unit-tests-saucelabs
+
 
   aio_monitoring:
     jobs:
@@ -462,3 +546,9 @@ workflows:
             branches:
               only:
                 - master
+
+# TODO:
+# - don't build the g3 branch
+# - verify that we are bootstrapping with the right yarn version coming from the docker image
+# - check local chrome version pulled from docker image
+# - remove /tools/ngcontainer
