@@ -6,6 +6,8 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import * as ts from 'typescript';
+
 import {NgtscTestEnvironment} from './env';
 
 const trim = (input: string): string => input.replace(/\s+/g, ' ').trim();
@@ -418,10 +420,12 @@ describe('ngtsc behavioral tests', () => {
       env.write('node_modules/router/index.d.ts', `
         import {ModuleWithProviders} from '@angular/core';
         import * as internal from './internal';
+        export {InternalRouterModule} from './internal';
 
-        declare class RouterModule {
+        declare export class RouterModule {
           static forRoot(): ModuleWithProviders<internal.InternalRouterModule>;
         }
+
     `);
 
       env.write('node_modules/router/internal.d.ts', `
@@ -588,11 +592,14 @@ describe('ngtsc behavioral tests', () => {
           template: 'Test'
         })
         class FooCmp {
+          @HostListener('click')
+          onClick(event: any): void {}
+
           @HostListener('document:click', ['$event.target'])
-          onClick(eventTarget: HTMLElement): void {}
+          onDocumentClick(eventTarget: HTMLElement): void {}
 
           @HostListener('window:scroll')
-          onScroll(event: any): void {}
+          onWindowScroll(event: any): void {}
         }
     `);
 
@@ -601,12 +608,33 @@ describe('ngtsc behavioral tests', () => {
     const hostBindingsFn = `
       hostBindings: function FooCmp_HostBindings(rf, ctx, elIndex) {
         if (rf & 1) {
-          i0.ɵlistener("click", function FooCmp_click_HostBindingHandler($event) { return ctx.onClick($event.target); });
-          i0.ɵlistener("scroll", function FooCmp_scroll_HostBindingHandler($event) { return ctx.onScroll(); });
+          i0.ɵlistener("click", function FooCmp_click_HostBindingHandler($event) { return ctx.onClick(); });
+          i0.ɵlistener("click", function FooCmp_click_HostBindingHandler($event) { return ctx.onDocumentClick($event.target); }, false, i0.ɵresolveDocument);
+          i0.ɵlistener("scroll", function FooCmp_scroll_HostBindingHandler($event) { return ctx.onWindowScroll(); }, false, i0.ɵresolveWindow);
         }
       }
     `;
     expect(trim(jsContents)).toContain(trim(hostBindingsFn));
+  });
+
+  it('should throw in case unknown global target is provided', () => {
+    env.tsconfig();
+    env.write(`test.ts`, `
+        import {Component, HostListener} from '@angular/core';
+
+        @Component({
+          selector: 'test',
+          template: 'Test'
+        })
+        class FooCmp {
+          @HostListener('UnknownTarget:click')
+          onClick(event: any): void {}
+        }
+    `);
+    const errors = env.driveDiagnostics();
+    expect(trim(errors[0].messageText as string))
+        .toContain(
+            `Unexpected global target 'UnknownTarget' defined for 'click' event. Supported list of global targets: window,document,body.`);
   });
 
   it('should generate host bindings for directives', () => {
@@ -620,6 +648,7 @@ describe('ngtsc behavioral tests', () => {
           host: {
             '[attr.hello]': 'foo',
             '(click)': 'onClick($event)',
+            '(body:click)': 'onBodyClick($event)',
             '[prop]': 'bar',
           },
         })
@@ -641,6 +670,7 @@ describe('ngtsc behavioral tests', () => {
         if (rf & 1) {
           i0.ɵallocHostVars(2);
           i0.ɵlistener("click", function FooCmp_click_HostBindingHandler($event) { return ctx.onClick($event); });
+          i0.ɵlistener("click", function FooCmp_click_HostBindingHandler($event) { return ctx.onBodyClick($event); }, false, i0.ɵresolveBody);
           i0.ɵlistener("change", function FooCmp_change_HostBindingHandler($event) { return ctx.onChange(ctx.arg1, ctx.arg2, ctx.arg3); });
           i0.ɵelementStyling(_c0, null, null, ctx);
         }
@@ -1167,40 +1197,81 @@ describe('ngtsc behavioral tests', () => {
     // Success is enough to indicate that this passes.
   });
 
-  it('should not emit multiple references to the same directive', () => {
-    env.tsconfig();
-    env.write('node_modules/external/index.d.ts', `
-      import {ɵDirectiveDefWithMeta, ɵNgModuleDefWithMeta} from '@angular/core';
+  describe('when processing external directives', () => {
+    it('should not emit multiple references to the same directive', () => {
+      env.tsconfig();
+      env.write('node_modules/external/index.d.ts', `
+        import {ɵDirectiveDefWithMeta, ɵNgModuleDefWithMeta} from '@angular/core';
+  
+        export declare class ExternalDir {
+          static ngDirectiveDef: ɵDirectiveDefWithMeta<ExternalDir, '[test]', never, never, never, never>;
+        }
+  
+        export declare class ExternalModule {
+          static ngModuleDef: ɵNgModuleDefWithMeta<ExternalModule, [typeof ExternalDir], never, [typeof ExternalDir]>;
+        }
+      `);
+      env.write('test.ts', `
+        import {Component, Directive, NgModule} from '@angular/core';
+        import {ExternalModule} from 'external';
+  
+        @Component({
+          template: '<div test></div>',
+        })
+        class Cmp {}
+  
+        @NgModule({
+          declarations: [Cmp],
+          // Multiple imports of the same module used to result in duplicate directive references
+          // in the output.
+          imports: [ExternalModule, ExternalModule],
+        })
+        class Module {}
+      `);
 
-      export declare class ExternalDir {
-        static ngDirectiveDef: ɵDirectiveDefWithMeta<ExternalDir, '[test]', never, never, never, never>;
-      }
+      env.driveMain();
+      const jsContents = env.getContents('test.js');
+      expect(jsContents).toMatch(/directives: \[i1\.ExternalDir\]/);
+    });
 
-      export declare class ExternalModule {
-        static ngModuleDef: ɵNgModuleDefWithMeta<ExternalModule, [typeof ExternalDir], never, [typeof ExternalDir]>;
-      }
-    `);
-    env.write('test.ts', `
-      import {Component, Directive, NgModule} from '@angular/core';
-      import {ExternalModule} from 'external';
+    it('should import directives by their external name', () => {
+      env.tsconfig();
+      env.write('node_modules/external/index.d.ts', `
+        import {ɵDirectiveDefWithMeta, ɵNgModuleDefWithMeta} from '@angular/core';
+        import {InternalDir} from './internal';
 
-      @Component({
-        template: '<div test></div>',
-      })
-      class Cmp {}
+        export {InternalDir as ExternalDir} from './internal';
 
-      @NgModule({
-        declarations: [Cmp],
-        // Multiple imports of the same module used to result in duplicate directive references
-        // in the output.
-        imports: [ExternalModule, ExternalModule],
-      })
-      class Module {}
-    `);
+        export declare class ExternalModule {
+          static ngModuleDef: ɵNgModuleDefWithMeta<ExternalModule, [typeof InternalDir], never, [typeof InternalDir]>;
+        }
+      `);
+      env.write('node_modules/external/internal.d.ts', `
 
-    env.driveMain();
-    const jsContents = env.getContents('test.js');
-    expect(jsContents).toMatch(/directives: \[i1\.ExternalDir\]/);
+        export declare class InternalDir {
+          static ngDirectiveDef: ɵDirectiveDefWithMeta<InternalDir, '[test]', never, never, never, never>;
+        }
+      `);
+      env.write('test.ts', `
+        import {Component, Directive, NgModule} from '@angular/core';
+        import {ExternalModule} from 'external';
+
+        @Component({
+          template: '<div test></div>',
+        })
+        class Cmp {}
+
+        @NgModule({
+          declarations: [Cmp],
+          imports: [ExternalModule],
+        })
+        class Module {}
+      `);
+
+      env.driveMain();
+      const jsContents = env.getContents('test.js');
+      expect(jsContents).toMatch(/directives: \[i1\.ExternalDir\]/);
+    });
   });
 
   describe('flat module indices', () => {
@@ -1225,6 +1296,155 @@ describe('ngtsc behavioral tests', () => {
       env.driveMain();
       const dtsContents = env.getContents('flat.d.ts');
       expect(dtsContents).toContain('/// <amd-module name="@mymodule" />');
+    });
+
+    it('should report an error when a flat module index is requested but no entrypoint can be determined',
+       () => {
+         env.tsconfig({'flatModuleOutFile': 'flat.js'});
+         env.write('test.ts', 'export class Foo {}');
+         env.write('test2.ts', 'export class Bar {}');
+
+         const errors = env.driveDiagnostics();
+         expect(errors.length).toBe(1);
+         expect(errors[0].messageText)
+             .toBe(
+                 'Angular compiler option "flatModuleOutFile" requires one and only one .ts file in the "files" field.');
+       });
+
+    it('should report an error when a visible directive is not exported', () => {
+      env.tsconfig({'flatModuleOutFile': 'flat.js'});
+      env.write('test.ts', `
+        import {Directive, NgModule} from '@angular/core';
+
+        // The directive is not exported.
+        @Directive({selector: 'test'})
+        class Dir {}
+
+        // The module is, which makes the directive visible.
+        @NgModule({declarations: [Dir], exports: [Dir]})
+        export class Module {}
+      `);
+
+      const errors = env.driveDiagnostics();
+      expect(errors.length).toBe(1);
+      expect(errors[0].messageText)
+          .toBe(
+              'Unsupported private class Dir. This class is visible ' +
+              'to consumers via Module -> Dir, but is not exported from the top-level library ' +
+              'entrypoint.');
+
+      // Verify that the error is for the correct class.
+      const id = expectTokenAtPosition(errors[0].file !, errors[0].start !, ts.isIdentifier);
+      expect(id.text).toBe('Dir');
+      expect(ts.isClassDeclaration(id.parent)).toBe(true);
+    });
+
+    it('should report an error when a deeply visible directive is not exported', () => {
+      env.tsconfig({'flatModuleOutFile': 'flat.js'});
+      env.write('test.ts', `
+        import {Directive, NgModule} from '@angular/core';
+
+        // The directive is not exported.
+        @Directive({selector: 'test'})
+        class Dir {}
+
+        // Neither is the module which declares it - meaning the directive is not visible here.
+        @NgModule({declarations: [Dir], exports: [Dir]})
+        class DirModule {}
+
+        // The module is, which makes the directive visible.
+        @NgModule({exports: [DirModule]})
+        export class Module {}
+      `);
+
+      const errors = env.driveDiagnostics();
+      expect(errors.length).toBe(2);
+      expect(errors[0].messageText)
+          .toBe(
+              'Unsupported private class DirModule. This class is ' +
+              'visible to consumers via Module -> DirModule, but is not exported from the top-level ' +
+              'library entrypoint.');
+      expect(errors[1].messageText)
+          .toBe(
+              'Unsupported private class Dir. This class is visible ' +
+              'to consumers via Module -> DirModule -> Dir, but is not exported from the top-level ' +
+              'library entrypoint.');
+    });
+
+    it('should report an error when a deeply visible module is not exported', () => {
+      env.tsconfig({'flatModuleOutFile': 'flat.js'});
+      env.write('test.ts', `
+        import {Directive, NgModule} from '@angular/core';
+
+        // The directive is exported.
+        @Directive({selector: 'test'})
+        export class Dir {}
+
+        // The module which declares it is not.
+        @NgModule({declarations: [Dir], exports: [Dir]})
+        class DirModule {}
+
+        // The module is, which makes the module and directive visible.
+        @NgModule({exports: [DirModule]})
+        export class Module {}
+      `);
+
+      const errors = env.driveDiagnostics();
+      expect(errors.length).toBe(1);
+      expect(errors[0].messageText)
+          .toBe(
+              'Unsupported private class DirModule. This class is ' +
+              'visible to consumers via Module -> DirModule, but is not exported from the top-level ' +
+              'library entrypoint.');
+    });
+
+    it('should not report an error when a non-exported module is imported by a visible one', () => {
+      env.tsconfig({'flatModuleOutFile': 'flat.js'});
+      env.write('test.ts', `
+        import {Directive, NgModule} from '@angular/core';
+
+        // The directive is not exported.
+        @Directive({selector: 'test'})
+        class Dir {}
+
+        // Neither is the module which declares it.
+        @NgModule({declarations: [Dir], exports: [Dir]})
+        class DirModule {}
+
+        // This module is, but it doesn't re-export the module, so it doesn't make the module and
+        // directive visible.
+        @NgModule({imports: [DirModule]})
+        export class Module {}
+      `);
+
+      const errors = env.driveDiagnostics();
+      expect(errors.length).toBe(0);
+    });
+
+    it('should not report an error when re-exporting an external symbol', () => {
+      env.tsconfig({'flatModuleOutFile': 'flat.js'});
+      env.write('test.ts', `
+        import {Directive, NgModule} from '@angular/core';
+        import {ExternalModule} from 'external';
+
+        // This module makes ExternalModule and ExternalDir visible.
+        @NgModule({exports: [ExternalModule]})
+        export class Module {}
+      `);
+      env.write('node_modules/external/index.d.ts', `
+        import {ɵDirectiveDefWithMeta, ɵNgModuleDefWithMeta} from '@angular/core';
+
+        export declare class ExternalDir {
+          static ngDirectiveDef: ɵDirectiveDefWithMeta<ExternalDir, '[test]', never, never, never, never>;
+        }
+
+        export declare class ExternalModule {
+          static ngModuleDef: ɵNgModuleDefWithMeta<ExternalModule, [typeof ExternalDir], never, [typeof ExternalDir]>;
+        }
+      `);
+
+      const errors = env.driveDiagnostics();
+      expect(errors.length).toBe(0);
     });
   });
 
@@ -1256,3 +1476,11 @@ describe('ngtsc behavioral tests', () => {
   });
 
 });
+
+function expectTokenAtPosition<T extends ts.Node>(
+    sf: ts.SourceFile, pos: number, guard: (node: ts.Node) => node is T): T {
+  // getTokenAtPosition is part of TypeScript's private API.
+  const node = (ts as any).getTokenAtPosition(sf, pos) as ts.Node;
+  expect(guard(node)).toBe(true);
+  return node as T;
+}

@@ -99,22 +99,21 @@ onlyInIvy('Ivy i18n logic').describe('i18n', function() {
       expect(element.title).toBe('Bonjour John');
     });
 
-    fixmeIvy('FW-903: i18n attributes in nested templates throws at runtime')
-        .it('should correctly bind to context in nested template', () => {
-          const title = 'Item {{ id }}';
-          const template = `
-            <div *ngFor='let id of items'>
-              <div i18n-title='m|d' title='${title}'></div>
-            </div>
-          `;
-          const fixture = getFixtureWithOverrides({template});
+    it('should correctly bind to context in nested template', () => {
+      const title = 'Item {{ id }}';
+      const template = `
+        <div *ngFor='let id of items'>
+          <div i18n-title='m|d' title='${title}'></div>
+        </div>
+      `;
+      const fixture = getFixtureWithOverrides({template});
 
-          const element = fixture.nativeElement;
-          for (let i = 0; i < element.children.length; i++) {
-            const child = element.children[i];
-            expect((child as any).innerHTML).toBe(`<div title="Article ${i + 1}"></div>`);
-          }
-        });
+      const element = fixture.nativeElement;
+      for (let i = 0; i < element.children.length; i++) {
+        const child = element.children[i];
+        expect((child as any).innerHTML).toBe(`<div title="Article ${i + 1}"></div>`);
+      }
+    });
 
     fixmeIvy('FW-904: i18n attributes placed on i18n root node don\'t work')
         .it('should work correctly when placed on i18n root node', () => {
@@ -451,18 +450,17 @@ onlyInIvy('Ivy i18n logic').describe('i18n', function() {
       expect(element).toHaveText('vingt - deux');
     });
 
-    fixmeIvy('FW-908: ICUs inside <ng-container>s throw an error at runtime')
-        .it('should handle ICUs inside <ng-container>', () => {
-          const template = `
-            <ng-container i18n>
-              {age, select, 10 {ten} 20 {twenty} other {other}}
-            </ng-container>
-          `;
-          const fixture = getFixtureWithOverrides({template});
+    it('should handle ICUs inside <ng-container>', () => {
+      const template = `
+        <ng-container i18n>
+          {age, select, 10 {ten} 20 {twenty} other {other}}
+        </ng-container>
+      `;
+      const fixture = getFixtureWithOverrides({template});
 
-          const element = fixture.nativeElement;
-          expect(element.innerHTML).toBe('vingt');
-        });
+      const element = fixture.nativeElement;
+      expect(element).toHaveText('vingt');
+    });
 
     fixmeIvy('FW-909: ICUs inside <ng-template>s throw errors at runtime')
         .it('should handle ICUs inside <ng-template>', () => {

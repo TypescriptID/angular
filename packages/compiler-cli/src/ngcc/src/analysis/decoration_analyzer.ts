@@ -6,6 +6,8 @@
  * found in the LICENSE file at https://angular.io/license
  */
 import {ConstantPool} from '@angular/compiler';
+import {TsReferenceResolver} from '@angular/compiler-cli/src/ngtsc/imports';
+import {PartialEvaluator} from '@angular/compiler-cli/src/ngtsc/partial_evaluator';
 import * as path from 'canonical-path';
 import * as fs from 'fs';
 import * as ts from 'typescript';
@@ -58,33 +60,39 @@ export class FileResourceLoader implements ResourceLoader {
  */
 export class DecorationAnalyzer {
   resourceLoader = new FileResourceLoader();
-  scopeRegistry = new SelectorScopeRegistry(this.typeChecker, this.host);
+  resolver = new TsReferenceResolver(this.program, this.typeChecker, this.options, this.host);
+  scopeRegistry = new SelectorScopeRegistry(this.typeChecker, this.reflectionHost, this.resolver);
+  evaluator = new PartialEvaluator(this.reflectionHost, this.typeChecker, this.resolver);
   handlers: DecoratorHandler<any, any>[] = [
-    new BaseDefDecoratorHandler(this.typeChecker, this.host),
+    new BaseDefDecoratorHandler(this.reflectionHost, this.evaluator),
     new ComponentDecoratorHandler(
-        this.typeChecker, this.host, this.scopeRegistry, this.isCore, this.resourceLoader,
+        this.reflectionHost, this.evaluator, this.scopeRegistry, this.isCore, this.resourceLoader,
         this.rootDirs, /* defaultPreserveWhitespaces */ false, /* i18nUseExternalIds */ true),
-    new DirectiveDecoratorHandler(this.typeChecker, this.host, this.scopeRegistry, this.isCore),
-    new InjectableDecoratorHandler(this.host, this.isCore),
+    new DirectiveDecoratorHandler(
+        this.reflectionHost, this.evaluator, this.scopeRegistry, this.isCore),
+    new InjectableDecoratorHandler(this.reflectionHost, this.isCore),
     new NgModuleDecoratorHandler(
-        this.typeChecker, this.host, this.scopeRegistry, this.referencesRegistry, this.isCore),
-    new PipeDecoratorHandler(this.typeChecker, this.host, this.scopeRegistry, this.isCore),
+        this.reflectionHost, this.evaluator, this.scopeRegistry, this.referencesRegistry,
+        this.isCore),
+    new PipeDecoratorHandler(this.reflectionHost, this.evaluator, this.scopeRegistry, this.isCore),
   ];
 
   constructor(
-      private typeChecker: ts.TypeChecker, private host: NgccReflectionHost,
-      private referencesRegistry: ReferencesRegistry, private rootDirs: string[],
-      private isCore: boolean) {}
+      private program: ts.Program, private options: ts.CompilerOptions,
+      private host: ts.CompilerHost, private typeChecker: ts.TypeChecker,
+      private reflectionHost: NgccReflectionHost, private referencesRegistry: ReferencesRegistry,
+      private rootDirs: string[], private isCore: boolean) {}
 
   /**
    * Analyze a program to find all the decorated files should be transformed.
-   * @param program The program whose files should be analysed.
+   *
    * @returns a map of the source files to the analysis for those files.
    */
-  analyzeProgram(program: ts.Program): DecorationAnalyses {
+  analyzeProgram(): DecorationAnalyses {
     const decorationAnalyses = new DecorationAnalyses();
-    const analysedFiles =
-        program.getSourceFiles().map(sourceFile => this.analyzeFile(sourceFile)).filter(isDefined);
+    const analysedFiles = this.program.getSourceFiles()
+                              .map(sourceFile => this.analyzeFile(sourceFile))
+                              .filter(isDefined);
     const compiledFiles = analysedFiles.map(analysedFile => this.compileFile(analysedFile));
     compiledFiles.forEach(
         compiledFile => decorationAnalyses.set(compiledFile.sourceFile, compiledFile));
@@ -92,7 +100,7 @@ export class DecorationAnalyzer {
   }
 
   protected analyzeFile(sourceFile: ts.SourceFile): AnalyzedFile|undefined {
-    const decoratedClasses = this.host.findDecoratedClasses(sourceFile);
+    const decoratedClasses = this.reflectionHost.findDecoratedClasses(sourceFile);
     return decoratedClasses.length ? {
       sourceFile,
       analyzedClasses: decoratedClasses.map(clazz => this.analyzeClass(clazz)).filter(isDefined)

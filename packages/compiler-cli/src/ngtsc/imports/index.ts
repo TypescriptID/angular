@@ -6,4 +6,5 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-export * from './src/reflection';
+export {AbsoluteReference, ImportMode, NodeReference, Reference, ResolvedReference} from './src/references';
+export {ReferenceResolver, TsReferenceResolver} from './src/resolver';
