@@ -111,9 +111,6 @@
     "name": "RENDERER_FACTORY"
   },
   {
-    "name": "RENDER_PARENT"
-  },
-  {
     "name": "SANITIZER"
   },
   {
@@ -157,15 +154,6 @@
   },
   {
     "name": "callHooks"
-  },
-  {
-    "name": "canInsertNativeChildOfElement"
-  },
-  {
-    "name": "canInsertNativeChildOfView"
-  },
-  {
-    "name": "canInsertNativeNode"
   },
   {
     "name": "checkNoChangesMode"
@@ -301,9 +289,6 @@
   },
   {
     "name": "getParentInjectorViewOffset"
-  },
-  {
-    "name": "getParentNative"
   },
   {
     "name": "getPipeDef"

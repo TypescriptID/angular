@@ -135,6 +135,7 @@ export {
   compileNgModuleDefs as ɵcompileNgModuleDefs,
   patchComponentDefWithScope as ɵpatchComponentDefWithScope,
   resetCompiledComponents as ɵresetCompiledComponents,
+  transitiveScopesFor as ɵtransitiveScopesFor,
 } from './render3/jit/module';
 export {
   compilePipe as ɵcompilePipe,
@@ -151,6 +152,7 @@ export {
   sanitizeStyle as ɵsanitizeStyle,
   sanitizeUrl as ɵsanitizeUrl,
   sanitizeResourceUrl as ɵsanitizeResourceUrl,
+  sanitizeUrlOrResourceUrl as ɵsanitizeUrlOrResourceUrl,
 } from './sanitization/sanitization';
 
 export {

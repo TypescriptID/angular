@@ -33,7 +33,7 @@ import {GlobalTargetResolver, ProceduralRenderer3, RComment, RElement, RText, Re
 import {SanitizerFn} from './interfaces/sanitization';
 import {BINDING_INDEX, CLEANUP, CONTAINER_INDEX, CONTENT_QUERIES, CONTEXT, DECLARATION_VIEW, FLAGS, HEADER_OFFSET, HOST, HOST_NODE, INJECTOR, LView, LViewFlags, NEXT, OpaqueViewState, PARENT, QUERIES, RENDERER, RENDERER_FACTORY, RootContext, RootContextFlags, SANITIZER, TAIL, TVIEW, TView} from './interfaces/view';
 import {assertNodeOfPossibleTypes, assertNodeType} from './node_assert';
-import {appendChild, appendProjectedNode, createTextNode, getLViewChild, getRenderParent, insertView, removeView} from './node_manipulation';
+import {appendChild, appendProjectedNode, createTextNode, getLViewChild, insertView, removeView} from './node_manipulation';
 import {isNodeMatchingSelectorList, matchingSelectorIndex} from './node_selector_matcher';
 import {decreaseElementDepthCount, enterView, getBindingsEnabled, getCheckNoChangesMode, getContextLView, getCurrentDirectiveDef, getElementDepthCount, getFirstTemplatePass, getIsParent, getLView, getPreviousOrParentTNode, increaseElementDepthCount, isCreationMode, leaveView, nextContextImpl, resetComponentState, setBindingRoot, setCheckNoChangesMode, setCurrentDirectiveDef, setFirstTemplatePass, setIsParent, setPreviousOrParentTNode} from './state';
 import {getInitialClassNameValue, initializeStaticContext as initializeStaticStylingContext, patchContextWithStaticAttrs, renderInitialStylesAndClasses, renderStyling, updateClassProp as updateElementClassProp, updateContextWithBindings, updateStyleProp as updateElementStyleProp, updateStylingMap} from './styling/class_and_style_bindings';
@@ -976,7 +976,9 @@ export function elementAttribute(
                                        element.removeAttribute(name);
     } else {
       ngDevMode && ngDevMode.rendererSetAttribute++;
-      const strValue = sanitizer == null ? stringify(value) : sanitizer(value);
+      const tNode = getTNode(index, lView);
+      const strValue =
+          sanitizer == null ? stringify(value) : sanitizer(value, tNode.tagName || '', name);
       isProceduralRenderer(renderer) ? renderer.setAttribute(element, name, strValue) :
                                        element.setAttribute(name, strValue);
     }
@@ -1059,7 +1061,7 @@ function elementPropertyInternal<T>(
     const renderer = loadRendererFn ? loadRendererFn(tNode, lView) : lView[RENDERER];
     // It is assumed that the sanitizer is only added when the compiler determines that the property
     // is risky, so sanitization can be done without further checks.
-    value = sanitizer != null ? (sanitizer(value) as any) : value;
+    value = sanitizer != null ? (sanitizer(value, tNode.tagName || '', propName) as any) : value;
     ngDevMode && ngDevMode.rendererSetProperty++;
     if (isProceduralRenderer(renderer)) {
       renderer.setProperty(element as RElement, propName, value);
@@ -1860,18 +1862,16 @@ function generateInitialInputs(
  * @returns LContainer
  */
 export function createLContainer(
-    hostNative: RElement | RComment,
-    hostTNode: TElementNode | TContainerNode | TElementContainerNode, currentView: LView,
-    native: RComment, isForViewContainerRef?: boolean): LContainer {
+    hostNative: RElement | RComment, currentView: LView, native: RComment,
+    isForViewContainerRef?: boolean): LContainer {
   return [
-    isForViewContainerRef ? -1 : 0,          // active index
-    [],                                      // views
-    currentView,                             // parent
-    null,                                    // next
-    null,                                    // queries
-    hostNative,                              // host native
-    native,                                  // native
-    getRenderParent(hostTNode, currentView)  // renderParent
+    isForViewContainerRef ? -1 : 0,  // active index
+    [],                              // views
+    currentView,                     // parent
+    null,                            // next
+    null,                            // queries
+    hostNative,                      // host native
+    native,                          // native
   ];
 }
 
@@ -1944,8 +1944,7 @@ function containerInternal(
   const comment = lView[RENDERER].createComment(ngDevMode ? 'container' : '');
   ngDevMode && ngDevMode.rendererCreateComment++;
   const tNode = createNodeAtIndex(index, TNodeType.Container, comment, tagName, attrs);
-  const lContainer = lView[adjustedIndex] =
-      createLContainer(lView[adjustedIndex], tNode, lView, comment);
+  const lContainer = lView[adjustedIndex] = createLContainer(lView[adjustedIndex], lView, comment);
 
   appendChild(comment, tNode, lView);
 

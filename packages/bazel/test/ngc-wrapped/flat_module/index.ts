@@ -6,7 +6,4 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-/**
- * Function used to sanitize the value before writing it into the renderer.
- */
-export type SanitizerFn = (value: any, tagName?: string, propName?: string) => string;
+export * from './export';
