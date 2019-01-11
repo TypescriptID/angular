@@ -537,28 +537,27 @@ const TEST_COMPILER_PROVIDERS: Provider[] = [
              expect(renderLog.log).toEqual(['someProp=Megatron']);
            }));
 
-        fixmeIvy('FW-820: Pipes returning WrappedValue corrupt unrelated bindings ')
-            .it('should record unwrapped values via ngOnChanges', fakeAsync(() => {
-                  const ctx = createCompFixture(
-                      '<div [testDirective]="\'aName\' | wrappedPipe" [a]="1" [b]="2 | wrappedPipe"></div>');
-                  const dir: TestDirective = queryDirs(ctx.debugElement, TestDirective)[0];
-                  ctx.detectChanges(false);
-                  dir.changes = {};
-                  ctx.detectChanges(false);
+        it('should record unwrapped values via ngOnChanges', fakeAsync(() => {
+             const ctx = createCompFixture(
+                 '<div [testDirective]="\'aName\' | wrappedPipe" [a]="1" [b]="2 | wrappedPipe"></div>');
+             const dir: TestDirective = queryDirs(ctx.debugElement, TestDirective)[0];
+             ctx.detectChanges(false);
+             dir.changes = {};
+             ctx.detectChanges(false);
 
-                  // Note: the binding for `b` did not change and has no ValueWrapper,
-                  // and should therefore stay unchanged.
-                  expect(dir.changes).toEqual({
-                    'name': new SimpleChange('aName', 'aName', false),
-                    'b': new SimpleChange(2, 2, false)
-                  });
+             // Note: the binding for `a` did not change and has no ValueWrapper,
+             // and should therefore stay unchanged.
+             expect(dir.changes).toEqual({
+               'name': new SimpleChange('aName', 'aName', false),
+               'b': new SimpleChange(2, 2, false)
+             });
 
-                  ctx.detectChanges(false);
-                  expect(dir.changes).toEqual({
-                    'name': new SimpleChange('aName', 'aName', false),
-                    'b': new SimpleChange(2, 2, false)
-                  });
-                }));
+             ctx.detectChanges(false);
+             expect(dir.changes).toEqual({
+               'name': new SimpleChange('aName', 'aName', false),
+               'b': new SimpleChange(2, 2, false)
+             });
+           }));
 
         it('should call pure pipes only if the arguments change', fakeAsync(() => {
              const ctx = _bindSimpleValue('name | countingPipe', Person);
@@ -1023,33 +1022,31 @@ const TEST_COMPILER_PROVIDERS: Provider[] = [
              expect(directiveLog.filter(['ngAfterViewInit'])).toEqual([]);
            }));
 
-        fixmeIvy(
-            'FW-830: Exception thrown in ngAfterViewInit triggers ngAfterViewInit re-execution')
-            .it('should not call ngAfterViewInit again if it throws', fakeAsync(() => {
-                  const ctx = createCompFixture(
-                      '<div testDirective="dir" throwOn="ngAfterViewInit"></div>');
+        it('should not call ngAfterViewInit again if it throws', fakeAsync(() => {
+             const ctx =
+                 createCompFixture('<div testDirective="dir" throwOn="ngAfterViewInit"></div>');
 
-                  let errored = false;
-                  // First pass fails, but ngAfterViewInit should be called.
-                  try {
-                    ctx.detectChanges(false);
-                  } catch (e) {
-                    errored = true;
-                  }
-                  expect(errored).toBe(true);
+             let errored = false;
+             // First pass fails, but ngAfterViewInit should be called.
+             try {
+               ctx.detectChanges(false);
+             } catch (e) {
+               errored = true;
+             }
+             expect(errored).toBe(true);
 
-                  expect(directiveLog.filter(['ngAfterViewInit'])).toEqual(['dir.ngAfterViewInit']);
-                  directiveLog.clear();
+             expect(directiveLog.filter(['ngAfterViewInit'])).toEqual(['dir.ngAfterViewInit']);
+             directiveLog.clear();
 
-                  // Second change detection also fails, but this time ngAfterViewInit should not be
-                  // called.
-                  try {
-                    ctx.detectChanges(false);
-                  } catch (e) {
-                    throw new Error('Second detectChanges() should not have run detection.');
-                  }
-                  expect(directiveLog.filter(['ngAfterViewInit'])).toEqual([]);
-                }));
+             // Second change detection also fails, but this time ngAfterViewInit should not be
+             // called.
+             try {
+               ctx.detectChanges(false);
+             } catch (e) {
+               throw new Error('Second detectChanges() should not have run detection.');
+             }
+             expect(directiveLog.filter(['ngAfterViewInit'])).toEqual([]);
+           }));
       });
 
       describe('ngAfterViewChecked', () => {
@@ -1316,7 +1313,7 @@ const TEST_COMPILER_PROVIDERS: Provider[] = [
     });
 
     describe('multi directive order', () => {
-      fixmeIvy('FW-822: Order of bindings to directive inputs different in ivy')
+      modifiedInIvy('order of bindings to directive inputs is different in ivy')
           .it('should follow the DI order for the same element', fakeAsync(() => {
                 const ctx = createCompFixture(
                     '<div orderCheck2="2" orderCheck0="0" orderCheck1="1"></div>');

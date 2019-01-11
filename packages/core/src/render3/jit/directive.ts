@@ -8,11 +8,11 @@
 
 import {ComponentType} from '..';
 import {resolveForwardRef} from '../../di/forward_ref';
+import {Type} from '../../interface/type';
 import {Query} from '../../metadata/di';
 import {Component, Directive} from '../../metadata/directives';
 import {componentNeedsResolution, maybeQueueResolutionOfComponentResources} from '../../metadata/resource_loading';
 import {ViewEncapsulation} from '../../metadata/view';
-import {Type} from '../../type';
 import {EMPTY_ARRAY, EMPTY_OBJ} from '../empty';
 import {NG_COMPONENT_DEF, NG_DIRECTIVE_DEF} from '../fields';
 import {stringify} from '../util';
@@ -150,7 +150,7 @@ function directiveMetadata(type: Type<any>, metadata: Directive): R3DirectiveMet
     },
     typeSourceSpan: null !,
     usesInheritance: !extendsDirectlyFromObject(type),
-    exportAs: metadata.exportAs || null,
+    exportAs: extractExportAs(metadata.exportAs),
     providers: metadata.providers || null,
   };
 }
@@ -187,6 +187,14 @@ function extractQueriesMetadata(
     }
   }
   return queriesMeta;
+}
+
+function extractExportAs(exportAs: string | undefined): string[]|null {
+  if (exportAs === undefined) {
+    return null;
+  }
+
+  return exportAs.split(',').map(part => part.trim());
 }
 
 function isContentQuery(value: any): value is Query {

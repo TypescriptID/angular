@@ -24,7 +24,7 @@ import {dispatchEvent, el} from '@angular/platform-browser/testing/src/browser_u
 import {expect} from '@angular/platform-browser/testing/src/matchers';
 import {fixmeIvy, modifiedInIvy, obsoleteInIvy} from '@angular/private/testing';
 
-import {stringify} from '../../src/util';
+import {stringify} from '../../src/util/stringify';
 
 const ANCHOR_ELEMENT = new InjectionToken('AnchorElement');
 
@@ -477,20 +477,19 @@ function declareTests(config?: {useJit: boolean}) {
               .toBeAnInstanceOf(ExportDir);
         });
 
-        fixmeIvy('FW-708: Directives with multiple exports are not supported')
-            .it('should assign a directive to a ref when it has multiple exportAs names', () => {
-              TestBed.configureTestingModule(
-                  {declarations: [MyComp, DirectiveWithMultipleExportAsNames]});
+        it('should assign a directive to a ref when it has multiple exportAs names', () => {
+          TestBed.configureTestingModule(
+              {declarations: [MyComp, DirectiveWithMultipleExportAsNames]});
 
-              const template = '<div multiple-export-as #x="dirX" #y="dirY"></div>';
-              TestBed.overrideComponent(MyComp, {set: {template}});
+          const template = '<div multiple-export-as #x="dirX" #y="dirY"></div>';
+          TestBed.overrideComponent(MyComp, {set: {template}});
 
-              const fixture = TestBed.createComponent(MyComp);
-              expect(fixture.debugElement.children[0].references !['x'])
-                  .toBeAnInstanceOf(DirectiveWithMultipleExportAsNames);
-              expect(fixture.debugElement.children[0].references !['y'])
-                  .toBeAnInstanceOf(DirectiveWithMultipleExportAsNames);
-            });
+          const fixture = TestBed.createComponent(MyComp);
+          expect(fixture.debugElement.children[0].references !['x'])
+              .toBeAnInstanceOf(DirectiveWithMultipleExportAsNames);
+          expect(fixture.debugElement.children[0].references !['y'])
+              .toBeAnInstanceOf(DirectiveWithMultipleExportAsNames);
+        });
 
         it('should make the assigned component accessible in property bindings, even if they were declared before the component',
            () => {
@@ -1423,21 +1422,19 @@ function declareTests(config?: {useJit: boolean}) {
         expect(getDOM().querySelectorAll(fixture.nativeElement, 'script').length).toEqual(0);
       });
 
-      fixmeIvy('FW-662: Components without selector are not supported')
-          .it('should throw when using directives without selector', () => {
-            @Directive({})
-            class SomeDirective {
-            }
+      it('should throw when using directives without selector', () => {
+        @Directive({})
+        class SomeDirective {
+        }
 
-            @Component({selector: 'comp', template: ''})
-            class SomeComponent {
-            }
+        @Component({selector: 'comp', template: ''})
+        class SomeComponent {
+        }
 
-            TestBed.configureTestingModule({declarations: [MyComp, SomeDirective, SomeComponent]});
-            expect(() => TestBed.createComponent(MyComp))
-                .toThrowError(
-                    `Directive ${stringify(SomeDirective)} has no selector, please add it!`);
-          });
+        TestBed.configureTestingModule({declarations: [MyComp, SomeDirective, SomeComponent]});
+        expect(() => TestBed.createComponent(MyComp))
+            .toThrowError(`Directive ${stringify(SomeDirective)} has no selector, please add it!`);
+      });
 
       it('should use a default element name for components without selectors', () => {
         let noSelectorComponentFactory: ComponentFactory<SomeComponent> = undefined !;

@@ -117,7 +117,7 @@ function baseDirectiveFields(
   definitionMap.set('outputs', conditionallyCreateMapObjectLiteral(meta.outputs));
 
   if (meta.exportAs !== null) {
-    definitionMap.set('exportAs', o.literal(meta.exportAs));
+    definitionMap.set('exportAs', o.literalArr(meta.exportAs.map(e => o.literal(e))));
   }
 
   return {definitionMap, statements: result.statements};
@@ -162,9 +162,9 @@ export function compileDirectiveFromMetadata(
   addFeatures(definitionMap, meta);
   const expression = o.importExpr(R3.defineDirective).callFn([definitionMap.toLiteralMap()]);
 
-  // On the type side, remove newlines from the selector as it will need to fit into a TypeScript
-  // string literal, which must be on one line.
-  const selectorForType = (meta.selector || '').replace(/\n/g, '');
+  if (!meta.selector) {
+    throw new Error(`Directive ${meta.name} has no selector, please add it!`);
+  }
 
   const type = createTypeForDef(meta, R3.DirectiveDefWithMeta);
   return {expression, type, statements};
@@ -261,6 +261,13 @@ export function compileComponentFromMetadata(
       meta.relativeContextFilePath, meta.i18nUseExternalIds);
 
   const templateFunctionExpression = templateBuilder.buildTemplateFunction(template.nodes, []);
+
+  // We need to provide this so that dynamically generated components know what
+  // projected content blocks to pass through to the component when it is instantiated.
+  const ngContentSelectors = templateBuilder.getNgContentSelectors();
+  if (ngContentSelectors) {
+    definitionMap.set('ngContentSelectors', ngContentSelectors);
+  }
 
   // e.g. `consts: 2`
   definitionMap.set('consts', o.literal(templateBuilder.getConstCount()));
@@ -605,7 +612,7 @@ function createTypeForDef(meta: R3DirectiveMetadata, typeBase: o.ExternalReferen
   return o.expressionType(o.importExpr(typeBase, [
     typeWithParameters(meta.type, meta.typeArgumentCount),
     stringAsType(selectorForType),
-    meta.exportAs !== null ? stringAsType(meta.exportAs) : o.NONE_TYPE,
+    meta.exportAs !== null ? stringArrayAsType(meta.exportAs) : o.NONE_TYPE,
     stringMapAsType(meta.inputs),
     stringMapAsType(meta.outputs),
     stringArrayAsType(meta.queries.map(q => q.propertyName)),

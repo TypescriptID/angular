@@ -6,13 +6,15 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import './ng_dev_mode';
+import '../util/ng_dev_mode';
 
 import {ChangeDetectionStrategy} from '../change_detection/constants';
+import {Mutable, Type} from '../interface/type';
 import {NgModuleDef} from '../metadata/ng_module';
 import {ViewEncapsulation} from '../metadata/view';
-import {Mutable, Type} from '../type';
-import {noSideEffects, stringify} from '../util';
+import {noSideEffects} from '../util/closure';
+import {stringify} from '../util/stringify';
+
 import {EMPTY_ARRAY, EMPTY_OBJ} from './empty';
 import {NG_COMPONENT_DEF, NG_DIRECTIVE_DEF, NG_MODULE_DEF, NG_PIPE_DEF} from './fields';
 import {BaseDef, ComponentDef, ComponentDefFeature, ComponentQuery, ComponentTemplate, ComponentType, DirectiveDef, DirectiveDefFeature, DirectiveType, DirectiveTypesOrFactory, HostBindingsFunction, PipeDef, PipeType, PipeTypesOrFactory} from './interfaces/definition';
@@ -149,7 +151,7 @@ export function defineComponent<T>(componentDefinition: {
    *
    * See: {@link Directive.exportAs}
    */
-  exportAs?: string;
+  exportAs?: string[];
 
   /**
    * Template function use for rendering DOM.
@@ -181,6 +183,11 @@ export function defineComponent<T>(componentDefinition: {
    *
    */
   template: ComponentTemplate<T>;
+
+  /**
+   * An array of `ngContent[selector]` values that were found in the template.
+   */
+  ngContentSelectors?: string[];
 
   /**
    * Additional set of instructions specific to view query processing. This could be seen as a
@@ -249,6 +256,7 @@ export function defineComponent<T>(componentDefinition: {
     vars: componentDefinition.vars,
     factory: componentDefinition.factory,
     template: componentDefinition.template || null !,
+    ngContentSelectors: componentDefinition.ngContentSelectors,
     hostBindings: componentDefinition.hostBindings || null,
     contentQueries: componentDefinition.contentQueries || null,
     contentQueriesRefresh: componentDefinition.contentQueriesRefresh || null,
@@ -597,7 +605,7 @@ export const defineDirective = defineComponent as any as<T>(directiveDefinition:
    *
    * See: {@link Directive.exportAs}
    */
-  exportAs?: string;
+  exportAs?: string[];
 }) => never;
 
 /**

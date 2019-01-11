@@ -7,7 +7,7 @@
  */
 
 import {ViewEncapsulation} from '../../core';
-import {Type} from '../../type';
+import {Type} from '../../interface/type';
 import {CssSelectorList} from './projection';
 
 
@@ -60,7 +60,7 @@ export const enum DirectiveDefFlags {ContentQuery = 0b10}
 export interface PipeType<T> extends Type<T> { ngPipeDef: never; }
 
 export type DirectiveDefWithMeta<
-    T, Selector extends string, ExportAs extends string, InputMap extends{[key: string]: string},
+    T, Selector extends string, ExportAs extends string[], InputMap extends{[key: string]: string},
     OutputMap extends{[key: string]: string}, QueryFields extends string[]> = DirectiveDef<T>;
 
 /**
@@ -121,7 +121,7 @@ export interface DirectiveDef<T> extends BaseDef<T> {
   /**
    * Name under which the directive is exported (for use with local references in template)
    */
-  readonly exportAs: string|null;
+  readonly exportAs: string[]|null;
 
   /**
    * Factory function used to create a new directive instance.
@@ -163,7 +163,7 @@ export interface DirectiveDef<T> extends BaseDef<T> {
 }
 
 export type ComponentDefWithMeta<
-    T, Selector extends String, ExportAs extends string, InputMap extends{[key: string]: string},
+    T, Selector extends String, ExportAs extends string[], InputMap extends{[key: string]: string},
     OutputMap extends{[key: string]: string}, QueryFields extends string[]> = ComponentDef<T>;
 
 /**
@@ -188,6 +188,11 @@ export interface ComponentDef<T> extends DirectiveDef<T> {
    * The View template of the component.
    */
   readonly template: ComponentTemplate<T>;
+
+  /**
+   * An array of `ngContent[selector]` values that were found in the template.
+   */
+  readonly ngContentSelectors?: string[];
 
   /**
    * A set of styles that the component needs to be present for component to render correctly.

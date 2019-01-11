@@ -820,6 +820,73 @@ describe('ngtsc behavioral tests', () => {
     expect(jsContents).toContain('interpolation1("", ctx.text, "")');
   });
 
+  it('should handle `encapsulation` field', () => {
+    env.tsconfig();
+    env.write(`test.ts`, `
+      import {Component, ViewEncapsulation} from '@angular/core';
+      @Component({
+        selector: 'comp-a',
+        template: '...',
+        encapsulation: ViewEncapsulation.None
+      })
+      class CompA {}
+    `);
+
+    env.driveMain();
+    const jsContents = env.getContents('test.js');
+    expect(jsContents).toContain('encapsulation: 2');
+  });
+
+  it('should throw if `encapsulation` contains invalid value', () => {
+    env.tsconfig();
+    env.write('test.ts', `
+      import {Component} from '@angular/core';
+      @Component({
+        selector: 'comp-a',
+        template: '...',
+        encapsulation: 'invalid-value'
+      })
+      class CompA {}
+    `);
+    const errors = env.driveDiagnostics();
+    expect(errors[0].messageText)
+        .toContain('encapsulation must be a member of ViewEncapsulation enum from @angular/core');
+  });
+
+  it('should handle `changeDetection` field', () => {
+    env.tsconfig();
+    env.write(`test.ts`, `
+      import {Component, ChangeDetectionStrategy} from '@angular/core';
+      @Component({
+        selector: 'comp-a',
+        template: '...',
+        changeDetection: ChangeDetectionStrategy.OnPush
+      })
+      class CompA {}
+    `);
+
+    env.driveMain();
+    const jsContents = env.getContents('test.js');
+    expect(jsContents).toContain('changeDetection: 0');
+  });
+
+  it('should throw if `changeDetection` contains invalid value', () => {
+    env.tsconfig();
+    env.write('test.ts', `
+      import {Component} from '@angular/core';
+      @Component({
+        selector: 'comp-a',
+        template: '...',
+        changeDetection: 'invalid-value'
+      })
+      class CompA {}
+    `);
+    const errors = env.driveDiagnostics();
+    expect(errors[0].messageText)
+        .toContain(
+            'changeDetection must be a member of ChangeDetectionStrategy enum from @angular/core');
+  });
+
   it('should correctly recognize local symbols', () => {
     env.tsconfig();
     env.write('module.ts', `
@@ -867,7 +934,25 @@ describe('ngtsc behavioral tests', () => {
     env.driveMain();
 
     const jsContents = env.getContents('test.js');
-    expect(jsContents).toContain(`exportAs: "foo"`);
+    expect(jsContents).toContain(`exportAs: ["foo"]`);
+  });
+
+  it('should generate multiple exportAs declarations', () => {
+    env.tsconfig();
+    env.write('test.ts', `
+        import {Component, Directive} from '@angular/core';
+
+        @Directive({
+          selector: '[test]',
+          exportAs: 'foo, bar',
+        })
+        class Dir {}
+    `);
+
+    env.driveMain();
+
+    const jsContents = env.getContents('test.js');
+    expect(jsContents).toContain(`exportAs: ["foo", "bar"]`);
   });
 
   it('should generate correct factory stubs for a test module', () => {
@@ -903,6 +988,29 @@ describe('ngtsc behavioral tests', () => {
     const emptyFactory = env.getContents('empty.ngfactory.js');
     expect(emptyFactory).toContain(`import * as i0 from '@angular/core';`);
     expect(emptyFactory).toContain(`export var ɵNonEmptyModule = true;`);
+  });
+
+  it('should generate correct imports in factory stubs when compiling @angular/core', () => {
+    env.tsconfig({'allowEmptyCodegenFiles': true});
+
+    env.write('test.ts', `
+        import {NgModule} from '@angular/core';
+
+        @NgModule({})
+        export class TestModule {}
+    `);
+
+    // Trick the compiler into thinking it's compiling @angular/core.
+    env.write('r3_symbols.ts', 'export const ITS_JUST_ANGULAR = true;');
+
+    env.driveMain();
+
+    const factoryContents = env.getContents('test.ngfactory.js');
+    expect(normalize(factoryContents)).toBe(normalize(`
+      import * as i0 from "./r3_symbols";
+      import { TestModule } from './test';
+      export var TestModuleNgFactory = new i0.NgModuleFactory(TestModule);
+    `));
   });
 
   it('should generate a summary stub for decorated classes in the input file only', () => {
@@ -1634,4 +1742,8 @@ function expectTokenAtPosition<T extends ts.Node>(
   const node = (ts as any).getTokenAtPosition(sf, pos) as ts.Node;
   expect(guard(node)).toBe(true);
   return node as T;
+}
+
+function normalize(input: string): string {
+  return input.replace(/\s+/g, ' ').trim();
 }
