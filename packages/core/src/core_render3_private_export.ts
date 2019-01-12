@@ -28,7 +28,6 @@ export {
   templateRefExtractor as ɵtemplateRefExtractor,
   ProvidersFeature as ɵProvidersFeature,
   InheritDefinitionFeature as ɵInheritDefinitionFeature,
-  NgOnChangesFeature as ɵNgOnChangesFeature,
   LifecycleHooksFeature as ɵLifecycleHooksFeature,
   NgModuleType as ɵNgModuleType,
   NgModuleRef as ɵRender3NgModuleRef,
@@ -135,6 +134,7 @@ export {
   compileNgModuleDefs as ɵcompileNgModuleDefs,
   patchComponentDefWithScope as ɵpatchComponentDefWithScope,
   resetCompiledComponents as ɵresetCompiledComponents,
+  flushModuleScopingQueueAsMuchAsPossible as ɵflushModuleScopingQueueAsMuchAsPossible,
   transitiveScopesFor as ɵtransitiveScopesFor,
 } from './render3/jit/module';
 export {
@@ -253,8 +253,5 @@ export {
   publishGlobalUtil as ɵpublishGlobalUtil,
   publishDefaultGlobalUtils as ɵpublishDefaultGlobalUtils
 } from './render3/global_utils';
-export {
-  SWITCH_INJECTOR_FACTORY__POST_R3__ as ɵSWITCH_INJECTOR_FACTORY__POST_R3__,
-} from './di/injector';
 
 // clang-format on

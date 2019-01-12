@@ -109,6 +109,27 @@ describe('ngtsc behavioral tests', () => {
     expect(jsContents).toContain('Hello World');
   });
 
+  it('should add @nocollapse to static fields when closure annotations are requested', () => {
+    env.tsconfig({
+      'annotateForClosureCompiler': true,
+    });
+    env.write('test.ts', `
+        import {Component} from '@angular/core';
+
+        @Component({
+          selector: 'test-cmp',
+          templateUrl: './dir/test.html',
+        })
+        export class TestCmp {}
+    `);
+    env.write('dir/test.html', '<p>Hello World</p>');
+
+    env.driveMain();
+
+    const jsContents = env.getContents('test.js');
+    expect(jsContents).toContain('/** @nocollapse */ TestCmp.ngComponentDef');
+  });
+
   it('should compile Components with a templateUrl in a different rootDir', () => {
     env.tsconfig({}, ['./extraRootDir']);
     env.write('extraRootDir/test.html', '<p>Hello World</p>');
@@ -885,6 +906,21 @@ describe('ngtsc behavioral tests', () => {
     expect(errors[0].messageText)
         .toContain(
             'changeDetection must be a member of ChangeDetectionStrategy enum from @angular/core');
+  });
+
+  it('should ignore empty bindings', () => {
+    env.tsconfig();
+    env.write(`test.ts`, `
+      import {Component} from '@angular/core';
+       @Component({
+        selector: 'test',
+        template: '<div [someProp]></div>'
+      })
+      class FooCmp {}
+    `);
+    env.driveMain();
+    const jsContents = env.getContents('test.js');
+    expect(jsContents).not.toContain('i0.ɵelementProperty');
   });
 
   it('should correctly recognize local symbols', () => {
