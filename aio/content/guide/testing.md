@@ -61,7 +61,7 @@ You can fine-tune many options by editing the `karma.conf.js` and
 the `test.ts` files in the `src/` folder.
 
 The `karma.conf.js` file is a partial karma configuration file.
-The CLI constructs the full runtime configuration in memory,based on application structure specified in the `angular.json` file, supplemented by `karma.conf.js`.
+The CLI constructs the full runtime configuration in memory, based on application structure specified in the `angular.json` file, supplemented by `karma.conf.js`.
 
 Search the web for more details about Jasmine and karma configuration.
 
@@ -2205,7 +2205,7 @@ seen in the `AppComponent` template.
 
 The URL bound to the `[routerLink]` attribute flows in to the directive's `linkParams` property.
 
-The `host` metadata property wires the click event of the host element
+The `HostListener` wires the click event of the host element
 (the `<a>` anchor elements in `AppComponent`) to the stub directive's `onClick` method.
 
 Clicking the anchor should trigger the `onClick()` method,

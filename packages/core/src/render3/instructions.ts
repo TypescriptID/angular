@@ -10,6 +10,7 @@ import {InjectFlags, InjectionToken, Injector} from '../di';
 import {resolveForwardRef} from '../di/forward_ref';
 import {Type} from '../interface/type';
 import {QueryList} from '../linker';
+import {validateAttribute, validateProperty} from '../sanitization/sanitization';
 import {Sanitizer} from '../sanitization/security';
 import {StyleSanitizeFn} from '../sanitization/style_sanitizer';
 import {assertDataInRange, assertDefined, assertEqual, assertLessThan, assertNotEqual} from '../util/assert';
@@ -40,7 +41,7 @@ import {getInitialClassNameValue, initializeStaticContext as initializeStaticSty
 import {BoundPlayerFactory} from './styling/player_factory';
 import {createEmptyStylingContext, getStylingContext, hasClassInput, hasStyling, isAnimationProp} from './styling/util';
 import {NO_CHANGE} from './tokens';
-import {findComponentView, getComponentViewByIndex, getNativeByIndex, getNativeByTNode, getRootContext, getRootView, getTNode, isComponent, isComponentDef, loadInternal, readElementValue, readPatchedLView, stringify} from './util';
+import {findComponentView, getComponentViewByIndex, getNativeByIndex, getNativeByTNode, getRootContext, getRootView, getTNode, isComponent, isComponentDef, isContentQueryHost, loadInternal, readElementValue, readPatchedLView, renderStringify} from './util';
 
 
 
@@ -623,7 +624,7 @@ export function elementCreate(name: string, overriddenRenderer?: Renderer3): REl
  * @param localRefExtractor mapping function that extracts local ref value from TNode
  */
 function createDirectivesAndLocals(
-    tView: TView, viewData: LView, localRefs: string[] | null | undefined,
+    tView: TView, lView: LView, localRefs: string[] | null | undefined,
     localRefExtractor: LocalRefExtractor = getNativeByTNode) {
   if (!getBindingsEnabled()) return;
   const previousOrParentTNode = getPreviousOrParentTNode();
@@ -631,12 +632,19 @@ function createDirectivesAndLocals(
     ngDevMode && ngDevMode.firstTemplatePass++;
 
     resolveDirectives(
-        tView, viewData, findDirectiveMatches(tView, viewData, previousOrParentTNode),
+        tView, lView, findDirectiveMatches(tView, lView, previousOrParentTNode),
         previousOrParentTNode, localRefs || null);
+  } else {
+    // During first template pass, queries are created or cloned when first requested
+    // using `getOrCreateCurrentQueries`. For subsequent template passes, we clone
+    // any current LQueries here up-front if the current node hosts a content query.
+    if (isContentQueryHost(getPreviousOrParentTNode()) && lView[QUERIES]) {
+      lView[QUERIES] = lView[QUERIES] !.clone();
+    }
   }
-  instantiateAllDirectives(tView, viewData, previousOrParentTNode);
-  invokeDirectivesHostBindings(tView, viewData, previousOrParentTNode);
-  saveResolvedLocalsInData(viewData, previousOrParentTNode, localRefExtractor);
+  instantiateAllDirectives(tView, lView, previousOrParentTNode);
+  invokeDirectivesHostBindings(tView, lView, previousOrParentTNode);
+  saveResolvedLocalsInData(lView, previousOrParentTNode, localRefExtractor);
 }
 
 /**
@@ -788,7 +796,7 @@ function setUpAttributes(native: RElement, attrs: TAttributes): void {
 }
 
 export function createError(text: string, token: any) {
-  return new Error(`Renderer: ${text} [${stringify(token)}]`);
+  return new Error(`Renderer: ${text} [${renderStringify(token)}]`);
 }
 
 
@@ -973,6 +981,7 @@ export function elementEnd(): void {
 export function elementAttribute(
     index: number, name: string, value: any, sanitizer?: SanitizerFn | null): void {
   if (value !== NO_CHANGE) {
+    ngDevMode && validateAttribute(name);
     const lView = getLView();
     const renderer = lView[RENDERER];
     const element = getNativeByIndex(index, lView);
@@ -984,7 +993,7 @@ export function elementAttribute(
       ngDevMode && ngDevMode.rendererSetAttribute++;
       const tNode = getTNode(index, lView);
       const strValue =
-          sanitizer == null ? stringify(value) : sanitizer(value, tNode.tagName || '', name);
+          sanitizer == null ? renderStringify(value) : sanitizer(value, tNode.tagName || '', name);
       isProceduralRenderer(renderer) ? renderer.setAttribute(element, name, strValue) :
                                        element.setAttribute(name, strValue);
     }
@@ -1064,11 +1073,14 @@ function elementPropertyInternal<T>(
       }
     }
   } else if (tNode.type === TNodeType.Element) {
+    if (ngDevMode) {
+      validateProperty(propName);
+      ngDevMode.rendererSetProperty++;
+    }
     const renderer = loadRendererFn ? loadRendererFn(tNode, lView) : lView[RENDERER];
     // It is assumed that the sanitizer is only added when the compiler determines that the property
     // is risky, so sanitization can be done without further checks.
     value = sanitizer != null ? (sanitizer(value, tNode.tagName || '', propName) as any) : value;
-    ngDevMode && ngDevMode.rendererSetProperty++;
     if (isProceduralRenderer(renderer)) {
       renderer.setProperty(element as RElement, propName, value);
     } else if (!isAnimationProp(propName)) {
@@ -1329,7 +1341,7 @@ export function elementStyleProp(
     if (suffix) {
       // when a suffix is applied then it will bypass
       // sanitization entirely (b/c a new string is created)
-      valueToAdd = stringify(value) + suffix;
+      valueToAdd = renderStringify(value) + suffix;
     } else {
       // sanitization happens by dealing with a String value
       // this means that the string value will be passed through
@@ -1458,8 +1470,8 @@ export function textBinding<T>(index: number, value: T | NO_CHANGE): void {
     ngDevMode && assertDefined(element, 'native element should exist');
     ngDevMode && ngDevMode.rendererSetText++;
     const renderer = lView[RENDERER];
-    isProceduralRenderer(renderer) ? renderer.setValue(element, stringify(value)) :
-                                     element.textContent = stringify(value);
+    isProceduralRenderer(renderer) ? renderer.setValue(element, renderStringify(value)) :
+                                     element.textContent = renderStringify(value);
   }
 }
 
@@ -2718,7 +2730,7 @@ export function interpolationV(values: any[]): string|NO_CHANGE {
   // Build the updated content
   let content = values[0];
   for (let i = 1; i < values.length; i += 2) {
-    content += stringify(values[i]) + values[i + 1];
+    content += renderStringify(values[i]) + values[i + 1];
   }
 
   return content;
@@ -2735,7 +2747,7 @@ export function interpolation1(prefix: string, v0: any, suffix: string): string|
   const lView = getLView();
   const different = bindingUpdated(lView, lView[BINDING_INDEX], v0);
   lView[BINDING_INDEX] += 1;
-  return different ? prefix + stringify(v0) + suffix : NO_CHANGE;
+  return different ? prefix + renderStringify(v0) + suffix : NO_CHANGE;
 }
 
 /** Creates an interpolation binding with 2 expressions. */
@@ -2745,7 +2757,7 @@ export function interpolation2(
   const different = bindingUpdated2(lView, lView[BINDING_INDEX], v0, v1);
   lView[BINDING_INDEX] += 2;
 
-  return different ? prefix + stringify(v0) + i0 + stringify(v1) + suffix : NO_CHANGE;
+  return different ? prefix + renderStringify(v0) + i0 + renderStringify(v1) + suffix : NO_CHANGE;
 }
 
 /** Creates an interpolation binding with 3 expressions. */
@@ -2756,8 +2768,9 @@ export function interpolation3(
   const different = bindingUpdated3(lView, lView[BINDING_INDEX], v0, v1, v2);
   lView[BINDING_INDEX] += 3;
 
-  return different ? prefix + stringify(v0) + i0 + stringify(v1) + i1 + stringify(v2) + suffix :
-                     NO_CHANGE;
+  return different ?
+      prefix + renderStringify(v0) + i0 + renderStringify(v1) + i1 + renderStringify(v2) + suffix :
+      NO_CHANGE;
 }
 
 /** Create an interpolation binding with 4 expressions. */
@@ -2769,8 +2782,8 @@ export function interpolation4(
   lView[BINDING_INDEX] += 4;
 
   return different ?
-      prefix + stringify(v0) + i0 + stringify(v1) + i1 + stringify(v2) + i2 + stringify(v3) +
-          suffix :
+      prefix + renderStringify(v0) + i0 + renderStringify(v1) + i1 + renderStringify(v2) + i2 +
+          renderStringify(v3) + suffix :
       NO_CHANGE;
 }
 
@@ -2785,8 +2798,8 @@ export function interpolation5(
   lView[BINDING_INDEX] += 5;
 
   return different ?
-      prefix + stringify(v0) + i0 + stringify(v1) + i1 + stringify(v2) + i2 + stringify(v3) + i3 +
-          stringify(v4) + suffix :
+      prefix + renderStringify(v0) + i0 + renderStringify(v1) + i1 + renderStringify(v2) + i2 +
+          renderStringify(v3) + i3 + renderStringify(v4) + suffix :
       NO_CHANGE;
 }
 
@@ -2801,8 +2814,8 @@ export function interpolation6(
   lView[BINDING_INDEX] += 6;
 
   return different ?
-      prefix + stringify(v0) + i0 + stringify(v1) + i1 + stringify(v2) + i2 + stringify(v3) + i3 +
-          stringify(v4) + i4 + stringify(v5) + suffix :
+      prefix + renderStringify(v0) + i0 + renderStringify(v1) + i1 + renderStringify(v2) + i2 +
+          renderStringify(v3) + i3 + renderStringify(v4) + i4 + renderStringify(v5) + suffix :
       NO_CHANGE;
 }
 
@@ -2818,8 +2831,9 @@ export function interpolation7(
   lView[BINDING_INDEX] += 7;
 
   return different ?
-      prefix + stringify(v0) + i0 + stringify(v1) + i1 + stringify(v2) + i2 + stringify(v3) + i3 +
-          stringify(v4) + i4 + stringify(v5) + i5 + stringify(v6) + suffix :
+      prefix + renderStringify(v0) + i0 + renderStringify(v1) + i1 + renderStringify(v2) + i2 +
+          renderStringify(v3) + i3 + renderStringify(v4) + i4 + renderStringify(v5) + i5 +
+          renderStringify(v6) + suffix :
       NO_CHANGE;
 }
 
@@ -2835,8 +2849,9 @@ export function interpolation8(
   lView[BINDING_INDEX] += 8;
 
   return different ?
-      prefix + stringify(v0) + i0 + stringify(v1) + i1 + stringify(v2) + i2 + stringify(v3) + i3 +
-          stringify(v4) + i4 + stringify(v5) + i5 + stringify(v6) + i6 + stringify(v7) + suffix :
+      prefix + renderStringify(v0) + i0 + renderStringify(v1) + i1 + renderStringify(v2) + i2 +
+          renderStringify(v3) + i3 + renderStringify(v4) + i4 + renderStringify(v5) + i5 +
+          renderStringify(v6) + i6 + renderStringify(v7) + suffix :
       NO_CHANGE;
 }
 

@@ -51,6 +51,15 @@ export function clean(version: string): string|null {
   return matches && matches.pop() || null;
 }
 
+/**
+ * Returns true if project contains routing module, false otherwise.
+ */
+function hasRoutingModule(host: Tree) {
+  let hasRouting = false;
+  host.visit((file: string) => { hasRouting = hasRouting || file.endsWith('-routing.module.ts'); });
+  return hasRouting;
+}
+
 export default function(options: BazelWorkspaceOptions): Rule {
   return (host: Tree, context: SchematicContext) => {
     if (!options.name) {
@@ -81,7 +90,7 @@ export default function(options: BazelWorkspaceOptions): Rule {
 
     const workspaceVersions = {
       'RULES_NODEJS_VERSION': '0.16.5',
-      'RULES_TYPESCRIPT_VERSION': '0.22.0',
+      'RULES_TYPESCRIPT_VERSION': '0.22.1',
       'ANGULAR_VERSION': existingVersions.Angular || clean(latestVersions.Angular),
       'RXJS_VERSION': existingVersions.RxJs || clean(latestVersions.RxJs),
       // TODO(kyliau): Consider moving this to latest-versions.ts
@@ -93,6 +102,7 @@ export default function(options: BazelWorkspaceOptions): Rule {
         utils: strings,
         ...options,
         'dot': '.', ...workspaceVersions,
+        routing: hasRoutingModule(host),
       }),
       move(appDir),
     ]));
