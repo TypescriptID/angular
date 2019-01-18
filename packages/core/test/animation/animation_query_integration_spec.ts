@@ -295,73 +295,71 @@ import {HostListener} from '../../src/metadata/directives';
         expect(p6.element.classList.contains('b3')).toBeTruthy();
       });
 
-      fixmeIvy(
-          'FW-944 - style/class bindings lose track of consts/vars when interpolation is present')
-          .it('should be able to query all active animations using :animating in a query', () => {
-            @Component({
-              selector: 'ani-cmp',
-              template: `
+      it('should be able to query all active animations using :animating in a query', () => {
+        @Component({
+          selector: 'ani-cmp',
+          template: `
             <div [@myAnimation]="exp" #parent>
               <div *ngFor="let item of items" class="item e-{{ item }}">
               </div>
             </div>
           `,
-              animations: [
-                trigger(
-                    'myAnimation',
-                    [
-                      transition(
-                          '* => a',
-                          [
-                            query(
-                                '.item:nth-child(odd)',
-                                [
-                                  style({opacity: 0}),
-                                  animate(1000, style({opacity: 1})),
-                                ]),
-                          ]),
-                      transition(
-                          '* => b',
-                          [
-                            query(
-                                '.item:animating',
-                                [
-                                  style({opacity: 1}),
-                                  animate(1000, style({opacity: 0})),
-                                ]),
-                          ]),
-                    ]),
-              ]
-            })
-            class Cmp {
-              public exp: any;
-              public items: number[] = [0, 1, 2, 3, 4];
-            }
+          animations: [
+            trigger(
+                'myAnimation',
+                [
+                  transition(
+                      '* => a',
+                      [
+                        query(
+                            '.item:nth-child(odd)',
+                            [
+                              style({opacity: 0}),
+                              animate(1000, style({opacity: 1})),
+                            ]),
+                      ]),
+                  transition(
+                      '* => b',
+                      [
+                        query(
+                            '.item:animating',
+                            [
+                              style({opacity: 1}),
+                              animate(1000, style({opacity: 0})),
+                            ]),
+                      ]),
+                ]),
+          ]
+        })
+        class Cmp {
+          public exp: any;
+          public items: number[] = [0, 1, 2, 3, 4];
+        }
 
-            TestBed.configureTestingModule({declarations: [Cmp]});
+        TestBed.configureTestingModule({declarations: [Cmp]});
 
-            const engine = TestBed.get(ɵAnimationEngine);
-            const fixture = TestBed.createComponent(Cmp);
-            const cmp = fixture.componentInstance;
+        const engine = TestBed.get(ɵAnimationEngine);
+        const fixture = TestBed.createComponent(Cmp);
+        const cmp = fixture.componentInstance;
 
-            cmp.exp = 'a';
-            fixture.detectChanges();
-            engine.flush();
+        cmp.exp = 'a';
+        fixture.detectChanges();
+        engine.flush();
 
-            let players = getLog();
-            expect(players.length).toEqual(3);
-            resetLog();
+        let players = getLog();
+        expect(players.length).toEqual(3);
+        resetLog();
 
-            cmp.exp = 'b';
-            fixture.detectChanges();
-            engine.flush();
+        cmp.exp = 'b';
+        fixture.detectChanges();
+        engine.flush();
 
-            players = getLog();
-            expect(players.length).toEqual(3);
-            expect(players[0].element.classList.contains('e-0')).toBeTruthy();
-            expect(players[1].element.classList.contains('e-2')).toBeTruthy();
-            expect(players[2].element.classList.contains('e-4')).toBeTruthy();
-          });
+        players = getLog();
+        expect(players.length).toEqual(3);
+        expect(players[0].element.classList.contains('e-0')).toBeTruthy();
+        expect(players[1].element.classList.contains('e-2')).toBeTruthy();
+        expect(players[2].element.classList.contains('e-4')).toBeTruthy();
+      });
 
       it('should be able to query all actively queued animation triggers via `@*:animating`',
          () => {
@@ -803,58 +801,56 @@ import {HostListener} from '../../src/metadata/directives';
         expect(player.element.style.height).toEqual('444px');
       });
 
-      fixmeIvy(
-          'FW-945 - Ivy createComponent calls CD while VE waits for CD to be explicitly called')
-          .it('should find newly inserted items in the component via :enter', () => {
-            @Component({
-              selector: 'ani-cmp',
-              template: `
+      it('should find newly inserted items in the component via :enter', () => {
+        @Component({
+          selector: 'ani-cmp',
+          template: `
             <div @myAnimation>
               <div *ngFor="let item of items" class="child">
                 {{ item }}
               </div>
             </div>
           `,
-              animations: [trigger(
-                  'myAnimation',
-                  [
-                    transition(
-                        ':enter',
-                        [
-                          query(
-                              ':enter',
-                              [
-                                style({opacity: 0}),
-                                animate(1000, style({opacity: .5})),
-                              ]),
-                        ]),
-                  ])]
-            })
-            class Cmp {
-              public items: any[] = [0, 1, 2];
-            }
+          animations: [trigger(
+              'myAnimation',
+              [
+                transition(
+                    ':enter',
+                    [
+                      query(
+                          ':enter',
+                          [
+                            style({opacity: 0}),
+                            animate(1000, style({opacity: .5})),
+                          ]),
+                    ]),
+              ])]
+        })
+        class Cmp {
+          public items: any[] = [0, 1, 2];
+        }
 
-            TestBed.configureTestingModule({declarations: [Cmp]});
+        TestBed.configureTestingModule({declarations: [Cmp]});
 
-            const engine = TestBed.get(ɵAnimationEngine);
-            const fixture = TestBed.createComponent(Cmp);
-            const cmp = fixture.componentInstance;
+        const engine = TestBed.get(ɵAnimationEngine);
+        const fixture = TestBed.createComponent(Cmp);
+        const cmp = fixture.componentInstance;
 
-            fixture.detectChanges();
-            engine.flush();
+        fixture.detectChanges();
+        engine.flush();
 
-            const players = getLog();
-            expect(players.length).toEqual(3);
+        const players = getLog();
+        expect(players.length).toEqual(3);
 
-            const [p1, p2, p3] = players;
-            expect(p1.element.innerText.trim()).toEqual('0');
-            expect(p2.element.innerText.trim()).toEqual('1');
-            expect(p3.element.innerText.trim()).toEqual('2');
+        const [p1, p2, p3] = players;
+        expect(p1.element.innerText.trim()).toEqual('0');
+        expect(p2.element.innerText.trim()).toEqual('1');
+        expect(p3.element.innerText.trim()).toEqual('2');
 
-            players.forEach(p => {
-              expect(p.keyframes).toEqual([{opacity: '0', offset: 0}, {opacity: '0.5', offset: 1}]);
-            });
-          });
+        players.forEach(p => {
+          expect(p.keyframes).toEqual([{opacity: '0', offset: 0}, {opacity: '0.5', offset: 1}]);
+        });
+      });
 
       it('should cleanup :enter and :leave artifacts from nodes when any animation sequences fail to be built',
          () => {
@@ -2243,7 +2239,7 @@ import {HostListener} from '../../src/metadata/directives';
       });
 
       fixmeIvy(
-          'FW-943 - elements are removed in the wrong renderer so far as host animation @triggers are concerned')
+          'FW-943 - Fix final `unknown` issue in `animation_query_integration_spec.ts` once #28162 lands')
           .it('should emulate a leave animation on the nearest sub host elements when a parent is removed',
               fakeAsync(() => {
                 @Component({
