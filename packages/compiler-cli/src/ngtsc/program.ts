@@ -16,14 +16,16 @@ import {ComponentDecoratorHandler, DirectiveDecoratorHandler, InjectableDecorato
 import {BaseDefDecoratorHandler} from './annotations/src/base_def';
 import {ErrorCode, ngErrorCode} from './diagnostics';
 import {FlatIndexGenerator, ReferenceGraph, checkForPrivateExports, findFlatIndexEntryPoint} from './entry_point';
-import {ImportRewriter, NoopImportRewriter, R3SymbolsImportRewriter, Reference, TsReferenceResolver} from './imports';
+import {ImportRewriter, ModuleResolver, NoopImportRewriter, R3SymbolsImportRewriter, Reference, TsReferenceResolver} from './imports';
 import {PartialEvaluator} from './partial_evaluator';
 import {TypeScriptReflectionHost} from './reflection';
 import {HostResourceLoader} from './resource_loader';
+import {NgModuleRouteAnalyzer} from './routing';
 import {FactoryGenerator, FactoryInfo, GeneratedShimsHostWrapper, ShimGenerator, SummaryGenerator, generatedFactoryTransform} from './shims';
 import {ivySwitchTransform} from './switch';
 import {IvyCompilation, ivyTransformFactory} from './transform';
 import {TypeCheckContext, TypeCheckProgramHost} from './typecheck';
+import {normalizeSeparators} from './util/src/path';
 import {isDtsPath} from './util/src/typescript';
 
 export class NgtscProgram implements api.Program {
@@ -42,8 +44,10 @@ export class NgtscProgram implements api.Program {
   private entryPoint: ts.SourceFile|null;
   private exportReferenceGraph: ReferenceGraph|null = null;
   private flatIndexGenerator: FlatIndexGenerator|null = null;
+  private routeAnalyzer: NgModuleRouteAnalyzer|null = null;
 
   private constructionDiagnostics: ts.Diagnostic[] = [];
+  private moduleResolver: ModuleResolver;
 
 
   constructor(
@@ -107,8 +111,9 @@ export class NgtscProgram implements api.Program {
         });
       } else {
         const flatModuleId = options.flatModuleId || null;
+        const flatModuleOutFile = normalizeSeparators(options.flatModuleOutFile);
         this.flatIndexGenerator =
-            new FlatIndexGenerator(entryPoint, options.flatModuleOutFile, flatModuleId);
+            new FlatIndexGenerator(entryPoint, flatModuleOutFile, flatModuleId);
         generators.push(this.flatIndexGenerator);
         rootFiles.push(this.flatIndexGenerator.flatIndexPath);
       }
@@ -122,6 +127,7 @@ export class NgtscProgram implements api.Program {
         ts.createProgram(rootFiles, options, this.host, oldProgram && oldProgram.getTsProgram());
 
     this.entryPoint = entryPoint !== null ? this.tsProgram.getSourceFile(entryPoint) || null : null;
+    this.moduleResolver = new ModuleResolver(this.tsProgram, options, this.host);
   }
 
   getTsProgram(): ts.Program { return this.tsProgram; }
@@ -180,7 +186,14 @@ export class NgtscProgram implements api.Program {
                           .filter((result): result is Promise<void> => result !== undefined));
   }
 
-  listLazyRoutes(entryRoute?: string|undefined): api.LazyRoute[] { return []; }
+  listLazyRoutes(entryRoute?: string|undefined): api.LazyRoute[] {
+    if (entryRoute !== undefined) {
+      throw new Error(
+          `Listing specific routes is unsupported for now (got query for ${entryRoute})`);
+    }
+    this.ensureAnalyzed();
+    return this.routeAnalyzer !.listLazyRoutes();
+  }
 
   getLibrarySummaries(): Map<string, api.LibrarySummary> {
     throw new Error('Method not implemented.');
@@ -286,6 +299,8 @@ export class NgtscProgram implements api.Program {
       referencesRegistry = new NoopReferencesRegistry();
     }
 
+    this.routeAnalyzer = new NgModuleRouteAnalyzer(this.moduleResolver, evaluator);
+
     // Set up the IvyCompilation, which manages state for the Ivy transformer.
     const handlers = [
       new BaseDefDecoratorHandler(this.reflector, evaluator),
@@ -296,7 +311,8 @@ export class NgtscProgram implements api.Program {
       new DirectiveDecoratorHandler(this.reflector, evaluator, scopeRegistry, this.isCore),
       new InjectableDecoratorHandler(this.reflector, this.isCore),
       new NgModuleDecoratorHandler(
-          this.reflector, evaluator, scopeRegistry, referencesRegistry, this.isCore),
+          this.reflector, evaluator, scopeRegistry, referencesRegistry, this.isCore,
+          this.routeAnalyzer),
       new PipeDecoratorHandler(this.reflector, evaluator, scopeRegistry, this.isCore),
     ];
 

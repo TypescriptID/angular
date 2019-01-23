@@ -1610,6 +1610,17 @@ describe('ngtsc behavioral tests', () => {
       expect(dtsContents).toContain('/// <amd-module name="@mymodule" />');
     });
 
+    it('should generate a proper flat module index file when nested', () => {
+      env.tsconfig({
+        'flatModuleOutFile': './public-api/index.js',
+      });
+
+      env.write('test.ts', `export const SOME_EXPORT = 'some-export'`);
+      env.driveMain();
+
+      expect(env.getContents('./public-api/index.js')).toContain(`export * from '../test';`);
+    });
+
     it('should report an error when a flat module index is requested but no entrypoint can be determined',
        () => {
          env.tsconfig({'flatModuleOutFile': 'flat.js'});
@@ -1937,6 +1948,45 @@ describe('ngtsc behavioral tests', () => {
       `;
       expect(trim(jsContents)).toContain(trim(hostBindingsFn));
     });
+  });
+
+  it('should detect all lazy routes', () => {
+    env.tsconfig();
+    env.write('test.ts', `
+    import {NgModule} from '@angular/core';
+    import {RouterModule} from '@angular/router';
+
+    @NgModule({
+      imports: [
+        RouterModule.forChild([
+          {path: '', loadChildren: './lazy#LazyModule'},
+        ]),
+      ],
+    })
+    export class TestModule {}
+    `);
+    env.write('lazy.ts', `
+    import {NgModule} from '@angular/core';
+    import {RouterModule} from '@angular/router';
+
+    @NgModule({})
+    export class LazyModule {}
+    `);
+    env.write('node_modules/@angular/router/index.d.ts', `
+    import {ModuleWithProviders} from '@angular/core';
+
+    export declare var ROUTES;
+    export declare class RouterModule {
+      static forRoot(arg1: any, arg2: any): ModuleWithProviders<RouterModule>;
+      static forChild(arg1: any): ModuleWithProviders<RouterModule>;
+    }
+    `);
+
+    const routes = env.driveRoutes();
+    expect(routes.length).toBe(1);
+    expect(routes[0].route).toEqual('./lazy#LazyModule');
+    expect(routes[0].module.filePath.endsWith('/test.ts')).toBe(true);
+    expect(routes[0].referencedModule.filePath.endsWith('/lazy.ts')).toBe(true);
   });
 });
 
