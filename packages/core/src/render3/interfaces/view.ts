@@ -8,7 +8,6 @@
 
 import {InjectionToken} from '../../di/injection_token';
 import {Injector} from '../../di/injector';
-import {SimpleChanges} from '../../interface/simple_change';
 import {Type} from '../../interface/type';
 import {QueryList} from '../../linker';
 import {Sanitizer} from '../../sanitization/security';
@@ -337,6 +336,17 @@ export interface TView {
   expandoStartIndex: number;
 
   /**
+   * The index where the viewQueries section of `LView` begins. This section contains
+   * view queries defined for a component/directive.
+   *
+   * We store this start index so we know where the list of view queries starts.
+   * This is required when we invoke view queries at runtime. We invoke queries one by one and
+   * increment query index after each iteration. This information helps us to reset index back to
+   * the beginning of view query list before we invoke view queries again.
+   */
+  viewQueryStartIndex: number;
+
+  /**
    * Index of the host node of the first LView or LContainer beneath this LView in
    * the hierarchy.
    *
@@ -534,7 +544,7 @@ export interface RootContext {
  * Even indices: Directive index
  * Odd indices: Hook function
  */
-export type HookData = (number | (() => void) | ((changes: SimpleChanges) => void))[];
+export type HookData = (number | (() => void))[];
 
 /**
  * Static data that corresponds to the instance-specific data array on an LView.

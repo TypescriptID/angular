@@ -9,6 +9,7 @@ import {LifecycleHooksFeature, renderComponent, whenRendered} from './component'
 import {defineBase, defineComponent, defineDirective, defineNgModule, definePipe} from './definition';
 import {getComponent, getDirectives, getHostElement, getRenderedText} from './discovery_utils';
 import {InheritDefinitionFeature} from './features/inherit_definition_feature';
+import {NgOnChangesFeature} from './features/ng_onchanges_feature';
 import {ProvidersFeature} from './features/providers_feature';
 import {BaseDef, ComponentDef, ComponentDefWithMeta, ComponentTemplate, ComponentType, DirectiveDef, DirectiveDefFlags, DirectiveDefWithMeta, DirectiveType, PipeDef, PipeDefWithMeta} from './interfaces/definition';
 
@@ -123,6 +124,8 @@ export {
 export {
   query,
   queryRefresh,
+  viewQuery,
+  loadViewQuery,
 } from './query';
 export  {
   registerContentQuery,
@@ -158,6 +161,7 @@ export {
   DirectiveDefFlags,
   DirectiveDefWithMeta,
   DirectiveType,
+  NgOnChangesFeature,
   InheritDefinitionFeature,
   ProvidersFeature,
   PipeDef,

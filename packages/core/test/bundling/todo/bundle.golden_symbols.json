@@ -153,9 +153,6 @@
     "name": "ObjectUnsubscribedErrorImpl"
   },
   {
-    "name": "OnChangesDirectiveWrapper"
-  },
-  {
     "name": "Optional"
   },
   {
@@ -193,9 +190,6 @@
   },
   {
     "name": "SWITCH_VIEW_CONTAINER_REF_FACTORY"
-  },
-  {
-    "name": "SimpleChange"
   },
   {
     "name": "SkipSelf"
@@ -274,6 +268,9 @@
   },
   {
     "name": "__spread"
+  },
+  {
+    "name": "__values"
   },
   {
     "name": "__window"
@@ -486,9 +483,6 @@
     "name": "createViewNode"
   },
   {
-    "name": "createViewQuery"
-  },
-  {
     "name": "decreaseElementDepthCount"
   },
   {
@@ -568,6 +562,9 @@
   },
   {
     "name": "executeOnDestroys"
+  },
+  {
+    "name": "executeViewQueryFn"
   },
   {
     "name": "extendStatics"
@@ -703,6 +700,9 @@
   },
   {
     "name": "getMultiStartIndex"
+  },
+  {
+    "name": "getNativeAnchorNode"
   },
   {
     "name": "getNativeByIndex"
@@ -903,9 +903,6 @@
     "name": "isDirty"
   },
   {
-    "name": "isExactInstanceOf"
-  },
-  {
     "name": "isFactory"
   },
   {
@@ -922,9 +919,6 @@
   },
   {
     "name": "isNodeMatchingSelectorList"
-  },
-  {
-    "name": "isOnChangesDirectiveWrapper"
   },
   {
     "name": "isPositive"
@@ -984,6 +978,12 @@
     "name": "namespaceHTML"
   },
   {
+    "name": "nativeAppendChild"
+  },
+  {
+    "name": "nativeAppendOrInsertBefore"
+  },
+  {
     "name": "nativeInsertBefore"
   },
   {
@@ -1036,12 +1036,6 @@
   },
   {
     "name": "readPatchedLView"
-  },
-  {
-    "name": "recordChange"
-  },
-  {
-    "name": "recordChangeAndUpdateProperty"
   },
   {
     "name": "reference"
@@ -1134,6 +1128,9 @@
     "name": "setCurrentDirectiveDef"
   },
   {
+    "name": "setCurrentViewQueryIndex"
+  },
+  {
     "name": "setDirectiveDirty"
   },
   {
@@ -1221,16 +1218,10 @@
     "name": "trackByIdentity"
   },
   {
-    "name": "unwrapOnChangesDirectiveWrapper"
-  },
-  {
     "name": "updateClassProp"
   },
   {
     "name": "updateContextWithBindings"
-  },
-  {
-    "name": "updateViewQuery"
   },
   {
     "name": "valueExists"

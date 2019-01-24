@@ -194,7 +194,7 @@ export function defineComponent<T>(componentDefinition: {
   /**
    * A list of optional features to apply.
    *
-   * See: {@link ProvidersFeature}
+   * See: {@link NgOnChangesFeature}, {@link ProvidersFeature}
    */
   features?: ComponentDefFeature[];
 
@@ -256,7 +256,6 @@ export function defineComponent<T>(componentDefinition: {
     inputs: null !,   // assigned in noSideEffects
     outputs: null !,  // assigned in noSideEffects
     exportAs: componentDefinition.exportAs || null,
-    onChanges: typePrototype.ngOnChanges || null,
     onInit: typePrototype.ngOnInit || null,
     doCheck: typePrototype.ngDoCheck || null,
     afterContentInit: typePrototype.ngAfterContentInit || null,
@@ -277,6 +276,7 @@ export function defineComponent<T>(componentDefinition: {
     id: 'c',
     styles: componentDefinition.styles || EMPTY_ARRAY,
     _: null as never,
+    setInput: null,
   };
   def._ = noSideEffects(() => {
     const directiveTypes = componentDefinition.directives !;
@@ -381,12 +381,14 @@ export function defineNgModule<T>(def: {type: T} & Partial<NgModuleDef<T>>): nev
  *
 
  */
-function invertObject(obj: any, secondary?: any): any {
-  if (obj == null) return EMPTY_OBJ;
+function invertObject<T>(
+    obj?: {[P in keyof T]?: string | [string, string]},
+    secondary?: {[key: string]: string}): {[P in keyof T]: string} {
+  if (obj == null) return EMPTY_OBJ as any;
   const newLookup: any = {};
   for (const minifiedKey in obj) {
     if (obj.hasOwnProperty(minifiedKey)) {
-      let publicName: string = obj[minifiedKey];
+      let publicName: string|[string, string] = obj[minifiedKey] !;
       let declaredName = publicName;
       if (Array.isArray(publicName)) {
         declaredName = publicName[1];
@@ -394,7 +396,7 @@ function invertObject(obj: any, secondary?: any): any {
       }
       newLookup[publicName] = minifiedKey;
       if (secondary) {
-        (secondary[publicName] = declaredName);
+        (secondary[publicName] = declaredName as string);
       }
     }
   }
@@ -471,11 +473,11 @@ export function defineBase<T>(baseDefinition: {
    */
   outputs?: {[P in keyof T]?: string};
 }): BaseDef<T> {
-  const declaredInputs: {[P in keyof T]: P} = {} as any;
+  const declaredInputs: {[P in keyof T]: string} = {} as any;
   return {
-    inputs: invertObject(baseDefinition.inputs, declaredInputs),
+    inputs: invertObject<T>(baseDefinition.inputs as any, declaredInputs),
     declaredInputs: declaredInputs,
-    outputs: invertObject(baseDefinition.outputs),
+    outputs: invertObject<T>(baseDefinition.outputs as any),
   };
 }
 
@@ -567,7 +569,7 @@ export const defineDirective = defineComponent as any as<T>(directiveDefinition:
   /**
    * A list of optional features to apply.
    *
-   * See: {@link ProvidersFeature}, {@link InheritDefinitionFeature}
+   * See: {@link NgOnChangesFeature}, {@link ProvidersFeature}, {@link InheritDefinitionFeature}
    */
   features?: DirectiveDefFeature[];
 

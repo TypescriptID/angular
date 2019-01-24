@@ -14,10 +14,9 @@ import {LContext, MONKEY_PATCH_KEY_NAME} from './interfaces/context';
 import {ComponentDef, DirectiveDef} from './interfaces/definition';
 import {NO_PARENT_INJECTOR, RelativeInjectorLocation, RelativeInjectorLocationFlags} from './interfaces/injector';
 import {TContainerNode, TElementNode, TNode, TNodeFlags, TNodeType} from './interfaces/node';
-import {GlobalTargetName, GlobalTargetResolver, RComment, RElement, RText} from './interfaces/renderer';
+import {RComment, RElement, RText} from './interfaces/renderer';
 import {StylingContext} from './interfaces/styling';
 import {CONTEXT, DECLARATION_VIEW, FLAGS, HEADER_OFFSET, HOST, HOST_NODE, LView, LViewFlags, PARENT, RootContext, TData, TVIEW, TView} from './interfaces/view';
-import {isOnChangesDirectiveWrapper} from './onchanges_util';
 
 
 /**
@@ -71,13 +70,8 @@ export function flatten(list: any[]): any[] {
 /** Retrieves a value from any `LView` or `TData`. */
 export function loadInternal<T>(view: LView | TData, index: number): T {
   ngDevMode && assertDataInRange(view, index + HEADER_OFFSET);
-  const record = view[index + HEADER_OFFSET];
-  // If we're storing an array because of a directive or component with ngOnChanges,
-  // return the directive or component instance.
-  return isOnChangesDirectiveWrapper(record) ? record.instance : record;
+  return view[index + HEADER_OFFSET];
 }
-
-
 
 /**
  * Takes the value of a slot in `LView` and returns the element node.

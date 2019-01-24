@@ -28,6 +28,7 @@ export {
   templateRefExtractor as ɵtemplateRefExtractor,
   ProvidersFeature as ɵProvidersFeature,
   InheritDefinitionFeature as ɵInheritDefinitionFeature,
+  NgOnChangesFeature as ɵNgOnChangesFeature,
   LifecycleHooksFeature as ɵLifecycleHooksFeature,
   NgModuleType as ɵNgModuleType,
   NgModuleRef as ɵRender3NgModuleRef,
@@ -80,6 +81,8 @@ export {
   containerRefreshStart as ɵcontainerRefreshStart,
   containerRefreshEnd as ɵcontainerRefreshEnd,
   queryRefresh as ɵqueryRefresh,
+  viewQuery as ɵviewQuery,
+  loadViewQuery as ɵloadViewQuery,
   loadQueryList as ɵloadQueryList,
   elementEnd as ɵelementEnd,
   elementProperty as ɵelementProperty,
@@ -208,7 +211,8 @@ export {
 //
 // no code actually imports these symbols from the @angular/core entry point
 export {
-  compileNgModuleFactory__POST_R3__ as ɵcompileNgModuleFactory__POST_R3__
+  compileNgModuleFactory__POST_R3__ as ɵcompileNgModuleFactory__POST_R3__,
+  isBoundToModule__POST_R3__ as ɵisBoundToModule__POST_R3__
 } from './application_ref';
 export {
   SWITCH_COMPILE_COMPONENT__POST_R3__ as ɵSWITCH_COMPILE_COMPONENT__POST_R3__,

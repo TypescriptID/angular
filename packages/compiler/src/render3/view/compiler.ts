@@ -125,6 +125,7 @@ function baseDirectiveFields(
  */
 function addFeatures(
     definitionMap: DefinitionMap, meta: R3DirectiveMetadata | R3ComponentMetadata) {
+  // e.g. `features: [NgOnChangesFeature()]`
   const features: o.Expression[] = [];
 
   const providers = meta.providers;
@@ -140,7 +141,9 @@ function addFeatures(
   if (meta.usesInheritance) {
     features.push(o.importExpr(R3.InheritDefinitionFeature));
   }
-
+  if (meta.lifecycle.usesOnChanges) {
+    features.push(o.importExpr(R3.NgOnChangesFeature).callFn(EMPTY_ARRAY));
+  }
   if (features.length) {
     definitionMap.set('features', o.literalArr(features));
   }
@@ -251,7 +254,7 @@ export function compileComponentFromMetadata(
   const template = meta.template;
   const templateBuilder = new TemplateDefinitionBuilder(
       constantPool, BindingScope.ROOT_SCOPE, 0, templateTypeName, null, null, templateName,
-      meta.viewQueries, directiveMatcher, directivesUsed, meta.pipes, pipesUsed, R3.namespaceHTML,
+      directiveMatcher, directivesUsed, meta.pipes, pipesUsed, R3.namespaceHTML,
       meta.relativeContextFilePath, meta.i18nUseExternalIds);
 
   const templateFunctionExpression = templateBuilder.buildTemplateFunction(template.nodes, []);
@@ -421,6 +424,10 @@ function directiveMetadataFromGlobalMetadata(
     selector: directive.selector,
     deps: dependenciesFromGlobalMetadata(directive.type, outputCtx, reflector),
     queries: queriesFromGlobalMetadata(directive.queries, outputCtx),
+    lifecycle: {
+      usesOnChanges:
+          directive.type.lifecycleHooks.some(lifecycle => lifecycle == LifecycleHooks.OnChanges),
+    },
     host: {
       attributes: directive.hostAttributes,
       listeners: summary.hostListeners,
@@ -478,22 +485,19 @@ function selectorsFromGlobalMetadata(
   return o.NULL_EXPR;
 }
 
-function createQueryDefinition(
-    query: R3QueryMetadata, constantPool: ConstantPool, idx: number | null): o.Expression {
-  const predicate = getQueryPredicate(query, constantPool);
-
-  // e.g. r3.query(null, somePredicate, false) or r3.query(0, ['div'], false)
+function prepareQueryParams(query: R3QueryMetadata, constantPool: ConstantPool): o.Expression[] {
   const parameters = [
-    o.literal(idx, o.INFERRED_TYPE),
-    predicate,
+    getQueryPredicate(query, constantPool),
     o.literal(query.descendants),
   ];
-
   if (query.read) {
     parameters.push(query.read);
   }
+  return parameters;
+}
 
-  return o.importExpr(R3.query).callFn(parameters);
+function createQueryDefinition(query: R3QueryMetadata, constantPool: ConstantPool): o.Expression {
+  return o.importExpr(R3.query).callFn(prepareQueryParams(query, constantPool));
 }
 
 // Turn a directive selector into an R3-compatible selector for directive def
@@ -515,7 +519,7 @@ function createContentQueriesFunction(
     meta: R3DirectiveMetadata, constantPool: ConstantPool): o.Expression|null {
   if (meta.queries.length) {
     const statements: o.Statement[] = meta.queries.map((query: R3QueryMetadata) => {
-      const queryDefinition = createQueryDefinition(query, constantPool, null);
+      const queryDefinition = createQueryDefinition(query, constantPool);
       return o.importExpr(R3.registerContentQuery)
           .callFn([queryDefinition, o.variable('dirIndex')])
           .toStmt();
@@ -613,22 +617,21 @@ function createViewQueriesFunction(
   const updateStatements: o.Statement[] = [];
   const tempAllocator = temporaryAllocator(updateStatements, TEMPORARY_NAME);
 
-  for (let i = 0; i < meta.viewQueries.length; i++) {
-    const query = meta.viewQueries[i];
-
-    // creation, e.g. r3.Q(0, somePredicate, true);
-    const queryDefinition = createQueryDefinition(query, constantPool, i);
+  meta.viewQueries.forEach((query: R3QueryMetadata) => {
+    // creation, e.g. r3.viewQuery(somePredicate, true);
+    const queryDefinition =
+        o.importExpr(R3.viewQuery).callFn(prepareQueryParams(query, constantPool));
     createStatements.push(queryDefinition.toStmt());
 
-    // update, e.g. (r3.qR(tmp = r3.ɵload(0)) && (ctx.someDir = tmp));
+    // update, e.g. (r3.queryRefresh(tmp = r3.loadViewQuery()) && (ctx.someDir = tmp));
     const temporary = tempAllocator();
-    const getQueryList = o.importExpr(R3.load).callFn([o.literal(i)]);
+    const getQueryList = o.importExpr(R3.loadViewQuery).callFn([]);
     const refresh = o.importExpr(R3.queryRefresh).callFn([temporary.set(getQueryList)]);
     const updateDirective = o.variable(CONTEXT_NAME)
                                 .prop(query.propertyName)
                                 .set(query.first ? temporary.prop('first') : temporary);
     updateStatements.push(refresh.and(updateDirective).toStmt());
-  }
+  });
 
   const viewQueryFnName = meta.name ? `${meta.name}_Query` : null;
   return o.fn(
