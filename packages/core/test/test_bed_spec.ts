@@ -52,6 +52,24 @@ export class WithRefsCmp {
 export class InheritedCmp extends SimpleCmp {
 }
 
+@Directive({selector: '[hostBindingDir]', host: {'[id]': 'id'}})
+export class HostBindingDir {
+  id = 'one';
+}
+
+@Component({
+  selector: 'component-with-prop-bindings',
+  template: `
+    <div hostBindingDir [title]="title" [attr.aria-label]="label"></div>
+    <p title="( {{ label }} - {{ title }} )" [attr.aria-label]="label" id="[ {{ label }} ] [ {{ title }} ]">
+    </p>
+  `
+})
+export class ComponentWithPropBindings {
+  title = 'some title';
+  label = 'some label';
+}
+
 @Component({
   selector: 'simple-app',
   template: `
@@ -62,7 +80,10 @@ export class SimpleApp {
 }
 
 @NgModule({
-  declarations: [HelloWorld, SimpleCmp, WithRefsCmp, InheritedCmp, SimpleApp],
+  declarations: [
+    HelloWorld, SimpleCmp, WithRefsCmp, InheritedCmp, SimpleApp, ComponentWithPropBindings,
+    HostBindingDir
+  ],
   imports: [GreetingModule],
   providers: [
     {provide: NAME, useValue: 'World!'},
@@ -110,6 +131,23 @@ describe('TestBed', () => {
     greetingByCss.componentInstance.name = 'TestBed!';
     hello.detectChanges();
     expect(greetingByCss.nativeElement).toHaveText('Hello TestBed!');
+  });
+
+  it('should give the ability to access property bindings on a node', () => {
+    const fixture = TestBed.createComponent(ComponentWithPropBindings);
+    fixture.detectChanges();
+
+    const divElement = fixture.debugElement.query(By.css('div'));
+    expect(divElement.properties).toEqual({id: 'one', title: 'some title'});
+  });
+
+  it('should give the ability to access interpolated properties on a node', () => {
+    const fixture = TestBed.createComponent(ComponentWithPropBindings);
+    fixture.detectChanges();
+
+    const paragraphEl = fixture.debugElement.query(By.css('p'));
+    expect(paragraphEl.properties)
+        .toEqual({title: '( some label - some title )', id: '[ some label ] [ some title ]'});
   });
 
   it('should give access to the node injector', () => {

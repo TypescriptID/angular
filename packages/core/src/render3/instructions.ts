@@ -32,7 +32,7 @@ import {CssSelectorList, NG_PROJECT_AS_ATTR_NAME} from './interfaces/projection'
 import {LQueries} from './interfaces/query';
 import {GlobalTargetResolver, ProceduralRenderer3, RComment, RElement, RText, Renderer3, RendererFactory3, isProceduralRenderer} from './interfaces/renderer';
 import {SanitizerFn} from './interfaces/sanitization';
-import {BINDING_INDEX, CLEANUP, CONTAINER_INDEX, CONTENT_QUERIES, CONTEXT, DECLARATION_VIEW, FLAGS, HEADER_OFFSET, HOST, HOST_NODE, INJECTOR, LView, LViewFlags, NEXT, OpaqueViewState, PARENT, QUERIES, RENDERER, RENDERER_FACTORY, RootContext, RootContextFlags, SANITIZER, TAIL, TVIEW, TView} from './interfaces/view';
+import {BINDING_INDEX, CLEANUP, CONTAINER_INDEX, CONTENT_QUERIES, CONTEXT, DECLARATION_VIEW, FLAGS, HEADER_OFFSET, HOST, HOST_NODE, INJECTOR, InitPhaseState, LView, LViewFlags, NEXT, OpaqueViewState, PARENT, QUERIES, RENDERER, RENDERER_FACTORY, RootContext, RootContextFlags, SANITIZER, TAIL, TData, TVIEW, TView} from './interfaces/view';
 import {assertNodeOfPossibleTypes, assertNodeType} from './node_assert';
 import {appendChild, appendProjectedNode, createTextNode, getLViewChild, insertView, removeView} from './node_manipulation';
 import {isNodeMatchingSelectorList, matchingSelectorIndex} from './node_selector_matcher';
@@ -41,7 +41,7 @@ import {getInitialClassNameValue, initializeStaticContext as initializeStaticSty
 import {BoundPlayerFactory} from './styling/player_factory';
 import {createEmptyStylingContext, getStylingContext, hasClassInput, hasStyling, isAnimationProp} from './styling/util';
 import {NO_CHANGE} from './tokens';
-import {findComponentView, getComponentViewByIndex, getNativeByIndex, getNativeByTNode, getRootContext, getRootView, getTNode, isComponent, isComponentDef, isContentQueryHost, loadInternal, readElementValue, readPatchedLView, renderStringify} from './util';
+import {INTERPOLATION_DELIMITER, findComponentView, getComponentViewByIndex, getNativeByIndex, getNativeByTNode, getRootContext, getRootView, getTNode, isComponent, isComponentDef, isContentQueryHost, loadInternal, readElementValue, readPatchedLView, renderStringify} from './util';
 
 
 
@@ -68,6 +68,9 @@ export function refreshDescendantViews(lView: LView) {
   tView.firstTemplatePass = false;
   setFirstTemplatePass(false);
 
+  // Resetting the bindingIndex of the current LView as the next steps may trigger change detection.
+  lView[BINDING_INDEX] = tView.bindingStartIndex;
+
   // If this is a creation pass, we should not call lifecycle hooks or evaluate bindings.
   // This will be done in the update pass.
   if (!isCreationMode(lView)) {
@@ -80,7 +83,9 @@ export function refreshDescendantViews(lView: LView) {
     // Content query results must be refreshed before content hooks are called.
     refreshContentQueries(tView);
 
-    executeHooks(lView, tView.contentHooks, tView.contentCheckHooks, checkNoChangesMode);
+    executeHooks(
+        lView, tView.contentHooks, tView.contentCheckHooks, checkNoChangesMode,
+        InitPhaseState.AfterContentInitHooksToBeRun);
 
     setHostBindings(tView, lView);
   }
@@ -156,8 +161,7 @@ export function createLView<T>(
     rendererFactory?: RendererFactory3 | null, renderer?: Renderer3 | null,
     sanitizer?: Sanitizer | null, injector?: Injector | null): LView {
   const lView = tView.blueprint.slice() as LView;
-  lView[FLAGS] = flags | LViewFlags.CreationMode | LViewFlags.Attached | LViewFlags.RunInit |
-      LViewFlags.FirstLViewPass;
+  lView[FLAGS] = flags | LViewFlags.CreationMode | LViewFlags.Attached | LViewFlags.FirstLViewPass;
   lView[PARENT] = lView[DECLARATION_VIEW] = parentLView;
   lView[CONTEXT] = context;
   lView[RENDERER_FACTORY] = (rendererFactory || parentLView && parentLView[RENDERER_FACTORY]) !;
@@ -205,17 +209,24 @@ export function createNodeAtIndex(
       assertLessThan(adjustedIndex, lView.length, `Slot should have been initialized with null`);
   lView[adjustedIndex] = native;
 
+  const previousOrParentTNode = getPreviousOrParentTNode();
+  const isParent = getIsParent();
   let tNode = tView.data[adjustedIndex] as TNode;
   if (tNode == null) {
-    // TODO(misko): Refactor createTNode so that it does not depend on LView.
-    tNode = tView.data[adjustedIndex] = createTNode(lView, type, adjustedIndex, name, attrs, null);
+    const parent =
+        isParent ? previousOrParentTNode : previousOrParentTNode && previousOrParentTNode.parent;
+
+    // Parents cannot cross component boundaries because components will be used in multiple places,
+    // so it's only set if the view is the same.
+    const parentInSameView = parent && parent !== lView[HOST_NODE];
+    const tParentNode = parentInSameView ? parent as TElementNode | TContainerNode : null;
+
+    tNode = tView.data[adjustedIndex] = createTNode(tParentNode, type, adjustedIndex, name, attrs);
   }
 
   // Now link ourselves into the tree.
   // We need this even if tNode exists, otherwise we might end up pointing to unexisting tNodes when
   // we use i18n (especially with ICU expressions that update the DOM during the update phase).
-  const previousOrParentTNode = getPreviousOrParentTNode();
-  const isParent = getIsParent();
   if (previousOrParentTNode) {
     if (isParent && previousOrParentTNode.child == null &&
         (tNode.parent !== null || previousOrParentTNode.type === TNodeType.View)) {
@@ -236,14 +247,20 @@ export function createNodeAtIndex(
       TProjectionNode & TIcuContainerNode;
 }
 
-export function createViewNode(index: number, view: LView) {
+export function assignTViewNodeToLView(
+    tView: TView, tParentNode: TNode | null, index: number, lView: LView): TViewNode {
   // View nodes are not stored in data because they can be added / removed at runtime (which
   // would cause indices to change). Their TNodes are instead stored in tView.node.
-  if (view[TVIEW].node == null) {
-    view[TVIEW].node = createTNode(view, TNodeType.View, index, null, null, null) as TViewNode;
+  let tNode = tView.node;
+  if (tNode == null) {
+    ngDevMode && tParentNode &&
+        assertNodeOfPossibleTypes(tParentNode, TNodeType.Element, TNodeType.Container);
+    tView.node = tNode = createTNode(
+        tParentNode as TElementNode | TContainerNode | null,  //
+        TNodeType.View, index, null, null) as TViewNode;
   }
 
-  return view[HOST_NODE] = view[TVIEW].node as TViewNode;
+  return lView[HOST_NODE] = tNode as TViewNode;
 }
 
 
@@ -323,7 +340,7 @@ export function createEmbeddedViewAndNode<T>(
   if (queries) {
     lView[QUERIES] = queries.createView();
   }
-  createViewNode(-1, lView);
+  assignTViewNodeToLView(tView, null, -1, lView);
 
   if (tView.firstTemplatePass) {
     tView.node !.injectorIndex = injectorIndex;
@@ -500,6 +517,11 @@ export function elementContainerStart(
   appendChild(native, tNode, lView);
   createDirectivesAndLocals(tView, lView, localRefs);
   attachPatchData(native, lView);
+
+  const currentQueries = lView[QUERIES];
+  if (currentQueries) {
+    currentQueries.addNode(tNode);
+  }
 }
 
 /** Mark the end of the <ng-container>. */
@@ -518,7 +540,8 @@ export function elementContainerEnd(): void {
   ngDevMode && assertNodeType(previousOrParentTNode, TNodeType.ElementContainer);
   const currentQueries = lView[QUERIES];
   if (currentQueries) {
-    lView[QUERIES] = currentQueries.addNode(previousOrParentTNode as TElementContainerNode);
+    lView[QUERIES] =
+        isContentQueryHost(previousOrParentTNode) ? currentQueries.parent : currentQueries;
   }
 
   registerPostOrderHooks(tView, previousOrParentTNode);
@@ -591,6 +614,11 @@ export function elementStart(
   // it will take that over for us (this will be removed once #FW-882 is in).
   if (tNode.stylingTemplate && (tNode.flags & TNodeFlags.hasClassInput) === 0) {
     renderInitialStylesAndClasses(native, tNode.stylingTemplate, lView[RENDERER]);
+  }
+
+  const currentQueries = lView[QUERIES];
+  if (currentQueries) {
+    currentQueries.addNode(tNode);
   }
 }
 
@@ -719,8 +747,8 @@ export function createTView(
     template: templateFn,
     viewQuery: viewQuery,
     node: null !,
-    data: blueprint.slice(),  // Fill in to match HEADER_OFFSET in LView
-    childIndex: -1,           // Children set in addToViewTree(), if any
+    data: blueprint.slice().fill(null, bindingStartIndex),
+    childIndex: -1,  // Children set in addToViewTree(), if any
     bindingStartIndex: bindingStartIndex,
     viewQueryStartIndex: initialViewLength,
     expandoStartIndex: initialViewLength,
@@ -1027,7 +1055,8 @@ export function elementEnd(): void {
   const lView = getLView();
   const currentQueries = lView[QUERIES];
   if (currentQueries) {
-    lView[QUERIES] = currentQueries.addNode(previousOrParentTNode as TElementNode);
+    lView[QUERIES] =
+        isContentQueryHost(previousOrParentTNode) ? currentQueries.parent : currentQueries;
   }
 
   registerPostOrderHooks(getLView()[TVIEW], previousOrParentTNode);
@@ -1154,6 +1183,9 @@ function elementPropertyInternal<T>(
       validateProperty(propName);
       ngDevMode.rendererSetProperty++;
     }
+
+    savePropertyDebugData(tNode, lView, propName, lView[TVIEW].data, nativeOnly);
+
     const renderer = loadRendererFn ? loadRendererFn(tNode, lView) : lView[RENDERER];
     // It is assumed that the sanitizer is only added when the compiler determines that the property
     // is risky, so sanitization can be done without further checks.
@@ -1163,6 +1195,34 @@ function elementPropertyInternal<T>(
     } else if (!isAnimationProp(propName)) {
       (element as RElement).setProperty ? (element as any).setProperty(propName, value) :
                                           (element as any)[propName] = value;
+    }
+  }
+}
+
+/**
+ * Stores debugging data for this property binding on first template pass.
+ * This enables features like DebugElement.properties.
+ */
+function savePropertyDebugData(
+    tNode: TNode, lView: LView, propName: string, tData: TData,
+    nativeOnly: boolean | undefined): void {
+  const lastBindingIndex = lView[BINDING_INDEX] - 1;
+
+  // Bind/interpolation functions save binding metadata in the last binding index,
+  // but leave the property name blank. If the interpolation delimiter is at the 0
+  // index, we know that this is our first pass and the property name still needs to
+  // be set.
+  const bindingMetadata = tData[lastBindingIndex] as string;
+  if (bindingMetadata[0] == INTERPOLATION_DELIMITER) {
+    tData[lastBindingIndex] = propName + bindingMetadata;
+
+    // We don't want to store indices for host bindings because they are stored in a
+    // different part of LView (the expando section).
+    if (!nativeOnly) {
+      if (tNode.propertyMetadataStartIndex == -1) {
+        tNode.propertyMetadataStartIndex = lastBindingIndex;
+      }
+      tNode.propertyMetadataEndIndex = lastBindingIndex + 1;
     }
   }
 }
@@ -1178,24 +1238,17 @@ function elementPropertyInternal<T>(
  * @returns the TNode object
  */
 export function createTNode(
-    lView: LView, type: TNodeType, adjustedIndex: number, tagName: string | null,
-    attrs: TAttributes | null, tViews: TView[] | null): TNode {
-  const previousOrParentTNode = getPreviousOrParentTNode();
+    tParent: TElementNode | TContainerNode | null, type: TNodeType, adjustedIndex: number,
+    tagName: string | null, attrs: TAttributes | null): TNode {
   ngDevMode && ngDevMode.tNode++;
-  const parent =
-      getIsParent() ? previousOrParentTNode : previousOrParentTNode && previousOrParentTNode.parent;
-
-  // Parents cannot cross component boundaries because components will be used in multiple places,
-  // so it's only set if the view is the same.
-  const parentInSameView = parent && lView && parent !== lView[HOST_NODE];
-  const tParent = parentInSameView ? parent as TElementNode | TContainerNode : null;
-
   return {
     type: type,
     index: adjustedIndex,
     injectorIndex: tParent ? tParent.injectorIndex : -1,
     directiveStart: -1,
     directiveEnd: -1,
+    propertyMetadataStartIndex: -1,
+    propertyMetadataEndIndex: -1,
     flags: 0,
     providerIndexes: 0,
     tagName: tagName,
@@ -1204,7 +1257,7 @@ export function createTNode(
     initialInputs: undefined,
     inputs: undefined,
     outputs: undefined,
-    tViews: tViews,
+    tViews: null,
     next: null,
     child: null,
     parent: tParent,
@@ -2241,7 +2294,9 @@ export function embeddedViewStart(viewBlockId: number, consts: number, vars: num
       viewToRender[QUERIES] = lContainer[QUERIES] !.createView();
     }
 
-    createViewNode(viewBlockId, viewToRender);
+    const tParentNode = getIsParent() ? previousOrParentTNode :
+                                        previousOrParentTNode && previousOrParentTNode.parent;
+    assignTViewNodeToLView(viewToRender[TVIEW], tParentNode, viewBlockId, viewToRender);
     enterView(viewToRender, viewToRender[TVIEW].node);
   }
   if (lContainer) {
@@ -2748,7 +2803,9 @@ export function markDirty<T>(component: T) {
  */
 export function bind<T>(value: T): T|NO_CHANGE {
   const lView = getLView();
-  return bindingUpdated(lView, lView[BINDING_INDEX]++, value) ? value : NO_CHANGE;
+  const bindingIndex = lView[BINDING_INDEX]++;
+  storeBindingMetadata(lView);
+  return bindingUpdated(lView, bindingIndex, value) ? value : NO_CHANGE;
 }
 
 /**
@@ -2781,13 +2838,23 @@ export function interpolationV(values: any[]): string|NO_CHANGE {
   ngDevMode && assertEqual(values.length % 2, 1, 'should have an odd number of values');
   let different = false;
   const lView = getLView();
-
+  const tData = lView[TVIEW].data;
   let bindingIndex = lView[BINDING_INDEX];
+
+  if (tData[bindingIndex] == null) {
+    // 2 is the index of the first static interstitial value (ie. not prefix)
+    for (let i = 2; i < values.length; i += 2) {
+      tData[bindingIndex++] = values[i];
+    }
+    bindingIndex = lView[BINDING_INDEX];
+  }
+
   for (let i = 1; i < values.length; i += 2) {
     // Check if bindings (odd indexes) have changed
     bindingUpdated(lView, bindingIndex++, values[i]) && (different = true);
   }
   lView[BINDING_INDEX] = bindingIndex;
+  storeBindingMetadata(lView, values[0], values[values.length - 1]);
 
   if (!different) {
     return NO_CHANGE;
@@ -2811,8 +2878,8 @@ export function interpolationV(values: any[]): string|NO_CHANGE {
  */
 export function interpolation1(prefix: string, v0: any, suffix: string): string|NO_CHANGE {
   const lView = getLView();
-  const different = bindingUpdated(lView, lView[BINDING_INDEX], v0);
-  lView[BINDING_INDEX] += 1;
+  const different = bindingUpdated(lView, lView[BINDING_INDEX]++, v0);
+  storeBindingMetadata(lView, prefix, suffix);
   return different ? prefix + renderStringify(v0) + suffix : NO_CHANGE;
 }
 
@@ -2820,8 +2887,15 @@ export function interpolation1(prefix: string, v0: any, suffix: string): string|
 export function interpolation2(
     prefix: string, v0: any, i0: string, v1: any, suffix: string): string|NO_CHANGE {
   const lView = getLView();
-  const different = bindingUpdated2(lView, lView[BINDING_INDEX], v0, v1);
+  const bindingIndex = lView[BINDING_INDEX];
+  const different = bindingUpdated2(lView, bindingIndex, v0, v1);
   lView[BINDING_INDEX] += 2;
+
+  // Only set static strings the first time (data will be null subsequent runs).
+  const data = storeBindingMetadata(lView, prefix, suffix);
+  if (data) {
+    lView[TVIEW].data[bindingIndex] = i0;
+  }
 
   return different ? prefix + renderStringify(v0) + i0 + renderStringify(v1) + suffix : NO_CHANGE;
 }
@@ -2831,8 +2905,17 @@ export function interpolation3(
     prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, suffix: string): string|
     NO_CHANGE {
   const lView = getLView();
-  const different = bindingUpdated3(lView, lView[BINDING_INDEX], v0, v1, v2);
+  const bindingIndex = lView[BINDING_INDEX];
+  const different = bindingUpdated3(lView, bindingIndex, v0, v1, v2);
   lView[BINDING_INDEX] += 3;
+
+  // Only set static strings the first time (data will be null subsequent runs).
+  const data = storeBindingMetadata(lView, prefix, suffix);
+  if (data) {
+    const tData = lView[TVIEW].data;
+    tData[bindingIndex] = i0;
+    tData[bindingIndex + 1] = i1;
+  }
 
   return different ?
       prefix + renderStringify(v0) + i0 + renderStringify(v1) + i1 + renderStringify(v2) + suffix :
@@ -2844,8 +2927,18 @@ export function interpolation4(
     prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, i2: string, v3: any,
     suffix: string): string|NO_CHANGE {
   const lView = getLView();
-  const different = bindingUpdated4(lView, lView[BINDING_INDEX], v0, v1, v2, v3);
+  const bindingIndex = lView[BINDING_INDEX];
+  const different = bindingUpdated4(lView, bindingIndex, v0, v1, v2, v3);
   lView[BINDING_INDEX] += 4;
+
+  // Only set static strings the first time (data will be null subsequent runs).
+  const data = storeBindingMetadata(lView, prefix, suffix);
+  if (data) {
+    const tData = lView[TVIEW].data;
+    tData[bindingIndex] = i0;
+    tData[bindingIndex + 1] = i1;
+    tData[bindingIndex + 2] = i2;
+  }
 
   return different ?
       prefix + renderStringify(v0) + i0 + renderStringify(v1) + i1 + renderStringify(v2) + i2 +
@@ -2863,6 +2956,16 @@ export function interpolation5(
   different = bindingUpdated(lView, bindingIndex + 4, v4) || different;
   lView[BINDING_INDEX] += 5;
 
+  // Only set static strings the first time (data will be null subsequent runs).
+  const data = storeBindingMetadata(lView, prefix, suffix);
+  if (data) {
+    const tData = lView[TVIEW].data;
+    tData[bindingIndex] = i0;
+    tData[bindingIndex + 1] = i1;
+    tData[bindingIndex + 2] = i2;
+    tData[bindingIndex + 3] = i3;
+  }
+
   return different ?
       prefix + renderStringify(v0) + i0 + renderStringify(v1) + i1 + renderStringify(v2) + i2 +
           renderStringify(v3) + i3 + renderStringify(v4) + suffix :
@@ -2878,6 +2981,17 @@ export function interpolation6(
   let different = bindingUpdated4(lView, bindingIndex, v0, v1, v2, v3);
   different = bindingUpdated2(lView, bindingIndex + 4, v4, v5) || different;
   lView[BINDING_INDEX] += 6;
+
+  // Only set static strings the first time (data will be null subsequent runs).
+  const data = storeBindingMetadata(lView, prefix, suffix);
+  if (data) {
+    const tData = lView[TVIEW].data;
+    tData[bindingIndex] = i0;
+    tData[bindingIndex + 1] = i1;
+    tData[bindingIndex + 2] = i2;
+    tData[bindingIndex + 3] = i3;
+    tData[bindingIndex + 4] = i4;
+  }
 
   return different ?
       prefix + renderStringify(v0) + i0 + renderStringify(v1) + i1 + renderStringify(v2) + i2 +
@@ -2895,6 +3009,18 @@ export function interpolation7(
   let different = bindingUpdated4(lView, bindingIndex, v0, v1, v2, v3);
   different = bindingUpdated3(lView, bindingIndex + 4, v4, v5, v6) || different;
   lView[BINDING_INDEX] += 7;
+
+  // Only set static strings the first time (data will be null subsequent runs).
+  const data = storeBindingMetadata(lView, prefix, suffix);
+  if (data) {
+    const tData = lView[TVIEW].data;
+    tData[bindingIndex] = i0;
+    tData[bindingIndex + 1] = i1;
+    tData[bindingIndex + 2] = i2;
+    tData[bindingIndex + 3] = i3;
+    tData[bindingIndex + 4] = i4;
+    tData[bindingIndex + 5] = i5;
+  }
 
   return different ?
       prefix + renderStringify(v0) + i0 + renderStringify(v1) + i1 + renderStringify(v2) + i2 +
@@ -2914,11 +3040,48 @@ export function interpolation8(
   different = bindingUpdated4(lView, bindingIndex + 4, v4, v5, v6, v7) || different;
   lView[BINDING_INDEX] += 8;
 
+  // Only set static strings the first time (data will be null subsequent runs).
+  const data = storeBindingMetadata(lView, prefix, suffix);
+  if (data) {
+    const tData = lView[TVIEW].data;
+    tData[bindingIndex] = i0;
+    tData[bindingIndex + 1] = i1;
+    tData[bindingIndex + 2] = i2;
+    tData[bindingIndex + 3] = i3;
+    tData[bindingIndex + 4] = i4;
+    tData[bindingIndex + 5] = i5;
+    tData[bindingIndex + 6] = i6;
+  }
+
   return different ?
       prefix + renderStringify(v0) + i0 + renderStringify(v1) + i1 + renderStringify(v2) + i2 +
           renderStringify(v3) + i3 + renderStringify(v4) + i4 + renderStringify(v5) + i5 +
           renderStringify(v6) + i6 + renderStringify(v7) + suffix :
       NO_CHANGE;
+}
+
+/**
+ * Creates binding metadata for a particular binding and stores it in
+ * TView.data. These are generated in order to support DebugElement.properties.
+ *
+ * Each binding / interpolation will have one (including attribute bindings)
+ * because at the time of binding, we don't know to which instruction the binding
+ * belongs. It is always stored in TView.data at the index of the last binding
+ * value in LView (e.g. for interpolation8, it would be stored at the index of
+ * the 8th value).
+ *
+ * @param lView The LView that contains the current binding index.
+ * @param prefix The static prefix string
+ * @param suffix The static suffix string
+ *
+ * @returns Newly created binding metadata string for this binding or null
+ */
+function storeBindingMetadata(lView: LView, prefix = '', suffix = ''): string|null {
+  const tData = lView[TVIEW].data;
+  const lastBindingIndex = lView[BINDING_INDEX] - 1;
+  const value = INTERPOLATION_DELIMITER + prefix + INTERPOLATION_DELIMITER + suffix;
+
+  return tData[lastBindingIndex] == null ? (tData[lastBindingIndex] = value) : null;
 }
 
 /** Store a value in the `data` at a given `index`. */

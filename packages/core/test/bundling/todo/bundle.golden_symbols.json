@@ -78,6 +78,9 @@
     "name": "INJECTOR_BLOOM_PARENT_SIZE"
   },
   {
+    "name": "INTERPOLATION_DELIMITER"
+  },
+  {
     "name": "InjectFlags"
   },
   {
@@ -378,6 +381,9 @@
     "name": "assertTemplate"
   },
   {
+    "name": "assignTViewNodeToLView"
+  },
+  {
     "name": "attachPatchData"
   },
   {
@@ -478,9 +484,6 @@
   },
   {
     "name": "createViewBlueprint"
-  },
-  {
-    "name": "createViewNode"
   },
   {
     "name": "decreaseElementDepthCount"
@@ -1101,6 +1104,9 @@
     "name": "saveNameToExportMap"
   },
   {
+    "name": "savePropertyDebugData"
+  },
+  {
     "name": "saveResolvedLocalsInData"
   },
   {
@@ -1189,6 +1195,9 @@
   },
   {
     "name": "shouldSearchParent"
+  },
+  {
+    "name": "storeBindingMetadata"
   },
   {
     "name": "storeCleanupFn"
