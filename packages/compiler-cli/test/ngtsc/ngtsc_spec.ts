@@ -827,6 +827,44 @@ describe('ngtsc behavioral tests', () => {
             `Unexpected global target 'UnknownTarget' defined for 'click' event. Supported list of global targets: window,document,body.`);
   });
 
+  it('should throw in case pipes are used in host listeners', () => {
+    env.tsconfig();
+    env.write(`test.ts`, `
+        import {Component} from '@angular/core';
+
+        @Component({
+          selector: 'test',
+          template: '...',
+          host: {
+            '(click)': 'doSmth() | myPipe'
+          }
+        })
+        class FooCmp {}
+    `);
+    const errors = env.driveDiagnostics();
+    expect(trim(errors[0].messageText as string))
+        .toContain('Cannot have a pipe in an action expression');
+  });
+
+  it('should throw in case pipes are used in host listeners', () => {
+    env.tsconfig();
+    env.write(`test.ts`, `
+        import {Component} from '@angular/core';
+
+        @Component({
+          selector: 'test',
+          template: '...',
+          host: {
+            '[id]': 'id | myPipe'
+          }
+        })
+        class FooCmp {}
+    `);
+    const errors = env.driveDiagnostics();
+    expect(trim(errors[0].messageText as string))
+        .toContain('Host binding expression cannot contain pipes');
+  });
+
   it('should generate host bindings for directives', () => {
     env.tsconfig();
     env.write(`test.ts`, `
@@ -1999,6 +2037,54 @@ describe('ngtsc behavioral tests', () => {
       imports: [
         RouterModule.forChild([
           {path: '', loadChildren: './lazy#LazyModule'},
+        ]),
+      ],
+    })
+    export class TestModule {}
+    `);
+    env.write('lazy.ts', `
+    import {NgModule} from '@angular/core';
+    import {RouterModule} from '@angular/router';
+
+    @NgModule({})
+    export class LazyModule {}
+    `);
+    env.write('node_modules/@angular/router/index.d.ts', `
+    import {ModuleWithProviders} from '@angular/core';
+
+    export declare var ROUTES;
+    export declare class RouterModule {
+      static forRoot(arg1: any, arg2: any): ModuleWithProviders<RouterModule>;
+      static forChild(arg1: any): ModuleWithProviders<RouterModule>;
+    }
+    `);
+
+    const routes = env.driveRoutes();
+    expect(routes.length).toBe(1);
+    expect(routes[0].route).toEqual('./lazy#LazyModule');
+    expect(routes[0].module.filePath.endsWith('/test.ts')).toBe(true);
+    expect(routes[0].referencedModule.filePath.endsWith('/lazy.ts')).toBe(true);
+  });
+
+  it('should detect lazy routes in simple children routes', () => {
+    env.tsconfig();
+    env.write('test.ts', `
+    import {NgModule} from '@angular/core';
+    import {RouterModule} from '@angular/router';
+    
+    @Component({
+      selector: 'foo',
+      template: '<div>Foo</div>'
+    })
+    class FooCmp {}
+
+    @NgModule({
+      imports: [
+        RouterModule.forRoot([
+          {path: '', children: [
+            {path: 'foo', component: FooCmp},
+            {path: 'lazy', loadChildren: './lazy#LazyModule'}
+          ]},
         ]),
       ],
     })

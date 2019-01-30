@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ConstantPool, Expression, R3DirectiveMetadata, R3QueryMetadata, Statement, WrappedNodeExpr, compileDirectiveFromMetadata, makeBindingParser, parseHostBindings} from '@angular/compiler';
+import {ConstantPool, Expression, ParseError, R3DirectiveMetadata, R3QueryMetadata, Statement, WrappedNodeExpr, compileDirectiveFromMetadata, makeBindingParser, parseHostBindings, verifyHostBindings} from '@angular/compiler';
 import * as ts from 'typescript';
 
 import {ErrorCode, FatalDiagnosticError} from '../../diagnostics';
@@ -394,6 +394,10 @@ export function queriesFromFields(
     fields: {member: ClassMember, decorators: Decorator[]}[], reflector: ReflectionHost,
     evaluator: PartialEvaluator): R3QueryMetadata[] {
   return fields.map(({member, decorators}) => {
+    // Throw in case of `@Input() @ContentChild('foo') foo: any`, which is not supported in Ivy
+    if (member.decorators !.some(v => v.name === 'Input')) {
+      throw new Error(`Cannot combine @Input decorators with query decorators`);
+    }
     if (decorators.length !== 1) {
       throw new Error(`Cannot have multiple query decorators on the same class member`);
     } else if (!isPropertyTypeMember(member)) {
@@ -437,7 +441,17 @@ function extractHostBindings(
     });
   }
 
-  const {attributes, listeners, properties} = parseHostBindings(hostMetadata);
+  const bindings = parseHostBindings(hostMetadata);
+
+  // TODO: create and provide proper sourceSpan to make error message more descriptive (FW-995)
+  const errors = verifyHostBindings(bindings, /* sourceSpan */ null !);
+  if (errors.length > 0) {
+    throw new FatalDiagnosticError(
+        // TODO: provide more granular diagnostic and output specific host expression that triggered
+        // an error instead of the whole host object
+        ErrorCode.HOST_BINDING_PARSE_ERROR, metadata.get('host') !,
+        errors.map((error: ParseError) => error.msg).join('\n'));
+  }
 
   filterToMembersWithDecorator(members, 'HostBinding', coreModule)
       .forEach(({member, decorators}) => {
@@ -456,7 +470,7 @@ function extractHostBindings(
             hostPropertyName = resolved;
           }
 
-          properties[hostPropertyName] = member.name;
+          bindings.properties[hostPropertyName] = member.name;
         });
       });
 
@@ -492,10 +506,10 @@ function extractHostBindings(
             }
           }
 
-          listeners[eventName] = `${member.name}(${args.join(',')})`;
+          bindings.listeners[eventName] = `${member.name}(${args.join(',')})`;
         });
       });
-  return {attributes, properties, listeners};
+  return bindings;
 }
 
 const QUERY_TYPES = new Set([
