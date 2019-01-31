@@ -1,3 +1,42 @@
+<a name="8.0.0-beta.2"></a>
+# [8.0.0-beta.2](https://github.com/angular/angular/compare/8.0.0-beta.1...8.0.0-beta.2) (2019-01-30)
+
+
+### Bug Fixes
+
+* **bazel:** also pass afterDeclarations transformers to emitWithTsickle ([#28342](https://github.com/angular/angular/issues/28342)) ([70e426b](https://github.com/angular/angular/commit/70e426b))
+* **forms:** don't override form group's dirty state when disabling controls ([#24591](https://github.com/angular/angular/issues/24591)) ([ef67282](https://github.com/angular/angular/commit/ef67282))
+
+
+### Features
+
+* **compiler-cli:** expose ngtsc as a TscPlugin ([#28435](https://github.com/angular/angular/issues/28435)) ([a227c52](https://github.com/angular/angular/commit/a227c52))
+
+
+### Performance Improvements
+
+* **core:** be more consistent about typeof checks ([#28400](https://github.com/angular/angular/issues/28400)) ([9af18c2](https://github.com/angular/angular/commit/9af18c2))
+
+
+
+<a name="7.2.3"></a>
+## [7.2.3](https://github.com/angular/angular/compare/7.2.2...7.2.3) (2019-01-30)
+
+
+### Bug Fixes
+
+* **bazel:** add [@npm](https://github.com/npm)//tslib dep to e2e ts_library target in bazel-workspace schematic ([#28358](https://github.com/angular/angular/issues/28358)) ([8cee56e](https://github.com/angular/angular/commit/8cee56e))
+* **bazel:** Bazel-workspace schematics should run in ScopedTree ([#28349](https://github.com/angular/angular/issues/28349)) ([260ac20](https://github.com/angular/angular/commit/260ac20))
+* **bazel:** Builder should invoke local bazel/iblaze ([#28303](https://github.com/angular/angular/issues/28303)) ([12b8a6e](https://github.com/angular/angular/commit/12b8a6e))
+* **bazel:** ng-new should run yarn install ([#28381](https://github.com/angular/angular/issues/28381)) ([a9d46e4](https://github.com/angular/angular/commit/a9d46e4))
+
+
+### Performance Improvements
+
+* yarn version upgrade ([#28360](https://github.com/angular/angular/issues/28360)) ([cc1b2a5](https://github.com/angular/angular/commit/cc1b2a5))
+
+
+
 <a name="8.0.0-beta.1"></a>
 # [8.0.0-beta.1](https://github.com/angular/angular/compare/8.0.0-beta.0...8.0.0-beta.1) (2019-01-22)
 
