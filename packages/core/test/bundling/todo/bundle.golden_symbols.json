@@ -363,6 +363,9 @@
     "name": "addRemoveViewFromContainer"
   },
   {
+    "name": "addTContainerToQueries"
+  },
+  {
     "name": "addToViewTree"
   },
   {
@@ -594,9 +597,6 @@
     "name": "findViaComponent"
   },
   {
-    "name": "firstTemplatePass"
-  },
-  {
     "name": "forwardRef"
   },
   {
@@ -655,9 +655,6 @@
   },
   {
     "name": "getElementDepthCount"
-  },
-  {
-    "name": "getFirstTemplatePass"
   },
   {
     "name": "getHighestElementOrICUContainer"
@@ -1141,9 +1138,6 @@
   },
   {
     "name": "setDirty"
-  },
-  {
-    "name": "setFirstTemplatePass"
   },
   {
     "name": "setFlag"
