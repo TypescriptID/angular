@@ -10,6 +10,7 @@ import {SRCSET_ATTRS, URI_ATTRS, VALID_ATTRS, VALID_ELEMENTS, getTemplateContent
 import {InertBodyHelper} from '../sanitization/inert_body';
 import {_sanitizeUrl, sanitizeSrcset} from '../sanitization/url_sanitizer';
 import {assertDefined, assertEqual, assertGreaterThan} from '../util/assert';
+
 import {attachPatchData} from './context_discovery';
 import {allocExpando, createNodeAtIndex, elementAttribute, load, textBinding} from './instructions';
 import {LContainer, NATIVE} from './interfaces/container';
@@ -18,8 +19,8 @@ import {TElementNode, TIcuContainerNode, TNode, TNodeType} from './interfaces/no
 import {RComment, RElement} from './interfaces/renderer';
 import {SanitizerFn} from './interfaces/sanitization';
 import {StylingContext} from './interfaces/styling';
-import {BINDING_INDEX, HEADER_OFFSET, HOST_NODE, LView, RENDERER, TVIEW, TView} from './interfaces/view';
-import {appendChild, createTextNode, removeChild} from './node_manipulation';
+import {BINDING_INDEX, HEADER_OFFSET, LView, RENDERER, TVIEW, TView, T_HOST} from './interfaces/view';
+import {appendChild, createTextNode, nativeRemoveNode} from './node_manipulation';
 import {getIsParent, getLView, getPreviousOrParentTNode, setIsParent, setPreviousOrParentTNode} from './state';
 import {NO_CHANGE} from './tokens';
 import {addAllToArray, getNativeByIndex, getNativeByTNode, getTNode, isLContainer, renderStringify} from './util';
@@ -351,19 +352,24 @@ export function i18nStart(index: number, message: string, subTemplateIndex?: num
   }
 }
 
+// Count for the number of vars that will be allocated for each i18n block.
+// It is global because this is used in multiple functions that include loops and recursive calls.
+// This is reset to 0 when `i18nStartFirstPass` is called.
+let i18nVarsCount: number;
+
 /**
  * See `i18nStart` above.
  */
 function i18nStartFirstPass(
     tView: TView, index: number, message: string, subTemplateIndex?: number) {
   const viewData = getLView();
-  const expandoStartIndex = tView.blueprint.length - HEADER_OFFSET;
+  const startIndex = tView.blueprint.length - HEADER_OFFSET;
+  i18nVarsCount = 0;
   const previousOrParentTNode = getPreviousOrParentTNode();
   const parentTNode = getIsParent() ? getPreviousOrParentTNode() :
                                       previousOrParentTNode && previousOrParentTNode.parent;
-  let parentIndex = parentTNode && parentTNode !== viewData[HOST_NODE] ?
-      parentTNode.index - HEADER_OFFSET :
-      index;
+  let parentIndex =
+      parentTNode && parentTNode !== viewData[T_HOST] ? parentTNode.index - HEADER_OFFSET : index;
   let parentIndexPointer = 0;
   parentIndexStack[parentIndexPointer] = parentIndex;
   const createOpCodes: I18nMutateOpCodes = [];
@@ -408,8 +414,7 @@ function i18nStartFirstPass(
         if (j & 1) {
           // Odd indexes are ICU expressions
           // Create the comment node that will anchor the ICU expression
-          allocExpando(viewData);
-          const icuNodeIndex = tView.blueprint.length - 1 - HEADER_OFFSET;
+          const icuNodeIndex = startIndex + i18nVarsCount++;
           createOpCodes.push(
               COMMENT_MARKER, ngDevMode ? `ICU ${icuNodeIndex}` : '', icuNodeIndex,
               parentIndex << I18nMutateOpCode.SHIFT_PARENT | I18nMutateOpCode.AppendChild);
@@ -433,27 +438,25 @@ function i18nStartFirstPass(
           // Even indexes are text (including bindings)
           const hasBinding = text.match(BINDING_REGEXP);
           // Create text nodes
-          allocExpando(viewData);
-          const textNodeIndex = tView.blueprint.length - 1 - HEADER_OFFSET;
+          const textNodeIndex = startIndex + i18nVarsCount++;
           createOpCodes.push(
               // If there is a binding, the value will be set during update
               hasBinding ? '' : text, textNodeIndex,
               parentIndex << I18nMutateOpCode.SHIFT_PARENT | I18nMutateOpCode.AppendChild);
 
           if (hasBinding) {
-            addAllToArray(
-                generateBindingUpdateOpCodes(text, tView.blueprint.length - 1 - HEADER_OFFSET),
-                updateOpCodes);
+            addAllToArray(generateBindingUpdateOpCodes(text, textNodeIndex), updateOpCodes);
           }
         }
       }
     }
   }
 
+  allocExpando(viewData, i18nVarsCount);
+
   // NOTE: local var needed to properly assert the type of `TI18n`.
   const tI18n: TI18n = {
-    vars: tView.blueprint.length - HEADER_OFFSET - expandoStartIndex,
-    expandoStartIndex,
+    vars: i18nVarsCount,
     create: createOpCodes,
     update: updateOpCodes,
     icus: icuExpressions.length ? icuExpressions : null,
@@ -478,7 +481,7 @@ function appendI18nNode(tNode: TNode, parentTNode: TNode, previousTNode: TNode |
     tNode.next = null;
   }
 
-  if (parentTNode !== viewData[HOST_NODE]) {
+  if (parentTNode !== viewData[T_HOST]) {
     tNode.parent = parentTNode as TElementNode;
   }
 
@@ -661,7 +664,7 @@ function readCreateOpCodes(
           if (destinationNodeIndex === index) {
             // If the destination node is `i18nStart`, we don't have a
             // top-level node and we should use the host node instead
-            destinationTNode = viewData[HOST_NODE] !;
+            destinationTNode = viewData[T_HOST] !;
           } else {
             destinationTNode = getTNode(destinationNodeIndex, viewData);
           }
@@ -830,7 +833,7 @@ function removeNode(index: number, viewData: LView) {
   const removedPhTNode = getTNode(index, viewData);
   const removedPhRNode = getNativeByIndex(index, viewData);
   if (removedPhRNode) {
-    removeChild(removedPhTNode, removedPhRNode, viewData);
+    nativeRemoveNode(viewData[RENDERER], removedPhRNode);
   }
 
   removedPhTNode.detached = true;
@@ -840,7 +843,7 @@ function removeNode(index: number, viewData: LView) {
   if (isLContainer(slotValue)) {
     const lContainer = slotValue as LContainer;
     if (removedPhTNode.type !== TNodeType.Container) {
-      removeChild(removedPhTNode, lContainer[NATIVE], viewData);
+      nativeRemoveNode(viewData[RENDERER], lContainer[NATIVE]);
     }
   }
 }
@@ -1380,18 +1383,15 @@ function icuStart(
   const tIcu: TIcu = {
     type: icuExpression.type,
     vars,
-    expandoStartIndex: expandoStartIndex + 1, childIcus,
+    childIcus,
     cases: icuExpression.cases,
     create: createCodes,
     remove: removeCodes,
     update: updateCodes
   };
   tIcus.push(tIcu);
-  const lView = getLView();
-  const worstCaseSize = Math.max(...vars);
-  for (let i = 0; i < worstCaseSize; i++) {
-    allocExpando(lView);
-  }
+  // Adding the maximum possible of vars needed (based on the cases with the most vars)
+  i18nVarsCount += Math.max(...vars);
 }
 
 /**
