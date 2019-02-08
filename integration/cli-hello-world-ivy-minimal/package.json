@@ -1,5 +1,5 @@
 {
-  "name": "cli-hello-world-ivy",
+  "name": "cli-hello-world-ivy-minimal",
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
@@ -10,9 +10,7 @@
     "postinstall": "webdriver-manager update --gecko=false --standalone=false $CI_CHROMEDRIVER_VERSION_ARG && yarn ivy-ngcc",
     "start": "ng serve",
     "pretest": "ng version",
-    "//test1": "TODO FW-813: Re-enable `ci-production`. Currently, it fails after a timeout as Protractor reports Angular cannot be found on the page",
-    "//test2": "ng test --progress=false --watch=false && yarn e2e --configuration=ci && yarn e2e --configuration=ci-production",
-    "test": "ng test --progress=false --watch=false && yarn e2e --configuration=ci"
+    "test": "ng test --progress=false --watch=false && yarn e2e --configuration=ci && yarn e2e --configuration=ci-production"
   },
   "private": true,
   "dependencies": {
@@ -31,7 +29,7 @@
     "zone.js": "file:../../node_modules/zone.js"
   },
   "devDependencies": {
-    "@angular-devkit/build-angular": "~0.12.1",
+    "@angular-devkit/build-angular": "0.13.0-rc.0",
     "@angular/cli": "file:../../node_modules/@angular/cli",
     "@angular/compiler-cli": "file:../../dist/packages-dist/compiler-cli",
     "@angular/language-service": "file:../../dist/packages-dist/language-service",
