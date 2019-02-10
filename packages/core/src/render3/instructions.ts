@@ -532,6 +532,21 @@ export function elementContainerStart(
   const currentQueries = lView[QUERIES];
   if (currentQueries) {
     currentQueries.addNode(tNode);
+    lView[QUERIES] = currentQueries.clone();
+  }
+  executeContentQueries(tView, tNode);
+}
+
+function executeContentQueries(tView: TView, tNode: TNode) {
+  if (isContentQueryHost(tNode)) {
+    const start = tNode.directiveStart;
+    const end = tNode.directiveEnd;
+    for (let i = start; i < end; i++) {
+      const def = tView.data[i] as DirectiveDef<any>;
+      if (def.contentQueries) {
+        def.contentQueries(i);
+      }
+    }
   }
 }
 
@@ -543,7 +558,7 @@ export function elementContainerEnd(): void {
   if (getIsParent()) {
     setIsParent(false);
   } else {
-    ngDevMode && assertHasParent(getPreviousOrParentTNode());
+    ngDevMode && assertHasParent(previousOrParentTNode);
     previousOrParentTNode = previousOrParentTNode.parent !;
     setPreviousOrParentTNode(previousOrParentTNode);
   }
@@ -551,8 +566,7 @@ export function elementContainerEnd(): void {
   ngDevMode && assertNodeType(previousOrParentTNode, TNodeType.ElementContainer);
   const currentQueries = lView[QUERIES];
   if (currentQueries) {
-    lView[QUERIES] =
-        isContentQueryHost(previousOrParentTNode) ? currentQueries.parent : currentQueries;
+    lView[QUERIES] = currentQueries.parent;
   }
 
   registerPostOrderHooks(tView, previousOrParentTNode);
@@ -630,7 +644,9 @@ export function elementStart(
   const currentQueries = lView[QUERIES];
   if (currentQueries) {
     currentQueries.addNode(tNode);
+    lView[QUERIES] = currentQueries.clone();
   }
+  executeContentQueries(tView, tNode);
 }
 
 /**
@@ -668,17 +684,9 @@ function createDirectivesAndLocals(
   const previousOrParentTNode = getPreviousOrParentTNode();
   if (tView.firstTemplatePass) {
     ngDevMode && ngDevMode.firstTemplatePass++;
-
     resolveDirectives(
         tView, lView, findDirectiveMatches(tView, lView, previousOrParentTNode),
         previousOrParentTNode, localRefs || null);
-  } else {
-    // During first template pass, queries are created or cloned when first requested
-    // using `getOrCreateCurrentQueries`. For subsequent template passes, we clone
-    // any current LQueries here up-front if the current node hosts a content query.
-    if (isContentQueryHost(getPreviousOrParentTNode()) && lView[QUERIES]) {
-      lView[QUERIES] = lView[QUERIES] !.clone();
-    }
   }
   instantiateAllDirectives(tView, lView, previousOrParentTNode);
   invokeDirectivesHostBindings(tView, lView, previousOrParentTNode);
@@ -1068,8 +1076,7 @@ export function elementEnd(): void {
   const lView = getLView();
   const currentQueries = lView[QUERIES];
   if (currentQueries) {
-    lView[QUERIES] =
-        isContentQueryHost(previousOrParentTNode) ? currentQueries.parent : currentQueries;
+    lView[QUERIES] = currentQueries.parent;
   }
 
   registerPostOrderHooks(getLView()[TVIEW], previousOrParentTNode);
@@ -1217,6 +1224,8 @@ function validateAgainstUnknownProperties(
     element: RElement | RComment, propName: string, tNode: TNode) {
   // If prop is not a known property of the HTML element...
   if (!(propName in element) &&
+      // and we are in a browser context... (web worker nodes should be skipped)
+      typeof Node === 'function' && element instanceof Node &&
       // and isn't a synthetic animation property...
       propName[0] !== ANIMATION_PROP_PREFIX) {
     // ... it is probably a user error and we should throw.
@@ -1287,7 +1296,6 @@ export function createTNode(
     next: null,
     child: null,
     parent: tParent,
-    detached: null,
     stylingTemplate: null,
     projection: null
   };
@@ -1804,8 +1812,8 @@ function postProcessDirective<T>(
     setInputsFromAttrs(directiveDefIdx, directive, def, previousOrParentTNode);
   }
 
-  if (def.contentQueries) {
-    def.contentQueries(directiveDefIdx);
+  if (viewData[TVIEW].firstTemplatePass && def.contentQueries) {
+    previousOrParentTNode.flags |= TNodeFlags.hasContentQuery;
   }
 
   if (isComponentDef(def)) {
@@ -2190,7 +2198,7 @@ function containerInternal(
 function addTContainerToQueries(lView: LView, tContainerNode: TContainerNode): void {
   const queries = lView[QUERIES];
   if (queries) {
-    lView[QUERIES] = queries.addNode(tContainerNode);
+    queries.addNode(tContainerNode);
     const lContainer = lView[tContainerNode.index];
     lContainer[QUERIES] = queries.container();
   }
@@ -2240,7 +2248,7 @@ export function containerRefreshEnd(): void {
 
   // remove extra views at the end of the container
   while (nextIndex < lContainer[VIEWS].length) {
-    removeView(lContainer, previousOrParentTNode as TContainerNode, nextIndex);
+    removeView(lContainer, nextIndex);
   }
 }
 
@@ -2271,14 +2279,11 @@ function refreshDynamicEmbeddedViews(lView: LView) {
  * Removes views that need to be deleted in the process.
  *
  * @param lContainer to search for views
- * @param tContainerNode to search for views
  * @param startIdx starting index in the views array to search from
  * @param viewBlockId exact view block id to look for
  * @returns index of a found view or -1 if not found
  */
-function scanForView(
-    lContainer: LContainer, tContainerNode: TContainerNode, startIdx: number,
-    viewBlockId: number): LView|null {
+function scanForView(lContainer: LContainer, startIdx: number, viewBlockId: number): LView|null {
   const views = lContainer[VIEWS];
   for (let i = startIdx; i < views.length; i++) {
     const viewAtPositionId = views[i][TVIEW].id;
@@ -2286,7 +2291,7 @@ function scanForView(
       return views[i];
     } else if (viewAtPositionId < viewBlockId) {
       // found a view that should not be at this position - remove
-      removeView(lContainer, tContainerNode, i);
+      removeView(lContainer, i);
     } else {
       // found a view with id greater than the one we are searching for
       // which means that required view doesn't exist and can't be found at
@@ -2313,8 +2318,7 @@ export function embeddedViewStart(viewBlockId: number, consts: number, vars: num
   const lContainer = lView[containerTNode.index] as LContainer;
 
   ngDevMode && assertNodeType(containerTNode, TNodeType.Container);
-  let viewToRender = scanForView(
-      lContainer, containerTNode as TContainerNode, lContainer[ACTIVE_INDEX] !, viewBlockId);
+  let viewToRender = scanForView(lContainer, lContainer[ACTIVE_INDEX] !, viewBlockId);
 
   if (viewToRender) {
     setIsParent(true);
