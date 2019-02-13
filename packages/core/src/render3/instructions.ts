@@ -24,24 +24,24 @@ import {diPublicInInjector, getNodeInjectable, getOrCreateInjectable, getOrCreat
 import {throwMultipleComponentError} from './errors';
 import {executeHooks, executeInitHooks, registerPostOrderHooks, registerPreOrderHooks} from './hooks';
 import {ACTIVE_INDEX, LContainer, VIEWS} from './interfaces/container';
-import {ComponentDef, ComponentQuery, ComponentTemplate, DirectiveDef, DirectiveDefListOrFactory, PipeDefListOrFactory, RenderFlags} from './interfaces/definition';
+import {ComponentDef, ComponentTemplate, DirectiveDef, DirectiveDefListOrFactory, PipeDefListOrFactory, RenderFlags, ViewQueriesFunction} from './interfaces/definition';
 import {INJECTOR_BLOOM_PARENT_SIZE, NodeInjectorFactory} from './interfaces/injector';
 import {AttributeMarker, InitialInputData, InitialInputs, LocalRefExtractor, PropertyAliasValue, PropertyAliases, TAttributes, TContainerNode, TElementContainerNode, TElementNode, TIcuContainerNode, TNode, TNodeFlags, TNodeProviderIndexes, TNodeType, TProjectionNode, TViewNode} from './interfaces/node';
 import {PlayerFactory} from './interfaces/player';
 import {CssSelectorList, NG_PROJECT_AS_ATTR_NAME} from './interfaces/projection';
 import {LQueries} from './interfaces/query';
-import {GlobalTargetResolver, ProceduralRenderer3, RComment, RElement, RNode, RText, Renderer3, RendererFactory3, isProceduralRenderer} from './interfaces/renderer';
+import {GlobalTargetResolver, ProceduralRenderer3, RComment, RElement, RText, Renderer3, RendererFactory3, isProceduralRenderer} from './interfaces/renderer';
 import {SanitizerFn} from './interfaces/sanitization';
 import {BINDING_INDEX, CLEANUP, CONTAINER_INDEX, CONTEXT, DECLARATION_VIEW, FLAGS, HEADER_OFFSET, HOST, INJECTOR, InitPhaseState, LView, LViewFlags, NEXT, OpaqueViewState, PARENT, QUERIES, RENDERER, RENDERER_FACTORY, RootContext, RootContextFlags, SANITIZER, TAIL, TData, TVIEW, TView, T_HOST} from './interfaces/view';
 import {assertNodeOfPossibleTypes, assertNodeType} from './node_assert';
 import {appendChild, appendProjectedNode, createTextNode, getLViewChild, insertView, removeView} from './node_manipulation';
 import {isNodeMatchingSelectorList, matchingSelectorIndex} from './node_selector_matcher';
 import {decreaseElementDepthCount, enterView, getBindingsEnabled, getCheckNoChangesMode, getContextLView, getCurrentDirectiveDef, getElementDepthCount, getIsParent, getLView, getPreviousOrParentTNode, increaseElementDepthCount, isCreationMode, leaveView, nextContextImpl, resetComponentState, setBindingRoot, setCheckNoChangesMode, setCurrentDirectiveDef, setCurrentQueryIndex, setIsParent, setPreviousOrParentTNode} from './state';
-import {getInitialClassNameValue, initializeStaticContext as initializeStaticStylingContext, patchContextWithStaticAttrs, renderInitialStylesAndClasses, renderStyling, updateClassProp as updateElementClassProp, updateContextWithBindings, updateStyleProp as updateElementStyleProp, updateStylingMap} from './styling/class_and_style_bindings';
+import {getInitialClassNameValue, getInitialStyleStringValue, initializeStaticContext as initializeStaticStylingContext, patchContextWithStaticAttrs, renderInitialClasses, renderInitialStyles, renderStyling, updateClassProp as updateElementClassProp, updateContextWithBindings, updateStyleProp as updateElementStyleProp, updateStylingMap} from './styling/class_and_style_bindings';
 import {BoundPlayerFactory} from './styling/player_factory';
-import {ANIMATION_PROP_PREFIX, createEmptyStylingContext, getStylingContext, hasClassInput, hasStyling, isAnimationProp} from './styling/util';
+import {ANIMATION_PROP_PREFIX, allocateDirectiveIntoContext, createEmptyStylingContext, forceClassesAsString, forceStylesAsString, getStylingContext, hasClassInput, hasStyleInput, hasStyling, isAnimationProp} from './styling/util';
 import {NO_CHANGE} from './tokens';
-import {INTERPOLATION_DELIMITER, findComponentView, getComponentViewByIndex, getNativeByIndex, getNativeByTNode, getRootContext, getRootView, getTNode, isComponent, isComponentDef, isContentQueryHost, loadInternal, readElementValue, readPatchedLView, renderStringify} from './util';
+import {INTERPOLATION_DELIMITER, findComponentView, getComponentViewByIndex, getNativeByIndex, getNativeByTNode, getRootContext, getRootView, getTNode, isComponent, isComponentDef, isContentQueryHost, isRootView, loadInternal, readElementValue, readPatchedLView, renderStringify} from './util';
 
 
 
@@ -80,7 +80,7 @@ export function refreshDescendantViews(lView: LView) {
     refreshDynamicEmbeddedViews(lView);
 
     // Content query results must be refreshed before content hooks are called.
-    refreshContentQueries(tView);
+    refreshContentQueries(tView, lView);
 
     executeHooks(
         lView, tView.contentHooks, tView.contentCheckHooks, checkNoChangesMode,
@@ -134,13 +134,15 @@ export function setHostBindings(tView: TView, viewData: LView): void {
 }
 
 /** Refreshes content queries for all directives in the given view. */
-function refreshContentQueries(tView: TView): void {
+function refreshContentQueries(tView: TView, lView: LView): void {
   if (tView.contentQueries != null) {
     setCurrentQueryIndex(0);
     for (let i = 0; i < tView.contentQueries.length; i++) {
       const directiveDefIdx = tView.contentQueries[i];
       const directiveDef = tView.data[directiveDefIdx] as DirectiveDef<any>;
-      directiveDef.contentQueriesRefresh !(directiveDefIdx - HEADER_OFFSET);
+      ngDevMode &&
+          assertDefined(directiveDef.contentQueries, 'contentQueries function should be defined');
+      directiveDef.contentQueries !(RenderFlags.Update, lView[directiveDefIdx], directiveDefIdx);
     }
   }
 }
@@ -432,7 +434,7 @@ function renderComponentOrTemplate<T>(
       // creation mode pass
       if (templateFn) {
         namespaceHTML();
-        templateFn(RenderFlags.Create, context !);
+        templateFn(RenderFlags.Create, context);
       }
 
       refreshDescendantViews(hostView);
@@ -440,7 +442,7 @@ function renderComponentOrTemplate<T>(
     }
 
     // update mode pass
-    templateFn && templateFn(RenderFlags.Update, context !);
+    templateFn && templateFn(RenderFlags.Update, context);
     refreshDescendantViews(hostView);
   } finally {
     if (normalExecutionPath && !creationModeIsActive && rendererFactory.end) {
@@ -534,17 +536,17 @@ export function elementContainerStart(
     currentQueries.addNode(tNode);
     lView[QUERIES] = currentQueries.clone();
   }
-  executeContentQueries(tView, tNode);
+  executeContentQueries(tView, tNode, lView);
 }
 
-function executeContentQueries(tView: TView, tNode: TNode) {
+function executeContentQueries(tView: TView, tNode: TNode, lView: LView) {
   if (isContentQueryHost(tNode)) {
     const start = tNode.directiveStart;
     const end = tNode.directiveEnd;
-    for (let i = start; i < end; i++) {
-      const def = tView.data[i] as DirectiveDef<any>;
+    for (let directiveIndex = start; directiveIndex < end; directiveIndex++) {
+      const def = tView.data[directiveIndex] as DirectiveDef<any>;
       if (def.contentQueries) {
-        def.contentQueries(i);
+        def.contentQueries(RenderFlags.Create, lView[directiveIndex], directiveIndex);
       }
     }
   }
@@ -633,12 +635,16 @@ export function elementStart(
     if (inputData && inputData.hasOwnProperty('class')) {
       tNode.flags |= TNodeFlags.hasClassInput;
     }
+    if (inputData && inputData.hasOwnProperty('style')) {
+      tNode.flags |= TNodeFlags.hasStyleInput;
+    }
   }
 
   // There is no point in rendering styles when a class directive is present since
   // it will take that over for us (this will be removed once #FW-882 is in).
-  if (tNode.stylingTemplate && (tNode.flags & TNodeFlags.hasClassInput) === 0) {
-    renderInitialStylesAndClasses(native, tNode.stylingTemplate, lView[RENDERER]);
+  if (tNode.stylingTemplate) {
+    renderInitialClasses(native, tNode.stylingTemplate, lView[RENDERER]);
+    renderInitialStyles(native, tNode.stylingTemplate, lView[RENDERER]);
   }
 
   const currentQueries = lView[QUERIES];
@@ -646,7 +652,7 @@ export function elementStart(
     currentQueries.addNode(tNode);
     lView[QUERIES] = currentQueries.clone();
   }
-  executeContentQueries(tView, tNode);
+  executeContentQueries(tView, tNode, lView);
 }
 
 /**
@@ -727,7 +733,7 @@ function saveResolvedLocalsInData(
 export function getOrCreateTView(
     templateFn: ComponentTemplate<any>, consts: number, vars: number,
     directives: DirectiveDefListOrFactory | null, pipes: PipeDefListOrFactory | null,
-    viewQuery: ComponentQuery<any>| null): TView {
+    viewQuery: ViewQueriesFunction<any>| null): TView {
   // TODO(misko): reading `ngPrivateData` here is problematic for two reasons
   // 1. It is a megamorphic call on each invocation.
   // 2. For nested embedded views (ngFor inside ngFor) the template instance is per
@@ -752,7 +758,7 @@ export function getOrCreateTView(
 export function createTView(
     viewIndex: number, templateFn: ComponentTemplate<any>| null, consts: number, vars: number,
     directives: DirectiveDefListOrFactory | null, pipes: PipeDefListOrFactory | null,
-    viewQuery: ComponentQuery<any>| null): TView {
+    viewQuery: ViewQueriesFunction<any>| null): TView {
   ngDevMode && ngDevMode.tView++;
   const bindingStartIndex = HEADER_OFFSET + consts;
   // This length does not yet contain host bindings from child directives because at this point,
@@ -1072,6 +1078,20 @@ export function elementEnd(): void {
     previousOrParentTNode = previousOrParentTNode.parent !;
     setPreviousOrParentTNode(previousOrParentTNode);
   }
+
+  // there may be some instructions that need to run in a specific
+  // order because the CREATE block in a directive runs before the
+  // CREATE block in a template. To work around this instructions
+  // can get access to the function array below and defer any code
+  // to run after the element is created.
+  let fns: Function[]|null;
+  if (fns = previousOrParentTNode.onElementCreationFns) {
+    for (let i = 0; i < fns.length; i++) {
+      fns[i]();
+    }
+    previousOrParentTNode.onElementCreationFns = null;
+  }
+
   ngDevMode && assertNodeType(previousOrParentTNode, TNodeType.Element);
   const lView = getLView();
   const currentQueries = lView[QUERIES];
@@ -1089,6 +1109,12 @@ export function elementEnd(): void {
     const stylingContext = getStylingContext(previousOrParentTNode.index, lView);
     setInputsForProperty(
         lView, previousOrParentTNode.inputs !['class'] !, getInitialClassNameValue(stylingContext));
+  }
+  if (hasStyleInput(previousOrParentTNode)) {
+    const stylingContext = getStylingContext(previousOrParentTNode.index, lView);
+    setInputsForProperty(
+        lView, previousOrParentTNode.inputs !['style'] !,
+        getInitialStyleStringValue(stylingContext));
   }
 }
 
@@ -1297,7 +1323,8 @@ export function createTNode(
     child: null,
     parent: tParent,
     stylingTemplate: null,
-    projection: null
+    projection: null,
+    onElementCreationFns: null,
   };
 }
 
@@ -1412,9 +1439,33 @@ export function elementStyling(
   if (!tNode.stylingTemplate) {
     tNode.stylingTemplate = createEmptyStylingContext();
   }
+
+  if (directive) {
+    // this will ALWAYS happen first before the bindings are applied so that the ordering
+    // of directives is correct (otherwise if a follow-up directive contains static styling,
+    // which is applied through elementHostAttrs, then it may end up being listed in the
+    // context directive array before a former one (because the former one didn't contain
+    // any static styling values))
+    allocateDirectiveIntoContext(tNode.stylingTemplate, directive);
+
+    const fns = tNode.onElementCreationFns = tNode.onElementCreationFns || [];
+    fns.push(
+        () => initElementStyling(
+            tNode, classBindingNames, styleBindingNames, styleSanitizer, directive));
+  } else {
+    // this will make sure that the root directive (the template) will always be
+    // run FIRST before all the other styling properties are populated into the
+    // context...
+    initElementStyling(tNode, classBindingNames, styleBindingNames, styleSanitizer, directive);
+  }
+}
+
+function initElementStyling(
+    tNode: TNode, classBindingNames?: string[] | null, styleBindingNames?: string[] | null,
+    styleSanitizer?: StyleSanitizeFn | null, directive?: {}): void {
   updateContextWithBindings(
       tNode.stylingTemplate !, directive || null, classBindingNames, styleBindingNames,
-      styleSanitizer, hasClassInput(tNode));
+      styleSanitizer);
 }
 
 /**
@@ -1521,7 +1572,7 @@ components
  */
 export function elementStyleProp(
     index: number, styleIndex: number, value: string | number | String | PlayerFactory | null,
-    suffix?: string | null, directive?: {}): void {
+    suffix?: string | null, directive?: {}, forceOverride?: boolean): void {
   let valueToAdd: string|null = null;
   if (value !== null) {
     if (suffix) {
@@ -1537,7 +1588,8 @@ export function elementStyleProp(
     }
   }
   updateElementStyleProp(
-      getStylingContext(index + HEADER_OFFSET, getLView()), styleIndex, valueToAdd, directive);
+      getStylingContext(index + HEADER_OFFSET, getLView()), styleIndex, valueToAdd, directive,
+      forceOverride);
 }
 
 /**
@@ -1555,26 +1607,36 @@ export function elementStyleProp(
  * @param value A true/false value which will turn the class on or off.
  * @param directive Directive instance that is attempting to change styling. (Defaults to the
  *        component of the current view).
-components
+ * @param forceOverride Whether or not this value will be applied regardless of where it is being
+ *        set within the directive priority structure.
  *
  * @publicApi
  */
 export function elementClassProp(
-    index: number, classIndex: number, value: boolean | PlayerFactory, directive?: {}): void {
-  const onOrOffClassValue =
-      (value instanceof BoundPlayerFactory) ? (value as BoundPlayerFactory<boolean>) : (!!value);
+    index: number, classIndex: number, value: boolean | PlayerFactory, directive?: {},
+    forceOverride?: boolean): void {
+  const input = (value instanceof BoundPlayerFactory) ?
+      (value as BoundPlayerFactory<boolean|null>) :
+      booleanOrNull(value);
   updateElementClassProp(
-      getStylingContext(index + HEADER_OFFSET, getLView()), classIndex, onOrOffClassValue,
-      directive);
+      getStylingContext(index + HEADER_OFFSET, getLView()), classIndex, input, directive,
+      forceOverride);
+}
+
+function booleanOrNull(value: any): boolean|null {
+  if (typeof value === 'boolean') return value;
+  return value ? true : null;
 }
 
 /**
  * Update style and/or class bindings using object literal.
  *
  * This instruction is meant apply styling via the `[style]="exp"` and `[class]="exp"` template
- * bindings. When styles are applied to the Element they will then be placed with respect to
+ * bindings. When styles are applied to the element they will then be placed with respect to
  * any styles set with `elementStyleProp`. If any styles are set to `null` then they will be
- * removed from the element.
+ * removed from the element. This instruction is also called for host bindings that write to
+ * `[style]` and `[class]` (the directive param helps the instruction code determine where the
+ * binding values come from).
  *
  * (Note that the styling instruction will not be applied until `elementStylingApply` is called.)
  *
@@ -1593,29 +1655,33 @@ export function elementClassProp(
 export function elementStylingMap<T>(
     index: number, classes: {[key: string]: any} | string | NO_CHANGE | null,
     styles?: {[styleName: string]: any} | NO_CHANGE | null, directive?: {}): void {
-  if (directive != undefined)
-    return hackImplementationOfElementStylingMap(
-        index, classes, styles, directive);  // supported in next PR
   const lView = getLView();
   const tNode = getTNode(index, lView);
   const stylingContext = getStylingContext(index + HEADER_OFFSET, lView);
-  if (hasClassInput(tNode) && classes !== NO_CHANGE) {
-    const initialClasses = getInitialClassNameValue(stylingContext);
-    const classInputVal =
-        (initialClasses.length ? (initialClasses + ' ') : '') + (classes as string);
-    setInputsForProperty(lView, tNode.inputs !['class'] !, classInputVal);
-  } else {
-    updateStylingMap(stylingContext, classes, styles);
-  }
-}
 
-/* START OF HACK BLOCK */
-function hackImplementationOfElementStylingMap<T>(
-    index: number, classes: {[key: string]: any} | string | NO_CHANGE | null,
-    styles?: {[styleName: string]: any} | NO_CHANGE | null, directive?: {}): void {
-  throw new Error('unimplemented. Should not be needed by ViewEngine compatibility');
+  // inputs are only evaluated from a template binding into a directive, therefore,
+  // there should not be a situation where a directive host bindings function
+  // evaluates the inputs (this should only happen in the template function)
+  if (!directive) {
+    if (hasClassInput(tNode) && classes !== NO_CHANGE) {
+      const initialClasses = getInitialClassNameValue(stylingContext);
+      const classInputVal =
+          (initialClasses.length ? (initialClasses + ' ') : '') + forceClassesAsString(classes);
+      setInputsForProperty(lView, tNode.inputs !['class'] !, classInputVal);
+      classes = NO_CHANGE;
+    }
+
+    if (hasStyleInput(tNode) && styles !== NO_CHANGE) {
+      const initialStyles = getInitialClassNameValue(stylingContext);
+      const styleInputVal =
+          (initialStyles.length ? (initialStyles + ' ') : '') + forceStylesAsString(styles);
+      setInputsForProperty(lView, tNode.inputs !['style'] !, styleInputVal);
+      styles = NO_CHANGE;
+    }
+  }
+
+  updateStylingMap(stylingContext, classes, styles, directive);
 }
-/* END OF HACK BLOCK */
 
 //////////////////////////
 //// Text
@@ -1678,7 +1744,7 @@ export function instantiateRootComponent<T>(
   }
   const directive =
       getNodeInjectable(tView.data, viewData, viewData.length - 1, rootTNode as TElementNode);
-  postProcessBaseDirective(viewData, rootTNode, directive, def as DirectiveDef<T>);
+  postProcessBaseDirective(viewData, rootTNode, directive);
   return directive;
 }
 
@@ -1806,7 +1872,7 @@ function prefillHostVars(tView: TView, lView: LView, totalHostVars: number): voi
 function postProcessDirective<T>(
     viewData: LView, directive: T, def: DirectiveDef<T>, directiveDefIdx: number): void {
   const previousOrParentTNode = getPreviousOrParentTNode();
-  postProcessBaseDirective(viewData, previousOrParentTNode, directive, def);
+  postProcessBaseDirective(viewData, previousOrParentTNode, directive);
   ngDevMode && assertDefined(previousOrParentTNode, 'previousOrParentTNode');
   if (previousOrParentTNode && previousOrParentTNode.attrs) {
     setInputsFromAttrs(directiveDefIdx, directive, def, previousOrParentTNode);
@@ -1826,7 +1892,7 @@ function postProcessDirective<T>(
  * A lighter version of postProcessDirective() that is used for the root component.
  */
 function postProcessBaseDirective<T>(
-    lView: LView, previousOrParentTNode: TNode, directive: T, def: DirectiveDef<T>): void {
+    lView: LView, previousOrParentTNode: TNode, directive: T): void {
   const native = getNativeByTNode(previousOrParentTNode, lView);
 
   ngDevMode && assertEqual(
@@ -2663,15 +2729,16 @@ function wrapListener(
  * @returns the root LView
  */
 export function markViewDirty(lView: LView): LView|null {
-  while (lView && !(lView[FLAGS] & LViewFlags.IsRoot)) {
+  while (lView) {
     lView[FLAGS] |= LViewFlags.Dirty;
+    // Stop traversing up as soon as you find a root view that wasn't attached to any container
+    if (isRootView(lView) && lView[CONTAINER_INDEX] === -1) {
+      return lView;
+    }
+    // continue otherwise
     lView = lView[PARENT] !;
   }
-  // Detached views do not have a PARENT and also aren't root views
-  if (lView) {
-    lView[FLAGS] |= LViewFlags.Dirty;
-  }
-  return lView;
+  return null;
 }
 
 /**
@@ -2751,7 +2818,7 @@ function tickRootContext(rootContext: RootContext) {
  * @param component The component which the change detection should be performed on.
  */
 export function detectChanges<T>(component: T): void {
-  const view = getComponentViewByInstance(component) !;
+  const view = getComponentViewByInstance(component);
   detectChangesInternal<T>(view, component);
 }
 
@@ -2790,9 +2857,14 @@ export function detectChangesInRootView(lView: LView): void {
  * introduce other changes.
  */
 export function checkNoChanges<T>(component: T): void {
+  const view = getComponentViewByInstance(component);
+  checkNoChangesInternal<T>(view, component);
+}
+
+export function checkNoChangesInternal<T>(view: LView, context: T) {
   setCheckNoChangesMode(true);
   try {
-    detectChanges(component);
+    detectChangesInternal(view, context);
   } finally {
     setCheckNoChangesMode(false);
   }

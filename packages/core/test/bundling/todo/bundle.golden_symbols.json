@@ -279,16 +279,10 @@
     "name": "__read"
   },
   {
-    "name": "__self"
-  },
-  {
     "name": "__spread"
   },
   {
     "name": "__values"
-  },
-  {
-    "name": "__window"
   },
   {
     "name": "_c0"
@@ -363,9 +357,6 @@
     "name": "_symbolIterator"
   },
   {
-    "name": "_updateSingleStylingValue"
-  },
-  {
     "name": "addComponentLogic"
   },
   {
@@ -385,6 +376,9 @@
   },
   {
     "name": "allocStylingContext"
+  },
+  {
+    "name": "allocateDirectiveIntoContext"
   },
   {
     "name": "allowValueChange"
@@ -420,13 +414,16 @@
     "name": "bloomHashBitOrFactory"
   },
   {
+    "name": "booleanOrNull"
+  },
+  {
     "name": "cacheMatchingLocalNames"
   },
   {
     "name": "callHooks"
   },
   {
-    "name": "checkNoChanges"
+    "name": "checkNoChangesInternal"
   },
   {
     "name": "checkNoChangesMode"
@@ -526,9 +523,6 @@
   },
   {
     "name": "detachView"
-  },
-  {
-    "name": "detectChanges"
   },
   {
     "name": "detectChangesInternal"
@@ -681,6 +675,9 @@
     "name": "getErrorLogger"
   },
   {
+    "name": "getGlobal"
+  },
+  {
     "name": "getHighestElementOrICUContainer"
   },
   {
@@ -691,6 +688,9 @@
   },
   {
     "name": "getInitialIndex"
+  },
+  {
+    "name": "getInitialStyleStringValue"
   },
   {
     "name": "getInitialStylingValuesIndexOf"
@@ -723,7 +723,7 @@
     "name": "getMultiOrSingleIndex"
   },
   {
-    "name": "getMultiStartIndex"
+    "name": "getMultiStylesStartIndex"
   },
   {
     "name": "getNativeAnchorNode"
@@ -843,6 +843,9 @@
     "name": "hasPlayerBuilderChanged"
   },
   {
+    "name": "hasStyleInput"
+  },
+  {
     "name": "hasStyling"
   },
   {
@@ -852,10 +855,19 @@
     "name": "hasValueChanged"
   },
   {
+    "name": "hyphenate"
+  },
+  {
+    "name": "hyphenateEntries"
+  },
+  {
     "name": "includeViewProviders"
   },
   {
     "name": "increaseElementDepthCount"
+  },
+  {
+    "name": "initElementStyling"
   },
   {
     "name": "initNodeFlags"
@@ -967,9 +979,6 @@
   },
   {
     "name": "leaveView"
-  },
-  {
-    "name": "limitToSingleClasses"
   },
   {
     "name": "listener"
@@ -1107,7 +1116,10 @@
     "name": "renderEmbeddedTemplate"
   },
   {
-    "name": "renderInitialStylesAndClasses"
+    "name": "renderInitialClasses"
+  },
+  {
+    "name": "renderInitialStyles"
   },
   {
     "name": "renderInitialStylingValues"
@@ -1258,6 +1270,9 @@
   },
   {
     "name": "updateContextWithBindings"
+  },
+  {
+    "name": "updateSingleStylingValue"
   },
   {
     "name": "valueExists"

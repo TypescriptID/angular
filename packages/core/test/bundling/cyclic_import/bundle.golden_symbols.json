@@ -144,13 +144,7 @@
     "name": "ViewEncapsulation"
   },
   {
-    "name": "__self"
-  },
-  {
     "name": "__values"
-  },
-  {
-    "name": "__window"
   },
   {
     "name": "_currentNamespace"
@@ -169,6 +163,9 @@
   },
   {
     "name": "allocStylingContext"
+  },
+  {
+    "name": "allocateDirectiveIntoContext"
   },
   {
     "name": "appendChild"
@@ -327,6 +324,9 @@
     "name": "getElementDepthCount"
   },
   {
+    "name": "getGlobal"
+  },
+  {
     "name": "getHighestElementOrICUContainer"
   },
   {
@@ -334,6 +334,9 @@
   },
   {
     "name": "getInitialClassNameValue"
+  },
+  {
+    "name": "getInitialStyleStringValue"
   },
   {
     "name": "getInjectorIndex"
@@ -406,6 +409,9 @@
   },
   {
     "name": "hasParentInjector"
+  },
+  {
+    "name": "hasStyleInput"
   },
   {
     "name": "hasStyling"
@@ -555,7 +561,10 @@
     "name": "renderEmbeddedTemplate"
   },
   {
-    "name": "renderInitialStylesAndClasses"
+    "name": "renderInitialClasses"
+  },
+  {
+    "name": "renderInitialStyles"
   },
   {
     "name": "renderInitialStylingValues"

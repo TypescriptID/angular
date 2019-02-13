@@ -2,12 +2,6 @@ package(default_visibility = ["//visibility:public"])
 
 exports_files([
     "tsconfig-build.json",
+    "tsconfig-e2e.json",
     "start-server.js",
 ])
-
-filegroup(
-    name = "favicon",
-    srcs = [
-        "favicon.ico",
-    ],
-)

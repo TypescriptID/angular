@@ -270,8 +270,7 @@ describe('Query API', () => {
   });
 
   describe('read a different token', () => {
-    modifiedInIvy(
-        'Breaking change in Ivy: no longer allow multiple local refs with the same name, all local refs are now unique')
+    modifiedInIvy('Host nodes no longer match in ContentChild queries in Ivy')
         .it('should contain all content children', () => {
           const template =
               '<needs-content-children-read #q text="ca"><div #q text="cb"></div></needs-content-children-read>';

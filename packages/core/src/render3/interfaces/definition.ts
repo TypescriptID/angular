@@ -15,13 +15,38 @@ import {CssSelectorList} from './projection';
  * Definition of what a template rendering function should look like for a component.
  */
 export type ComponentTemplate<T> = {
-  (rf: RenderFlags, ctx: T): void; ngPrivateData?: never;
+  // Note: the ctx parameter is typed as T|U, as using only U would prevent a template with
+  // e.g. ctx: {} from being assigned to ComponentTemplate<any> as TypeScript won't infer U = any
+  // in that scenario. By including T this incompatibility is resolved.
+  <U extends T>(rf: RenderFlags, ctx: T | U): void; ngPrivateData?: never;
 };
 
 /**
- * Definition of what a query function should look like.
+ * Definition of what a view queries function should look like.
  */
-export type ComponentQuery<T> = ComponentTemplate<T>;
+export type ViewQueriesFunction<T> = <U extends T>(rf: RenderFlags, ctx: U) => void;
+
+/**
+ * Definition of what a content queries function should look like.
+ */
+export type ContentQueriesFunction<T> =
+    <U extends T>(rf: RenderFlags, ctx: U, directiveIndex: number) => void;
+
+/**
+ * Definition of what a factory function should look like.
+ */
+export type FactoryFn<T> = {
+  /**
+   * Subclasses without an explicit constructor call through to the factory of their base
+   * definition, providing it with their own constructor to instantiate.
+   */
+  <U extends T>(t: Type<U>): U;
+
+  /**
+   * If no constructor to instantiate is provided, an instance of type T itself is created.
+   */
+  (t: null): T;
+};
 
 /**
  * Flags passed into template functions to determine which blocks (i.e. creation, update)
@@ -113,7 +138,7 @@ export interface DirectiveDef<T> extends BaseDef<T> {
   type: Type<T>;
 
   /** Function that resolves providers and publishes them into the DI system. */
-  providersResolver: ((def: DirectiveDef<T>) => void)|null;
+  providersResolver: (<U extends T>(def: DirectiveDef<U>) => void)|null;
 
   /** The selectors that will be used to match nodes to this directive. */
   readonly selectors: CssSelectorList;
@@ -126,17 +151,16 @@ export interface DirectiveDef<T> extends BaseDef<T> {
   /**
    * Factory function used to create a new directive instance.
    */
-  factory: (t: Type<T>|null) => T;
+  factory: FactoryFn<T>;
 
   /**
-   * Function to create instances of content queries associated with a given directive.
+   * Function to create and refresh content queries associated with a given directive.
    */
-  contentQueries: ((directiveIndex: number) => void)|null;
+  contentQueries: ContentQueriesFunction<T>|null;
 
-  /** Refreshes content queries associated with directives in a given view */
-  contentQueriesRefresh: ((directiveIndex: number) => void)|null;
-
-  /** Refreshes host bindings on the associated directive. */
+  /**
+   * Refreshes host bindings on the associated directive.
+   */
   hostBindings: HostBindingsFunction<T>|null;
 
   /* The following are lifecycle hooks for this component */
@@ -155,8 +179,9 @@ export interface DirectiveDef<T> extends BaseDef<T> {
   readonly features: DirectiveDefFeature[]|null;
 
   setInput:
-      ((this: DirectiveDef<T>, instance: T, value: any, publicName: string,
-        privateName: string) => void)|null;
+      (<U extends T>(
+           this: DirectiveDef<U>, instance: U, value: any, publicName: string,
+           privateName: string) => void)|null;
 }
 
 export type ComponentDefWithMeta<
@@ -216,7 +241,7 @@ export interface ComponentDef<T> extends DirectiveDef<T> {
   /**
    * Query-related instructions for a component.
    */
-  viewQuery: ComponentQuery<T>|null;
+  viewQuery: ViewQueriesFunction<T>|null;
 
   /**
    * The view encapsulation type, which determines how styles are applied to
@@ -285,7 +310,7 @@ export interface PipeDef<T> {
   /**
    * Factory function used to create a new pipe instance.
    */
-  factory: (t: Type<T>|null) => T;
+  factory: FactoryFn<T>;
 
   /**
    * Whether or not the pipe is pure.
@@ -343,7 +368,8 @@ export type DirectiveTypeList =
     (DirectiveDef<any>| ComponentDef<any>|
      Type<any>/* Type as workaround for: Microsoft/TypeScript/issues/4881 */)[];
 
-export type HostBindingsFunction<T> = (rf: RenderFlags, ctx: T, elementIndex: number) => void;
+export type HostBindingsFunction<T> =
+    <U extends T>(rf: RenderFlags, ctx: U, elementIndex: number) => void;
 
 /**
  * Type used for PipeDefs on component definition.

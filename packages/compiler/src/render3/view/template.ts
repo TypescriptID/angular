@@ -18,6 +18,7 @@ import * as html from '../../ml_parser/ast';
 import {HtmlParser} from '../../ml_parser/html_parser';
 import {WhitespaceVisitor} from '../../ml_parser/html_whitespaces';
 import {DEFAULT_INTERPOLATION_CONFIG, InterpolationConfig} from '../../ml_parser/interpolation_config';
+import {LexerRange} from '../../ml_parser/lexer';
 import {isNgContainer as checkIsNgContainer, splitNsName} from '../../ml_parser/tags';
 import {mapLiteral} from '../../output/map_util';
 import * as o from '../../output/output_ast';
@@ -78,7 +79,8 @@ export function prepareEventListenerParameters(
   }
 
   const bindingExpr = convertActionBinding(
-      scope, bindingContext, handler, 'b', () => error('Unexpected interpolation'));
+      scope, bindingContext, handler, 'b', () => error('Unexpected interpolation'),
+      eventAst.handlerSpan);
 
   const statements = [];
   if (scope) {
@@ -549,7 +551,8 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     const allOtherInputs: t.BoundAttribute[] = [];
 
     element.inputs.forEach((input: t.BoundAttribute) => {
-      if (!stylingBuilder.registerBoundInput(input)) {
+      const stylingInputWasSet = stylingBuilder.registerBoundInput(input);
+      if (!stylingInputWasSet) {
         if (input.type === BindingType.Property) {
           if (input.i18n) {
             i18nAttrs.push(input);
@@ -800,19 +803,6 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       parameters.push(o.importExpr(R3.templateRefExtractor));
     }
 
-    // handle property bindings e.g. p(1, 'ngForOf', ɵbind(ctx.items));
-    const context = o.variable(CONTEXT_NAME);
-    template.inputs.forEach(input => {
-      const value = input.value.visit(this._valueConverter);
-      this.allocateBindingSlots(value);
-      this.updateInstruction(template.sourceSpan, R3.elementProperty, () => {
-        return [
-          o.literal(templateIndex), o.literal(input.name),
-          this.convertPropertyBinding(context, value)
-        ];
-      });
-    });
-
     // Create the template function
     const templateVisitor = new TemplateDefinitionBuilder(
         this.constantPool, this._bindingScope, this.level + 1, contextName, this.i18n,
@@ -840,6 +830,19 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
           2, 0, o.literal(templateVisitor.getConstCount()),
           o.literal(templateVisitor.getVarCount()));
       return trimTrailingNulls(parameters);
+    });
+
+    // handle property bindings e.g. ɵelementProperty(1, 'ngForOf', ɵbind(ctx.items));
+    const context = o.variable(CONTEXT_NAME);
+    template.inputs.forEach(input => {
+      const value = input.value.visit(this._valueConverter);
+      this.allocateBindingSlots(value);
+      this.updateInstruction(template.sourceSpan, R3.elementProperty, () => {
+        return [
+          o.literal(templateIndex), o.literal(input.name),
+          this.convertPropertyBinding(context, value)
+        ];
+      });
     });
 
     // Generate listeners for directive output
@@ -1395,8 +1398,14 @@ export class BindingScope implements LocalResolver {
   set(retrievalLevel: number, name: string, lhs: o.ReadVarExpr,
       priority: number = DeclarationPriority.DEFAULT,
       declareLocalCallback?: DeclareLocalVarCallback, localRef?: true): BindingScope {
-    !this.map.has(name) ||
-        error(`The name ${name} is already defined in scope to be ${this.map.get(name)}`);
+    if (this.map.has(name)) {
+      if (localRef) {
+        // Do not throw an error if it's a local ref and do not update existing value,
+        // so the first defined ref is always returned.
+        return this;
+      }
+      error(`The name ${name} is already defined in scope to be ${this.map.get(name)}`);
+    }
     this.map.set(name, {
       retrievalLevel: retrievalLevel,
       lhs: lhs,
@@ -1556,19 +1565,63 @@ function interpolate(args: o.Expression[]): o.Expression {
 }
 
 /**
+ * Options that can be used to modify how a template is parsed by `parseTemplate()`.
+ */
+export interface ParseTemplateOptions {
+  /**
+   * Include whitespace nodes in the parsed output.
+   */
+  preserveWhitespaces?: boolean;
+  /**
+   * How to parse interpolation markers.
+   */
+  interpolationConfig?: InterpolationConfig;
+  /**
+   * The start and end point of the text to parse within the `source` string.
+   * The entire `source` string is parsed if this is not provided.
+   * */
+  range?: LexerRange;
+  /**
+   * If this text is stored in a JavaScript string, then we have to deal with escape sequences.
+   *
+   * **Example 1:**
+   *
+   * ```
+   * "abc\"def\nghi"
+   * ```
+   *
+   * - The `\"` must be converted to `"`.
+   * - The `\n` must be converted to a new line character in a token,
+   *   but it should not increment the current line for source mapping.
+   *
+   * **Example 2:**
+   *
+   * ```
+   * "abc\
+   *  def"
+   * ```
+   *
+   * The line continuation (`\` followed by a newline) should be removed from a token
+   * but the new line should increment the current line for source mapping.
+   */
+  escapedString?: boolean;
+}
+
+/**
  * Parse a template into render3 `Node`s and additional metadata, with no other dependencies.
  *
  * @param template text of the template to parse
  * @param templateUrl URL to use for source mapping of the parsed template
+ * @param options options to modify how the template is parsed
  */
 export function parseTemplate(
     template: string, templateUrl: string,
-    options: {preserveWhitespaces?: boolean, interpolationConfig?: InterpolationConfig} = {}):
-    {errors?: ParseError[], nodes: t.Node[]} {
+    options: ParseTemplateOptions = {}): {errors?: ParseError[], nodes: t.Node[]} {
   const {interpolationConfig, preserveWhitespaces} = options;
   const bindingParser = makeBindingParser(interpolationConfig);
   const htmlParser = new HtmlParser();
-  const parseResult = htmlParser.parse(template, templateUrl, true, interpolationConfig);
+  const parseResult =
+      htmlParser.parse(template, templateUrl, {...options, tokenizeExpansionForms: true});
 
   if (parseResult.errors && parseResult.errors.length > 0) {
     return {errors: parseResult.errors, nodes: []};

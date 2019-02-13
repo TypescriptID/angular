@@ -45,9 +45,6 @@
     "name": "HOST"
   },
   {
-    "name": "T_HOST"
-  },
-  {
     "name": "INJECTOR"
   },
   {
@@ -108,6 +105,9 @@
     "name": "TVIEW"
   },
   {
+    "name": "T_HOST"
+  },
+  {
     "name": "UnsubscriptionErrorImpl"
   },
   {
@@ -117,13 +117,7 @@
     "name": "ViewEncapsulation"
   },
   {
-    "name": "__self"
-  },
-  {
     "name": "__values"
-  },
-  {
-    "name": "__window"
   },
   {
     "name": "_global"
@@ -238,6 +232,9 @@
   },
   {
     "name": "getDirectiveDef"
+  },
+  {
+    "name": "getGlobal"
   },
   {
     "name": "getHighestElementOrICUContainer"
