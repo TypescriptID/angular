@@ -10,14 +10,14 @@ import {ConstantPool, Expression, ParseError, R3DirectiveMetadata, R3QueryMetada
 import * as ts from 'typescript';
 
 import {ErrorCode, FatalDiagnosticError} from '../../diagnostics';
-import {Reference, ResolvedReference} from '../../imports';
-import {PartialEvaluator} from '../../partial_evaluator';
+import {Reference} from '../../imports';
+import {EnumValue, PartialEvaluator} from '../../partial_evaluator';
 import {ClassMember, ClassMemberKind, Decorator, ReflectionHost, filterToMembersWithDecorator, reflectObjectLiteral} from '../../reflection';
-import {AnalysisOutput, CompileResult, DecoratorHandler} from '../../transform';
+import {AnalysisOutput, CompileResult, DecoratorHandler, DetectResult, HandlerPrecedence} from '../../transform';
 
 import {generateSetClassMetadataCall} from './metadata';
 import {SelectorScopeRegistry} from './selector_scope';
-import {extractDirectiveGuards, getConstructorDependencies, isAngularCore, unwrapExpression, unwrapForwardRef} from './util';
+import {extractDirectiveGuards, getValidConstructorDependencies, isAngularCore, unwrapExpression, unwrapForwardRef} from './util';
 
 const EMPTY_OBJECT: {[key: string]: string} = {};
 
@@ -31,12 +31,22 @@ export class DirectiveDecoratorHandler implements
       private reflector: ReflectionHost, private evaluator: PartialEvaluator,
       private scopeRegistry: SelectorScopeRegistry, private isCore: boolean) {}
 
-  detect(node: ts.Declaration, decorators: Decorator[]|null): Decorator|undefined {
+  readonly precedence = HandlerPrecedence.PRIMARY;
+
+  detect(node: ts.Declaration, decorators: Decorator[]|null): DetectResult<Decorator>|undefined {
     if (!decorators) {
       return undefined;
     }
-    return decorators.find(
+    const decorator = decorators.find(
         decorator => decorator.name === 'Directive' && (this.isCore || isAngularCore(decorator)));
+    if (decorator !== undefined) {
+      return {
+        trigger: decorator.node,
+        metadata: decorator,
+      };
+    } else {
+      return undefined;
+    }
   }
 
   analyze(node: ts.ClassDeclaration, decorator: Decorator): AnalysisOutput<DirectiveHandlerData> {
@@ -47,7 +57,7 @@ export class DirectiveDecoratorHandler implements
     // If the directive has a selector, it should be registered with the `SelectorScopeRegistry` so
     // when this directive appears in an `@NgModule` scope, its selector can be determined.
     if (analysis && analysis.selector !== null) {
-      let ref = new ResolvedReference(node, node.name !);
+      const ref = new Reference(node);
       this.scopeRegistry.registerDirective(node, {
         ref,
         directive: ref,
@@ -196,7 +206,7 @@ export function extractDirectiveMetadata(
       clazz.heritageClauses.some(hc => hc.token === ts.SyntaxKind.ExtendsKeyword);
   const metadata: R3DirectiveMetadata = {
     name: clazz.name !.text,
-    deps: getConstructorDependencies(clazz, reflector, isCore), host,
+    deps: getValidConstructorDependencies(clazz, reflector, isCore), host,
     lifecycle: {
         usesOnChanges,
     },
@@ -434,6 +444,11 @@ function extractHostBindings(
           ErrorCode.DECORATOR_ARG_NOT_LITERAL, expr, `Decorator host metadata must be an object`);
     }
     hostMetaMap.forEach((value, key) => {
+      // Resolve Enum references to their declared value.
+      if (value instanceof EnumValue) {
+        value = value.resolved;
+      }
+
       if (typeof value !== 'string' || typeof key !== 'string') {
         throw new Error(`Decorator host metadata must be a string -> string object, got ${value}`);
       }

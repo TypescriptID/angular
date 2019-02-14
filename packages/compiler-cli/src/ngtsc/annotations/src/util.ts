@@ -10,13 +10,31 @@ import {R3DependencyMetadata, R3Reference, R3ResolvedDependencyType, WrappedNode
 import * as ts from 'typescript';
 
 import {ErrorCode, FatalDiagnosticError} from '../../diagnostics';
-import {AbsoluteReference, ImportMode, Reference} from '../../imports';
-import {ClassMemberKind, Decorator, ReflectionHost} from '../../reflection';
+import {ImportMode, Reference, ReferenceEmitter} from '../../imports';
+import {ClassMemberKind, CtorParameter, Decorator, ReflectionHost} from '../../reflection';
+
+export enum ConstructorDepErrorKind {
+  NO_SUITABLE_TOKEN,
+}
+
+export type ConstructorDeps = {
+  deps: R3DependencyMetadata[];
+} |
+{
+  deps: null;
+  errors: ConstructorDepError[];
+};
+
+export interface ConstructorDepError {
+  index: number;
+  param: CtorParameter;
+  kind: ConstructorDepErrorKind;
+}
 
 export function getConstructorDependencies(
-    clazz: ts.ClassDeclaration, reflector: ReflectionHost, isCore: boolean): R3DependencyMetadata[]|
-    null {
-  const useType: R3DependencyMetadata[] = [];
+    clazz: ts.ClassDeclaration, reflector: ReflectionHost, isCore: boolean): ConstructorDeps|null {
+  const deps: R3DependencyMetadata[] = [];
+  const errors: ConstructorDepError[] = [];
   let ctorParams = reflector.getConstructorParameters(clazz);
   if (ctorParams === null) {
     if (reflector.hasBaseClass(clazz)) {
@@ -60,21 +78,50 @@ export function getConstructorDependencies(
       }
     });
     if (tokenExpr === null) {
-      throw new FatalDiagnosticError(
-          ErrorCode.PARAM_MISSING_TOKEN, param.nameNode,
-          `No suitable injection token for parameter '${param.name || idx}' of class '${clazz.name!.text}'. Found: ${param.typeNode!.getText()}`);
+      errors.push({
+        index: idx,
+        kind: ConstructorDepErrorKind.NO_SUITABLE_TOKEN, param,
+      });
+    } else {
+      const token = new WrappedNodeExpr(tokenExpr);
+      deps.push({token, optional, self, skipSelf, host, resolved});
     }
-    const token = new WrappedNodeExpr(tokenExpr);
-    useType.push({token, optional, self, skipSelf, host, resolved});
   });
-  return useType;
+  if (errors.length === 0) {
+    return {deps};
+  } else {
+    return {deps: null, errors};
+  }
+}
+
+export function getValidConstructorDependencies(
+    clazz: ts.ClassDeclaration, reflector: ReflectionHost, isCore: boolean): R3DependencyMetadata[]|
+    null {
+  return validateConstructorDependencies(
+      clazz, getConstructorDependencies(clazz, reflector, isCore));
+}
+
+export function validateConstructorDependencies(
+    clazz: ts.ClassDeclaration, deps: ConstructorDeps | null): R3DependencyMetadata[]|null {
+  if (deps === null) {
+    return null;
+  } else if (deps.deps !== null) {
+    return deps.deps;
+  } else {
+    // TODO(alxhub): this cast is necessary because the g3 typescript version doesn't narrow here.
+    const {param, index} = (deps as{errors: ConstructorDepError[]}).errors[0];
+    // There is at least one error.
+    throw new FatalDiagnosticError(
+        ErrorCode.PARAM_MISSING_TOKEN, param.nameNode,
+        `No suitable injection token for parameter '${param.name || index}' of class '${clazz.name!.text}'. Found: ${param.typeNode!.getText()}`);
+  }
 }
 
 export function toR3Reference(
     valueRef: Reference, typeRef: Reference, valueContext: ts.SourceFile,
-    typeContext: ts.SourceFile): R3Reference {
-  const value = valueRef.toExpression(valueContext, ImportMode.UseExistingImport);
-  const type = typeRef.toExpression(typeContext, ImportMode.ForceNewImport);
+    typeContext: ts.SourceFile, refEmitter: ReferenceEmitter): R3Reference {
+  const value = refEmitter.emit(valueRef, valueContext, ImportMode.UseExistingImport);
+  const type = refEmitter.emit(typeRef, typeContext, ImportMode.ForceNewImport);
   if (value === null || type === null) {
     throw new Error(`Could not refer to ${ts.SyntaxKind[valueRef.node.kind]}`);
   }
@@ -86,8 +133,7 @@ export function isAngularCore(decorator: Decorator): boolean {
 }
 
 export function isAngularCoreReference(reference: Reference, symbolName: string) {
-  return reference instanceof AbsoluteReference && reference.moduleName === '@angular/core' &&
-      reference.symbolName === symbolName;
+  return reference.ownedByModuleGuess === '@angular/core' && reference.debugName === symbolName;
 }
 
 /**
@@ -162,8 +208,7 @@ export function unwrapForwardRef(node: ts.Expression, reflector: ReflectionHost)
 export function forwardRefResolver(
     ref: Reference<ts.FunctionDeclaration|ts.MethodDeclaration>,
     args: ts.Expression[]): ts.Expression|null {
-  if (!(ref instanceof AbsoluteReference) || ref.moduleName !== '@angular/core' ||
-      ref.symbolName !== 'forwardRef' || args.length !== 1) {
+  if (!isAngularCoreReference(ref, 'forwardRef') || args.length !== 1) {
     return null;
   }
   return expandForwardRef(args[0]);

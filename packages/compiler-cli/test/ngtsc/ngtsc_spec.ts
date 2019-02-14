@@ -624,6 +624,231 @@ describe('ngtsc behavioral tests', () => {
             'i0.ɵNgModuleDefWithMeta<TestModule, [typeof TestPipe, typeof TestCmp], never, never>');
   });
 
+  describe('multiple decorators on classes', () => {
+    it('should compile @Injectable on Components, Directives, Pipes, and Modules', () => {
+      env.tsconfig();
+      env.write('test.ts', `
+        import {Component, Directive, Injectable, NgModule, Pipe} from '@angular/core';
+
+        @Component({selector: 'test', template: 'test'})
+        @Injectable()
+        export class TestCmp {}
+
+        @Directive({selector: 'test'})
+        @Injectable()
+        export class TestDir {}
+
+        @Pipe({name: 'test'})
+        @Injectable()
+        export class TestPipe {}
+
+        @NgModule({declarations: [TestCmp, TestDir, TestPipe]})
+        @Injectable()
+        export class TestNgModule {}
+      `);
+
+      env.driveMain();
+      const jsContents = env.getContents('test.js');
+      const dtsContents = env.getContents('test.d.ts');
+
+      // Validate that each class has the primary definition.
+      expect(jsContents).toContain('TestCmp.ngComponentDef =');
+      expect(jsContents).toContain('TestDir.ngDirectiveDef =');
+      expect(jsContents).toContain('TestPipe.ngPipeDef =');
+      expect(jsContents).toContain('TestNgModule.ngModuleDef =');
+
+      // Validate that each class also has an injectable definition.
+      expect(jsContents).toContain('TestCmp.ngInjectableDef =');
+      expect(jsContents).toContain('TestDir.ngInjectableDef =');
+      expect(jsContents).toContain('TestPipe.ngInjectableDef =');
+      expect(jsContents).toContain('TestNgModule.ngInjectableDef =');
+
+      // Validate that each class's .d.ts declaration has the primary definition.
+      expect(dtsContents).toContain('ComponentDefWithMeta<TestCmp');
+      expect(dtsContents).toContain('DirectiveDefWithMeta<TestDir');
+      expect(dtsContents).toContain('PipeDefWithMeta<TestPipe');
+      expect(dtsContents).toContain('NgModuleDefWithMeta<TestNgModule');
+
+      // Validate that each class's .d.ts declaration also has an injectable definition.
+      expect(dtsContents).toContain('InjectableDef<TestCmp');
+      expect(dtsContents).toContain('InjectableDef<TestDir');
+      expect(dtsContents).toContain('InjectableDef<TestPipe');
+      expect(dtsContents).toContain('InjectableDef<TestNgModule');
+    });
+
+    it('should not compile a component and a directive annotation on the same class', () => {
+      env.tsconfig();
+      env.write('test.ts', `
+        import {Component, Directive} from '@angular/core';
+
+        @Component({selector: 'test', template: 'test'})
+        @Directive({selector: 'test'})
+        class ShouldNotCompile {}
+      `);
+
+      const errors = env.driveDiagnostics();
+      expect(errors.length).toBe(1);
+      expect(errors[0].messageText).toContain('Two incompatible decorators on class');
+    });
+
+
+
+    it('should leave decorators present on jit: true directives', () => {
+      env.tsconfig();
+      env.write('test.ts', `
+        import {Directive, Inject} from '@angular/core';
+
+        @Directive({
+          selector: 'test',
+          jit: true,
+        })
+        export class Test {
+          constructor(@Inject('foo') foo: string) {}
+        }
+      `);
+      env.driveMain();
+      const jsContents = env.getContents('test.js');
+      expect(jsContents).toContain('Directive({');
+      expect(jsContents).toContain('__param(0, Inject');
+    });
+  });
+
+  describe('compiling invalid @Injectables', () => {
+    describe('with strictInjectionParameters = true', () => {
+      it('should give a compile-time error if an invalid @Injectable is used with no arguments',
+         () => {
+           env.tsconfig({strictInjectionParameters: true});
+           env.write('test.ts', `
+            import {Injectable} from '@angular/core';
+    
+            @Injectable()
+            export class Test {
+              constructor(private notInjectable: string) {}
+            }
+          `);
+
+           const errors = env.driveDiagnostics();
+           expect(errors.length).toBe(1);
+           expect(errors[0].messageText).toContain('No suitable injection token for parameter');
+         });
+
+      it('should give a compile-time error if an invalid @Injectable is used with an argument',
+         () => {
+           env.tsconfig({strictInjectionParameters: true});
+           env.write('test.ts', `
+            import {Injectable} from '@angular/core';
+    
+            @Injectable()
+            export class Test {
+              constructor(private notInjectable: string) {}
+            }
+          `);
+
+           const errors = env.driveDiagnostics();
+           expect(errors.length).toBe(1);
+           expect(errors[0].messageText).toContain('No suitable injection token for parameter');
+         });
+
+      it('should not give a compile-time error if an invalid @Injectable is used with useValue',
+         () => {
+           env.tsconfig({strictInjectionParameters: true});
+           env.write('test.ts', `
+               import {Injectable} from '@angular/core';
+       
+               @Injectable({
+                 providedIn: 'root',
+                 useValue: '42',
+               })
+               export class Test {
+                 constructor(private notInjectable: string) {}
+               }
+             `);
+
+           env.driveMain();
+           const jsContents = env.getContents('test.js');
+           expect(jsContents).toMatch(/if \(t\).*throw new Error.* else .* '42'/ms);
+         });
+    });
+
+    describe('with strictInjectionParameters = false', () => {
+      it('should compile an @Injectable on a class with a non-injectable constructor', () => {
+        env.tsconfig({strictInjectionParameters: false});
+        env.write('test.ts', `
+          import {Injectable} from '@angular/core';
+
+          @Injectable()
+          export class Test {
+            constructor(private notInjectable: string) {}
+          }
+        `);
+
+        env.driveMain();
+        const jsContents = env.getContents('test.js');
+        expect(jsContents).toContain('factory: function Test_Factory(t) { throw new Error(');
+      });
+
+      it('should compile an @Injectable provided in the root on a class with a non-injectable constructor',
+         () => {
+           env.tsconfig({strictInjectionParameters: false});
+           env.write('test.ts', `
+            import {Injectable} from '@angular/core';
+            @Injectable({providedIn: 'root'})
+            export class Test {
+              constructor(private notInjectable: string) {}
+            }
+          `);
+
+           env.driveMain();
+           const jsContents = env.getContents('test.js');
+           expect(jsContents).toContain('factory: function Test_Factory(t) { throw new Error(');
+         });
+
+    });
+  });
+
+  describe('former View Engine AST transform bugs', () => {
+    it('should compile array literals behind conditionals', () => {
+      env.tsconfig();
+      env.write('test.ts', `
+        import {Component} from '@angular/core';
+
+        @Component({
+          selector: 'test',
+          template: '{{value ? "yes" : [no]}}',
+        })
+        class TestCmp {
+          value = true;
+          no = 'no';
+        }
+      `);
+
+      env.driveMain();
+      expect(env.getContents('test.js')).toContain('i0.ɵpureFunction1');
+    });
+
+    it('should compile array literals inside function arguments', () => {
+      env.tsconfig();
+      env.write('test.ts', `
+        import {Component} from '@angular/core';
+
+        @Component({
+          selector: 'test',
+          template: '{{fn([test])}}',
+        })
+        class TestCmp {
+          fn(arg: any): string {
+            return 'test';
+          }
+
+          test = 'test';
+        }
+      `);
+
+      env.driveMain();
+      expect(env.getContents('test.js')).toContain('i0.ɵpureFunction1');
+    });
+  });
+
   describe('unwrapping ModuleWithProviders functions', () => {
     it('should extract the generic type and include it in the module\'s declaration', () => {
       env.tsconfig();
@@ -820,6 +1045,25 @@ describe('ngtsc behavioral tests', () => {
     expect(jsContents).toMatch(contentQueryRegExp('ViewContainerRef', true));
   });
 
+  it('should compile expressions that write keys', () => {
+    env.tsconfig();
+    env.write(`test.ts`, `
+        import {Component, ContentChild, TemplateRef, ViewContainerRef, forwardRef} from '@angular/core';
+
+        @Component({
+          selector: 'test',
+          template: '<div (click)="test[key] = $event">',
+        })
+        class TestCmp {
+          test: any;
+          key: string;
+        }
+    `);
+
+    env.driveMain();
+    expect(env.getContents('test.js')).toContain('test[key] = $event');
+  });
+
   it('should generate host listeners for components', () => {
     env.tsconfig();
     env.write(`test.ts`, `
@@ -959,6 +1203,31 @@ describe('ngtsc behavioral tests', () => {
       }
     `;
     expect(trim(jsContents)).toContain(trim(hostBindingsFn));
+  });
+
+  it('should accept enum values as host bindings', () => {
+    env.tsconfig();
+    env.write(`test.ts`, `
+        import {Component, HostBinding, HostListener, TemplateRef} from '@angular/core';
+
+        enum HostBindings {
+          Hello = 'foo'
+        }
+
+        @Component({
+          selector: 'test',
+          template: 'Test',
+          host: {
+            '[attr.hello]': HostBindings.Hello,
+          },
+        })
+        class FooCmp {
+          foo = 'test';
+        }
+    `);
+
+    env.driveMain();
+    expect(env.getContents('test.js')).toContain('"hello", i0.ɵbind(ctx.foo)');
   });
 
   it('should generate host listeners for directives within hostBindings section', () => {

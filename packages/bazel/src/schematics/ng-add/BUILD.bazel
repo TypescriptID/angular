@@ -13,6 +13,7 @@ ts_library(
     ],
     deps = [
         "//packages/bazel/src/schematics/bazel-workspace",
+        "//packages/bazel/src/schematics/utility",
         "@ngdeps//@angular-devkit/core",
         "@ngdeps//@angular-devkit/schematics",
         "@ngdeps//@schematics/angular",

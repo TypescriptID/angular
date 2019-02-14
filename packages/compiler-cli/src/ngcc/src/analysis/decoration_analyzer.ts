@@ -12,9 +12,10 @@ import * as ts from 'typescript';
 
 import {BaseDefDecoratorHandler, ComponentDecoratorHandler, DirectiveDecoratorHandler, InjectableDecoratorHandler, NgModuleDecoratorHandler, PipeDecoratorHandler, ReferencesRegistry, ResourceLoader, SelectorScopeRegistry} from '../../../ngtsc/annotations';
 import {CycleAnalyzer, ImportGraph} from '../../../ngtsc/cycles';
-import {ModuleResolver, TsReferenceResolver} from '../../../ngtsc/imports';
+import {AbsoluteModuleStrategy, LocalIdentifierStrategy, LogicalProjectStrategy, ModuleResolver, ReferenceEmitter} from '../../../ngtsc/imports';
 import {PartialEvaluator} from '../../../ngtsc/partial_evaluator';
-import {CompileResult, DecoratorHandler} from '../../../ngtsc/transform';
+import {AbsoluteFsPath, LogicalFileSystem} from '../../../ngtsc/path';
+import {CompileResult, DecoratorHandler, DetectResult, HandlerPrecedence} from '../../../ngtsc/transform';
 import {DecoratedClass} from '../host/decorated_class';
 import {NgccReflectionHost} from '../host/ngcc_host';
 import {isDefined} from '../utils';
@@ -26,8 +27,7 @@ export interface AnalyzedFile {
 
 export interface AnalyzedClass extends DecoratedClass {
   diagnostics?: ts.Diagnostic[];
-  handler: DecoratorHandler<any, any>;
-  analysis: any;
+  matches: {handler: DecoratorHandler<any, any>; analysis: any;}[];
 }
 
 export interface CompiledClass extends AnalyzedClass { compilation: CompileResult[]; }
@@ -43,7 +43,7 @@ export const DecorationAnalyses = Map;
 
 export interface MatchingHandler<A, M> {
   handler: DecoratorHandler<A, M>;
-  match: M;
+  detected: M;
 }
 
 /**
@@ -63,9 +63,16 @@ class NgccResourceLoader implements ResourceLoader {
  */
 export class DecorationAnalyzer {
   resourceManager = new NgccResourceLoader();
-  resolver = new TsReferenceResolver(this.program, this.typeChecker, this.options, this.host);
-  scopeRegistry = new SelectorScopeRegistry(this.typeChecker, this.reflectionHost, this.resolver);
-  evaluator = new PartialEvaluator(this.reflectionHost, this.typeChecker, this.resolver);
+  refEmitter = new ReferenceEmitter([
+    new LocalIdentifierStrategy(),
+    new AbsoluteModuleStrategy(this.program, this.typeChecker, this.options, this.host),
+    // TODO(alxhub): there's no reason why ngcc needs the "logical file system" logic here, as ngcc
+    // projects only ever have one rootDir. Instead, ngcc should just switch its emitted imort based
+    // on whether a bestGuessOwningModule is present in the Reference.
+    new LogicalProjectStrategy(this.typeChecker, new LogicalFileSystem(this.rootDirs)),
+  ]);
+  scopeRegistry = new SelectorScopeRegistry(this.typeChecker, this.reflectionHost, this.refEmitter);
+  evaluator = new PartialEvaluator(this.reflectionHost, this.typeChecker);
   moduleResolver = new ModuleResolver(this.program, this.options, this.host);
   importGraph = new ImportGraph(this.moduleResolver);
   cycleAnalyzer = new CycleAnalyzer(this.importGraph);
@@ -77,10 +84,10 @@ export class DecorationAnalyzer {
         this.moduleResolver, this.cycleAnalyzer),
     new DirectiveDecoratorHandler(
         this.reflectionHost, this.evaluator, this.scopeRegistry, this.isCore),
-    new InjectableDecoratorHandler(this.reflectionHost, this.isCore),
+    new InjectableDecoratorHandler(this.reflectionHost, this.isCore, /* strictCtorDeps */ false),
     new NgModuleDecoratorHandler(
         this.reflectionHost, this.evaluator, this.scopeRegistry, this.referencesRegistry,
-        this.isCore, /* routeAnalyzer */ null),
+        this.isCore, /* routeAnalyzer */ null, this.refEmitter),
     new PipeDecoratorHandler(this.reflectionHost, this.evaluator, this.scopeRegistry, this.isCore),
   ];
 
@@ -88,7 +95,7 @@ export class DecorationAnalyzer {
       private program: ts.Program, private options: ts.CompilerOptions,
       private host: ts.CompilerHost, private typeChecker: ts.TypeChecker,
       private reflectionHost: NgccReflectionHost, private referencesRegistry: ReferencesRegistry,
-      private rootDirs: string[], private isCore: boolean) {}
+      private rootDirs: AbsoluteFsPath[], private isCore: boolean) {}
 
   /**
    * Analyze a program to find all the decorated files should be transformed.
@@ -118,21 +125,52 @@ export class DecorationAnalyzer {
   protected analyzeClass(clazz: DecoratedClass): AnalyzedClass|null {
     const matchingHandlers = this.handlers
                                  .map(handler => {
-                                   const match =
+                                   const detected =
                                        handler.detect(clazz.declaration, clazz.decorators);
-                                   return {handler, match};
+                                   return {handler, detected};
                                  })
                                  .filter(isMatchingHandler);
 
-    if (matchingHandlers.length > 1) {
-      throw new Error('TODO.Diagnostic: Class has multiple Angular decorators.');
-    }
     if (matchingHandlers.length === 0) {
       return null;
     }
-    const {handler, match} = matchingHandlers[0];
-    const {analysis, diagnostics} = handler.analyze(clazz.declaration, match);
-    return {...clazz, handler, analysis, diagnostics};
+    const detections: {handler: DecoratorHandler<any, any>, detected: DetectResult<any>}[] = [];
+    let hasWeakHandler: boolean = false;
+    let hasNonWeakHandler: boolean = false;
+    let hasPrimaryHandler: boolean = false;
+
+    for (const {handler, detected} of matchingHandlers) {
+      if (hasNonWeakHandler && handler.precedence === HandlerPrecedence.WEAK) {
+        continue;
+      } else if (hasWeakHandler && handler.precedence !== HandlerPrecedence.WEAK) {
+        // Clear all the WEAK handlers from the list of matches.
+        detections.length = 0;
+      }
+      if (hasPrimaryHandler && handler.precedence === HandlerPrecedence.PRIMARY) {
+        throw new Error(`TODO.Diagnostic: Class has multiple incompatible Angular decorators.`);
+      }
+
+      detections.push({handler, detected});
+      if (handler.precedence === HandlerPrecedence.WEAK) {
+        hasWeakHandler = true;
+      } else if (handler.precedence === HandlerPrecedence.SHARED) {
+        hasNonWeakHandler = true;
+      } else if (handler.precedence === HandlerPrecedence.PRIMARY) {
+        hasNonWeakHandler = true;
+        hasPrimaryHandler = true;
+      }
+    }
+
+    const matches: {handler: DecoratorHandler<any, any>, analysis: any}[] = [];
+    const allDiagnostics: ts.Diagnostic[] = [];
+    for (const {handler, detected} of detections) {
+      const {analysis, diagnostics} = handler.analyze(clazz.declaration, detected.metadata);
+      if (diagnostics !== undefined) {
+        allDiagnostics.push(...diagnostics);
+      }
+      matches.push({handler, analysis});
+    }
+    return {...clazz, matches, diagnostics: allDiagnostics.length > 0 ? allDiagnostics : undefined};
   }
 
   protected compileFile(analyzedFile: AnalyzedFile): CompiledFile {
@@ -145,15 +183,20 @@ export class DecorationAnalyzer {
   }
 
   protected compileClass(clazz: AnalyzedClass, constantPool: ConstantPool): CompileResult[] {
-    let compilation = clazz.handler.compile(clazz.declaration, clazz.analysis, constantPool);
-    if (!Array.isArray(compilation)) {
-      compilation = [compilation];
+    const compilations: CompileResult[] = [];
+    for (const {handler, analysis} of clazz.matches) {
+      const result = handler.compile(clazz.declaration, analysis, constantPool);
+      if (Array.isArray(result)) {
+        compilations.push(...result);
+      } else {
+        compilations.push(result);
+      }
     }
-    return compilation;
+    return compilations;
   }
 }
 
 function isMatchingHandler<A, M>(handler: Partial<MatchingHandler<A, M>>):
     handler is MatchingHandler<A, M> {
-  return !!handler.match;
+  return !!handler.detected;
 }

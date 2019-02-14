@@ -10,16 +10,17 @@ import {Expression, ExternalExpr, InvokeFunctionExpr, LiteralArrayExpr, R3Identi
 import * as ts from 'typescript';
 
 import {ErrorCode, FatalDiagnosticError} from '../../diagnostics';
-import {Reference, ResolvedReference} from '../../imports';
+import {Reference, ReferenceEmitter} from '../../imports';
 import {PartialEvaluator, ResolvedValue} from '../../partial_evaluator';
 import {Decorator, ReflectionHost, reflectObjectLiteral, typeNodeToValueExpr} from '../../reflection';
 import {NgModuleRouteAnalyzer} from '../../routing';
-import {AnalysisOutput, CompileResult, DecoratorHandler} from '../../transform';
+import {AnalysisOutput, CompileResult, DecoratorHandler, DetectResult, HandlerPrecedence} from '../../transform';
+import {getSourceFile} from '../../util/src/typescript';
 
 import {generateSetClassMetadataCall} from './metadata';
 import {ReferencesRegistry} from './references_registry';
 import {SelectorScopeRegistry} from './selector_scope';
-import {getConstructorDependencies, isAngularCore, toR3Reference, unwrapExpression} from './util';
+import {getValidConstructorDependencies, isAngularCore, toR3Reference, unwrapExpression} from './util';
 
 export interface NgModuleAnalysis {
   ngModuleDef: R3NgModuleMetadata;
@@ -37,14 +38,25 @@ export class NgModuleDecoratorHandler implements DecoratorHandler<NgModuleAnalys
   constructor(
       private reflector: ReflectionHost, private evaluator: PartialEvaluator,
       private scopeRegistry: SelectorScopeRegistry, private referencesRegistry: ReferencesRegistry,
-      private isCore: boolean, private routeAnalyzer: NgModuleRouteAnalyzer|null) {}
+      private isCore: boolean, private routeAnalyzer: NgModuleRouteAnalyzer|null,
+      private refEmitter: ReferenceEmitter) {}
 
-  detect(node: ts.Declaration, decorators: Decorator[]|null): Decorator|undefined {
+  readonly precedence = HandlerPrecedence.PRIMARY;
+
+  detect(node: ts.Declaration, decorators: Decorator[]|null): DetectResult<Decorator>|undefined {
     if (!decorators) {
       return undefined;
     }
-    return decorators.find(
+    const decorator = decorators.find(
         decorator => decorator.name === 'NgModule' && (this.isCore || isAngularCore(decorator)));
+    if (decorator !== undefined) {
+      return {
+        trigger: decorator.node,
+        metadata: decorator,
+      };
+    } else {
+      return undefined;
+    }
   }
 
   analyze(node: ts.ClassDeclaration, decorator: Decorator): AnalysisOutput<NgModuleAnalysis> {
@@ -145,7 +157,7 @@ export class NgModuleDecoratorHandler implements DecoratorHandler<NgModuleAnalys
     const ngInjectorDef: R3InjectorMetadata = {
       name: node.name !.text,
       type: new WrappedNodeExpr(node.name !),
-      deps: getConstructorDependencies(node, this.reflector, this.isCore), providers,
+      deps: getValidConstructorDependencies(node, this.reflector, this.isCore), providers,
       imports: new LiteralArrayExpr(injectorImports),
     };
 
@@ -167,10 +179,7 @@ export class NgModuleDecoratorHandler implements DecoratorHandler<NgModuleAnalys
     if (analysis.metadataStmt !== null) {
       ngModuleStatements.push(analysis.metadataStmt);
     }
-    let context = node.getSourceFile();
-    if (context === undefined) {
-      context = ts.getOriginalNode(node).getSourceFile();
-    }
+    const context = getSourceFile(node);
     for (const decl of analysis.declarations) {
       if (this.scopeRegistry.requiresRemoteScope(decl.node)) {
         const scope = this.scopeRegistry.lookupCompilationScopeAsRefs(decl.node);
@@ -180,11 +189,11 @@ export class NgModuleDecoratorHandler implements DecoratorHandler<NgModuleAnalys
         const directives: Expression[] = [];
         const pipes: Expression[] = [];
         scope.directives.forEach(
-            (directive, _) => { directives.push(directive.ref.toExpression(context) !); });
-        scope.pipes.forEach(pipe => pipes.push(pipe.toExpression(context) !));
+            (directive, _) => { directives.push(this.refEmitter.emit(directive.ref, context) !); });
+        scope.pipes.forEach(pipe => pipes.push(this.refEmitter.emit(pipe, context) !));
         const directiveArray = new LiteralArrayExpr(directives);
         const pipesArray = new LiteralArrayExpr(pipes);
-        const declExpr = decl.toExpression(context) !;
+        const declExpr = this.refEmitter.emit(decl, context) !;
         const setComponentScope = new ExternalExpr(R3Identifiers.setComponentScope);
         const callExpr =
             new InvokeFunctionExpr(setComponentScope, [declExpr, directiveArray, pipesArray]);
@@ -211,15 +220,15 @@ export class NgModuleDecoratorHandler implements DecoratorHandler<NgModuleAnalys
   private _toR3Reference(
       valueRef: Reference<ts.Declaration>, valueContext: ts.SourceFile,
       typeContext: ts.SourceFile): R3Reference {
-    if (!(valueRef instanceof ResolvedReference)) {
-      return toR3Reference(valueRef, valueRef, valueContext, valueContext);
+    if (valueRef.hasOwningModuleGuess) {
+      return toR3Reference(valueRef, valueRef, valueContext, valueContext, this.refEmitter);
     } else {
       let typeRef = valueRef;
       let typeNode = this.reflector.getDtsDeclaration(typeRef.node);
       if (typeNode !== null && ts.isClassDeclaration(typeNode)) {
-        typeRef = new ResolvedReference(typeNode, typeNode.name !);
+        typeRef = new Reference(typeNode);
       }
-      return toR3Reference(valueRef, typeRef, valueContext, typeContext);
+      return toR3Reference(valueRef, typeRef, valueContext, typeContext, this.refEmitter);
     }
   }
 
@@ -318,10 +327,7 @@ export class NgModuleDecoratorHandler implements DecoratorHandler<NgModuleAnalys
         // Recurse into nested arrays.
         refList.push(...this.resolveTypeList(expr, entry, name));
       } else if (isDeclarationReference(entry)) {
-        if (!entry.expressable) {
-          throw new FatalDiagnosticError(
-              ErrorCode.VALUE_HAS_WRONG_TYPE, expr, `One entry in ${name} is not a type`);
-        } else if (!this.reflector.isClass(entry.node)) {
+        if (!this.reflector.isClass(entry.node)) {
           throw new FatalDiagnosticError(
               ErrorCode.VALUE_HAS_WRONG_TYPE, entry.node,
               `Entry is not a type, but is used as such in ${name} array`);

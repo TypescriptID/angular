@@ -139,7 +139,9 @@ class ExpressionTranslatorVisitor implements ExpressionVisitor, StatementVisitor
     throw new Error('Method not implemented.');
   }
 
-  visitThrowStmt(stmt: ThrowStmt, context: Context) { throw new Error('Method not implemented.'); }
+  visitThrowStmt(stmt: ThrowStmt, context: Context): ts.ThrowStatement {
+    return ts.createThrow(stmt.error.visitExpression(this, context.withExpressionMode));
+  }
 
   visitCommentStmt(stmt: CommentStmt, context: Context): never {
     throw new Error('Method not implemented.');
@@ -166,8 +168,14 @@ class ExpressionTranslatorVisitor implements ExpressionVisitor, StatementVisitor
     return context.isStatement ? result : ts.createParen(result);
   }
 
-  visitWriteKeyExpr(expr: WriteKeyExpr, context: Context): never {
-    throw new Error('Method not implemented.');
+  visitWriteKeyExpr(expr: WriteKeyExpr, context: Context): ts.Expression {
+    const exprContext = context.withExpressionMode;
+    const lhs = ts.createElementAccess(
+        expr.receiver.visitExpression(this, exprContext),
+        expr.index.visitExpression(this, exprContext), );
+    const rhs = expr.value.visitExpression(this, exprContext);
+    const result: ts.Expression = ts.createBinary(lhs, ts.SyntaxKind.EqualsToken, rhs);
+    return context.isStatement ? result : ts.createParen(result);
   }
 
   visitWritePropExpr(expr: WritePropExpr, context: Context): ts.BinaryExpression {

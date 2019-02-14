@@ -7,8 +7,9 @@
  */
 import * as ts from 'typescript';
 
+import {AbsoluteFsPath} from '../../../ngtsc/path';
 import {Decorator} from '../../../ngtsc/reflection';
-import {DecoratorHandler} from '../../../ngtsc/transform';
+import {DecoratorHandler, DetectResult} from '../../../ngtsc/transform';
 import {DecorationAnalyses, DecorationAnalyzer} from '../../src/analysis/decoration_analyzer';
 import {NgccReferencesRegistry} from '../../src/analysis/ngcc_references_registry';
 import {Esm2015ReflectionHost} from '../../src/host/esm2015_host';
@@ -62,15 +63,24 @@ function createTestHandler() {
     'compile',
   ]);
   // Only detect the Component decorator
-  handler.detect.and.callFake((node: ts.Declaration, decorators: Decorator[]) => {
-    if (!decorators) {
-      return undefined;
-    }
-    return decorators.find(d => d.name === 'Component');
-  });
+  handler.detect.and.callFake(
+      (node: ts.Declaration, decorators: Decorator[]): DetectResult<any>| undefined => {
+        if (!decorators) {
+          return undefined;
+        }
+        const metadata = decorators.find(d => d.name === 'Component');
+        if (metadata === undefined) {
+          return undefined;
+        } else {
+          return {
+            metadata,
+            trigger: metadata.node,
+          };
+        }
+      });
   // The "test" analysis is just the name of the decorator being analyzed
   handler.analyze.and.callFake(
-      ((decl: ts.Declaration, dec: Decorator) => ({analysis: dec.name, diagnostics: null})));
+      ((decl: ts.Declaration, dec: Decorator) => ({analysis: dec.name, diagnostics: undefined})));
   // The "test" compilation result is just the name of the decorator being compiled
   handler.compile.and.callFake(((decl: ts.Declaration, analysis: any) => ({analysis})));
   return handler;
@@ -90,7 +100,7 @@ describe('DecorationAnalyzer', () => {
       const referencesRegistry = new NgccReferencesRegistry(reflectionHost);
       const analyzer = new DecorationAnalyzer(
           program, options, host, program.getTypeChecker(), reflectionHost, referencesRegistry,
-          [''], false);
+          [AbsoluteFsPath.fromUnchecked('/')], false);
       testHandler = createTestHandler();
       analyzer.handlers = [testHandler];
       result = analyzer.analyzeProgram();
@@ -134,7 +144,7 @@ describe('DecorationAnalyzer', () => {
            const referencesRegistry = new NgccReferencesRegistry(reflectionHost);
            const analyzer = new DecorationAnalyzer(
                program, options, host, program.getTypeChecker(), reflectionHost, referencesRegistry,
-               [''], false);
+               [AbsoluteFsPath.fromUnchecked('/')], false);
            const testHandler = createTestHandler();
            analyzer.handlers = [testHandler];
            const result = analyzer.analyzeProgram();
@@ -152,7 +162,7 @@ describe('DecorationAnalyzer', () => {
         const referencesRegistry = new NgccReferencesRegistry(reflectionHost);
         const analyzer = new DecorationAnalyzer(
             program, options, host, program.getTypeChecker(), reflectionHost, referencesRegistry,
-            [''], false);
+            [AbsoluteFsPath.fromUnchecked('/')], false);
         const testHandler = createTestHandler();
         analyzer.handlers = [testHandler];
         const result = analyzer.analyzeProgram();
