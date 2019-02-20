@@ -10,12 +10,14 @@ ng_module(
             "src/**/*.ts",
         ],
     ),
+    bundle_dts = True,
     deps = [
         "//packages:types",
         "//packages/common",
         "//packages/compiler",
         "//packages/core",
         "//packages/platform-browser",
+        "@ngdeps//rxjs",
     ],
 )
 

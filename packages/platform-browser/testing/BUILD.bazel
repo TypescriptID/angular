@@ -7,11 +7,12 @@ load("//tools:defaults.bzl", "ng_module")
 ng_module(
     name = "testing",
     srcs = glob(["**/*.ts"]),
+    bundle_dts = True,
     deps = [
         "//packages/core",
         "//packages/core/testing",
         "//packages/platform-browser",
         "@ngdeps//@types/jasmine",
-        "@rxjs",
+        "@ngdeps//rxjs",
     ],
 )

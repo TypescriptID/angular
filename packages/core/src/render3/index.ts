@@ -124,9 +124,11 @@ export {
 export {
   queryRefresh,
   viewQuery,
+  staticViewQuery,
   loadViewQuery,
   contentQuery,
   loadContentQuery,
+  staticContentQuery
 } from './query';
 
 export {

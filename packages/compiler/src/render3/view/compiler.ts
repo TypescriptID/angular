@@ -457,6 +457,7 @@ function queriesFromGlobalMetadata(
       first: query.first,
       predicate: selectorsFromGlobalMetadata(query.selectors, outputCtx),
       descendants: query.descendants, read,
+      static: !!query.static
     };
   });
 }
@@ -490,10 +491,8 @@ function prepareQueryParams(query: R3QueryMetadata, constantPool: ConstantPool):
   const parameters = [
     getQueryPredicate(query, constantPool),
     o.literal(query.descendants),
+    query.read || o.literal(null),
   ];
-  if (query.read) {
-    parameters.push(query.read);
-  }
   return parameters;
 }
 
@@ -519,9 +518,12 @@ function createContentQueriesFunction(
   const tempAllocator = temporaryAllocator(updateStatements, TEMPORARY_NAME);
 
   for (const query of meta.queries) {
-    // creation, e.g. r3.contentQuery(dirIndex, somePredicate, true);
+    // creation, e.g. r3.contentQuery(dirIndex, somePredicate, true, null);
     const args = [o.variable('dirIndex'), ...prepareQueryParams(query, constantPool) as any];
-    createStatements.push(o.importExpr(R3.contentQuery).callFn(args).toStmt());
+
+    const queryInstruction = query.static ? R3.staticContentQuery : R3.contentQuery;
+
+    createStatements.push(o.importExpr(queryInstruction).callFn(args).toStmt());
 
     // update, e.g. (r3.queryRefresh(tmp = r3.loadContentQuery()) && (ctx.someDir = tmp));
     const temporary = tempAllocator();
@@ -590,9 +592,11 @@ function createViewQueriesFunction(
   const tempAllocator = temporaryAllocator(updateStatements, TEMPORARY_NAME);
 
   meta.viewQueries.forEach((query: R3QueryMetadata) => {
+    const queryInstruction = query.static ? R3.staticViewQuery : R3.viewQuery;
+
     // creation, e.g. r3.viewQuery(somePredicate, true);
     const queryDefinition =
-        o.importExpr(R3.viewQuery).callFn(prepareQueryParams(query, constantPool));
+        o.importExpr(queryInstruction).callFn(prepareQueryParams(query, constantPool));
     createStatements.push(queryDefinition.toStmt());
 
     // update, e.g. (r3.queryRefresh(tmp = r3.loadViewQuery()) && (ctx.someDir = tmp));

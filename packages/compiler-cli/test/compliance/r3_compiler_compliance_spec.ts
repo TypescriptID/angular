@@ -1376,8 +1376,8 @@ describe('compiler compliance', () => {
             factory: function ViewQueryComponent_Factory(t) { return new (t || ViewQueryComponent)(); },
             viewQuery: function ViewQueryComponent_Query(rf, ctx) {
               if (rf & 1) {
-                $r3$.ɵviewQuery(SomeDirective, true);
-                $r3$.ɵviewQuery(SomeDirective, true);
+                $r3$.ɵviewQuery(SomeDirective, true, null);
+                $r3$.ɵviewQuery(SomeDirective, true, null);
               }
               if (rf & 2) {
                 var $tmp$;
@@ -1434,8 +1434,8 @@ describe('compiler compliance', () => {
             …
             viewQuery: function ViewQueryComponent_Query(rf, ctx) {
               if (rf & 1) {
-                $r3$.ɵviewQuery($e0_attrs$, true);
-                $r3$.ɵviewQuery($e1_attrs$, true);
+                $r3$.ɵviewQuery($e0_attrs$, true, null);
+                $r3$.ɵviewQuery($e1_attrs$, true, null);
               }
               if (rf & 2) {
                 var $tmp$;
@@ -1444,6 +1444,67 @@ describe('compiler compliance', () => {
               }
             },
             …
+          });`;
+
+        const result = compile(files, angularFiles);
+        const source = result.source;
+
+        expectEmit(source, ViewQueryComponentDefinition, 'Invalid ViewQuery declaration');
+      });
+
+      it('should support static view queries', () => {
+        const files = {
+          app: {
+            ...directive,
+            'view_query.component.ts': `
+            import {Component, NgModule, ViewChild} from '@angular/core';
+            import {SomeDirective} from './some.directive';
+
+            @Component({
+              selector: 'view-query-component',
+              template: \`
+                <div someDir></div>
+              \`
+            })
+            export class ViewQueryComponent {
+              @ViewChild(SomeDirective, {static: true}) someDir !: SomeDirective;
+              @ViewChild('foo', {static: false}) foo !: ElementRef;
+            }
+
+            @NgModule({declarations: [SomeDirective, ViewQueryComponent]})
+            export class MyModule {}
+            `
+          }
+        };
+
+        const ViewQueryComponentDefinition = `
+          const $refs$ = ["foo"];
+          const $e0_attrs$ = ["someDir",""];
+          …
+          ViewQueryComponent.ngComponentDef = $r3$.ɵdefineComponent({
+            type: ViewQueryComponent,
+            selectors: [["view-query-component"]],
+            factory: function ViewQueryComponent_Factory(t) { return new (t || ViewQueryComponent)(); },
+            viewQuery: function ViewQueryComponent_Query(rf, ctx) {
+              if (rf & 1) {
+                $r3$.ɵstaticViewQuery(SomeDirective, true, null);
+                $r3$.ɵviewQuery($refs$, true, null);
+              }
+              if (rf & 2) {
+                var $tmp$;
+                ($r3$.ɵqueryRefresh(($tmp$ = $r3$.ɵloadViewQuery())) && (ctx.someDir = $tmp$.first));
+                ($r3$.ɵqueryRefresh(($tmp$ = $r3$.ɵloadViewQuery())) && (ctx.foo = $tmp$.first));
+              }
+            },
+            consts: 1,
+            vars: 0,
+            template:  function ViewQueryComponent_Template(rf, ctx) {
+              if (rf & 1) {
+                $r3$.ɵelement(0, "div", $e0_attrs$);
+              }
+            },
+            directives: function () { return [SomeDirective]; },
+            encapsulation: 2
           });`;
 
         const result = compile(files, angularFiles);
@@ -1555,8 +1616,8 @@ describe('compiler compliance', () => {
             },
             contentQueries: function ContentQueryComponent_ContentQueries(rf, ctx, dirIndex) {
               if (rf & 1) {
-              $r3$.ɵcontentQuery(dirIndex, SomeDirective, true);
-              $r3$.ɵcontentQuery(dirIndex, SomeDirective, false);
+              $r3$.ɵcontentQuery(dirIndex, SomeDirective, true, null);
+              $r3$.ɵcontentQuery(dirIndex, SomeDirective, false, null);
               }
               if (rf & 2) {
               var $tmp$;
@@ -1615,8 +1676,8 @@ describe('compiler compliance', () => {
             …
             contentQueries: function ContentQueryComponent_ContentQueries(rf, ctx, dirIndex) {
               if (rf & 1) {
-              $r3$.ɵcontentQuery(dirIndex, $e0_attrs$, true);
-              $r3$.ɵcontentQuery(dirIndex, $e1_attrs$, false);
+              $r3$.ɵcontentQuery(dirIndex, $e0_attrs$, true, null);
+              $r3$.ɵcontentQuery(dirIndex, $e1_attrs$, false, null);
               }
               if (rf & 2) {
               var $tmp$;
@@ -1625,6 +1686,79 @@ describe('compiler compliance', () => {
               }
             },
             …
+          });`;
+
+        const result = compile(files, angularFiles);
+        const source = result.source;
+
+        expectEmit(source, ContentQueryComponentDefinition, 'Invalid ContentQuery declaration');
+      });
+
+      it('should support static content queries', () => {
+        const files = {
+          app: {
+            ...directive,
+            'content_query.ts': `
+            import {Component, ContentChild, NgModule} from '@angular/core';
+            import {SomeDirective} from './some.directive';
+
+            @Component({
+              selector: 'content-query-component',
+              template: \`
+                <div><ng-content></ng-content></div>
+              \`
+            })
+            export class ContentQueryComponent {
+              @ContentChild(SomeDirective, {static: true}) someDir !: SomeDirective;
+              @ContentChild('foo', {static: false}) foo !: ElementRef;
+            }
+
+            @Component({
+              selector: 'my-app',
+              template: \`
+                <content-query-component>
+                  <div someDir></div>
+                </content-query-component>
+              \`
+            })
+            export class MyApp { }
+
+            @NgModule({declarations: [SomeDirective, ContentQueryComponent, MyApp]})
+            export class MyModule { }
+            `
+          }
+        };
+
+        const ContentQueryComponentDefinition = `
+          ContentQueryComponent.ngComponentDef = $r3$.ɵdefineComponent({
+            type: ContentQueryComponent,
+            selectors: [["content-query-component"]],
+            factory: function ContentQueryComponent_Factory(t) {
+              return new (t || ContentQueryComponent)();
+            },
+            contentQueries: function ContentQueryComponent_ContentQueries(rf, ctx, dirIndex) {
+              if (rf & 1) {
+              $r3$.ɵstaticContentQuery(dirIndex, SomeDirective, true, null);
+              $r3$.ɵcontentQuery(dirIndex, $ref0$, true, null);
+              }
+              if (rf & 2) {
+              var $tmp$;
+                ($r3$.ɵqueryRefresh(($tmp$ = $r3$.ɵloadContentQuery())) && (ctx.someDir = $tmp$.first));
+                ($r3$.ɵqueryRefresh(($tmp$ = $r3$.ɵloadContentQuery())) && (ctx.foo = $tmp$.first));
+              }
+            },
+            ngContentSelectors: $_c1$,
+            consts: 2,
+            vars: 0,
+            template:  function ContentQueryComponent_Template(rf, ctx) {
+              if (rf & 1) {
+                $r3$.ɵprojectionDef();
+                $r3$.ɵelementStart(0, "div");
+                $r3$.ɵprojection(1);
+                $r3$.ɵelementEnd();
+              }
+            },
+            encapsulation: 2
           });`;
 
         const result = compile(files, angularFiles);
