@@ -311,6 +311,26 @@ describe('ngtsc behavioral tests', () => {
     expect(jsContents).toContain('background-color: blue');
   });
 
+  it('should compile components with styleUrls with fallback to .css extension', () => {
+    env.tsconfig();
+    env.write('test.ts', `
+        import {Component} from '@angular/core';
+
+        @Component({
+          selector: 'test-cmp',
+          styleUrls: ['./dir/style.scss'],
+          template: '',
+        })
+        export class TestCmp {}
+    `);
+    env.write('dir/style.css', ':host { background-color: blue; }');
+
+    env.driveMain();
+
+    const jsContents = env.getContents('test.js');
+    expect(jsContents).toContain('background-color: blue');
+  });
+
   it('should compile NgModules without errors', () => {
     env.tsconfig();
     env.write('test.ts', `
@@ -803,6 +823,75 @@ describe('ngtsc behavioral tests', () => {
            expect(jsContents).toContain('factory: function Test_Factory(t) { throw new Error(');
          });
 
+    });
+  });
+
+  describe('templateUrl and styleUrls processing', () => {
+    const testsForResource = (resource: string) => [
+        // [component location, resource location, resource reference]
+
+        // component and resource are in the same folder
+        [`a/app.ts`, `a/${resource}`, `./${resource}`],  //
+        [`a/app.ts`, `a/${resource}`, resource],         //
+        [`a/app.ts`, `a/${resource}`, `/a/${resource}`],
+
+        // resource is one level up
+        [`a/app.ts`, resource, `../${resource}`],  //
+        [`a/app.ts`, resource, `/${resource}`],
+
+        // component and resource are in different folders
+        [`a/app.ts`, `b/${resource}`, `../b/${resource}`],  //
+        [`a/app.ts`, `b/${resource}`, `/b/${resource}`],
+
+        // resource is in subfolder of component directory
+        [`a/app.ts`, `a/b/c/${resource}`, `./b/c/${resource}`],  //
+        [`a/app.ts`, `a/b/c/${resource}`, `b/c/${resource}`],    //
+        [`a/app.ts`, `a/b/c/${resource}`, `/a/b/c/${resource}`],
+    ];
+
+    testsForResource('style.css').forEach((test) => {
+      const [compLoc, styleLoc, styleRef] = test;
+      it(`should handle ${styleRef}`, () => {
+        env.tsconfig();
+        env.write(styleLoc, ':host { background-color: blue; }');
+        env.write(compLoc, `
+          import {Component} from '@angular/core';
+
+          @Component({
+            selector: 'test-cmp',
+            styleUrls: ['${styleRef}'],
+            template: '...',
+          })
+          export class TestCmp {}
+        `);
+
+        env.driveMain();
+
+        const jsContents = env.getContents(compLoc.replace('.ts', '.js'));
+        expect(jsContents).toContain('background-color: blue');
+      });
+    });
+
+    testsForResource('template.html').forEach((test) => {
+      const [compLoc, templateLoc, templateRef] = test;
+      it(`should handle ${templateRef}`, () => {
+        env.tsconfig();
+        env.write(templateLoc, 'Template Content');
+        env.write(compLoc, `
+          import {Component} from '@angular/core';
+
+          @Component({
+            selector: 'test-cmp',
+            templateUrl: '${templateRef}'
+          })
+          export class TestCmp {}
+        `);
+
+        env.driveMain();
+
+        const jsContents = env.getContents(compLoc.replace('.ts', '.js'));
+        expect(jsContents).toContain('Template Content');
+      });
     });
   });
 
@@ -1550,6 +1639,23 @@ describe('ngtsc behavioral tests', () => {
     expect(emptyFactory).toContain(`export var ɵNonEmptyModule = true;`);
   });
 
+  it('should be able to compile an app using the factory shim', () => {
+    env.tsconfig({'allowEmptyCodegenFiles': true});
+
+    env.write('test.ts', `        
+        export {MyModuleNgFactory} from './my-module.ngfactory';
+    `);
+
+    env.write('my-module.ts', `
+        import {NgModule} from '@angular/core';
+
+        @NgModule({})
+        export class MyModule {}
+    `);
+
+    env.driveMain();
+  });
+
   it('should generate correct imports in factory stubs when compiling @angular/core', () => {
     env.tsconfig({'allowEmptyCodegenFiles': true});
 
@@ -1727,6 +1833,26 @@ describe('ngtsc behavioral tests', () => {
     expect(jsContents).toContain('ɵsetClassMetadata(TestNgModule, ');
     expect(jsContents).toContain('ɵsetClassMetadata(TestPipe, ');
   });
+
+  it('should not throw in case whitespaces and HTML comments are present inside <ng-content>',
+     () => {
+       env.tsconfig();
+       env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            selector: 'cmp-a',
+            template: \`
+              <ng-content>
+                <!-- Some comments -->
+              </ng-content>
+            \`,
+          })
+          class CmpA {}
+       `);
+       const errors = env.driveDiagnostics();
+       expect(errors.length).toBe(0);
+     });
 
   it('should compile a template using multiple directives with the same selector', () => {
     env.tsconfig();
@@ -2162,6 +2288,109 @@ describe('ngtsc behavioral tests', () => {
     expect(afterCount).toBe(1);
   });
 
+  describe('@fileoverview Closure annotations', () => {
+    it('should be produced if not present in source file', () => {
+      env.tsconfig({
+        'annotateForClosureCompiler': true,
+      });
+      env.write(`test.ts`, `
+        import {Component} from '@angular/core';
+
+        @Component({
+          template: '<div class="test"></div>',
+        })
+        export class SomeComp {}
+      `);
+
+      env.driveMain();
+      const jsContents = env.getContents('test.js');
+      const fileoverview = `
+        /**
+         * @fileoverview added by tsickle
+         * @suppress {checkTypes,extraRequire,missingReturn,unusedPrivateMembers,uselessCode} checked by tsc
+         */
+      `;
+      expect(trim(jsContents).startsWith(trim(fileoverview))).toBeTruthy();
+    });
+
+    it('should be produced for empty source files', () => {
+      env.tsconfig({
+        'annotateForClosureCompiler': true,
+      });
+      env.write(`test.ts`, ``);
+
+      env.driveMain();
+      const jsContents = env.getContents('test.js');
+      const fileoverview = `
+        /**
+         * @fileoverview added by tsickle
+         * @suppress {checkTypes,extraRequire,missingReturn,unusedPrivateMembers,uselessCode} checked by tsc
+         */
+      `;
+      expect(trim(jsContents).startsWith(trim(fileoverview))).toBeTruthy();
+    });
+
+    it('should always be at the very beginning of a script (if placed above imports)', () => {
+      env.tsconfig({
+        'annotateForClosureCompiler': true,
+      });
+      env.write(`test.ts`, `
+        /**
+         * @fileoverview Some Comp overview
+         * @modName {some_comp}
+         */
+
+        import {Component} from '@angular/core';
+
+        @Component({
+          template: '<div class="test"></div>',
+        })
+        export class SomeComp {}
+      `);
+
+      env.driveMain();
+      const jsContents = env.getContents('test.js');
+      const fileoverview = `
+        /**
+         *
+         * @fileoverview Some Comp overview
+         * @modName {some_comp}
+         *
+         * @suppress {checkTypes,extraRequire,missingReturn,unusedPrivateMembers,uselessCode} checked by tsc
+         */
+      `;
+      expect(trim(jsContents).startsWith(trim(fileoverview))).toBeTruthy();
+    });
+
+    it('should always be at the very beginning of a script (if placed above non-imports)', () => {
+      env.tsconfig({
+        'annotateForClosureCompiler': true,
+      });
+      env.write(`test.ts`, `
+        /**
+         * @fileoverview Some Comp overview
+         * @modName {some_comp}
+         */
+
+        const testConst = 'testConstValue';
+        const testFn = function() { return true; }
+      `);
+
+      env.driveMain();
+      const jsContents = env.getContents('test.js');
+      const fileoverview = `
+        /**
+         *
+         * @fileoverview Some Comp overview
+         * @modName {some_comp}
+         *
+         * @suppress {checkTypes,extraRequire,missingReturn,unusedPrivateMembers,uselessCode} checked by tsc
+         */
+      `;
+      expect(trim(jsContents).startsWith(trim(fileoverview))).toBeTruthy();
+    });
+  });
+
   describe('sanitization', () => {
     it('should generate sanitizers for unsafe attributes in hostBindings fn in Directives', () => {
       env.tsconfig();
@@ -2520,9 +2749,9 @@ describe('ngtsc behavioral tests', () => {
           export class TestModule {}
         `);
 
-        const entryModule1 = path.join(env.basePath, 'test#TestModule');
-        const entryModule2 = path.join(env.basePath, 'not-test#TestModule');
-        const entryModule3 = path.join(env.basePath, 'test#NotTestModule');
+        const entryModule1 = path.posix.join(env.basePath, 'test#TestModule');
+        const entryModule2 = path.posix.join(env.basePath, 'not-test#TestModule');
+        const entryModule3 = path.posix.join(env.basePath, 'test#NotTestModule');
 
         expect(() => env.driveRoutes(entryModule1)).not.toThrow();
         expect(() => env.driveRoutes(entryModule2))

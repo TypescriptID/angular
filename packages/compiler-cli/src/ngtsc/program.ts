@@ -202,7 +202,7 @@ export class NgtscProgram implements api.Program {
       // Relative entry paths are disallowed.
       if (entryRoute.startsWith('.')) {
         throw new Error(
-            `Falied to list lazy routes: Resolution of relative paths (${entryRoute}) is not supported.`);
+            `Failed to list lazy routes: Resolution of relative paths (${entryRoute}) is not supported.`);
       }
 
       // Non-relative entry paths fall into one of the following categories:
@@ -272,8 +272,9 @@ export class NgtscProgram implements api.Program {
         };
 
     const customTransforms = opts && opts.customTransformers;
-    const beforeTransforms =
-        [ivyTransformFactory(compilation, this.reflector, this.importRewriter, this.isCore)];
+    const beforeTransforms = [ivyTransformFactory(
+        compilation, this.reflector, this.importRewriter, this.isCore,
+        this.closureCompilerEnabled)];
     const afterDeclarationsTransforms = [declarationTransformFactory(compilation)];
 
     if (this.factoryToSourceInfo !== null) {
