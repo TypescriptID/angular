@@ -41,12 +41,12 @@ export const INJECTOR = 10;
 export const RENDERER_FACTORY = 11;
 export const RENDERER = 12;
 export const SANITIZER = 13;
-export const TAIL = 14;
-export const CONTAINER_INDEX = 15;
+export const CHILD_HEAD = 14;
+export const CHILD_TAIL = 15;
 export const CONTENT_QUERIES = 16;
 export const DECLARATION_VIEW = 17;
 /** Size of LView's header. Necessary to adjust for it when setting slots.  */
-export const HEADER_OFFSET = 18;
+export const HEADER_OFFSET = 19;
 
 
 // This interface replaces the real LView interface if it is an arg or a
@@ -79,14 +79,15 @@ export interface LView extends Array<any> {
   [FLAGS]: LViewFlags;
 
   /**
-   * The parent view is needed when we exit the view and must restore the previous
-   * `LView`. Without this, the render method would have to keep a stack of
+   * This may store an {@link LView} or {@link LContainer}.
+   *
+   * `LView` - The parent view. This is needed when we exit the view and must restore the previous
+   * LView. Without this, the render method would have to keep a stack of
    * views as it is recursively rendering templates.
    *
-   * This is the "insertion" view for embedded views. This allows us to properly
-   * destroy embedded views.
+   * `LContainer` - The current view is part of a container, and is an embedded view.
    */
-  [PARENT]: LView|null;
+  [PARENT]: LView|LContainer|null;
 
   /**
    *
@@ -163,22 +164,21 @@ export interface LView extends Array<any> {
   [SANITIZER]: Sanitizer|null;
 
   /**
+   * Reference to the first LView or LContainer beneath this LView in
+   * the hierarchy.
+   *
+   * Necessary to store this so views can traverse through their nested views
+   * to remove listeners and call onDestroy callbacks.
+   */
+  [CHILD_HEAD]: LView|LContainer|null;
+
+  /**
    * The last LView or LContainer beneath this LView in the hierarchy.
    *
    * The tail allows us to quickly add a new state to the end of the view list
    * without having to propagate starting from the first child.
    */
-  [TAIL]: LView|LContainer|null;
-
-  /**
-   * The index of the parent container's host node. Applicable only to embedded views that
-   * have been inserted dynamically. Will be -1 for component views and inline views.
-   *
-   * This is necessary to jump from dynamically created embedded views to their parent
-   * containers because their parent cannot be stored on the TViewNode (views may be inserted
-   * in multiple containers, so the parent cannot be shared between view instances).
-   */
-  [CONTAINER_INDEX]: number;
+  [CHILD_TAIL]: LView|LContainer|null;
 
   /**
    * Stores QueryLists associated with content queries of a directive. This data structure is
@@ -402,18 +402,6 @@ export interface TView {
    * the beginning of view query list before we invoke view queries again.
    */
   viewQueryStartIndex: number;
-
-  /**
-   * Index of the host node of the first LView or LContainer beneath this LView in
-   * the hierarchy.
-   *
-   * Necessary to store this so views can traverse through their nested views
-   * to remove listeners and call onDestroy callbacks.
-   *
-   * For embedded views, we store the index of an LContainer's host rather than the first
-   * LView to avoid managing splicing when views are added/removed.
-   */
-  childIndex: number;
 
   /**
    * A reference to the first child node located in the view.

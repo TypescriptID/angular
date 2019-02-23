@@ -7,23 +7,12 @@
  */
 
 import {Type} from '../../interface/type';
-import {Component} from '../../metadata/directives';
 import {fillProperties} from '../../util/property';
 import {EMPTY_ARRAY, EMPTY_OBJ} from '../empty';
 import {ComponentDef, DirectiveDef, DirectiveDefFeature, RenderFlags} from '../interfaces/definition';
+import {isComponentDef} from '../util/view_utils';
 
 import {NgOnChangesFeature} from './ng_onchanges_feature';
-
-
-/**
- * Determines if a definition is a {@link ComponentDef} or a {@link DirectiveDef}
- * @param definition The definition to examine
- */
-function isComponentDef<T>(definition: ComponentDef<T>| DirectiveDef<T>):
-    definition is ComponentDef<T> {
-  const def = definition as ComponentDef<T>;
-  return typeof def.template === 'function';
-}
 
 function getSuperType(type: Type<any>): Type<any>&
     {ngComponentDef?: ComponentDef<any>, ngDirectiveDef?: DirectiveDef<any>} {
@@ -138,8 +127,6 @@ export function InheritDefinitionFeature(definition: DirectiveDef<any>| Componen
           }
         }
       }
-
-      break;
     } else {
       // Even if we don't have a definition, check the type for the hooks and use those if need be
       const superPrototype = superType.prototype;

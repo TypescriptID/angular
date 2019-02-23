@@ -32,7 +32,8 @@ import {TContainerNode, TElementContainerNode, TElementNode} from './interfaces/
 import {RNode, RendererFactory3, domRendererFactory3, isProceduralRenderer} from './interfaces/renderer';
 import {HEADER_OFFSET, LView, LViewFlags, RootContext, TVIEW} from './interfaces/view';
 import {enterView, leaveView} from './state';
-import {defaultScheduler, getTNode} from './util';
+import {defaultScheduler} from './util/misc_utils';
+import {getTNode} from './util/view_utils';
 import {createElementRef} from './view_engine_compatibility';
 import {RootViewRef, ViewRef} from './view_ref';
 
@@ -190,7 +191,7 @@ export class ComponentFactory<T> extends viewEngine_ComponentFactory<T> {
       component = createRootComponent(
           componentView, this.componentDef, rootLView, rootContext, [LifecycleHooksFeature]);
 
-      addToViewTree(rootLView, HEADER_OFFSET, componentView);
+      addToViewTree(rootLView, componentView);
       refreshDescendantViews(rootLView);
     } finally {
       leaveView(oldLView);
