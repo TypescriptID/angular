@@ -24,17 +24,22 @@ const angularFiles = setup({
 
 const htmlParser = new HtmlParser();
 
+// TODO: update translation extraction RegExp to support i18nLocalize calls once #28689 lands.
+const EXTRACT_GENERATED_TRANSLATIONS_REGEXP =
+    /const\s*(.*?)\s*=\s*goog\.getMsg\("(.*?)",?\s*(.*?)\)/g;
+
 const diff = (a: Set<string>, b: Set<string>): Set<string> =>
     new Set([...Array.from(a)].filter(x => !b.has(x)));
 
-const extract = (from: string, regex: any, transformFn: (match: any[]) => any) => {
-  const result = new Set<string>();
-  let item;
-  while ((item = regex.exec(from)) !== null) {
-    result.add(transformFn(item));
-  }
-  return result;
-};
+const extract =
+    (from: string, regex: any, transformFn: (match: any[], state?: Set<any>) => any) => {
+      const result = new Set<any>();
+      let item;
+      while ((item = regex.exec(from)) !== null) {
+        result.add(transformFn(item, result));
+      }
+      return result;
+    };
 
 // verify that we extracted all the necessary translations
 // and their ids match the ones extracted via 'ng xi18n'
@@ -73,8 +78,7 @@ const verifyTranslationIds =
 // placeholders object defined as goog.getMsg function argument
 const verifyPlaceholdersIntegrity = (output: string) => {
   const extactTranslations = (from: string) => {
-    const regex = /const\s*(.*?)\s*=\s*goog\.getMsg\("(.*?)",?\s*(.*?)\)/g;
-    return extract(from, regex, v => [v[2], v[3]]);
+    return extract(from, EXTRACT_GENERATED_TRANSLATIONS_REGEXP, v => [v[2], v[3]]);
   };
   const extractPlaceholdersFromBody = (body: string) => {
     const regex = /{\$(.*?)}/g;
@@ -92,6 +96,19 @@ const verifyPlaceholdersIntegrity = (output: string) => {
       return false;
     }
   });
+  return true;
+};
+
+const verifyUniqueConsts = (output: string) => {
+  extract(
+      output, EXTRACT_GENERATED_TRANSLATIONS_REGEXP,
+      (current: string[], state: Set<any>): string => {
+        const key = current[1];
+        if (state.has(key)) {
+          throw new Error(`Duplicate const ${key} found in generated output!`);
+        }
+        return key;
+      });
   return true;
 };
 
@@ -134,6 +151,7 @@ const verify = (input: string, output: string, extra: any = {}): void => {
     const result = compile(files, angularFiles, opts(false));
     maybePrint(result.source, extra.verbose);
     expect(verifyPlaceholdersIntegrity(result.source)).toBe(true);
+    expect(verifyUniqueConsts(result.source)).toBe(true);
     expectEmit(result.source, output, 'Incorrect template');
   }
 
@@ -147,6 +165,7 @@ const verify = (input: string, output: string, extra: any = {}): void => {
     expect(verifyTranslationIds(input, result.source, extra.exceptions, interpolationConfig))
         .toBe(true);
     expect(verifyPlaceholdersIntegrity(result.source)).toBe(true);
+    expect(verifyUniqueConsts(result.source)).toBe(true);
     expectEmit(result.source, output, 'Incorrect template');
   }
 };
@@ -745,6 +764,37 @@ describe('i18n support in the view compiler', () => {
       verify(input, output, {inputArgs: {interpolation: ['{%', '%}']}});
     });
 
+    it('should support interpolations with complex expressions', () => {
+      const input = `
+        <div i18n>
+          {{ valueA | async }}
+          {{ valueA?.a?.b }}
+        </div>
+      `;
+
+      const output = String.raw `
+        const $MSG_EXTERNAL_1482713963707913023$$APP_SPEC_TS_0$ = goog.getMsg(" {$interpolation} {$interpolation_1} ", {
+          "interpolation": "\uFFFD0\uFFFD",
+          "interpolation_1": "\uFFFD1\uFFFD"
+        });
+        …
+        template: function MyComponent_Template(rf, ctx) {
+          if (rf & 1) {
+            $r3$.ɵelementStart(0, "div");
+            $r3$.ɵi18n(1, $MSG_EXTERNAL_1482713963707913023$$APP_SPEC_TS_0$);
+            $r3$.ɵpipe(2, "async");
+            $r3$.ɵelementEnd();
+          }
+          if (rf & 2) {
+            $r3$.ɵi18nExp($r3$.ɵbind($r3$.ɵpipeBind1(2, 2, ctx.valueA)));
+            $r3$.ɵi18nExp($r3$.ɵbind(((ctx.valueA == null) ? null : ((ctx.valueA.a == null) ? null : ctx.valueA.a.b))));
+            $r3$.ɵi18nApply(1);
+          }
+        }
+      `;
+      verify(input, output);
+    });
+
     it('should handle i18n attributes with bindings in content', () => {
       const input = `
         <div i18n>My i18n block #{{ one }}</div>
@@ -781,7 +831,7 @@ describe('i18n support in the view compiler', () => {
           if (rf & 2) {
             $r3$.ɵi18nExp($r3$.ɵbind(ctx.one));
             $r3$.ɵi18nApply(1);
-            $r3$.ɵi18nExp($r3$.ɵbind($r3$.ɵpipeBind1(4, 0, ctx.two)));
+            $r3$.ɵi18nExp($r3$.ɵbind($r3$.ɵpipeBind1(4, 3, ctx.two)));
             $r3$.ɵi18nApply(3);
             $r3$.ɵi18nExp($r3$.ɵbind(((ctx.three + ctx.four) + ctx.five)));
             $r3$.ɵi18nApply(6);
@@ -849,7 +899,7 @@ describe('i18n support in the view compiler', () => {
           if (rf & 2) {
             $r3$.ɵi18nExp($r3$.ɵbind(ctx.one));
             $r3$.ɵi18nApply(1);
-            $r3$.ɵi18nExp($r3$.ɵbind($r3$.ɵpipeBind1(5, 0, ctx.two)));
+            $r3$.ɵi18nExp($r3$.ɵbind($r3$.ɵpipeBind1(5, 3, ctx.two)));
             $r3$.ɵi18nExp($r3$.ɵbind(ctx.nestedInBlockTwo));
             $r3$.ɵi18nApply(4);
           }
@@ -922,7 +972,7 @@ describe('i18n support in the view compiler', () => {
             $r3$.ɵi18nApply(1);
             $r3$.ɵi18nExp($r3$.ɵbind(ctx.valueE));
             $r3$.ɵi18nApply(8);
-            $r3$.ɵi18nExp($r3$.ɵbind($r3$.ɵpipeBind1(6, 0, ctx.valueD)));
+            $r3$.ɵi18nExp($r3$.ɵbind($r3$.ɵpipeBind1(6, 5, ctx.valueD)));
             $r3$.ɵi18nApply(5);
           }
         }
@@ -969,7 +1019,7 @@ describe('i18n support in the view compiler', () => {
           if (rf & 2) {
             const $ctx_r0$ = $r3$.ɵnextContext();
             $r3$.ɵi18nExp($r3$.ɵbind($ctx_r0$.valueA));
-            $r3$.ɵi18nExp($r3$.ɵbind($r3$.ɵpipeBind1(4, 0, $ctx_r0$.valueB)));
+            $r3$.ɵi18nExp($r3$.ɵbind($r3$.ɵpipeBind1(4, 2, $ctx_r0$.valueB)));
             $r3$.ɵi18nApply(2);
           }
         }
@@ -1099,7 +1149,7 @@ describe('i18n support in the view compiler', () => {
             const $ctx_r0$ = $r3$.ɵnextContext();
             $r3$.ɵelementProperty(4, "ngIf", $r3$.ɵbind($ctx_r0$.exists));
             $r3$.ɵi18nExp($r3$.ɵbind($ctx_r0$.valueA));
-            $r3$.ɵi18nExp($r3$.ɵbind($r3$.ɵpipeBind1(3, 0, $ctx_r0$.valueB)));
+            $r3$.ɵi18nExp($r3$.ɵbind($r3$.ɵpipeBind1(3, 3, $ctx_r0$.valueB)));
             $r3$.ɵi18nApply(0);
           }
         }
@@ -1129,7 +1179,7 @@ describe('i18n support in the view compiler', () => {
           if (rf & 2) {
             const $ctx_r1$ = $r3$.ɵnextContext();
             $r3$.ɵi18nExp($r3$.ɵbind(($ctx_r1$.valueE + $ctx_r1$.valueF)));
-            $r3$.ɵi18nExp($r3$.ɵbind($r3$.ɵpipeBind1(3, 0, $ctx_r1$.valueG)));
+            $r3$.ɵi18nExp($r3$.ɵbind($r3$.ɵpipeBind1(3, 2, $ctx_r1$.valueG)));
             $r3$.ɵi18nApply(0);
           }
         }
@@ -1328,7 +1378,7 @@ describe('i18n support in the view compiler', () => {
             $r3$.ɵelementContainerEnd();
           }
           if (rf & 2) {
-            $r3$.ɵi18nExp($r3$.ɵbind($r3$.ɵpipeBind1(2, 0, ctx.valueA)));
+            $r3$.ɵi18nExp($r3$.ɵbind($r3$.ɵpipeBind1(2, 1, ctx.valueA)));
             $r3$.ɵi18nApply(1);
           }
         }
@@ -1352,7 +1402,7 @@ describe('i18n support in the view compiler', () => {
             $r3$.ɵpipe(1, "uppercase");
           } if (rf & 2) {
             const $ctx_r0$ = $r3$.ɵnextContext();
-            $r3$.ɵi18nExp($r3$.ɵbind($r3$.ɵpipeBind1(1, 0, $ctx_r0$.valueA)));
+            $r3$.ɵi18nExp($r3$.ɵbind($r3$.ɵpipeBind1(1, 1, $ctx_r0$.valueA)));
             $r3$.ɵi18nApply(0);
           }
         }
@@ -1393,7 +1443,7 @@ describe('i18n support in the view compiler', () => {
           }
           if (rf & 2) {
             const $ctx_r0$ = $r3$.ɵnextContext();
-            $r3$.ɵi18nExp($r3$.ɵbind($r3$.ɵpipeBind1(1, 0, $ctx_r0$.valueA)));
+            $r3$.ɵi18nExp($r3$.ɵbind($r3$.ɵpipeBind1(1, 1, $ctx_r0$.valueA)));
             $r3$.ɵi18nApply(0);
           }
         }
@@ -1412,7 +1462,7 @@ describe('i18n support in the view compiler', () => {
             $r3$.ɵelementEnd();
           }
           if (rf & 2) {
-            $r3$.ɵi18nExp($r3$.ɵbind($r3$.ɵpipeBind1(4, 0, ctx.valueB)));
+            $r3$.ɵi18nExp($r3$.ɵbind($r3$.ɵpipeBind1(4, 1, ctx.valueB)));
             $r3$.ɵi18nApply(1);
           }
         }
@@ -1521,7 +1571,7 @@ describe('i18n support in the view compiler', () => {
           }
           if (rf & 2) {
             const $ctx_r0$ = $r3$.ɵnextContext();
-            $r3$.ɵi18nExp($r3$.ɵbind($r3$.ɵpipeBind1(1, 0, $ctx_r0$.valueA)));
+            $r3$.ɵi18nExp($r3$.ɵbind($r3$.ɵpipeBind1(1, 1, $ctx_r0$.valueA)));
             $r3$.ɵi18nApply(0);
           }
         }
@@ -1623,6 +1673,45 @@ describe('i18n support in the view compiler', () => {
             $r3$.ɵtemplate(3, MyComponent_ng_template_3_Template, 2, 0, "ng-template");
           }
         }
+      `;
+
+      verify(input, output);
+    });
+
+    it('should not emit duplicate i18n consts for nested <ng-container>s', () => {
+      const input = `
+        <ng-template i18n>
+          Root content
+          <ng-container *ngIf="visible">
+            Nested content
+          </ng-container>
+        </ng-template>
+      `;
+
+      const output = String.raw `
+        const $MSG_EXTERNAL_8537814667662432133$$APP_SPEC_TS__0$ = goog.getMsg(" Root content {$startTagNgContainer} Nested content {$closeTagNgContainer}", {
+          "startTagNgContainer": "\uFFFD*1:1\uFFFD\uFFFD#1:1\uFFFD",
+          "closeTagNgContainer": "\uFFFD/#1:1\uFFFD\uFFFD/*1:1\uFFFD"
+        });
+        …
+      `;
+
+      verify(input, output);
+    });
+
+    it('should not emit duplicate i18n consts for elements with the same content', () => {
+      const input = `
+        <div i18n>Test</div>
+        <div i18n>Test</div>
+      `;
+
+      // TODO(FW-635): currently we generate unique consts for each i18n block even though it might
+      // contain the same content. This should be optimized by translation statements caching, that
+      // can be implemented in the future within FW-635.
+      const output = String.raw `
+        const $MSG_EXTERNAL_6563391987554512024$$APP_SPEC_TS_0$ = goog.getMsg("Test");
+        const $MSG_EXTERNAL_6563391987554512024$$APP_SPEC_TS_1$ = goog.getMsg("Test");
+        …
       `;
 
       verify(input, output);

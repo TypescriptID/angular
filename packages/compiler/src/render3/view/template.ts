@@ -329,12 +329,9 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   }
 
   i18nAppendBindings(expressions: AST[]) {
-    if (!this.i18n || !expressions.length) return;
-    const implicit = o.variable(CONTEXT_NAME);
-    expressions.forEach(expression => {
-      const binding = this.convertExpressionBinding(implicit, expression);
-      this.i18n !.appendBinding(binding);
-    });
+    if (expressions.length > 0) {
+      expressions.forEach(expression => this.i18n !.appendBinding(expression));
+    }
   }
 
   i18nBindProps(props: {[key: string]: t.Text | t.BoundText}): {[key: string]: o.Expression} {
@@ -373,8 +370,9 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   }
 
   i18nUpdateRef(context: I18nContext): void {
-    const {icus, meta, isRoot, isResolved} = context;
-    if (isRoot && isResolved && !isSingleI18nIcu(meta)) {
+    const {icus, meta, isRoot, isResolved, isEmitted} = context;
+    if (isRoot && isResolved && !isEmitted && !isSingleI18nIcu(meta)) {
+      context.isEmitted = true;
       const placeholders = context.getSerializedPlaceholders();
       let icuMapping: {[name: string]: o.Expression} = {};
       let params: {[name: string]: o.Expression} =
@@ -451,7 +449,11 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     // setup accumulated bindings
     const {index, bindings} = this.i18n;
     if (bindings.size) {
-      bindings.forEach(binding => this.updateInstruction(span, R3.i18nExp, [binding]));
+      bindings.forEach(binding => {
+        this.updateInstruction(
+            span, R3.i18nExp,
+            () => [this.convertPropertyBinding(o.variable(CONTEXT_NAME), binding)]);
+      });
       this.updateInstruction(span, R3.i18nApply, [o.literal(index)]);
     }
     if (!selfClosing) {
@@ -1431,7 +1433,8 @@ export class BindingScope implements LocalResolver {
   }
 
   maybeGenerateSharedContextVar(value: BindingData) {
-    if (value.priority === DeclarationPriority.CONTEXT) {
+    if (value.priority === DeclarationPriority.CONTEXT &&
+        value.retrievalLevel < this.bindingLevel) {
       const sharedCtxObj = this.map.get(SHARED_CONTEXT_KEY + value.retrievalLevel);
       if (sharedCtxObj) {
         sharedCtxObj.declare = true;
@@ -1615,8 +1618,8 @@ export interface ParseTemplateOptions {
  * @param options options to modify how the template is parsed
  */
 export function parseTemplate(
-    template: string, templateUrl: string,
-    options: ParseTemplateOptions = {}): {errors?: ParseError[], nodes: t.Node[]} {
+    template: string, templateUrl: string, options: ParseTemplateOptions = {}):
+    {errors?: ParseError[], nodes: t.Node[], styleUrls: string[], styles: string[]} {
   const {interpolationConfig, preserveWhitespaces} = options;
   const bindingParser = makeBindingParser(interpolationConfig);
   const htmlParser = new HtmlParser();
@@ -1624,7 +1627,7 @@ export function parseTemplate(
       htmlParser.parse(template, templateUrl, {...options, tokenizeExpansionForms: true});
 
   if (parseResult.errors && parseResult.errors.length > 0) {
-    return {errors: parseResult.errors, nodes: []};
+    return {errors: parseResult.errors, nodes: [], styleUrls: [], styles: []};
   }
 
   let rootNodes: html.Node[] = parseResult.rootNodes;
@@ -1647,12 +1650,12 @@ export function parseTemplate(
         new I18nMetaVisitor(interpolationConfig, /* keepI18nAttrs */ false), rootNodes);
   }
 
-  const {nodes, errors} = htmlAstToRender3Ast(rootNodes, bindingParser);
+  const {nodes, errors, styleUrls, styles} = htmlAstToRender3Ast(rootNodes, bindingParser);
   if (errors && errors.length > 0) {
-    return {errors, nodes: []};
+    return {errors, nodes: [], styleUrls: [], styles: []};
   }
 
-  return {nodes};
+  return {nodes, styleUrls, styles};
 }
 
 /**

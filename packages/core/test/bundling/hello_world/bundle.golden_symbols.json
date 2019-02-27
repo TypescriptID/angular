@@ -54,9 +54,6 @@
     "name": "INJECTOR_BLOOM_PARENT_SIZE"
   },
   {
-    "name": "LCONTAINER_LENGTH"
-  },
-  {
     "name": "MONKEY_PATCH_KEY_NAME"
   },
   {
@@ -102,10 +99,16 @@
     "name": "RENDERER_FACTORY"
   },
   {
+    "name": "RendererStyleFlags3"
+  },
+  {
     "name": "SANITIZER"
   },
   {
     "name": "TVIEW"
+  },
+  {
+    "name": "TYPE"
   },
   {
     "name": "T_HOST"
@@ -384,9 +387,6 @@
     "name": "queueComponentIndexForCheck"
   },
   {
-    "name": "readElementValue"
-  },
-  {
     "name": "readPatchedData"
   },
   {
@@ -414,6 +414,15 @@
     "name": "renderEmbeddedTemplate"
   },
   {
+    "name": "renderInitialClasses"
+  },
+  {
+    "name": "renderInitialStyles"
+  },
+  {
+    "name": "renderInitialStylingValues"
+  },
+  {
     "name": "renderStringify"
   },
   {
@@ -421,6 +430,9 @@
   },
   {
     "name": "setBindingRoot"
+  },
+  {
+    "name": "setClass"
   },
   {
     "name": "setCurrentDirectiveDef"
@@ -444,6 +456,9 @@
     "name": "setPreviousOrParentTNode"
   },
   {
+    "name": "setStyle"
+  },
+  {
     "name": "setTNodeAndViewData"
   },
   {
@@ -454,6 +469,9 @@
   },
   {
     "name": "tickRootContext"
+  },
+  {
+    "name": "unwrapRNode"
   },
   {
     "name": "viewAttached"

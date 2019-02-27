@@ -47,7 +47,7 @@ import {ANIMATION_PROP_PREFIX, allocateDirectiveIntoContext, createEmptyStylingC
 import {NO_CHANGE} from './tokens';
 import {INTERPOLATION_DELIMITER, renderStringify} from './util/misc_utils';
 import {findComponentView, getLViewParent, getRootContext, getRootView} from './util/view_traversal_utils';
-import {getComponentViewByIndex, getNativeByIndex, getNativeByTNode, getTNode, isComponent, isComponentDef, isContentQueryHost, isRootView, loadInternal, readElementValue, readPatchedLView} from './util/view_utils';
+import {getComponentViewByIndex, getNativeByIndex, getNativeByTNode, getTNode, isComponent, isComponentDef, isContentQueryHost, isRootView, loadInternal, readPatchedLView, unwrapRNode} from './util/view_utils';
 
 
 
@@ -139,7 +139,7 @@ export function setHostBindings(tView: TView, viewData: LView): void {
         if (instruction !== null) {
           viewData[BINDING_INDEX] = bindingRootIndex;
           instruction(
-              RenderFlags.Update, readElementValue(viewData[currentDirectiveIndex]),
+              RenderFlags.Update, unwrapRNode(viewData[currentDirectiveIndex]),
               currentElementIndex);
         }
         currentDirectiveIndex++;
@@ -177,6 +177,7 @@ export function createLView<T>(
     rendererFactory?: RendererFactory3 | null, renderer?: Renderer3 | null,
     sanitizer?: Sanitizer | null, injector?: Injector | null): LView {
   const lView = tView.blueprint.slice() as LView;
+  lView[HOST] = host;
   lView[FLAGS] = flags | LViewFlags.CreationMode | LViewFlags.Attached | LViewFlags.FirstLViewPass;
   lView[PARENT] = lView[DECLARATION_VIEW] = parentLView;
   lView[CONTEXT] = context;
@@ -186,7 +187,6 @@ export function createLView<T>(
   ngDevMode && assertDefined(lView[RENDERER], 'Renderer is required');
   lView[SANITIZER] = sanitizer || parentLView && parentLView[SANITIZER] || null !;
   lView[INJECTOR as any] = injector || parentLView && parentLView[INJECTOR] || null;
-  lView[HOST] = host;
   lView[T_HOST] = tHostNode;
   ngDevMode && attachLViewDebug(lView);
   return lView;
@@ -1018,7 +1018,7 @@ function listenerInternal(
     }
 
     const idxOrTargetGetter = eventTargetResolver ?
-        (_lView: LView) => eventTargetResolver(readElementValue(_lView[tNode.index])).target :
+        (_lView: LView) => eventTargetResolver(unwrapRNode(_lView[tNode.index])).target :
         tNode.index;
     tCleanup && tCleanup.push(eventName, idxOrTargetGetter, lCleanupIndex, useCaptureOrSubIdx);
   }
@@ -1147,7 +1147,7 @@ export function elementAttribute(
     ngDevMode && validateAgainstEventAttributes(name);
     const lView = getLView();
     const renderer = lView[RENDERER];
-    const element = getNativeByIndex(index, lView);
+    const element = getNativeByIndex(index, lView) as RElement;
     if (value == null) {
       ngDevMode && ngDevMode.rendererRemoveAttribute++;
       isProceduralRenderer(renderer) ? renderer.removeAttribute(element, name, namespace) :
@@ -2216,12 +2216,13 @@ export function createLContainer(
   ngDevMode && assertDomNode(native);
   ngDevMode && assertLView(currentView);
   const lContainer: LContainer = [
+    hostNative,  // host native
+    true,        // Boolean `true` in this position signifies that this is an `LContainer`
     isForViewContainerRef ? -1 : 0,  // active index
-    [],                              // views
     currentView,                     // parent
     null,                            // next
     null,                            // queries
-    hostNative,                      // host native
+    [],                              // views
     native,                          // native
   ];
   ngDevMode && attachLContainerDebug(lContainer);
