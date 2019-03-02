@@ -26,6 +26,9 @@ const contentQueryRegExp = (predicate: string, descend: boolean, ref?: string): 
   return new RegExp(`i0\\.ɵcontentQuery\\(dirIndex, ${predicate}, ${descend}, ${maybeRef}\\)`);
 };
 
+const setClassMetadataRegExp = (expectedType: string): RegExp =>
+    new RegExp(`setClassMetadata(.*?${expectedType}.*?)`);
+
 describe('ngtsc behavioral tests', () => {
   let env !: NgtscTestEnvironment;
 
@@ -155,6 +158,24 @@ describe('ngtsc behavioral tests', () => {
     expect(jsContents).not.toContain('__decorate');
     const dtsContents = env.getContents('test.d.ts');
     expect(dtsContents).toContain('static ngInjectableDef: i0.ɵInjectableDef<Service>;');
+  });
+
+  it('should compile @Injectable with an @Optional dependency', () => {
+    env.tsconfig();
+    env.write('test.ts', `
+      import {Injectable, Optional as Opt} from '@angular/core';
+
+      @Injectable()
+      class Dep {}
+
+      @Injectable()
+      class Service {
+        constructor(@Opt() dep: Dep) {}
+      }
+    `);
+    env.driveMain();
+    const jsContents = env.getContents('test.js');
+    expect(jsContents).toContain('inject(Dep, 8)');
   });
 
   it('should compile Components (inline template) without errors', () => {
@@ -1303,6 +1324,31 @@ describe('ngtsc behavioral tests', () => {
     expect(trim(jsContents)).toContain(trim(hostBindingsFn));
   });
 
+  it('should accept dynamic host attribute bindings', () => {
+    env.tsconfig();
+    env.write('other.d.ts', `
+      export declare const foo: any;
+    `);
+    env.write('test.ts', `
+      import {Component} from '@angular/core';
+      import {foo} from './other';
+
+      const test = foo.bar();
+
+      @Component({
+        selector: 'test',
+        template: '',
+        host: {
+          'test': test,
+        },
+      })
+      export class TestCmp {}
+    `);
+    env.driveMain();
+    const jsContents = env.getContents('test.js');
+    expect(jsContents).toContain('i0.ɵelementHostAttrs(ctx, ["test", test])');
+  });
+
   it('should accept enum values as host bindings', () => {
     env.tsconfig();
     env.write(`test.ts`, `
@@ -1843,6 +1889,97 @@ describe('ngtsc behavioral tests', () => {
     expect(jsContents).toContain('ɵsetClassMetadata(TestPipe, ');
   });
 
+  it('should use imported types in setClassMetadata if they can be represented as values', () => {
+    env.tsconfig({});
+
+    env.write(`types.ts`, `
+      export class MyTypeA {}
+      export class MyTypeB {}
+    `);
+    env.write(`test.ts`, `
+      import {Component, Inject, Injectable} from '@angular/core';
+      import {MyTypeA, MyTypeB} from './types';
+
+      @Injectable({providedIn: 'root'})
+      export class SomeService {
+        constructor(arg: MyTypeA) {}
+      }
+
+      @Component({
+        selector: 'some-comp',
+        template: '...',
+      })
+      export class SomeComp {
+        constructor(@Inject('arg-token') arg: MyTypeB) {}
+      }
+    `);
+
+    env.driveMain();
+    const jsContents = trim(env.getContents('test.js'));
+    expect(jsContents).toContain(`import { MyTypeA, MyTypeB } from './types';`);
+    expect(jsContents).toMatch(setClassMetadataRegExp('type: MyTypeA'));
+    expect(jsContents).toMatch(setClassMetadataRegExp('type: MyTypeB'));
+  });
+
+  it('should use imported types in setClassMetadata if they can be represented as values and imported as `* as foo`',
+     () => {
+       env.tsconfig({});
+
+       env.write(`types.ts`, `
+         export class MyTypeA {}
+         export class MyTypeB {}
+       `);
+       env.write(`test.ts`, `
+         import {Component, Inject, Injectable} from '@angular/core';
+         import * as types from './types';
+
+         @Injectable({providedIn: 'root'})
+         export class SomeService {
+           constructor(arg: types.MyTypeA) {}
+         }
+
+         @Component({
+           selector: 'some-comp',
+           template: '...',
+         })
+         export class SomeComp {
+           constructor(@Inject('arg-token') arg: types.MyTypeB) {}
+         }
+       `);
+
+       env.driveMain();
+       const jsContents = trim(env.getContents('test.js'));
+       expect(jsContents).toContain(`import * as types from './types';`);
+       expect(jsContents).toMatch(setClassMetadataRegExp('type: types.MyTypeA'));
+       expect(jsContents).toMatch(setClassMetadataRegExp('type: types.MyTypeB'));
+     });
+
+  it('should use `undefined` in setClassMetadata if types can\'t be represented as values', () => {
+    env.tsconfig({});
+
+    env.write(`types.ts`, `
+      export type MyType = Map<any, any>;
+    `);
+    env.write(`test.ts`, `
+      import {Component, Inject, Injectable} from '@angular/core';
+      import {MyType} from './types';
+
+      @Component({
+        selector: 'some-comp',
+        template: '...',
+      })
+      export class SomeComp {
+        constructor(@Inject('arg-token') arg: MyType) {}
+      }
+    `);
+
+    env.driveMain();
+    const jsContents = trim(env.getContents('test.js'));
+    expect(jsContents).not.toContain(`import { MyType } from './types';`);
+    // Note: `type: undefined` below, since MyType can't be represented as a value
+    expect(jsContents).toMatch(setClassMetadataRegExp('type: undefined'));
+  });
+
   it('should not throw in case whitespaces and HTML comments are present inside <ng-content>',
      () => {
        env.tsconfig();
@@ -1925,6 +2062,41 @@ describe('ngtsc behavioral tests', () => {
           .toMatch(
               /i\d\.ɵsetComponentScope\(NormalComponent,\s+\[NormalComponent,\s+CyclicComponent\],\s+\[\]\)/);
       expect(jsContents).not.toContain('/*__PURE__*/ i0.ɵsetComponentScope');
+    });
+
+    it('should detect a cycle added entirely during compilation', () => {
+      env.tsconfig();
+      env.write('test.ts', `
+        import {NgModule} from '@angular/core';
+        import {ACmp} from './a';
+        import {BCmp} from './b';
+
+        @NgModule({declarations: [ACmp, BCmp]})
+        export class Module {}
+      `);
+      env.write('a.ts', `
+        import {Component} from '@angular/core';
+
+        @Component({
+          selector: 'a-cmp',
+          template: '<b-cmp></b-cmp>',
+        })
+        export class ACmp {}
+      `);
+      env.write('b.ts', `
+        import {Component} from '@angular/core';
+
+        @Component({
+          selector: 'b-cmp',
+          template: '<a-cmp></a-cmp>',
+        })
+        export class BCmp {}
+      `);
+      env.driveMain();
+      const aJsContents = env.getContents('a.js');
+      const bJsContents = env.getContents('b.js');
+      expect(aJsContents).toMatch(/import \* as i\d? from ".\/b"/);
+      expect(bJsContents).not.toMatch(/import \* as i\d? from ".\/a"/);
     });
   });
 

@@ -39,6 +39,9 @@
     "@angular-devkit/core" "7.3.2"
     rxjs "6.3.3"
 
+"@angular/bazel@file:./tools/npm/@angular_bazel":
+  version "0.0.0"
+
 "@angular/cli@^7.3.2":
   version "7.3.2"
   resolved "https://registry.yarnpkg.com/@angular/cli/-/cli-7.3.2.tgz#2664bfa5b00259440066a5cf851c74f6099dd4f9"
@@ -58,29 +61,29 @@
     semver "5.6.0"
     symbol-observable "1.2.0"
 
-"@bazel/bazel-darwin_x64@0.22.0":
-  version "0.22.0"
-  resolved "https://registry.yarnpkg.com/@bazel/bazel-darwin_x64/-/bazel-darwin_x64-0.22.0.tgz#a2bea5922dba9a32554a218ba4849a200115b248"
-  integrity sha512-LFxkyQgPATeB64z/1IvOWZhK+lc3JVHejbmdo96qB4lsoD8zselvOlgHvVXxlAjRxVZ9mlmXDvDRDyaXyyRdwA==
+"@bazel/bazel-darwin_x64@0.23.0":
+  version "0.23.0"
+  resolved "https://registry.yarnpkg.com/@bazel/bazel-darwin_x64/-/bazel-darwin_x64-0.23.0.tgz#11f40d23d282e3034da5c223462f17924adc6c42"
+  integrity sha512-kEn+SzN9zK2dHeKpTpkZma4ZqZdlzEagYLf2EY7yqRWKpD8oW5MZ2S2JxwvR4w1ZrHCth/x4dFsxwPlNA585JQ==
 
-"@bazel/bazel-linux_x64@0.22.0":
-  version "0.22.0"
-  resolved "https://registry.yarnpkg.com/@bazel/bazel-linux_x64/-/bazel-linux_x64-0.22.0.tgz#12e5884f2a7b7f3b62afbef9f8da4de0976f3bc8"
-  integrity sha512-xDs8cb2bbGZ9uvzYZOzCVrMBywzRhLj0J/t+py+FYZj+VO5B3wVg9eUf6nWWR0oJ2mzvToI9h31t2tNdqwy2kQ==
+"@bazel/bazel-linux_x64@0.23.0":
+  version "0.23.0"
+  resolved "https://registry.yarnpkg.com/@bazel/bazel-linux_x64/-/bazel-linux_x64-0.23.0.tgz#5c3a0ebc9e68fa3a4bb7a0d05367febca15897a2"
+  integrity sha512-B+FQOEcrRCM+D/w2hB5uh8j/HiZC2XN4+nthWvgkvdsgiKDXUf0oP/kLCVF/J7T5FAWafky97KDLPPcD6w1Fhg==
 
-"@bazel/bazel-win32_x64@0.22.0":
-  version "0.22.0"
-  resolved "https://registry.yarnpkg.com/@bazel/bazel-win32_x64/-/bazel-win32_x64-0.22.0.tgz#a8a65986639583a8cc7b018e001aedfdafe41b50"
-  integrity sha512-FbJaXVDoCLnpIFLnPHFkQdfriYPXfnfQNuf9EXMliERdRuoeBVbwEZfwcuArxZWNFus7bD8QiTj0XzKVWO+Wbw==
+"@bazel/bazel-win32_x64@0.23.0":
+  version "0.23.0"
+  resolved "https://registry.yarnpkg.com/@bazel/bazel-win32_x64/-/bazel-win32_x64-0.23.0.tgz#9956051d6f66ccf43ed74f0855522c8c673eff97"
+  integrity sha512-88RfiUwqulva7KmPmgqjYK7EPE1qOwi03jOeDs+U3tb+HUwkyr88t5DKtZU5KBsYjk1UbFFes+RVZtkPmKmcmQ==
 
-"@bazel/bazel@~0.22.0":
-  version "0.22.0"
-  resolved "https://registry.yarnpkg.com/@bazel/bazel/-/bazel-0.22.0.tgz#feb0f2d82f9d169cb47951d95d55e512eda72bc9"
-  integrity sha512-uaXZsfCXOASBXzmge56akRIhJnKYdShn1X3AdEBzq2NNCf2llkc1H25gKGm4BfuWDBXRbXDMmcXup+fw39h+WQ==
+"@bazel/bazel@0.23.0":
+  version "0.23.0"
+  resolved "https://registry.yarnpkg.com/@bazel/bazel/-/bazel-0.23.0.tgz#22e71d55ccebfd76f6f0bd8a15076160adfac61f"
+  integrity sha512-6XQ51t4ssEpdCea0rquiGB6cPr5/1Hef4LyHOzYDI8UnLt3pFAKAfOwEqC7HPD21zX3+usa3zSHrID6oOADppg==
   optionalDependencies:
-    "@bazel/bazel-darwin_x64" "0.22.0"
-    "@bazel/bazel-linux_x64" "0.22.0"
-    "@bazel/bazel-win32_x64" "0.22.0"
+    "@bazel/bazel-darwin_x64" "0.23.0"
+    "@bazel/bazel-linux_x64" "0.23.0"
+    "@bazel/bazel-win32_x64" "0.23.0"
 
 "@bazel/buildifier-darwin_x64@0.19.2":
   version "0.19.2"
@@ -105,17 +108,17 @@
   resolved "https://registry.yarnpkg.com/@bazel/ibazel/-/ibazel-0.9.0.tgz#fd60023acd36313d304cc2f8c2e181b88b5445cd"
   integrity sha512-E31cefDcdJsx/oii6p/gqKZXSVw0kEg1O73DD2McFcSvnf/p1GYWcQtVgdRQmlviBEytJkJgdX8rtThitRvcow==
 
-"@bazel/jasmine@0.26.0-beta.0":
-  version "0.26.0-beta.0"
-  resolved "https://registry.yarnpkg.com/@bazel/jasmine/-/jasmine-0.26.0-beta.0.tgz#77243fea16dd7b31c60e0aa78bb89b7dcf0a9443"
-  integrity sha512-6dTuxGitXP6VcmgNwB9D9KqatDGX+Xw9GXDTJNnAT7wNDaakggiRg1ocLe8/xDMB+EXVg1qKOKS5NhZYHq3jVQ==
+"@bazel/jasmine@0.26.0":
+  version "0.26.0"
+  resolved "https://registry.yarnpkg.com/@bazel/jasmine/-/jasmine-0.26.0.tgz#f7aed169b057b5af547d2573657b394ecbda0b5d"
+  integrity sha512-lkvzPHdbSEe1zitnV1hIBwodriXqp/ClHSZQJ5Y486UaLQ6Sm7k7gV2phOwtg7LqLVZnElZDmFLSI0/O1UYYyQ==
   dependencies:
     jasmine "~3.3.1"
 
-"@bazel/karma@0.26.0-beta.0":
-  version "0.26.0-beta.0"
-  resolved "https://registry.yarnpkg.com/@bazel/karma/-/karma-0.26.0-beta.0.tgz#0a83bac1adaa0cfec8e3fb4acb49d02e05b141ed"
-  integrity sha512-N2doztMGN6TMT3Gi4R4dfB7ypZI4tF3U1HG09lP7MVmr46czVNp/lwTnjyfJgbababYBfhiGgrXD9VOC9QqKnA==
+"@bazel/karma@0.26.0":
+  version "0.26.0"
+  resolved "https://registry.yarnpkg.com/@bazel/karma/-/karma-0.26.0.tgz#6ad796686f5775df33a96fa5ef3df76a66aed3b2"
+  integrity sha512-yZv0fgAjVrfrM0ld8e+wNaPIpYCpwBzVQi2GUErsKStUZXPUUofpBwBjlYsdY1Osn5/FmAF9e6xDkk1JWn/wSg==
   dependencies:
     jasmine-core "2.8.0"
     karma "^4.0.0"
@@ -129,10 +132,10 @@
     semver "5.6.0"
     tmp "0.0.33"
 
-"@bazel/typescript@0.26.0-beta.0":
-  version "0.26.0-beta.0"
-  resolved "https://registry.yarnpkg.com/@bazel/typescript/-/typescript-0.26.0-beta.0.tgz#aa025951563f47baca302c8ebcf24eb596724426"
-  integrity sha512-Ot7k3sfLQAdf14IDmsc6wSgfySctJdW6Uwg7YmD4Zv1sGWkjKaWEtQDFgjtf5kEgFpC0aeM5uK+heqz1CC+VcQ==
+"@bazel/typescript@0.26.0":
+  version "0.26.0"
+  resolved "https://registry.yarnpkg.com/@bazel/typescript/-/typescript-0.26.0.tgz#c06139d76c8b9d3a3ed98a721b776fedb4b11c82"
+  integrity sha512-dh/Y/SZzmeChsLap8FVHYl0FuaeLh/6t9WBVhm5nOgyVrqfEyVpNzy4W20E4NqnmJY2/PqmD5qncf+Oo1q9h1A==
   dependencies:
     jasmine-core "2.8.0"
     protobufjs "5.0.3"
@@ -217,12 +220,12 @@
     through2 "^2.0.0"
     xdg-basedir "^3.0.0"
 
-"@microsoft/api-extractor@^7.0.17":
-  version "7.0.17"
-  resolved "https://registry.yarnpkg.com/@microsoft/api-extractor/-/api-extractor-7.0.17.tgz#fadb376908a57144ba4a8eb18787d6337bfe6b56"
-  integrity sha512-Mm+6x5/1HRAKno0vow4DyMKcVtB+b6wehMUx21huN+FSpfxID5kAEqKw9OR9XCp7YBXjiISqFBlY4dVYq/bdCw==
+"@microsoft/api-extractor@^7.0.21":
+  version "7.0.21"
+  resolved "https://registry.yarnpkg.com/@microsoft/api-extractor/-/api-extractor-7.0.21.tgz#d5ff9bba4ff7283503aac83ad489b16cad293fc7"
+  integrity sha512-7lFcHNykVz0tvgOz9juXqP+a1j0EmnJ9J080CBE/171IxL4fBrpslPhqN86dNuavuPragRpBLc8Okv/bV7FJPQ==
   dependencies:
-    "@microsoft/node-core-library" "3.10.0"
+    "@microsoft/node-core-library" "3.12.0"
     "@microsoft/ts-command-line" "4.2.3"
     "@microsoft/tsdoc" "0.12.5"
     "@types/node" "8.5.8"
@@ -233,10 +236,10 @@
     typescript "~3.1.6"
     z-schema "~3.18.3"
 
-"@microsoft/node-core-library@3.10.0":
-  version "3.10.0"
-  resolved "https://registry.yarnpkg.com/@microsoft/node-core-library/-/node-core-library-3.10.0.tgz#70e089534d8e20f6a0f9c7a4a12a6aeafd6a1ddb"
-  integrity sha512-1SbU+XNYAabhV9noGXHtsUVPc5ELV+oEuJQtZQoCncbOd6WAMeTgB1xFwh96hmdEXyKQyML/pnByiKocmh/nbQ==
+"@microsoft/node-core-library@3.12.0":
+  version "3.12.0"
+  resolved "https://registry.yarnpkg.com/@microsoft/node-core-library/-/node-core-library-3.12.0.tgz#f9c27b8bb6b55d60b91d4e1962f42b03b9f8f47f"
+  integrity sha512-9T2dEXmmxZqnqcpHuIB8mTAOM/DNSi/QcAwKYDjvZvkd+PGT5lCUXjM9GL7SaR2NPa3UrWDGgFhNoqLqLfEPbw==
   dependencies:
     "@types/fs-extra" "5.0.4"
     "@types/jju" "~1.4.0"

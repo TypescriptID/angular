@@ -44,9 +44,9 @@ function addDevDependenciesToPackageJson(options: Schema) {
     const devDependencies: {[k: string]: string} = {
       '@angular/bazel': angularCoreVersion,
       '@angular/upgrade': angularCoreVersion,
-      '@bazel/bazel': '^0.22.1',
+      '@bazel/bazel': '^0.23.0',
       '@bazel/ibazel': '^0.9.0',
-      '@bazel/karma': '^0.25.1',
+      '@bazel/karma': '^0.26.0',
     };
 
     const recorder = host.beginUpdate(packageJson);
@@ -143,6 +143,7 @@ function updateAngularJsonToUseBazelBuilder(options: Schema): Rule {
           options: {
             targetLabel: '//src:devserver',
             bazelCommand: 'run',
+            watch: true,
           },
           configurations: {
             production: {

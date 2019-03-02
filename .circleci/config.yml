@@ -324,7 +324,7 @@ jobs:
     docker:
       # Needed because the example e2e tests depend on Chrome.
       - image: *browsers_docker_image
-    parallelism: 3
+    parallelism: 4
     steps:
       - *attach_workspace
       - *init_environment
@@ -340,12 +340,21 @@ jobs:
     docker:
       # Needed because the example e2e tests depend on Chrome.
       - image: *browsers_docker_image
-    parallelism: 3
+    # We increase the parallelism here to five while the "test_docs_examples" job runs with
+    # a parallelism of four. This is necessary because this job also need to run NGCC which
+    # takes up more time and we don't want these jobs to impact the overall CI turnaround.
+    parallelism: 5
     steps:
       - *attach_workspace
       - *init_environment
         # Install aio
       - run: yarn --cwd aio install --frozen-lockfile --non-interactive
+        # Rename the Ivy packages dist folder to "dist/packages-dist" as the AIO
+        # package installer picks up the locally built packages from that location.
+        # *Note*: We could also adjust the packages installer, but given we won't have
+        # two different folders of Angular distributions in the future, we should keep
+        # the packages installer unchanged.
+      - run: mv dist/packages-dist-ivy-aot dist/packages-dist
         # Run examples tests with ivy. The "CIRCLE_NODE_INDEX" will be set if "parallelism" is enabled.
         # Since the parallelism is set to "3", there will be three parallel CircleCI containers
         # with either "0", "1" or "2" as node index. This can be passed to the "--shard" argument.
@@ -461,18 +470,20 @@ jobs:
   publish_snapshot:
     <<: *job_defaults
     steps:
-      - *attach_workspace
-      - *init_environment
       # See below - ideally this job should not trigger for non-upstream builds.
       # But since it does, we have to check this condition.
       - run:
           name: Skip this job for Pull Requests and Fork builds
-          # Note, `|| true` on the end makes this step always exit 0
-          command: '[[
-              "$CI_PULL_REQUEST" != "false"
-              || "$CI_REPO_OWNER" != "angular"
-              || "$CI_REPO_NAME" != "angular"
-          ]] && circleci step halt || true'
+          # Note: Using `CIRCLE_*` env variables (instead of those defined in `env.sh` so that this
+          #       step can be run before `init_environment`.
+          command: >
+            if [[ -n "${CIRCLE_PR_NUMBER}" ]] ||
+                [[ "$CIRCLE_PROJECT_USERNAME" != "angular" ]] ||
+                [[ "$CIRCLE_PROJECT_REPONAME" != "angular" ]]; then
+              circleci step halt
+            fi
+      - *attach_workspace
+      - *init_environment
       # CircleCI has a config setting to force SSH for all github connections
       # This is not compatible with our mechanism of using a Personal Access Token
       # Clear the global setting
@@ -594,7 +605,7 @@ workflows:
             - build-npm-packages
       - test_docs_examples_ivy:
           requires:
-            - build-npm-packages
+            - build-ivy-npm-packages
       - aio_preview:
           requires:
             - setup
