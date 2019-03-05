@@ -17,10 +17,6 @@
 // tslint:disable
 
 window.testBlocklist = {
-  "Portals CdkPortalOutlet should not clear programmatically-attached portals on init": {
-    "error": "ObjectUnsubscribedError: object unsubscribed",
-    "notes": "Unknown"
-  },
   "Portals DomPortalOutlet should attach and detach a component portal without a ViewContainerRef": {
     "error": "Error: Expected '<pizza-msg><p>Pizza</p><p>Chocolate</p></pizza-msg>' to be '', 'Expected the DomPortalOutlet to be empty after detach'.",
     "notes": "Unknown"
@@ -129,14 +125,6 @@ window.testBlocklist = {
     "error": "Error: Failed: Expected node descendant num to be 2 but was 0",
     "notes": "Unknown"
   },
-  "MatInput without forms validates the type": {
-    "error": "Error: Input type \"file\" isn't supported by matInput.",
-    "notes": "Unknown"
-  },
-  "MatInput with textarea autosize should work in a step": {
-    "error": "TypeError: Cannot read property 'getBoundingClientRect' of null",
-    "notes": "Unknown"
-  },
   "MatChipList StandardChipList basic behaviors should toggle the chips disabled state based on whether it is disabled": {
     "error": "Error: Expected true to be false.",
     "notes": "Unknown"
@@ -229,28 +217,8 @@ window.testBlocklist = {
     "error": "TypeError: Cannot read property 'nativeElement' of undefined",
     "notes": "Unknown"
   },
-  "MatStepper basic stepper should set the correct aria-posinset and aria-setsize": {
-    "error": "Error: Expected $.length = 0 to equal 3.",
-    "notes": "Unknown"
-  },
   "MatStepper linear stepper should not move to next step if current step is pending": {
     "error": "TypeError: Cannot read property 'nativeElement' of undefined",
-    "notes": "Unknown"
-  },
-  "MatStepper aria labelling should not set aria-label or aria-labelledby attributes if they are not passed in": {
-    "error": "TypeError: Cannot read property 'hasAttribute' of null",
-    "notes": "Unknown"
-  },
-  "MatStepper aria labelling should set the aria-label attribute": {
-    "error": "TypeError: Cannot read property 'getAttribute' of null",
-    "notes": "Unknown"
-  },
-  "MatStepper aria labelling should set the aria-labelledby attribute": {
-    "error": "TypeError: Cannot read property 'getAttribute' of null",
-    "notes": "Unknown"
-  },
-  "MatStepper aria labelling should not be able to set both an aria-label and aria-labelledby": {
-    "error": "TypeError: Cannot read property 'getAttribute' of null",
     "notes": "Unknown"
   },
   "MatStepper stepper with error state should show error state": {
@@ -266,44 +234,36 @@ window.testBlocklist = {
     "notes": "Unknown"
   },
   "MatSidenav should be fixed position when in fixed mode": {
-    "error": "Error: Expected ng-tns-c28435-0 ng-trigger ng-trigger-transform mat-drawer mat-drawer-over ng-star-inserted to contain 'mat-sidenav-fixed'.",
-    "notes": "FW-1081: Static host classes don't work if component has superclass with host classes"
+    "error": "Error: Expected ng-tns-c21962-0 ng-trigger ng-trigger-transform mat-drawer mat-sidenav mat-drawer-over ng-star-inserted to contain 'mat-sidenav-fixed'.",
+    "notes": "Unknown"
   },
   "MatSidenav should set fixed bottom and top when in fixed mode": {
     "error": "Error: Expected '' to be '20px'.",
     "notes": "FW-1081: Static host classes don't work if component has superclass with host classes"
   },
-  "MatTree flat tree should initialize with rendered dataNodes": {
-    "error": "TypeError: Cannot read property 'classList' of undefined",
-    "notes": "FW-1081: Static host classes don't work if component has superclass with host classes"
-  },
   "MatTree flat tree with toggle should expand/collapse the node": {
-    "error": "TypeError: Cannot read property 'click' of undefined",
-    "notes": "FW-1081: Static host classes don't work if component has superclass with host classes"
+    "error": "Error: Expected 0 to be 1, 'Expect node expanded one level'.",
+    "notes": "Unknown"
   },
   "MatTree flat tree with toggle should expand/collapse the node recursively": {
-    "error": "TypeError: Cannot read property 'click' of undefined",
-    "notes": "FW-1081: Static host classes don't work if component has superclass with host classes"
-  },
-  "MatTree flat tree with undefined or null children should initialize with rendered dataNodes": {
-    "error": "TypeError: Cannot read property 'classList' of undefined",
-    "notes": "FW-1081: Static host classes don't work if component has superclass with host classes"
-  },
-  "MatTree nested tree with undefined or null children should initialize with rendered dataNodes": {
-    "error": "TypeError: Cannot read property 'classList' of undefined",
-    "notes": "FW-1081: Static host classes don't work if component has superclass with host classes"
-  },
-  "MatTree nested tree should initialize with rendered dataNodes": {
-    "error": "TypeError: Cannot read property 'classList' of undefined",
-    "notes": "FW-1081: Static host classes don't work if component has superclass with host classes"
+    "error": "Error: Expected 0 to be 3, 'Expect nodes expanded'.",
+    "notes": "Unknown"
   },
   "MatTree nested tree with toggle should expand/collapse the node": {
-    "error": "TypeError: Cannot read property 'click' of undefined",
-    "notes": "FW-1081: Static host classes don't work if component has superclass with host classes"
+    "error": "Error: Expected 0 to be 1, 'Expect node expanded'.",
+    "notes": "Unknown"
   },
   "MatTree nested tree with toggle should expand/collapse the node recursively": {
-    "error": "TypeError: Cannot read property 'click' of undefined",
-    "notes": "FW-1081: Static host classes don't work if component has superclass with host classes"
+    "error": "Error: Expected 0 to be 3, 'Expect node expanded'.",
+    "notes": "Unknown"
+  },
+  "MatInput without forms validates the type": {
+    "error": "Error: Input type \"file\" isn't supported by matInput.",
+    "notes": "Unknown"
+  },
+  "MatInput with textarea autosize should work in a step": {
+    "error": "TypeError: Cannot read property 'getBoundingClientRect' of null",
+    "notes": "Unknown"
   },
   "Dialog should set the proper animation states": {
     "error": "TypeError: Cannot read property 'componentInstance' of null",
@@ -361,72 +321,40 @@ window.testBlocklist = {
     "error": "Error: Expected 'none' to be falsy.",
     "notes": "Unknown"
   },
-  "MatTable with basic data source should be able to create a table with the right content and without when row": {
-    "error": "TypeError: Cannot read property 'querySelectorAll' of null",
-    "notes": "Unknown"
-  },
-  "MatTable with basic data source should create a table with special when row": {
-    "error": "TypeError: Cannot read property 'querySelectorAll' of null",
-    "notes": "Unknown"
-  },
-  "MatTable with basic data source should create a table with multiTemplateDataRows true": {
-    "error": "TypeError: Cannot read property 'querySelectorAll' of null",
-    "notes": "Unknown"
-  },
   "MatTable should be able to render a table correctly with native elements": {
     "error": "Error: Missing definitions for header, footer, and row; cannot determine which columns should be rendered.",
-    "notes": "Unknown"
-  },
-  "MatTable should render with MatTableDataSource and sort": {
-    "error": "TypeError: Cannot read property 'querySelectorAll' of null",
-    "notes": "Unknown"
-  },
-  "MatTable should render with MatTableDataSource and pagination": {
-    "error": "TypeError: Cannot read property 'querySelectorAll' of null",
     "notes": "Unknown"
   },
   "MatTable should apply custom sticky CSS class to sticky cells": {
     "error": "Error: Missing definitions for header, footer, and row; cannot determine which columns should be rendered.",
     "notes": "Unknown"
   },
-  "MatTable with MatTableDataSource and sort/pagination/filter should create table and display data source contents": {
-    "error": "TypeError: Cannot read property 'querySelectorAll' of null",
-    "notes": "Unknown"
-  },
-  "MatTable with MatTableDataSource and sort/pagination/filter changing data should update the table contents": {
-    "error": "TypeError: Cannot read property 'querySelectorAll' of null",
-    "notes": "Unknown"
-  },
   "MatTable with MatTableDataSource and sort/pagination/filter should be able to filter the table contents": {
-    "error": "TypeError: Cannot read property 'querySelectorAll' of null",
-    "notes": "Unknown"
-  },
-  "MatTable with MatTableDataSource and sort/pagination/filter should not match concatenated words": {
-    "error": "TypeError: Cannot read property 'querySelectorAll' of null",
+    "error": "TypeError: Cannot read property 'length' of undefined",
     "notes": "Unknown"
   },
   "MatTable with MatTableDataSource and sort/pagination/filter should be able to sort the table contents": {
-    "error": "TypeError: Cannot read property 'querySelectorAll' of null",
+    "error": "Error: Failed: Expected cell contents to be a_3 but was a_1",
     "notes": "Unknown"
   },
   "MatTable with MatTableDataSource and sort/pagination/filter should by default correctly sort an empty string": {
-    "error": "TypeError: Cannot read property 'querySelectorAll' of null",
+    "error": "Error: Failed: Expected cell contents to be  but was a_1",
     "notes": "Unknown"
   },
   "MatTable with MatTableDataSource and sort/pagination/filter should by default correctly sort undefined values": {
-    "error": "TypeError: Cannot read property 'querySelectorAll' of null",
+    "error": "Error: Failed: Expected cell contents to be  but was a_1",
     "notes": "Unknown"
   },
   "MatTable with MatTableDataSource and sort/pagination/filter should sort zero correctly": {
-    "error": "TypeError: Cannot read property 'querySelectorAll' of null",
+    "error": "Error: Failed: Expected cell contents to be -1 but was a_1",
     "notes": "Unknown"
   },
   "MatTable with MatTableDataSource and sort/pagination/filter should be able to page the table contents": {
-    "error": "TypeError: Cannot read property 'querySelectorAll' of null",
+    "error": "Error: Failed: Expected 7 total rows but got 105",
     "notes": "Unknown"
   },
   "MatTable with MatTableDataSource and sort/pagination/filter should sort strings with numbers larger than MAX_SAFE_INTEGER correctly": {
-    "error": "TypeError: Cannot read property 'querySelectorAll' of null",
+    "error": "Error: Failed: Expected cell contents to be 9563256840123535 but was a_1",
     "notes": "Unknown"
   }
 };

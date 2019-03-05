@@ -1694,6 +1694,22 @@ describe('ngtsc behavioral tests', () => {
     expect(emptyFactory).toContain(`export var ɵNonEmptyModule = true;`);
   });
 
+  it('should copy a top-level comment into a factory stub', () => {
+    env.tsconfig({'allowEmptyCodegenFiles': true});
+
+    env.write('test.ts', `/** I am a top-level comment. */
+        import {NgModule} from '@angular/core';
+
+        @NgModule({})
+        export class TestModule {}
+    `);
+
+    env.driveMain();
+
+    const factoryContents = env.getContents('test.ngfactory.js');
+    expect(factoryContents).toMatch(/^\/\*\* I am a top-level comment\. \*\//);
+  });
+
   it('should be able to compile an app using the factory shim', () => {
     env.tsconfig({'allowEmptyCodegenFiles': true});
 
@@ -2146,6 +2162,28 @@ describe('ngtsc behavioral tests', () => {
         expect(errors.length).toBe(0);
       });
     });
+  });
+
+  it('should wrap "inputs" and "outputs" keys if they contain unsafe characters', () => {
+    env.tsconfig({});
+    env.write(`test.ts`, `
+      import {Directive} from '@angular/core';
+
+      @Directive({
+        selector: '[somedir]',
+        inputs: ['input-track-type', 'inputTrackName'],
+        outputs: ['output-track-type', 'outputTrackName']
+      })
+      export class SomeDir {}
+    `);
+
+    env.driveMain();
+    const jsContents = env.getContents('test.js');
+    const inputsAndOutputs = `
+      inputs: { "input-track-type": "input-track-type", inputTrackName: "inputTrackName" },
+      outputs: { "output-track-type": "output-track-type", outputTrackName: "outputTrackName" }
+    `;
+    expect(trim(jsContents)).toContain(trim(inputsAndOutputs));
   });
 
   it('should compile programs with typeRoots', () => {
