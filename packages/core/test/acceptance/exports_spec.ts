@@ -43,19 +43,20 @@ describe('exports', () => {
   describe('input changes in hooks', () => {
     it('should support forward reference', () => {
       const fixture = initWithTemplate(
-          AppComp, '<div dirOnChange #myDir="dirOnChange" [in]="true"></div> {{ myDir.name }}');
+          AppComp, '<div dir-on-change #myDir="dirOnChange" [in]="true"></div> {{ myDir.name }}');
       fixture.detectChanges();
-      expect(fixture.nativeElement.innerHTML)
-          .toEqual('<div dironchange="" ng-reflect-in="true" title="Drew!?@"></div> Drew!?@');
+      expect(fixture.nativeElement.firstChild.title).toBe('Drew!?@');            // div element
+      expect(fixture.nativeElement.lastChild.textContent).toContain('Drew!?@');  // text node
     });
 
     modifiedInIvy('Supporting input changes in hooks is limited in Ivy')
         .it('should support backward reference', () => {
           const fixture = initWithTemplate(
-              AppComp, '{{ myDir.name }} <div dirOnChange #myDir="dirOnChange" [in]="true"></div>');
+              AppComp,
+              '{{ myDir.name }} <div dir-on-change #myDir="dirOnChange" [in]="true"></div>');
           fixture.detectChanges();
-          expect(fixture.nativeElement.innerHTML)
-              .toEqual('Drew!?@ <div dironchange="" ng-reflect-in="true" title="Drew!?@"></div>');
+          expect(fixture.nativeElement.firstChild.textContent).toContain('Drew!?@');  // text node
+          expect(fixture.nativeElement.lastChild.title).toBe('Drew!?@');              // div element
         });
 
     onlyInIvy('Supporting input changes in hooks is limited in Ivy')
@@ -63,7 +64,7 @@ describe('exports', () => {
           expect(() => {
             const fixture = initWithTemplate(
                 AppComp,
-                '{{ myDir.name }} <div dirOnChange #myDir="dirOnChange" [in]="true"></div>');
+                '{{ myDir.name }} <div dir-on-change #myDir="dirOnChange" [in]="true"></div>');
             fixture.detectChanges();
           })
               .toThrowError(
@@ -74,11 +75,10 @@ describe('exports', () => {
         .it('should support reference on the same node', () => {
           const fixture = initWithTemplate(
               AppComp,
-              '<div dirOnChange #myDir="dirOnChange" [in]="true" [id]="myDir.name"></div>');
+              '<div dir-on-change #myDir="dirOnChange" [in]="true" [id]="myDir.name"></div>');
           fixture.detectChanges();
-          expect(fixture.nativeElement.innerHTML)
-              .toEqual(
-                  '<div dironchange="" ng-reflect-in="true" id="Drew!?@" title="Drew!?@"></div>');
+          expect(fixture.nativeElement.firstChild.id).toBe('Drew!?@');
+          expect(fixture.nativeElement.firstChild.title).toBe('Drew!?@');
         });
 
     onlyInIvy('Supporting input changes in hooks is limited in Ivy')
@@ -86,7 +86,7 @@ describe('exports', () => {
           expect(() => {
             const fixture = initWithTemplate(
                 AppComp,
-                '<div dirOnChange #myDir="dirOnChange" [in]="true" [id]="myDir.name"></div>');
+                '<div dir-on-change #myDir="dirOnChange" [in]="true" [id]="myDir.name"></div>');
             fixture.detectChanges();
           })
               .toThrowError(
@@ -95,10 +95,9 @@ describe('exports', () => {
 
     it('should support input referenced by host binding on that directive', () => {
       const fixture =
-          initWithTemplate(AppComp, '<div dirOnChange #myDir="dirOnChange" [in]="true"></div>');
+          initWithTemplate(AppComp, '<div dir-on-change #myDir="dirOnChange" [in]="true"></div>');
       fixture.detectChanges();
-      expect(fixture.nativeElement.innerHTML)
-          .toEqual('<div dironchange="" ng-reflect-in="true" title="Drew!?@"></div>');
+      expect(fixture.nativeElement.firstChild.title).toBe('Drew!?@');
     });
   });
 
@@ -162,7 +161,7 @@ class DirWithCompInput {
   @Input('dirWithInput') comp: ComponentToReference|null = null;
 }
 
-@Directive({selector: '[dirOnChange]', exportAs: 'dirOnChange', host: {'[title]': 'name'}})
+@Directive({selector: '[dir-on-change]', exportAs: 'dirOnChange', host: {'[title]': 'name'}})
 class DirToReferenceWithPreOrderHooks implements OnInit, OnChanges, DoCheck {
   @Input() in : any = null;
   name = 'Drew';
