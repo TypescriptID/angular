@@ -17,45 +17,37 @@
 // tslint:disable
 
 window.testBlocklist = {
-  "Portals DomPortalOutlet should attach and detach a component portal without a ViewContainerRef": {
-    "error": "Error: Expected '<pizza-msg><p>Pizza</p><p>Chocolate</p></pizza-msg>' to be '', 'Expected the DomPortalOutlet to be empty after detach'.",
-    "notes": "Unknown"
-  },
   "CdkTable should be able to render multiple header and footer rows": {
-    "error": "Error: Missing definitions for header, footer, and row; cannot determine which columns should be rendered.",
-    "notes": "Attempting to access content children before view is initialized"
-  },
-  "CdkTable should be able to render and change multiple header and footer rows": {
     "error": "Error: Missing definitions for header, footer, and row; cannot determine which columns should be rendered.",
     "notes": "Attempting to access content children before view is initialized"
   },
   "CdkTable should render correctly when using native HTML tags": {
     "error": "Error: Missing definitions for header, footer, and row; cannot determine which columns should be rendered.",
-    "notes": "Unknown"
+    "notes": "FW-1141: Direct ContentChildren not found for <tr> tags without a <tbody>"
   },
   "CdkTable with sticky positioning on native table layout should stick and unstick headers": {
     "error": "Error: Missing definitions for header, footer, and row; cannot determine which columns should be rendered.",
-    "notes": "Unknown"
+    "notes": "FW-1141: Direct ContentChildren not found for <tr> tags without a <tbody>"
   },
   "CdkTable with sticky positioning on native table layout should stick and unstick footers": {
     "error": "Error: Missing definitions for header, footer, and row; cannot determine which columns should be rendered.",
-    "notes": "Unknown"
+    "notes": "FW-1141: Direct ContentChildren not found for <tr> tags without a <tbody>"
   },
   "CdkTable with sticky positioning on native table layout should stick tfoot when all rows are stuck": {
     "error": "Error: Missing definitions for header, footer, and row; cannot determine which columns should be rendered.",
-    "notes": "Unknown"
+    "notes": "FW-1141: Direct ContentChildren not found for <tr> tags without a <tbody>"
   },
   "CdkTable with sticky positioning on native table layout should stick and unstick left columns": {
     "error": "Error: Missing definitions for header, footer, and row; cannot determine which columns should be rendered.",
-    "notes": "Unknown"
+    "notes": "FW-1141: Direct ContentChildren not found for <tr> tags without a <tbody>"
   },
   "CdkTable with sticky positioning on native table layout should stick and unstick right columns": {
     "error": "Error: Missing definitions for header, footer, and row; cannot determine which columns should be rendered.",
-    "notes": "Unknown"
+    "notes": "FW-1141: Direct ContentChildren not found for <tr> tags without a <tbody>"
   },
   "CdkTable with sticky positioning on native table layout should stick and unstick combination of sticky header, footer, and columns": {
     "error": "Error: Missing definitions for header, footer, and row; cannot determine which columns should be rendered.",
-    "notes": "Unknown"
+    "notes": "FW-1141: Direct ContentChildren not found for <tr> tags without a <tbody>"
   },
   "CdkTable with trackBy should change row implicit data even when trackBy finds no changes": {
     "error": "Error: Expected 'a_1 b_1' to be 'a_2 b_2'.",
@@ -63,11 +55,11 @@ window.testBlocklist = {
   },
   "CdkTable should be able to apply classes to rows based on their context": {
     "error": "Error: Expected false to be true.",
-    "notes": "Unknown"
+    "notes": "FW-842: View engine dirty-checks projected views when the declaration place is checked"
   },
   "CdkTable should be able to apply classes to cells based on their row context": {
     "error": "Error: Expected false to be true.",
-    "notes": "Unknown"
+    "notes": "FW-842: View engine dirty-checks projected views when the declaration place is checked"
   },
   "CdkDrag in a drop container should be able to customize the preview element": {
     "error": "Error: Expected cdk-drag cdk-drag-preview to contain 'custom-preview'.",
@@ -107,14 +99,6 @@ window.testBlocklist = {
   },
   "CdkTree flat tree with toggle should expand/collapse the node recursively": {
     "error": "Error: Failed: Expected node level to be 40px but was ",
-    "notes": "Unknown"
-  },
-  "CdkTree flat tree with trackBy should add/remove/move nodes with property-based trackBy": {
-    "error": "Error: Expected null to be '1'.",
-    "notes": "Unknown"
-  },
-  "CdkTree flat tree with trackBy should add/remove/move nodes with index-based trackBy": {
-    "error": "Error: Expected null to be '0'.",
     "notes": "Unknown"
   },
   "CdkTree nested tree with toggle should expand/collapse the node multiple times": {
@@ -239,7 +223,7 @@ window.testBlocklist = {
   },
   "MatInput without forms validates the type": {
     "error": "Error: Input type \"file\" isn't supported by matInput.",
-    "notes": "Unknown"
+    "notes": "Breaking change: Static directive inputs evaluated in creation mode - material test to be updated"
   },
   "MatInput with textarea autosize should work in a step": {
     "error": "TypeError: Cannot read property 'getBoundingClientRect' of null",
@@ -295,11 +279,11 @@ window.testBlocklist = {
   },
   "MatTable should be able to render a table correctly with native elements": {
     "error": "Error: Missing definitions for header, footer, and row; cannot determine which columns should be rendered.",
-    "notes": "Unknown"
+    "notes": "FW-1141: Direct ContentChildren not found for <tr> tags without a <tbody>"
   },
   "MatTable should apply custom sticky CSS class to sticky cells": {
     "error": "Error: Missing definitions for header, footer, and row; cannot determine which columns should be rendered.",
-    "notes": "Unknown"
+    "notes": "FW-1141: Direct ContentChildren not found for <tr> tags without a <tbody>"
   },
   "MatTable with MatTableDataSource and sort/pagination/filter should be able to filter the table contents": {
     "error": "TypeError: Cannot read property 'length' of undefined",

@@ -17,10 +17,11 @@ import {getComponentDef, getDirectiveDef, getPipeDef} from './definition';
 import {NG_ELEMENT_ID} from './fields';
 import {DirectiveDef} from './interfaces/definition';
 import {NO_PARENT_INJECTOR, NodeInjectorFactory, PARENT_INJECTOR, RelativeInjectorLocation, RelativeInjectorLocationFlags, TNODE, isFactory} from './interfaces/injector';
-import {AttributeMarker, TContainerNode, TElementContainerNode, TElementNode, TNode, TNodeFlags, TNodeProviderIndexes, TNodeType} from './interfaces/node';
+import {TContainerNode, TElementContainerNode, TElementNode, TNode, TNodeFlags, TNodeProviderIndexes, TNodeType} from './interfaces/node';
 import {DECLARATION_VIEW, INJECTOR, LView, TData, TVIEW, TView, T_HOST} from './interfaces/view';
 import {assertNodeOfPossibleTypes} from './node_assert';
 import {getLView, getPreviousOrParentTNode, setTNodeAndViewData} from './state';
+import {isNameOnlyAttributeMarker} from './util/attrs_utils';
 import {getParentInjectorIndex, getParentInjectorView, hasParentInjector} from './util/injector_utils';
 import {renderStringify} from './util/misc_utils';
 import {findComponentView} from './util/view_traversal_utils';
@@ -272,7 +273,10 @@ export function injectAttributeImpl(tNode: TNode, attrNameToInject: string): str
   if (attrs) {
     for (let i = 0; i < attrs.length; i = i + 2) {
       const attrName = attrs[i];
-      if (attrName === AttributeMarker.SelectOnly) break;
+      // If we hit a `Bindings` or `Template` marker then we are done.
+      if (isNameOnlyAttributeMarker(attrName)) break;
+      // TODO(FW-1137): Skip namespaced attributes
+      // TODO(FW-1139): supports classes/styles in @Attribute injection
       if (attrName == attrNameToInject) {
         return attrs[i + 1] as string;
       }

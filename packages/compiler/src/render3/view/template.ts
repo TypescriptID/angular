@@ -576,10 +576,8 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       attributes.push(...getAttributeNameLiterals(attr.name), o.literal(attr.value));
     });
 
-    // this will build the instructions so that they fall into the following syntax
-    // add attributes for directive matching purposes
-    attributes.push(
-        ...this.prepareSelectOnlyAttrs(allOtherInputs, element.outputs, stylingBuilder));
+    // add attributes for directive and projection matching purposes
+    attributes.push(...this.prepareNonRenderAttrs(allOtherInputs, element.outputs, stylingBuilder));
     parameters.push(this.toAttrsParam(attributes));
 
     // local refs (ex.: <div #foo #bar="baz">)
@@ -659,12 +657,6 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
         }
       }
 
-      // Note: it's important to keep i18n/i18nStart instructions after i18nAttributes ones,
-      // to make sure i18nAttributes instruction targets current element at runtime.
-      if (isI18nRootElement) {
-        this.i18nStart(element.sourceSpan, element.i18n !, createSelfClosingI18nInstruction);
-      }
-
       // The style bindings code is placed into two distinct blocks within the template function AOT
       // code: creation and update. The creation code contains the `elementStyling` instructions
       // which will apply the collected binding values to the element. `elementStyling` is
@@ -682,6 +674,12 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
             outputAst.sourceSpan, R3.listener,
             this.prepareListenerParameter(element.name, outputAst, elementIndex));
       });
+
+      // Note: it's important to keep i18n/i18nStart instructions after i18nAttributes and
+      // listeners, to make sure i18nAttributes instruction targets current element at runtime.
+      if (isI18nRootElement) {
+        this.i18nStart(element.sourceSpan, element.i18n !, createSelfClosingI18nInstruction);
+      }
     }
 
     // the code here will collect all update-level styling instructions and add them to the
@@ -775,6 +773,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   }
 
   visitTemplate(template: t.Template) {
+    const NG_TEMPLATE_TAG_NAME = 'ng-template';
     const templateIndex = this.allocateDataSlot();
 
     if (this.i18n) {
@@ -795,13 +794,14 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     ];
 
     // find directives matching on a given <ng-template> node
-    this.matchDirectives('ng-template', template);
+    this.matchDirectives(NG_TEMPLATE_TAG_NAME, template);
 
     // prepare attributes parameter (including attributes used for directive matching)
     const attrsExprs: o.Expression[] = [];
     template.attributes.forEach(
         (a: t.TextAttribute) => { attrsExprs.push(asLiteral(a.name), asLiteral(a.value)); });
-    attrsExprs.push(...this.prepareSelectOnlyAttrs(template.inputs, template.outputs));
+    attrsExprs.push(...this.prepareNonRenderAttrs(
+        template.inputs, template.outputs, undefined, template.templateAttrs));
     parameters.push(this.toAttrsParam(attrsExprs));
 
     // local refs (ex.: <ng-template #foo>)
@@ -841,23 +841,19 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
 
     // handle property bindings e.g. ɵelementProperty(1, 'ngForOf', ɵbind(ctx.items));
     const context = o.variable(CONTEXT_NAME);
-    template.inputs.forEach(input => {
-      const value = input.value.visit(this._valueConverter);
-      this.allocateBindingSlots(value);
-      this.updateInstruction(templateIndex, template.sourceSpan, R3.elementProperty, () => {
-        return [
-          o.literal(templateIndex), o.literal(input.name),
-          this.convertPropertyBinding(context, value)
-        ];
-      });
-    });
+    this.templatePropertyBindings(template, templateIndex, context, template.templateAttrs);
 
-    // Generate listeners for directive output
-    template.outputs.forEach((outputAst: t.BoundEvent) => {
-      this.creationInstruction(
-          outputAst.sourceSpan, R3.listener,
-          this.prepareListenerParameter('ng_template', outputAst, templateIndex));
-    });
+    // Only add normal input/output binding instructions on explicit ng-template elements.
+    if (template.tagName === NG_TEMPLATE_TAG_NAME) {
+      // Add the input bindings
+      this.templatePropertyBindings(template, templateIndex, context, template.inputs);
+      // Generate listeners for directive output
+      template.outputs.forEach((outputAst: t.BoundEvent) => {
+        this.creationInstruction(
+            outputAst.sourceSpan, R3.listener,
+            this.prepareListenerParameter('ng_template', outputAst, templateIndex));
+      });
+    }
   }
 
   // These should be handled in the template or element directly.
@@ -949,6 +945,23 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   }
 
   private bindingContext() { return `${this._bindingContext++}`; }
+
+  private templatePropertyBindings(
+      template: t.Template, templateIndex: number, context: o.ReadVarExpr,
+      attrs: (t.BoundAttribute|t.TextAttribute)[]) {
+    attrs.forEach(input => {
+      if (input instanceof t.BoundAttribute) {
+        const value = input.value.visit(this._valueConverter);
+        this.allocateBindingSlots(value);
+        this.updateInstruction(templateIndex, template.sourceSpan, R3.elementProperty, () => {
+          return [
+            o.literal(templateIndex), o.literal(input.name),
+            this.convertPropertyBinding(context, value)
+          ];
+        });
+      }
+    });
+  }
 
   // Bindings must only be resolved after all local refs have been visited, so all
   // instructions are queued in callbacks that execute once the initial pass has completed.
@@ -1045,15 +1058,16 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
    * attrs = [prop, value, prop2, value2,
    *   CLASSES, class1, class2,
    *   STYLES, style1, value1, style2, value2,
-   *   SELECT_ONLY, name1, name2, name2, ...]
+   *   BINDINGS, name1, name2, name3,
+   *   TEMPLATE, name4, name5, ...]
    * ```
    *
    * Note that this function will fully ignore all synthetic (@foo) attribute values
    * because those values are intended to always be generated as property instructions.
    */
-  private prepareSelectOnlyAttrs(
-      inputs: t.BoundAttribute[], outputs: t.BoundEvent[],
-      styles?: StylingBuilder): o.Expression[] {
+  private prepareNonRenderAttrs(
+      inputs: t.BoundAttribute[], outputs: t.BoundEvent[], styles?: StylingBuilder,
+      templateAttrs: (t.BoundAttribute|t.TextAttribute)[] = []): o.Expression[] {
     const alreadySeen = new Set<string>();
     const attrExprs: o.Expression[] = [];
 
@@ -1069,8 +1083,8 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       }
     }
 
-    // it's important that this occurs before SelectOnly because once `elementStart`
-    // comes across the SelectOnly marker then it will continue reading each value as
+    // it's important that this occurs before BINDINGS and TEMPLATE because once `elementStart`
+    // comes across the BINDINGS or TEMPLATE markers then it will continue reading each value as
     // as single property value cell by cell.
     if (styles) {
       styles.populateInitialStylingAttrs(attrExprs);
@@ -1098,8 +1112,13 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       // to the expressions. The marker is important because it tells the runtime
       // code that this is where attributes without values start...
       if (attrExprs.length) {
-        attrExprs.splice(attrsStartIndex, 0, o.literal(core.AttributeMarker.SelectOnly));
+        attrExprs.splice(attrsStartIndex, 0, o.literal(core.AttributeMarker.Bindings));
       }
+    }
+
+    if (templateAttrs.length) {
+      attrExprs.push(o.literal(core.AttributeMarker.Template));
+      templateAttrs.forEach(attr => addAttrExpr(attr.name));
     }
 
     return attrExprs;

@@ -107,7 +107,7 @@ describe('host bindings', () => {
       });
     }
 
-    function Template() { element(0, 'span', [AttributeMarker.SelectOnly, 'dir']); }
+    function Template() { element(0, 'span', [AttributeMarker.Bindings, 'dir']); }
 
     const fixture = new TemplateFixture(Template, () => {}, 1, 0, [Directive]);
     expect(fixture.html).toEqual('<span class="foo"></span>');
@@ -506,7 +506,7 @@ describe('host bindings', () => {
      */
     const App = createComponent('parent', (rf: RenderFlags, ctx: any) => {
       if (rf & RenderFlags.Create) {
-        template(0, NgForTemplate, 2, 0, 'div', ['ngForOf', '']);
+        template(0, NgForTemplate, 2, 0, 'div', [AttributeMarker.Template, 'ngFor', 'ngForOf']);
       }
       if (rf & RenderFlags.Update) {
         elementProperty(0, 'ngForOf', bind(ctx.rows));

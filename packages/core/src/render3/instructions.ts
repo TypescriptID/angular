@@ -38,7 +38,7 @@ import {StylingContext} from './interfaces/styling';
 import {BINDING_INDEX, CHILD_HEAD, CHILD_TAIL, CLEANUP, CONTEXT, DECLARATION_VIEW, ExpandoInstructions, FLAGS, HEADER_OFFSET, HOST, INJECTOR, InitPhaseState, LView, LViewFlags, NEXT, OpaqueViewState, PARENT, QUERIES, RENDERER, RENDERER_FACTORY, RootContext, RootContextFlags, SANITIZER, TData, TVIEW, TView, T_HOST} from './interfaces/view';
 import {assertNodeOfPossibleTypes, assertNodeType} from './node_assert';
 import {appendChild, appendProjectedNodes, createTextNode, insertView, removeView} from './node_manipulation';
-import {isNodeMatchingSelectorList, matchingSelectorIndex} from './node_selector_matcher';
+import {isNodeMatchingSelectorList, matchingProjectionSelectorIndex} from './node_selector_matcher';
 import {applyOnCreateInstructions} from './node_util';
 import {decreaseElementDepthCount, enterView, getBindingsEnabled, getCheckNoChangesMode, getContextLView, getCurrentDirectiveDef, getElementDepthCount, getIsParent, getLView, getPreviousOrParentTNode, increaseElementDepthCount, isCreationMode, leaveView, nextContextImpl, resetComponentState, setBindingRoot, setCheckNoChangesMode, setCurrentDirectiveDef, setCurrentQueryIndex, setIsParent, setPreviousOrParentTNode} from './state';
 import {getInitialClassNameValue, getInitialStyleStringValue, initializeStaticContext as initializeStaticStylingContext, patchContextWithStaticAttrs, renderInitialClasses, renderInitialStyles, renderStyling, updateClassProp as updateElementClassProp, updateContextWithBindings, updateStyleProp as updateElementStyleProp, updateStylingMap} from './styling/class_and_style_bindings';
@@ -2126,15 +2126,15 @@ function generateInitialInputs(
   let i = 0;
   while (i < attrs.length) {
     const attrName = attrs[i];
-    // If we hit Select-Only, Classes or Styles, we're done anyway. None of those are valid inputs.
-    if (attrName === AttributeMarker.SelectOnly || attrName === AttributeMarker.Classes ||
-        attrName === AttributeMarker.Styles)
-      break;
     if (attrName === AttributeMarker.NamespaceURI) {
       // We do not allow inputs on namespaced attributes.
       i += 4;
       continue;
     }
+
+    // If we hit any other attribute markers, we're done anyway. None of those are valid inputs.
+    if (typeof attrName === 'number') break;
+
     const minifiedInputName = inputs[attrName];
     const attrValue = attrs[i + 1];
 
@@ -2558,8 +2558,9 @@ export function projectionDef(selectors?: CssSelectorList[], textSelectors?: str
     let componentChild: TNode|null = componentNode.child;
 
     while (componentChild !== null) {
-      const bucketIndex =
-          selectors ? matchingSelectorIndex(componentChild, selectors, textSelectors !) : 0;
+      const bucketIndex = selectors ?
+          matchingProjectionSelectorIndex(componentChild, selectors, textSelectors !) :
+          0;
 
       if (tails[bucketIndex]) {
         tails[bucketIndex] !.projectionNext = componentChild;

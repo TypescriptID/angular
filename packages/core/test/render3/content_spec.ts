@@ -815,7 +815,7 @@ describe('content projection', () => {
       if (rf & RenderFlags.Create) {
         projectionDef();
         text(0, 'Before-');
-        template(1, IfTemplate, 1, 0, 'ng-template', [AttributeMarker.SelectOnly, 'ngIf']);
+        template(1, IfTemplate, 1, 0, 'ng-template', [AttributeMarker.Bindings, 'ngIf']);
         text(2, '-After');
       }
       if (rf & RenderFlags.Update) {
@@ -879,7 +879,7 @@ describe('content projection', () => {
       if (rf & RenderFlags.Create) {
         projectionDef();
         text(0, 'Before-');
-        template(1, IfTemplate, 1, 0, 'ng-template', [AttributeMarker.SelectOnly, 'ngIf']);
+        template(1, IfTemplate, 1, 0, 'ng-template', [AttributeMarker.Bindings, 'ngIf']);
         text(2, '-After');
       }
       if (rf & RenderFlags.Update) {
@@ -945,7 +945,7 @@ describe('content projection', () => {
         projectionDef([[['div']]], ['div']);
         projection(0);
         text(1, 'Before-');
-        template(2, IfTemplate, 1, 0, '', [AttributeMarker.SelectOnly, 'ngIf']);
+        template(2, IfTemplate, 1, 0, 'ng-template', [AttributeMarker.Bindings, 'ngIf']);
         text(3, '-After');
       }
       if (rf & RenderFlags.Update) {
@@ -1058,7 +1058,7 @@ describe('content projection', () => {
         */
        const App = createComponent('app', (rf: RenderFlags, ctx: any) => {
          if (rf & RenderFlags.Create) {
-           element(0, 'button', [AttributeMarker.SelectOnly, 'trigger']);
+           element(0, 'button', [AttributeMarker.Bindings, 'trigger']);
            elementStart(1, 'comp', null, ['comp', '']);
            { text(3, 'Some content'); }
            elementEnd();
@@ -1184,7 +1184,7 @@ describe('content projection', () => {
     const Child = createComponent('child', function(rf: RenderFlags, ctx: any) {
       if (rf & RenderFlags.Create) {
         projectionDef();
-        { template(0, ForTemplate, 3, 1, undefined, ['ngForOf', '']); }
+        { template(0, ForTemplate, 3, 1, 'div', [AttributeMarker.Template, 'ngFor', 'ngForOf']); }
       }
       if (rf & RenderFlags.Update) {
         elementProperty(0, 'ngForOf', bind(items));
@@ -1370,7 +1370,7 @@ describe('content projection', () => {
         <ng-container>
           content
         </ng-container>
-      </ng-container>  
+      </ng-container>
     </child>`;
     const Parent = createComponent('parent', function(rf: RenderFlags, ctx: any) {
       if (rf & RenderFlags.Create) {
@@ -1419,7 +1419,7 @@ describe('content projection', () => {
         <ng-container>
           content
         </ng-container>
-      </ng-container>  
+      </ng-container>
     </child>`;
     const Parent = createComponent('parent', function(rf: RenderFlags, ctx: any) {
       if (rf & RenderFlags.Create) {
@@ -1461,7 +1461,7 @@ describe('content projection', () => {
 
     // <root-comp>
     //   <ng-container *ngFor="let item of items; last as last">
-    //     <child-comp *ngIf="!last"></child-comp>
+    //     <nested-comp *ngIf="!last"></nested-comp>
     //   </ng-container>
     // </root-comp>
     function MyApp_ng_container_1_child_comp_1_Template(rf: RenderFlags, ctx: any) {
@@ -1472,7 +1472,9 @@ describe('content projection', () => {
     function MyApp_ng_container_1_Template(rf: RenderFlags, ctx: any) {
       if (rf & RenderFlags.Create) {
         elementContainerStart(0);
-        template(1, MyApp_ng_container_1_child_comp_1_Template, 1, 0, 'nested-comp', [3, 'ngIf']);
+        template(
+            1, MyApp_ng_container_1_child_comp_1_Template, 1, 0, 'nested-comp',
+            [AttributeMarker.Template, 'ngIf']);
         elementContainerEnd();
       }
       if (rf & RenderFlags.Update) {
@@ -1495,7 +1497,7 @@ describe('content projection', () => {
             elementStart(0, 'root-comp');
             template(
                 1, MyApp_ng_container_1_Template, 2, 1, 'ng-container',
-                ['ngFor', '', 3, 'ngForOf']);
+                [AttributeMarker.Template, 'ngFor', 'ngForOf']);
             elementEnd();
           }
           if (rf & RenderFlags.Update) {
@@ -1590,7 +1592,7 @@ describe('content projection', () => {
         if (rf & RenderFlags.Create) {
           elementStart(0, 'child');
           {
-            elementStart(1, 'span', [AttributeMarker.SelectOnly, 'title']);
+            elementStart(1, 'span', [AttributeMarker.Bindings, 'title']);
             { text(2, 'Has title'); }
             elementEnd();
           }
@@ -2089,7 +2091,7 @@ describe('content projection', () => {
       const Parent = createComponent('parent', function(rf: RenderFlags, ctx: {value: any}) {
         if (rf & RenderFlags.Create) {
           elementStart(0, 'child');
-          { template(1, IfTemplate, 2, 0, 'div', [AttributeMarker.SelectOnly, 'ngIf']); }
+          { template(1, IfTemplate, 2, 0, 'div', [AttributeMarker.Template, 'ngIf']); }
           elementEnd();
         }
         if (rf & RenderFlags.Update) {
