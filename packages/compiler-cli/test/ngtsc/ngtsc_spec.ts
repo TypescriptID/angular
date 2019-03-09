@@ -1768,6 +1768,24 @@ describe('ngtsc behavioral tests', () => {
     expect(summaryContents).toEqual(`export var TestModuleNgSummary = null;\n`);
   });
 
+  it('should generate a summary stub for classes exported via exports', () => {
+    env.tsconfig({'allowEmptyCodegenFiles': true});
+
+    env.write('test.ts', `
+        import {Injectable, NgModule} from '@angular/core';
+
+        @NgModule({})
+        class NotDirectlyExported {}
+
+        export {NotDirectlyExported};
+    `);
+
+    env.driveMain();
+
+    const summaryContents = env.getContents('test.ngsummary.js');
+    expect(summaryContents).toEqual(`export var NotDirectlyExportedNgSummary = null;\n`);
+  });
+
   it('it should generate empty export when there are no other summary symbols, to ensure the output is a valid ES module',
      () => {
        env.tsconfig({'allowEmptyCodegenFiles': true});
@@ -1969,6 +1987,34 @@ describe('ngtsc behavioral tests', () => {
        expect(jsContents).toMatch(setClassMetadataRegExp('type: i\\d\\.MyTypeA'));
        expect(jsContents).toMatch(setClassMetadataRegExp('type: i\\d\\.MyTypeB'));
      });
+
+  it('should use default-imported types if they can be represented as values', () => {
+    env.tsconfig({});
+
+    env.write(`types.ts`, `
+            export default class Default {}
+            export class Other {}
+          `);
+    env.write(`test.ts`, `
+            import {Component} from '@angular/core';
+            import {Other} from './types';
+            import Default from './types';
+   
+            @Component({selector: 'test', template: 'test'})
+            export class SomeCmp {
+              constructor(arg: Default, other: Other) {}
+            }
+         `);
+
+    env.driveMain();
+    const jsContents = trim(env.getContents('test.js'));
+    expect(jsContents).toContain(`import i1 from "./types";`);
+    expect(jsContents).toContain(`import * as i2 from "./types";`);
+    expect(jsContents).toContain('i0.ɵdirectiveInject(i1)');
+    expect(jsContents).toContain('i0.ɵdirectiveInject(i2.Other)');
+    expect(jsContents).toMatch(setClassMetadataRegExp('type: i1'));
+    expect(jsContents).toMatch(setClassMetadataRegExp('type: i2.Other'));
+  });
 
   it('should use `undefined` in setClassMetadata if types can\'t be represented as values', () => {
     env.tsconfig({});
@@ -3536,6 +3582,36 @@ export const Foo = Foo__PRE_R3__;
       env.driveMain();
       const jsContents = env.getContents('index.js');
       expect(jsContents).toContain('export { FooDir as ɵng$root$foo$$FooDir } from "root/foo";');
+    });
+
+    it('should escape unusual characters in aliased filenames', () => {
+      env.tsconfig({'_useHostForImportGeneration': true});
+      env.write('other._$test.ts', `
+        import {Directive, NgModule} from '@angular/core';
+
+        @Directive({selector: 'test'})
+        export class TestDir {}
+
+        @NgModule({
+          declarations: [TestDir],
+          exports: [TestDir],
+        })
+        export class OtherModule {}
+      `);
+      env.write('index.ts', `
+        import {NgModule} from '@angular/core';
+        import {OtherModule} from './other._$test';
+
+        @NgModule({
+          exports: [OtherModule],
+        })
+        export class IndexModule {}
+      `);
+      env.driveMain();
+      const jsContents = env.getContents('index.js');
+      expect(jsContents)
+          .toContain(
+              'export { TestDir as ɵng$root$other___test$$TestDir } from "root/other._$test";');
     });
   });
 
