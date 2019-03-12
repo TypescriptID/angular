@@ -51,7 +51,7 @@ window.testBlocklist = {
   },
   "CdkTable with trackBy should change row implicit data even when trackBy finds no changes": {
     "error": "Error: Expected 'a_1 b_1' to be 'a_2 b_2'.",
-    "notes": "Unknown"
+    "notes": "FW-842: View engine dirty-checks projected views when the declaration place is checked"
   },
   "CdkTable should be able to apply classes to rows based on their context": {
     "error": "Error: Expected false to be true.",
@@ -87,79 +87,27 @@ window.testBlocklist = {
   },
   "CdkTree flat tree should initialize should be able to use units different from px for the indentation": {
     "error": "Error: Failed: Expected node level to be 15rem but was 28px",
-    "notes": "Unknown"
+    "notes": "Breaking change: Change detection follows insertion tree only, not declaration tree (CdkTree is OnPush)"
   },
   "CdkTree flat tree should initialize should default to px if no unit is set for string value indentation": {
     "error": "Error: Failed: Expected node level to be 17px but was 28px",
-    "notes": "Unknown"
+    "notes": "Breaking change: Change detection follows insertion tree only, not declaration tree (CdkTree is OnPush)"
   },
   "CdkTree flat tree with toggle should expand/collapse the node": {
     "error": "Error: Failed: Expected node level to be 40px but was ",
-    "notes": "Unknown"
+    "notes": "Breaking change: Static directive inputs evaluated in creation mode (CdkTreeNode.mostRecentTreeNode.data is set after inputs)"
   },
   "CdkTree flat tree with toggle should expand/collapse the node recursively": {
     "error": "Error: Failed: Expected node level to be 40px but was ",
-    "notes": "Unknown"
+    "notes": "Breaking change: Static directive inputs evaluated in creation mode (CdkTreeNode.mostRecentTreeNode.data is set after inputs)"
   },
   "CdkTree nested tree with toggle should expand/collapse the node multiple times": {
     "error": "Error: Expected 3 to be 1, 'Expect node expanded'.",
-    "notes": "Unknown"
+    "notes": "1) Breaking change: Change detection follows insertion tree only, not declaration tree (CdkTree is OnPush) - 2) Breaking change: Content queries and descendants flag (fix test by removing <div> in NestedCdkTreeAppWithToggle)"
   },
   "CdkTree nested tree with toggle should expand/collapse the node recursively": {
     "error": "Error: Failed: Expected node descendant num to be 2 but was 0",
-    "notes": "Unknown"
-  },
-  "MatChipList StandardChipList basic behaviors should toggle the chips disabled state based on whether it is disabled": {
-    "error": "Error: Expected true to be false.",
-    "notes": "MatChipList does not find MatChip content children because descendants is not true anymore. TODO: Fix spec so that it does not have the wrapping div"
-  },
-  "MatChipList StandardChipList focus behaviors should focus the first chip on focus": {
-    "error": "Error: Expected -1 to be 0.",
-    "notes": "MatChipList does not find MatChip content children because descendants is not true anymore. TODO: Fix spec so that it does not have the wrapping div"
-  },
-  "MatChipList StandardChipList focus behaviors should watch for chip focus": {
-    "error": "TypeError: Cannot read property 'focus' of undefined",
-    "notes": "MatChipList does not find MatChip content children because descendants is not true anymore. TODO: Fix spec so that it does not have the wrapping div"
-  },
-  "MatChipList StandardChipList focus behaviors on chip destroy should focus the next item": {
-    "error": "TypeError: Cannot read property 'focus' of undefined",
-    "notes": "MatChipList does not find MatChip content children because descendants is not true anymore. TODO: Fix spec so that it does not have the wrapping div"
-  },
-  "MatChipList StandardChipList focus behaviors on chip destroy should focus the previous item": {
-    "error": "TypeError: Cannot read property 'focus' of undefined",
-    "notes": "MatChipList does not find MatChip content children because descendants is not true anymore. TODO: Fix spec so that it does not have the wrapping div"
-  },
-  "MatChipList StandardChipList focus behaviors on chip destroy should not focus if chip list is not focused": {
-    "error": "TypeError: Cannot read property 'focus' of undefined",
-    "notes": "MatChipList does not find MatChip content children because descendants is not true anymore. TODO: Fix spec so that it does not have the wrapping div"
-  },
-  "MatChipList StandardChipList keyboard behavior LTR (default) should focus previous item when press LEFT ARROW": {
-    "error": "TypeError: Cannot read property 'focus' of undefined",
-    "notes": "MatChipList does not find MatChip content children because descendants is not true anymore. TODO: Fix spec so that it does not have the wrapping div"
-  },
-  "MatChipList StandardChipList keyboard behavior LTR (default) should focus next item when press RIGHT ARROW": {
-    "error": "TypeError: Cannot read property 'focus' of undefined",
-    "notes": "MatChipList does not find MatChip content children because descendants is not true anymore. TODO: Fix spec so that it does not have the wrapping div"
-  },
-  "MatChipList StandardChipList keyboard behavior LTR (default) should focus the first item when pressing HOME": {
-    "error": "TypeError: Cannot read property 'focus' of undefined",
-    "notes": "MatChipList does not find MatChip content children because descendants is not true anymore. TODO: Fix spec so that it does not have the wrapping div"
-  },
-  "MatChipList StandardChipList keyboard behavior RTL should focus previous item when press RIGHT ARROW": {
-    "error": "TypeError: Cannot read property 'focus' of undefined",
-    "notes": "MatChipList does not find MatChip content children because descendants is not true anymore. TODO: Fix spec so that it does not have the wrapping div"
-  },
-  "MatChipList StandardChipList keyboard behavior RTL should focus next item when press LEFT ARROW": {
-    "error": "TypeError: Cannot read property 'focus' of undefined",
-    "notes": "MatChipList does not find MatChip content children because descendants is not true anymore. TODO: Fix spec so that it does not have the wrapping div"
-  },
-  "MatChipList StandardChipList keyboard behavior should account for the direction changing": {
-    "error": "TypeError: Cannot read property 'focus' of undefined",
-    "notes": "MatChipList does not find MatChip content children because descendants is not true anymore. TODO: Fix spec so that it does not have the wrapping div"
-  },
-  "MatChipList with chip remove should properly focus next item if chip is removed through click": {
-    "error": "TypeError: Cannot read property 'focus' of undefined",
-    "notes": "MatChipList does not find MatChip content children because descendants is not true anymore. TODO: Fix spec so that it does not have the wrapping div"
+    "notes": "Breaking change: Content queries and descendants flag (fix test by removing <div> in NestedCdkTreeAppWithToggle)"
   },
   "MatStepper basic stepper should go to next available step when the next button is clicked": {
     "error": "Error: Expected 2 to be 1.",
@@ -227,19 +175,19 @@ window.testBlocklist = {
   },
   "MatTree flat tree with toggle should expand/collapse the node": {
     "error": "Error: Expected 0 to be 1, 'Expect node expanded one level'.",
-    "notes": "Unknown"
+    "notes": "Breaking change: Static directive inputs evaluated in creation mode (CdkTreeNode.mostRecentTreeNode.data is set after inputs)"
   },
   "MatTree flat tree with toggle should expand/collapse the node recursively": {
     "error": "Error: Expected 0 to be 3, 'Expect nodes expanded'.",
-    "notes": "Unknown"
+    "notes": "Breaking change: Static directive inputs evaluated in creation mode (CdkTreeNode.mostRecentTreeNode.data is set after inputs)"
   },
   "MatTree nested tree with toggle should expand/collapse the node": {
     "error": "Error: Expected 0 to be 1, 'Expect node expanded'.",
-    "notes": "Unknown"
+    "notes": "1) Breaking change: Content queries and descendants flag (fix test by removing <div> in NestedMatTreeAppWithToggle) - 2) Breaking change: Ivy inherits metadata from superclasses (remove (click) in MatTreeNodeToggle)"
   },
   "MatTree nested tree with toggle should expand/collapse the node recursively": {
     "error": "Error: Expected 0 to be 3, 'Expect node expanded'.",
-    "notes": "Unknown"
+    "notes": "1) Breaking change: Content queries and descendants flag (fix test by removing <div> in NestedMatTreeAppWithToggle) - 2) Breaking change: Ivy inherits metadata from superclasses (remove (click) in MatTreeNodeToggle)"
   },
   "MatInput without forms validates the type": {
     "error": "Error: Input type \"file\" isn't supported by matInput.",
