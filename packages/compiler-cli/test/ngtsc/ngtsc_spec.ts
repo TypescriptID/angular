@@ -643,6 +643,86 @@ describe('ngtsc behavioral tests', () => {
     expect(dtsContents).toContain('as i1 from "foo";');
   });
 
+  it('should compile NgModules with references to forward declared bootstrap components', () => {
+    env.tsconfig();
+    env.write('test.ts', `
+      import {Component, forwardRef, NgModule} from '@angular/core';
+
+      @NgModule({
+        bootstrap: [forwardRef(() => Foo)],
+      })
+      export class FooModule {}
+
+      @Component({selector: 'foo', template: 'foo'})
+      export class Foo {}
+    `);
+
+    env.driveMain();
+
+    const jsContents = env.getContents('test.js');
+    expect(jsContents).toContain('bootstrap: function () { return [Foo]; }');
+  });
+
+  it('should compile NgModules with references to forward declared directives', () => {
+    env.tsconfig();
+    env.write('test.ts', `
+      import {Directive, forwardRef, NgModule} from '@angular/core';
+
+      @NgModule({
+        declarations: [forwardRef(() => Foo)],
+      })
+      export class FooModule {}
+
+      @Directive({selector: 'foo'})
+      export class Foo {}
+    `);
+
+    env.driveMain();
+
+    const jsContents = env.getContents('test.js');
+    expect(jsContents).toContain('declarations: function () { return [Foo]; }');
+  });
+
+  it('should compile NgModules with references to forward declared imports', () => {
+    env.tsconfig();
+    env.write('test.ts', `
+      import {forwardRef, NgModule} from '@angular/core';
+
+      @NgModule({
+        imports: [forwardRef(() => BarModule)],
+      })
+      export class FooModule {}
+
+      @NgModule({})
+      export class BarModule {}
+    `);
+
+    env.driveMain();
+
+    const jsContents = env.getContents('test.js');
+    expect(jsContents).toContain('imports: function () { return [BarModule]; }');
+  });
+
+  it('should compile NgModules with references to forward declared exports', () => {
+    env.tsconfig();
+    env.write('test.ts', `
+      import {forwardRef, NgModule} from '@angular/core';
+
+      @NgModule({
+        exports: [forwardRef(() => BarModule)],
+      })
+      export class FooModule {}
+
+      @NgModule({})
+      export class BarModule {}
+    `);
+
+    env.driveMain();
+
+    const jsContents = env.getContents('test.js');
+    expect(jsContents).toContain('exports: function () { return [BarModule]; }');
+  });
+
   it('should compile Pipes without errors', () => {
     env.tsconfig();
     env.write('test.ts', `
@@ -2121,9 +2201,9 @@ describe('ngtsc behavioral tests', () => {
 
        env.driveMain();
        const jsContents = trim(env.getContents('test.js'));
-       expect(jsContents).toContain(`import * as types from './types';`);
-       expect(jsContents).toMatch(setClassMetadataRegExp('type: i\\d\\.MyTypeA'));
-       expect(jsContents).toMatch(setClassMetadataRegExp('type: i\\d\\.MyTypeB'));
+       expect(jsContents).toContain(`import * as i1 from "./types";`);
+       expect(jsContents).toMatch(setClassMetadataRegExp('type: i1.MyTypeA'));
+       expect(jsContents).toMatch(setClassMetadataRegExp('type: i1.MyTypeB'));
      });
 
   it('should use default-imported types if they can be represented as values', () => {
@@ -2146,12 +2226,12 @@ describe('ngtsc behavioral tests', () => {
 
     env.driveMain();
     const jsContents = trim(env.getContents('test.js'));
-    expect(jsContents).toContain(`import i1 from "./types";`);
-    expect(jsContents).toContain(`import * as i2 from "./types";`);
-    expect(jsContents).toContain('i0.ɵdirectiveInject(i1)');
-    expect(jsContents).toContain('i0.ɵdirectiveInject(i2.Other)');
-    expect(jsContents).toMatch(setClassMetadataRegExp('type: i1'));
-    expect(jsContents).toMatch(setClassMetadataRegExp('type: i2.Other'));
+    expect(jsContents).toContain(`import Default from './types';`);
+    expect(jsContents).toContain(`import * as i1 from "./types";`);
+    expect(jsContents).toContain('i0.ɵdirectiveInject(Default)');
+    expect(jsContents).toContain('i0.ɵdirectiveInject(i1.Other)');
+    expect(jsContents).toMatch(setClassMetadataRegExp('type: Default'));
+    expect(jsContents).toMatch(setClassMetadataRegExp('type: i1.Other'));
   });
 
   it('should use `undefined` in setClassMetadata if types can\'t be represented as values', () => {

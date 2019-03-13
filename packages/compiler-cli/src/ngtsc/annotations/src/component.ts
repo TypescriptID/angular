@@ -12,7 +12,7 @@ import * as ts from 'typescript';
 
 import {CycleAnalyzer} from '../../cycles';
 import {ErrorCode, FatalDiagnosticError} from '../../diagnostics';
-import {ModuleResolver, Reference, ReferenceEmitter} from '../../imports';
+import {DefaultImportRecorder, ModuleResolver, Reference, ReferenceEmitter} from '../../imports';
 import {EnumValue, PartialEvaluator} from '../../partial_evaluator';
 import {Decorator, ReflectionHost, filterToMembersWithDecorator, reflectObjectLiteral} from '../../reflection';
 import {LocalModuleScopeRegistry, ScopeDirective, extractDirectiveGuards} from '../../scope';
@@ -23,7 +23,7 @@ import {tsSourceMapBug29300Fixed} from '../../util/src/ts_source_map_bug_29300';
 import {ResourceLoader} from './api';
 import {extractDirectiveMetadata, extractQueriesFromDecorator, parseFieldArrayValue, queriesFromFields} from './directive';
 import {generateSetClassMetadataCall} from './metadata';
-import {findAngularDecorator, isAngularCoreReference, unwrapExpression} from './util';
+import {findAngularDecorator, isAngularCoreReference, isExpressionForwardReference, unwrapExpression} from './util';
 
 const EMPTY_MAP = new Map<string, Expression>();
 const EMPTY_ARRAY: any[] = [];
@@ -45,7 +45,7 @@ export class ComponentDecoratorHandler implements
       private resourceLoader: ResourceLoader, private rootDirs: string[],
       private defaultPreserveWhitespaces: boolean, private i18nUseExternalIds: boolean,
       private moduleResolver: ModuleResolver, private cycleAnalyzer: CycleAnalyzer,
-      private refEmitter: ReferenceEmitter) {}
+      private refEmitter: ReferenceEmitter, private defaultImportRecorder: DefaultImportRecorder) {}
 
   private literalCache = new Map<Decorator, ts.ObjectLiteralExpression>();
   private boundTemplateCache = new Map<ts.Declaration, BoundTarget<ScopeDirective>>();
@@ -135,7 +135,7 @@ export class ComponentDecoratorHandler implements
     // @Component inherits @Directive, so begin by extracting the @Directive metadata and building
     // on it.
     const directiveResult = extractDirectiveMetadata(
-        node, decorator, this.reflector, this.evaluator, this.isCore,
+        node, decorator, this.reflector, this.evaluator, this.defaultImportRecorder, this.isCore,
         this.elementSchemaRegistry.getDefaultComponentElementName());
     if (directiveResult === undefined) {
       // `extractDirectiveMetadata` returns undefined when the @Directive has `jit: true`. In this
@@ -302,7 +302,8 @@ export class ComponentDecoratorHandler implements
           viewProviders,
           i18nUseExternalIds: this.i18nUseExternalIds, relativeContextFilePath
         },
-        metadataStmt: generateSetClassMetadataCall(node, this.reflector, this.isCore),
+        metadataStmt: generateSetClassMetadataCall(
+            node, this.reflector, this.defaultImportRecorder, this.isCore),
         parsedTemplate: template.nodes,
       },
       typeCheck: true,
@@ -613,20 +614,6 @@ function getTemplateRange(templateExpr: ts.Expression) {
     startCol: character,
     endPos: templateExpr.getEnd() - 1,
   };
-}
-
-function isExpressionForwardReference(
-    expr: Expression, context: ts.Node, contextSource: ts.SourceFile): boolean {
-  if (isWrappedTsNodeExpr(expr)) {
-    const node = ts.getOriginalNode(expr.node);
-    return node.getSourceFile() === contextSource && context.pos < node.pos;
-  } else {
-    return false;
-  }
-}
-
-function isWrappedTsNodeExpr(expr: Expression): expr is WrappedNodeExpr<ts.Node> {
-  return expr instanceof WrappedNodeExpr;
 }
 
 function sourceMapUrl(resourceUrl: string): string {
