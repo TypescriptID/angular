@@ -17,7 +17,8 @@ describe('query logic', () => {
       declarations: [
         AppComp, QueryComp, SimpleCompA, SimpleCompB, StaticViewQueryComp, TextDirective,
         SubclassStaticViewQueryComp, StaticContentQueryComp, SubclassStaticContentQueryComp,
-        QueryCompWithChanges, StaticContentQueryDir
+        QueryCompWithChanges, StaticContentQueryDir, SuperDirectiveQueryTarget, SuperDirective,
+        SubComponent
       ]
     });
   });
@@ -159,6 +160,17 @@ describe('query logic', () => {
       expect(secondComponent.foo.nativeElement).toBe(spans[1]);
       expect(firstComponent.setEvents).toEqual(['textDir set', 'foo set']);
       expect(secondComponent.setEvents).toEqual(['textDir set', 'foo set']);
+    });
+
+    it('should allow for view queries to be inherited from a directive', () => {
+      const fixture = TestBed.createComponent(SubComponent);
+      const comp = fixture.componentInstance;
+      fixture.detectChanges();
+
+      expect(comp.headers).toBeTruthy();
+      expect(comp.headers.length).toBe(2);
+      expect(comp.headers.toArray().every(result => result instanceof SuperDirectiveQueryTarget))
+          .toBe(true);
     });
 
   });
@@ -389,6 +401,33 @@ describe('query logic', () => {
 
   });
 
+  describe('descendants', () => {
+
+    it('should match directives on elements that used to be wrapped by a required parent in HTML parser',
+       () => {
+
+         @Directive({selector: '[myDef]'})
+         class MyDef {
+         }
+
+         @Component({selector: 'my-container', template: ``})
+         class MyContainer {
+           @ContentChildren(MyDef) myDefs !: QueryList<MyDef>;
+         }
+         @Component(
+             {selector: 'test-cmpt', template: `<my-container><tr myDef></tr></my-container>`})
+         class TestCmpt {
+         }
+
+         TestBed.configureTestingModule({declarations: [TestCmpt, MyContainer, MyDef]});
+         const fixture = TestBed.createComponent(TestCmpt);
+         const cmptWithQuery = fixture.debugElement.children[0].injector.get(MyContainer);
+
+         fixture.detectChanges();
+         expect(cmptWithQuery.myDefs.length).toBe(1);
+       });
+  });
+
   describe('observable interface', () => {
 
     it('should allow observing changes to query list', () => {
@@ -484,7 +523,7 @@ class StaticViewQueryComp {
   template: `
     <div [text]="text"></div>
     <span #foo></span>
-    
+
     <div #bar></div>
     <span #baz></span>
   `
@@ -563,4 +602,22 @@ export class QueryCompWithChanges {
   @ViewChildren('foo') foos !: QueryList<any>;
 
   showing = false;
+}
+
+@Component({selector: 'query-target', template: '<ng-content></ng-content>'})
+class SuperDirectiveQueryTarget {
+}
+
+@Directive({selector: '[super-directive]'})
+class SuperDirective {
+  @ViewChildren(SuperDirectiveQueryTarget) headers !: QueryList<SuperDirectiveQueryTarget>;
+}
+
+@Component({
+  template: `
+    <query-target>One</query-target>
+    <query-target>Two</query-target>
+  `
+})
+class SubComponent extends SuperDirective {
 }

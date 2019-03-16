@@ -17,38 +17,6 @@
 // tslint:disable
 
 window.testBlocklist = {
-  "CdkTable should be able to render multiple header and footer rows": {
-    "error": "Error: Missing definitions for header, footer, and row; cannot determine which columns should be rendered.",
-    "notes": "FW-1141: Direct ContentChildren not found for <tr> tags without a <tbody>"
-  },
-  "CdkTable should render correctly when using native HTML tags": {
-    "error": "Error: Missing definitions for header, footer, and row; cannot determine which columns should be rendered.",
-    "notes": "FW-1141: Direct ContentChildren not found for <tr> tags without a <tbody>"
-  },
-  "CdkTable with sticky positioning on native table layout should stick and unstick headers": {
-    "error": "Error: Missing definitions for header, footer, and row; cannot determine which columns should be rendered.",
-    "notes": "FW-1141: Direct ContentChildren not found for <tr> tags without a <tbody>"
-  },
-  "CdkTable with sticky positioning on native table layout should stick and unstick footers": {
-    "error": "Error: Missing definitions for header, footer, and row; cannot determine which columns should be rendered.",
-    "notes": "FW-1141: Direct ContentChildren not found for <tr> tags without a <tbody>"
-  },
-  "CdkTable with sticky positioning on native table layout should stick tfoot when all rows are stuck": {
-    "error": "Error: Missing definitions for header, footer, and row; cannot determine which columns should be rendered.",
-    "notes": "FW-1141: Direct ContentChildren not found for <tr> tags without a <tbody>"
-  },
-  "CdkTable with sticky positioning on native table layout should stick and unstick left columns": {
-    "error": "Error: Missing definitions for header, footer, and row; cannot determine which columns should be rendered.",
-    "notes": "FW-1141: Direct ContentChildren not found for <tr> tags without a <tbody>"
-  },
-  "CdkTable with sticky positioning on native table layout should stick and unstick right columns": {
-    "error": "Error: Missing definitions for header, footer, and row; cannot determine which columns should be rendered.",
-    "notes": "FW-1141: Direct ContentChildren not found for <tr> tags without a <tbody>"
-  },
-  "CdkTable with sticky positioning on native table layout should stick and unstick combination of sticky header, footer, and columns": {
-    "error": "Error: Missing definitions for header, footer, and row; cannot determine which columns should be rendered.",
-    "notes": "FW-1141: Direct ContentChildren not found for <tr> tags without a <tbody>"
-  },
   "CdkTree flat tree should initialize should be able to use units different from px for the indentation": {
     "error": "Error: Failed: Expected node level to be 15rem but was 28px",
     "notes": "Breaking change: Change detection follows insertion tree only, not declaration tree (CdkTree is OnPush)"
@@ -73,64 +41,8 @@ window.testBlocklist = {
     "error": "Error: Failed: Expected node descendant num to be 2 but was 0",
     "notes": "Breaking change: Content queries and descendants flag (fix test by removing <div> in NestedCdkTreeAppWithToggle)"
   },
-  "MatStepper basic stepper should go to next available step when the next button is clicked": {
-    "error": "Error: Expected 2 to be 1.",
-    "notes": "Unknown"
-  },
-  "MatStepper basic stepper should go to previous available step when the previous button is clicked": {
-    "error": "TypeError: Cannot read property 'nativeElement' of undefined",
-    "notes": "Unknown"
-  },
-  "MatStepper basic stepper should not set focus on header of selected step if header is not clicked": {
-    "error": "Error: Expected 2 to be 1.",
-    "notes": "Unknown"
-  },
-  "MatStepper basic stepper should focus next step header if focus is inside the stepper": {
-    "error": "Error: Expected 2 to be 1.",
-    "notes": "Unknown"
-  },
-  "MatStepper basic stepper should only be able to return to a previous step if it is editable": {
-    "error": "TypeError: Cannot read property 'nativeElement' of undefined",
-    "notes": "Unknown"
-  },
-  "MatStepper basic stepper should not do anything when pressing the ENTER key with a modifier": {
-    "error": "Error: Expected 0 to be 1, 'Expected index of focused step to increase by 1 after pressing the next key.'.",
-    "notes": "FW-1146: Components should be able to inherit view queries from directives"
-  },
-  "MatStepper basic stepper should not do anything when pressing the SPACE key with a modifier": {
-    "error": "Error: Expected 0 to be 1, 'Expected index of focused step to increase by 1 after pressing the next key.'.",
-    "notes": "FW-1146: Components should be able to inherit view queries from directives"
-  },
-  "MatStepper linear stepper should not move to next step if current step is pending": {
-    "error": "TypeError: Cannot read property 'nativeElement' of undefined",
-    "notes": "Unknown"
-  },
-  "MatStepper vertical stepper should support using the left/right arrows to move focus": {
-    "error": "Error: Expected 0 to be 1, 'Expected index of focused step to increase by 1 after pressing the next key.'.",
-    "notes": "FW-1146: Components should be able to inherit view queries from directives"
-  },
-  "MatStepper vertical stepper should support using the up/down arrows to move focus": {
-    "error": "Error: Expected 0 to be 1, 'Expected index of focused step to increase by 1 after pressing the next key.'.",
-    "notes": "FW-1146: Components should be able to inherit view queries from directives"
-  },
-  "MatStepper vertical stepper should reverse arrow key focus in RTL mode": {
-    "error": "Error: Expected 0 to be 1.",
-    "notes": "FW-1146: Components should be able to inherit view queries from directives"
-  },
-  "MatStepper stepper with error state should show error state": {
-    "error": "TypeError: Cannot read property 'nativeElement' of undefined",
-    "notes": "Unknown"
-  },
-  "MatStepper stepper with error state should respect a custom falsy hasError value": {
-    "error": "TypeError: Cannot read property 'nativeElement' of undefined",
-    "notes": "Unknown"
-  },
-  "MatStepper stepper using Material UI Guideline logic should show done state when step is completed and its not the current step": {
-    "error": "TypeError: Cannot read property 'nativeElement' of undefined",
-    "notes": "Unknown"
-  },
   "MatSidenav should be fixed position when in fixed mode": {
-    "error": "Error: Expected ng-tns-c23383-0 ng-trigger ng-trigger-transform mat-drawer mat-sidenav mat-drawer-over ng-star-inserted to contain 'mat-sidenav-fixed'.",
+    "error": "Error: Expected ng-tns-c22979-0 ng-trigger ng-trigger-transform mat-drawer mat-sidenav mat-drawer-over ng-star-inserted to contain 'mat-sidenav-fixed'.",
     "notes": "FW-1132: Host class bindings don't work if super class has host class bindings"
   },
   "MatSidenav should set fixed bottom and top when in fixed mode": {
@@ -152,14 +64,6 @@ window.testBlocklist = {
   "MatTree nested tree with toggle should expand/collapse the node recursively": {
     "error": "Error: Expected 0 to be 3, 'Expect node expanded'.",
     "notes": "1) Breaking change: Content queries and descendants flag (fix test by removing <div> in NestedMatTreeAppWithToggle) - 2) Breaking change: Ivy inherits metadata from superclasses (remove (click) in MatTreeNodeToggle)"
-  },
-  "MatInput without forms validates the type": {
-    "error": "Error: Input type \"file\" isn't supported by matInput.",
-    "notes": "Breaking change: Static directive inputs evaluated in creation mode - material test to be updated"
-  },
-  "MatInput with textarea autosize should work in a step": {
-    "error": "TypeError: Cannot read property 'getBoundingClientRect' of null",
-    "notes": "Unknown"
   },
   "Dialog should set the proper animation states": {
     "error": "TypeError: Cannot read property 'componentInstance' of null",
@@ -200,22 +104,6 @@ window.testBlocklist = {
   "MatSnackBar with TemplateRef should be able to open a snack bar using a TemplateRef": {
     "error": "Error: Expected ' Fries Pizza  ' to contain 'Pasta'.",
     "notes": "Breaking change: Change detection follows insertion tree only, not declaration tree (MatSnackBarContainer is OnPush)"
-  },
-  "MatTooltip special cases should clear the `user-select` when a tooltip is set on a text field": {
-    "error": "Error: Expected 'none' to be falsy.",
-    "notes": "FW-1133: Inline styles are not applied before constructor is run"
-  },
-  "MatTooltip special cases should clear the `-webkit-user-drag` on draggable elements": {
-    "error": "Error: Expected 'none' to be falsy.",
-    "notes": "FW-1133: Inline styles are not applied before constructor is run"
-  },
-  "MatTable should be able to render a table correctly with native elements": {
-    "error": "Error: Missing definitions for header, footer, and row; cannot determine which columns should be rendered.",
-    "notes": "FW-1141: Direct ContentChildren not found for <tr> tags without a <tbody>"
-  },
-  "MatTable should apply custom sticky CSS class to sticky cells": {
-    "error": "Error: Missing definitions for header, footer, and row; cannot determine which columns should be rendered.",
-    "notes": "FW-1141: Direct ContentChildren not found for <tr> tags without a <tbody>"
   }
 };
 // clang-format on

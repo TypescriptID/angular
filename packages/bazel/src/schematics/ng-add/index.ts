@@ -8,13 +8,17 @@
  * @fileoverview Schematics for ng-new project that builds with Bazel.
  */
 
-import {JsonAstObject, parseJsonAst, strings} from '@angular-devkit/core';
-import {Rule, SchematicContext, SchematicsException, Tree, apply, applyTemplates, chain, mergeWith, move, schematic, url} from '@angular-devkit/schematics';
+import {JsonAstObject, parseJsonAst} from '@angular-devkit/core';
+import {Rule, SchematicContext, SchematicsException, Tree, apply, applyTemplates, chain, mergeWith, url} from '@angular-devkit/schematics';
 import {getWorkspacePath} from '@schematics/angular/utility/config';
 import {findPropertyInAstObject, insertPropertyInAstObjectInOrder} from '@schematics/angular/utility/json-utils';
 import {validateProjectName} from '@schematics/angular/utility/validation';
+
 import {isJsonAstObject, removeKeyValueInAstObject, replacePropertyInAstObject} from '../utility/json-utils';
+import {findE2eArchitect} from '../utility/workspace-utils';
+
 import {Schema} from './schema';
+
 
 /**
  * Packages that build under Bazel require additional dev dependencies. This
@@ -43,10 +47,9 @@ function addDevDependenciesToPackageJson(options: Schema) {
 
     const devDependencies: {[k: string]: string} = {
       '@angular/bazel': angularCoreVersion,
-      '@angular/upgrade': angularCoreVersion,
       '@bazel/bazel': '^0.23.0',
       '@bazel/ibazel': '^0.9.0',
-      '@bazel/karma': '^0.26.0',
+      '@bazel/karma': '^0.27.4',
     };
 
     const recorder = host.beginUpdate(packageJson);
@@ -81,7 +84,11 @@ function updateGitignore() {
     if (!host.exists(gitignore)) {
       return host;
     }
-    const gitIgnoreContent = host.read(gitignore).toString();
+    const gitIgnoreContentRaw = host.read(gitignore);
+    if (!gitIgnoreContentRaw) {
+      return host;
+    }
+    const gitIgnoreContent = gitIgnoreContentRaw.toString();
     if (gitIgnoreContent.includes('\n/bazel-out\n')) {
       return host;
     }
@@ -95,6 +102,9 @@ function updateGitignore() {
   };
 }
 
+/**
+ * Change the architect in angular.json to use Bazel builder.
+ */
 function updateAngularJsonToUseBazelBuilder(options: Schema): Rule {
   return (host: Tree, context: SchematicContext) => {
     const {name} = options;
@@ -102,8 +112,11 @@ function updateAngularJsonToUseBazelBuilder(options: Schema): Rule {
     if (!workspacePath) {
       throw new Error('Could not find angular.json');
     }
-    const workspaceContent = host.read(workspacePath).toString();
-    const workspaceJsonAst = parseJsonAst(workspaceContent) as JsonAstObject;
+    const workspaceContent = host.read(workspacePath);
+    if (!workspaceContent) {
+      throw new Error('Failed to read angular.json content');
+    }
+    const workspaceJsonAst = parseJsonAst(workspaceContent.toString()) as JsonAstObject;
     const projects = findPropertyInAstObject(workspaceJsonAst, 'projects');
     if (!projects) {
       throw new SchematicsException('Expect projects in angular.json to be an Object');
@@ -147,13 +160,10 @@ function updateAngularJsonToUseBazelBuilder(options: Schema): Rule {
         },
         indent);
 
-    const e2e = `${options.name}-e2e`;
-    const e2eNode = findPropertyInAstObject(projects as JsonAstObject, e2e);
-    if (e2eNode) {
-      const architect =
-          findPropertyInAstObject(e2eNode as JsonAstObject, 'architect') as JsonAstObject;
+    const e2eArchitect = findE2eArchitect(workspaceJsonAst, name);
+    if (e2eArchitect) {
       replacePropertyInAstObject(
-          recorder, architect, 'e2e', {
+          recorder, e2eArchitect, 'e2e', {
             builder: '@angular/bazel:build',
             options: {
               bazelCommand: 'test',
@@ -220,7 +230,11 @@ function updateTsconfigJson(): Rule {
     if (!host.exists(tsconfigPath)) {
       return host;
     }
-    const content = host.read(tsconfigPath).toString();
+    const contentRaw = host.read(tsconfigPath) !.toString();
+    if (!contentRaw) {
+      return host;
+    }
+    const content = contentRaw.toString();
     const ast = parseJsonAst(content);
     if (!isJsonAstObject(ast)) {
       return host;
@@ -255,8 +269,11 @@ function upgradeRxjs() {
     if (!host.exists(packageJson)) {
       throw new Error(`Could not find ${packageJson}`);
     }
-    const content = host.read(packageJson).toString();
-    const jsonAst = parseJsonAst(content);
+    const content = host.read(packageJson);
+    if (!content) {
+      throw new Error('Failed to read package.json content');
+    }
+    const jsonAst = parseJsonAst(content.toString());
     if (!isJsonAstObject(jsonAst)) {
       throw new Error(`Failed to parse JSON for ${packageJson}`);
     }
@@ -300,8 +317,14 @@ function addPostinstallToGenerateNgSummaries() {
     if (!host.exists(packageJson)) {
       throw new Error(`Could not find ${packageJson}`);
     }
-    const content = host.read(packageJson).toString();
-    const jsonAst = parseJsonAst(content) as JsonAstObject;
+    const content = host.read(packageJson);
+    if (!content) {
+      throw new Error('Failed to read package.json content');
+    }
+    const jsonAst = parseJsonAst(content.toString());
+    if (!isJsonAstObject(jsonAst)) {
+      throw new Error(`Failed to parse JSON for ${packageJson}`);
+    }
     const scripts = findPropertyInAstObject(jsonAst, 'scripts') as JsonAstObject;
     const recorder = host.beginUpdate(packageJson);
     if (scripts) {

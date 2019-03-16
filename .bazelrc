@@ -1,5 +1,3 @@
-# Load any settings specific to the current user
-try-import .bazelrc.user
 ################################
 # Settings for Angular team members only
 ################################
@@ -12,8 +10,10 @@ build:angular-team --remote_http_cache=https://storage.googleapis.com/angular-te
 
 # Make compilation fast, by keeping a few copies of the compilers
 # running as daemons, and cache SourceFile AST's to reduce parse time.
-build --strategy=TypeScriptCompile=worker
 build --strategy=AngularTemplateCompile=worker
+# TODO(alexeagle): re-enable after fixing worker instability with rxjs typings
+# build --strategy=TypeScriptCompile=worker
+build --strategy=TypeScriptCompile=standalone
 
 # Enable debugging tests with --config=debug
 test:debug --test_arg=--node_options=--inspect-brk --test_output=streamed --test_strategy=exclusive --test_timeout=9999 --nocache_test_results
@@ -135,3 +135,7 @@ build:remote --remote_instance_name=projects/internal-200822/instances/default_i
 # Do not accept remote cache.
 # We need to understand the security risks of using prior build artifacts.
 build:remote --remote_accept_cached=false
+
+# Load any settings specific to the current user. Needs to be last statement in this
+# config, as the user configuration should be able to overwrite flags from this file.
+try-import .bazelrc.user
