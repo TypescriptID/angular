@@ -13,7 +13,7 @@ import {EventEmitter} from '../..';
 import {AttributeMarker, ProvidersFeature, defineComponent, defineDirective, detectChanges} from '../../src/render3/index';
 import {getNativeByIndex} from '../../src/render3/util/view_utils';
 
-import {bind, container, containerRefreshEnd, containerRefreshStart, directiveInject, element, elementContainerEnd, elementContainerStart, elementEnd, elementProperty, elementStart, embeddedViewEnd, embeddedViewStart, load, reference, template, text} from '../../src/render3/instructions';
+import {bind, container, containerRefreshEnd, containerRefreshStart, directiveInject, element, elementContainerEnd, elementContainerStart, elementEnd, elementProperty, elementStart, embeddedViewEnd, embeddedViewStart, load, reference, template, text} from '../../src/render3/instructions/all';
 import {RenderFlags} from '../../src/render3/interfaces/definition';
 import {queryRefresh, viewQuery, loadViewQuery, contentQuery, loadContentQuery, query} from '../../src/render3/query';
 import {getLView} from '../../src/render3/state';
@@ -1603,6 +1603,7 @@ describe('query', () => {
          });
 
       // https://stackblitz.com/edit/angular-7vvo9j?file=src%2Fapp%2Fapp.component.ts
+      // https://stackblitz.com/edit/angular-xzwp6n
       it('should report results when the same TemplateRef is inserted into different ViewContainerRefs',
          () => {
            let tpl: TemplateRef<{}>;

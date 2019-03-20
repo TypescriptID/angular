@@ -504,6 +504,27 @@
           ]
         },
         {
+          "title": "Schematics",
+          "tooltip": "Understanding schematics.",
+          "children": [
+            {
+              "url": "guide/schematics",
+              "title": "Schematics Overview",
+              "tooltip": "Understand how schematics are used in Angular."
+            },
+            {
+              "url": "guide/schematics-authoring",
+              "title": "Authoring Schematics",
+              "tooltip": "Understand the structure of a schematic."
+            },
+            {
+              "url": "guide/schematics-for-libraries",
+              "title": "Schematics for Libraries",
+              "tooltip": "Use schematics to integrate your library with the Angular CLI."
+            }
+          ]
+        },
+        {
           "url": "guide/ivy",
           "title": "Angular Ivy",
           "tooltip": "Opting into Angular Ivy with Angular CLI."
@@ -629,6 +650,11 @@
           "title": "Overview",
           "tooltip": "An introduction to the CLI tool, commands, and syntax.",
           "url": "cli"
+        },
+        {
+          "title": "Usage Analytics",
+          "tooltip": "For administrators, guide to gathering usage analytics from your users.",
+          "url": "cli/usage-analytics-gathering"
         }
       ]
     },
@@ -667,6 +693,11 @@
           "url": "https://blog.angular.io/",
           "title": "Blog",
           "tooltip": "Angular Blog"
+        },
+        {
+          "url": "analytics",
+          "title": "Usage Analytics",
+          "tooltip": "Angular Usage Analytics"
         }
       ]
     },

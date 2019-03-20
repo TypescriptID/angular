@@ -52,10 +52,16 @@ export {
   elementContainerStart,
   elementContainerEnd,
   elementStyling,
-  elementHostAttrs,
   elementStylingMap,
   elementStyleProp,
   elementStylingApply,
+
+  elementHostAttrs,
+  elementHostStyling,
+  elementHostStylingMap,
+  elementHostStyleProp,
+  elementHostClassProp,
+  elementHostStylingApply,
 
   flushHooksUpTo,
 
@@ -86,7 +92,7 @@ export {
   injectAttribute,
 
   getCurrentView
-} from './instructions';
+} from './instructions/all';
 
 export {
   restoreView,
