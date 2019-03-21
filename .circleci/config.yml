@@ -574,23 +574,29 @@ jobs:
       - *attach_workspace
       - *init_environment
       - run:
-          name: "Determining SHA of Material Ivy branch"
-          command: git ls-remote ${MATERIAL_REPO_URL} ${MATERIAL_REPO_BRANCH} | cut -f1 > material_repo_sha
-      - run:
           name: "Cloning Material repository"
           command: ./scripts/ci/clone_angular_material_repo.sh
       - restore_cache:
+          # Material directory must be kept in sync with the `$MATERIAL_REPO_TMP_DIR` env variable.
+          # It needs to be hardcoded here, because env variables interpolation is not supported.
           keys:
-            - v1-angular-material-{{ checksum "material_repo_sha" }}
-            - v1-angular-material-
+            - v2-angular-material-{{ checksum "/tmp/material2/yarn.lock" }}
+            - v2-angular-material-
+      - run:
+          name: Installing Material dependencies.
+          command: yarn --cwd ${MATERIAL_REPO_TMP_DIR} install --frozen-lockfile --non-interactive
+      # Save the cache before we run the Material unit tests script. This is necessary
+      # because we don't want to cache the node modules which have been modified to contain
+      # the attached Ivy package output.
+      - save_cache:
+          # Material directory must be kept in sync with the `$MATERIAL_REPO_TMP_DIR` env variable.
+          # It needs to be hardcoded here, because env variables interpolation is not supported.
+          key: v2-angular-material-{{ checksum "/tmp/material2/yarn.lock" }}
+          paths:
+            - "/tmp/material2/node_modules"
       - run:
           name: "Running Material unit tests"
           command: ./scripts/ci/run_angular_material_unit_tests.sh
-      - save_cache:
-          key: v1-angular-material-{{ checksum "material_repo_sha" }}
-          paths:
-            # Needs to be hardcoded because environment variables are not interpolated here.
-            - "/tmp/material2/node_modules"
 
 workflows:
   version: 2

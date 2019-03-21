@@ -17,8 +17,12 @@
 // tslint:disable
 
 window.testBlocklist = {
+  "MatBadge should clear any pre-existing badges": {
+    "error": "Error: Expected 2 to be 1.",
+    "notes": "Breaking change: Static directive inputs evaluated in creation mode (MatBadge._clearExistingBadges is executed before child nodes of PreExistingBadge are aded to the DOM)"
+  },
   "MatSidenav should be fixed position when in fixed mode": {
-    "error": "Error: Expected ng-tns-c22979-0 ng-trigger ng-trigger-transform mat-drawer mat-sidenav mat-drawer-over ng-star-inserted to contain 'mat-sidenav-fixed'.",
+    "error": "Error: Expected ng-tns-c380-0 ng-trigger ng-trigger-transform mat-drawer mat-sidenav mat-drawer-over ng-star-inserted to contain 'mat-sidenav-fixed'.",
     "notes": "FW-1132: Host class bindings don't work if super class has host class bindings"
   },
   "MatSidenav should set fixed bottom and top when in fixed mode": {
@@ -60,10 +64,6 @@ window.testBlocklist = {
   "MatMenu nested menu should not open submenu when hovering over disabled trigger": {
     "error": "TypeError: Cannot read property 'componentInstance' of null",
     "notes": "FW-1059: DebugNode.query should query nodes in the logical tree"
-  },
-  "MatSnackBar with TemplateRef should be able to open a snack bar using a TemplateRef": {
-    "error": "Error: Expected ' Fries Pizza  ' to contain 'Pasta'.",
-    "notes": "Breaking change: Change detection follows insertion tree only, not declaration tree (MatSnackBarContainer is OnPush)"
   }
 };
 // clang-format on

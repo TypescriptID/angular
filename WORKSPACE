@@ -15,8 +15,8 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 # Fetch rules_nodejs so we can install our npm dependencies
 http_archive(
     name = "build_bazel_rules_nodejs",
-    sha256 = "251a023b6c5c5c97db1bfe24652dc19dad05f4da68f8e1821d92d911fa3f4ef4",
-    urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/0.27.4/rules_nodejs-0.27.4.tar.gz"],
+    sha256 = "fb87ed5965cef93188af9a7287511639403f4b0da418961ce6defb9dcf658f51",
+    urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/0.27.7/rules_nodejs-0.27.7.tar.gz"],
 )
 
 # Check the bazel version and download npm dependencies
@@ -48,7 +48,15 @@ node_repositories(
     node_version = "10.9.0",
     package_json = ["//:package.json"],
     preserve_symlinks = True,
-    yarn_version = "1.13.0",
+    # yarn 1.13.0 under Bazel has a regression on Windows that causes build errors on rebuilds:
+    # ```
+    # ERROR: Source forest creation failed: C:/.../fyuc5c3n/execroot/angular/external (Directory not empty)
+    # ```
+    # See https://github.com/angular/angular/pull/29431 for more information.
+    # It possible that versions of yarn past 1.13.0 do not have this issue, however, before
+    # advancing this version we need to test manually on Windows that the above error does not
+    # happen as the issue is not caught by CI.
+    yarn_version = "1.12.1",
 )
 
 yarn_install(

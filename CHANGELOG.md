@@ -38,13 +38,23 @@ This meachanism of automatic wrapping / auto-correcting was problematic for seve
 </projecting-tr-inside-tbody>
 ```
 
-In the above example the `<projecting-tr-inside-tbody>` component culd be "surprised" to see additional
+In the above example the `<projecting-tr-inside-tbody>` component could be "surprised" to see additional
 `<tbody>` elements inserted by Angular HTML parser.
 
 
 * TypeScript 3.1 and 3.2 are no longer supported.
 
 Please update your TypeScript version to 3.3
+
+
+
+<a name="7.2.10"></a>
+## [7.2.10](https://github.com/angular/angular/compare/7.2.9...7.2.10) (2019-03-20)
+
+
+### Bug Fixes
+
+* **compiler-cli:** incorrect metadata bundle for multiple unnamed re-exports ([#29360](https://github.com/angular/angular/issues/29360)) ([cf8d934](https://github.com/angular/angular/commit/cf8d934)), closes [/github.com/angular/material2/blob/master/tools/package-tools/build-release.ts#L78-L85](https://github.com//github.com/angular/material2/blob/master/tools/package-tools/build-release.ts/issues/L78-L85)
 
 
 
