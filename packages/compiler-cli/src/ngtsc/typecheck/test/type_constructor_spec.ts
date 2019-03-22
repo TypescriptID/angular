@@ -10,6 +10,7 @@ import * as ts from 'typescript';
 
 import {AbsoluteModuleStrategy, LocalIdentifierStrategy, LogicalProjectStrategy, ReferenceEmitter} from '../../imports';
 import {LogicalFileSystem} from '../../path';
+import {isNamedClassDeclaration} from '../../reflection';
 import {getDeclaration, makeProgram} from '../../testing/in_memory_typescript';
 import {getRootDirs} from '../../util/src/typescript';
 import {TypeCheckContext} from '../src/context';
@@ -47,7 +48,7 @@ TestClass.ngTypeCtor({value: 'test'});
         new LogicalProjectStrategy(checker, logicalFs),
       ]);
       const ctx = new TypeCheckContext(emitter);
-      const TestClass = getDeclaration(program, 'main.ts', 'TestClass', ts.isClassDeclaration);
+      const TestClass = getDeclaration(program, 'main.ts', 'TestClass', isNamedClassDeclaration);
       ctx.addTypeCtor(program.getSourceFile('main.ts') !, TestClass, {
         fnName: 'ngTypeCtor',
         body: true,

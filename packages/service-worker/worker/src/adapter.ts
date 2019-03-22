@@ -13,6 +13,15 @@
  * from the global scope.
  */
 export class Adapter {
+  readonly cacheNamePrefix: string;
+
+  constructor(scope: ServiceWorkerGlobalScope) {
+    // Suffixing `ngsw` with the baseHref to avoid clash of cache names
+    // for SWs with different scopes on the same domain.
+    const baseHref = this.parseUrl(scope.registration.scope).path;
+    this.cacheNamePrefix = 'ngsw:' + baseHref;
+  }
+
   /**
    * Wrapper around the `Request` constructor.
    */
@@ -43,7 +52,7 @@ export class Adapter {
   /**
    * Extract the pathname of a URL.
    */
-  parseUrl(url: string, relativeTo: string): {origin: string, path: string} {
+  parseUrl(url: string, relativeTo?: string): {origin: string, path: string} {
     const parsed = new URL(url, relativeTo);
     return {origin: parsed.origin, path: parsed.pathname};
   }

@@ -9,12 +9,12 @@
 import * as ts from 'typescript';
 
 import {Reference} from '../../imports';
-import {ClassMemberKind, ReflectionHost, reflectTypeEntityToDeclaration} from '../../reflection';
+import {ClassDeclaration, ClassMemberKind, ReflectionHost, isNamedClassDeclaration, reflectTypeEntityToDeclaration} from '../../reflection';
 import {nodeDebugInfo} from '../../util/src/typescript';
 
 export function extractReferencesFromType(
     checker: ts.TypeChecker, def: ts.TypeNode, ngModuleImportedFrom: string | null,
-    resolutionContext: string): Reference<ts.ClassDeclaration>[] {
+    resolutionContext: string): Reference<ClassDeclaration>[] {
   if (!ts.isTupleTypeNode(def)) {
     return [];
   }
@@ -24,8 +24,8 @@ export function extractReferencesFromType(
     }
     const type = element.exprName;
     const {node, from} = reflectTypeEntityToDeclaration(type, checker);
-    if (!ts.isClassDeclaration(node)) {
-      throw new Error(`Expected ClassDeclaration: ${nodeDebugInfo(node)}`);
+    if (!isNamedClassDeclaration(node)) {
+      throw new Error(`Expected named ClassDeclaration: ${nodeDebugInfo(node)}`);
     }
     const specifier = (from !== null && !from.startsWith('.') ? from : ngModuleImportedFrom);
     if (specifier !== null) {
@@ -77,7 +77,7 @@ export function readStringArrayType(type: ts.TypeNode): string[] {
 }
 
 
-export function extractDirectiveGuards(node: ts.Declaration, reflector: ReflectionHost): {
+export function extractDirectiveGuards(node: ClassDeclaration, reflector: ReflectionHost): {
   ngTemplateGuards: string[],
   hasNgTemplateContextGuard: boolean,
 } {
@@ -88,7 +88,7 @@ export function extractDirectiveGuards(node: ts.Declaration, reflector: Reflecti
   return {hasNgTemplateContextGuard, ngTemplateGuards};
 }
 
-function nodeStaticMethodNames(node: ts.Declaration, reflector: ReflectionHost): string[] {
+function nodeStaticMethodNames(node: ClassDeclaration, reflector: ReflectionHost): string[] {
   return reflector.getMembersOfClass(node)
       .filter(member => member.kind === ClassMemberKind.Method && member.isStatic)
       .map(member => member.name);

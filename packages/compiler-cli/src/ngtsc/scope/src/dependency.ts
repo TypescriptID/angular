@@ -9,13 +9,13 @@
 import * as ts from 'typescript';
 
 import {AliasGenerator, Reference} from '../../imports';
-import {ReflectionHost} from '../../reflection';
+import {ClassDeclaration, ReflectionHost} from '../../reflection';
 
 import {ExportScope, ScopeDirective, ScopePipe} from './api';
 import {extractDirectiveGuards, extractReferencesFromType, readStringArrayType, readStringMapType, readStringType} from './util';
 
 export interface DtsModuleScopeResolver {
-  resolve(ref: Reference<ts.ClassDeclaration>): ExportScope|null;
+  resolve(ref: Reference<ClassDeclaration>): ExportScope|null;
 }
 
 /**
@@ -25,11 +25,11 @@ export interface DtsModuleScopeResolver {
  * of all of the directives/pipes it exports. It does this by reading metadata off of Ivy static
  * fields on directives, components, pipes, and NgModules.
  */
-export class MetadataDtsModuleScopeResolver {
+export class MetadataDtsModuleScopeResolver implements DtsModuleScopeResolver {
   /**
    * Cache which holds fully resolved scopes for NgModule classes from .d.ts files.
    */
-  private cache = new Map<ts.ClassDeclaration, ExportScope|null>();
+  private cache = new Map<ClassDeclaration, ExportScope|null>();
 
   constructor(
       private checker: ts.TypeChecker, private reflector: ReflectionHost,
@@ -42,7 +42,7 @@ export class MetadataDtsModuleScopeResolver {
    * This operation relies on a `Reference` instead of a direct TypeScrpt node as the `Reference`s
    * produced depend on how the original NgModule was imported.
    */
-  resolve(ref: Reference<ts.ClassDeclaration>): ExportScope|null {
+  resolve(ref: Reference<ClassDeclaration>): ExportScope|null {
     const clazz = ref.node;
     const sourceFile = clazz.getSourceFile();
     if (!sourceFile.isDeclarationFile) {
@@ -64,7 +64,7 @@ export class MetadataDtsModuleScopeResolver {
       return null;
     }
 
-    const declarations = new Set<ts.Declaration>();
+    const declarations = new Set<ClassDeclaration>();
     for (const declRef of meta.declarations) {
       declarations.add(declRef.node);
     }
@@ -139,7 +139,8 @@ export class MetadataDtsModuleScopeResolver {
    *
    * @param ref `Reference` to the class of interest, with the context of how it was obtained.
    */
-  private readModuleMetadataFromClass(ref: Reference<ts.Declaration>): RawDependencyMetadata|null {
+  private readModuleMetadataFromClass(ref: Reference<ClassDeclaration>): RawDependencyMetadata
+      |null {
     const clazz = ref.node;
     const resolutionContext = clazz.getSourceFile().fileName;
     // This operation is explicitly not memoized, as it depends on `ref.ownedByModuleGuess`.
@@ -171,7 +172,7 @@ export class MetadataDtsModuleScopeResolver {
   /**
    * Read directive (or component) metadata from a referenced class in a .d.ts file.
    */
-  private readScopeDirectiveFromClassWithDef(ref: Reference<ts.ClassDeclaration>): ScopeDirective
+  private readScopeDirectiveFromClassWithDef(ref: Reference<ClassDeclaration>): ScopeDirective
       |null {
     const clazz = ref.node;
     const def = this.reflector.getMembersOfClass(clazz).find(
@@ -193,7 +194,7 @@ export class MetadataDtsModuleScopeResolver {
 
     return {
       ref,
-      name: clazz.name !.text,
+      name: clazz.name.text,
       isComponent: def.name === 'ngComponentDef', selector,
       exportAs: readStringArrayType(def.type.typeArguments[2]),
       inputs: readStringMapType(def.type.typeArguments[3]),
@@ -206,7 +207,7 @@ export class MetadataDtsModuleScopeResolver {
   /**
    * Read pipe metadata from a referenced class in a .d.ts file.
    */
-  private readScopePipeFromClassWithDef(ref: Reference<ts.ClassDeclaration>): ScopePipe|null {
+  private readScopePipeFromClassWithDef(ref: Reference<ClassDeclaration>): ScopePipe|null {
     const def = this.reflector.getMembersOfClass(ref.node).find(
         field => field.isStatic && field.name === 'ngPipeDef');
     if (def === undefined) {
@@ -248,7 +249,7 @@ export class MetadataDtsModuleScopeResolver {
  * Raw metadata read from the .d.ts info of an ngModuleDef field on a compiled NgModule class.
  */
 interface RawDependencyMetadata {
-  declarations: Reference<ts.ClassDeclaration>[];
-  imports: Reference<ts.ClassDeclaration>[];
-  exports: Reference<ts.ClassDeclaration>[];
+  declarations: Reference<ClassDeclaration>[];
+  imports: Reference<ClassDeclaration>[];
+  exports: Reference<ClassDeclaration>[];
 }
