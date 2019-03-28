@@ -658,7 +658,8 @@
     "twitter": "samjulien",
     "website": "http://www.samjulien.com/",
     "bio": "Sam Julien builds software, articles, video courses, and campfires. A developer, speaker, writer, and GDE in the Pacific Northwest, Sam's favorite thing in the world is changing someone's life by teaching them to code.",
-    "group": "GDE"
+    "group": "Collaborator",
+    "mentor": "gkalpak"
   },
   "JiaLiPassion": {
     "name": "JiaLi Passion",
@@ -754,5 +755,12 @@
     "website": "https://webstackup.com/",
     "bio": "Siddharth is a Full Stack JavaScript Developer and a GDE in Angular. He's passionate about sharing his knowledge on Angular, Firebase and the Web in general. He's the organizer of WebStack, a local community of developers focused on Web, Mobile, Voice and Server related technologies in general. WebStack hosts free monthly meetups every 2nd or 3rd Saturday of the month. Siddharth is also an avid photographer and loves traveling. Find him anywhere on the Web with `SiddAjmera`.",
     "group": "GDE"
+  },
+  "bbrennan": {
+    "name": "Bonnie Brennan",
+    "twitter": "bonnster75",
+    "group": "GDE",
+    "picture": "bonnie.jpg",
+    "bio": "Bonnie has been specializing in Angular since 2013. She is the founder of ngHouston Angular Meetup and a regular panelist on Angular Air. She is also the very proud parent component of @thelittlestdev!"
   }
 }

@@ -316,6 +316,7 @@ describe('compiler compliance', () => {
             $r3$.ɵelement(0, "div", $e0_attrs$);
           }
           if (rf & 2) {
+            $r3$.ɵselect(0);
             $r3$.ɵelementProperty(0, "id", $r3$.ɵbind(ctx.id));
           }
         }
@@ -363,6 +364,7 @@ describe('compiler compliance', () => {
             $r3$.ɵpipe(1,"pipe");
           }
           if (rf & 2) {
+            $r3$.ɵselect(0);
             $r3$.ɵelementProperty(0, "ternary", $r3$.ɵbind((ctx.cond ? $r3$.ɵpureFunction1(8, $c0$, ctx.a): $c1$)));
             $r3$.ɵelementProperty(0, "pipe", $r3$.ɵbind($r3$.ɵpipeBind3(1, 4, ctx.value, 1, 2)));
             $r3$.ɵelementProperty(0, "and", $r3$.ɵbind((ctx.cond && $r3$.ɵpureFunction1(10, $c0$, ctx.b))));
@@ -798,7 +800,7 @@ describe('compiler compliance', () => {
           if (rf & 2) {
             const $myComp$ = $r3$.ɵnextContext();
             const $foo$ = $r3$.ɵreference(1);
-            $r3$.ɵflushHooksUpTo(1);
+            $r3$.ɵselect(1);
             $r3$.ɵtextBinding(1, $r3$.ɵinterpolation2("", $myComp$.salutation, " ", $foo$, ""));
           }
         }
@@ -877,6 +879,7 @@ describe('compiler compliance', () => {
                 $r3$.ɵelement(0, "my-comp", $e0_attrs$);
               }
               if (rf & 2) {
+                $r3$.ɵselect(0);
                 $r3$.ɵelementProperty(0, "names", $r3$.ɵbind($r3$.ɵpureFunction1(1, $e0_ff$, ctx.customName)));
               }
             },
@@ -959,6 +962,7 @@ describe('compiler compliance', () => {
                 $r3$.ɵelement(0, "my-comp", $e0_attr$);
               }
               if (rf & 2) {
+                $r3$.ɵselect(0);
                 $r3$.ɵelementProperty(
                     0, "names",
                     $r3$.ɵbind($r3$.ɵpureFunctionV(1, $e0_ff$, [ctx.n0, ctx.n1, ctx.n2, ctx.n3, ctx.n4, ctx.n5, ctx.n6, ctx.n7, ctx.n8])));
@@ -1023,6 +1027,7 @@ describe('compiler compliance', () => {
                 $r3$.ɵelement(0, "object-comp", $e0_attrs$);
               }
               if (rf & 2) {
+                $r3$.ɵselect(0);
                 $r3$.ɵelementProperty(0, "config", $r3$.ɵbind($r3$.ɵpureFunction1(1, $e0_ff$, ctx.name)));
               }
             },
@@ -1091,6 +1096,7 @@ describe('compiler compliance', () => {
                 $r3$.ɵelement(0, "nested-comp", $e0_attrs$);
               }
               if (rf & 2) {
+                $r3$.ɵselect(0);
                 $r3$.ɵelementProperty(
                     0, "config",
                     $r3$.ɵbind($r3$.ɵpureFunction2(5, $e0_ff_2$, ctx.name, $r3$.ɵpureFunction1(3, $e0_ff_1$, $r3$.ɵpureFunction1(1, $e0_ff$, ctx.duration)))));
@@ -1256,8 +1262,9 @@ describe('compiler compliance', () => {
               $r3$.ɵtemplate(2, Cmp_ng_template_2_Template, 2, 0, "ng-template");
             }
             if (rf & 2) {
+              $r3$.ɵselect(0);
               $r3$.ɵelementProperty(0, "ngIf", $r3$.ɵbind(ctx.visible));
-              $r3$.ɵflushHooksUpTo(1);
+              $r3$.ɵselect(1);
               $r3$.ɵelementProperty(1, "ngIf", $r3$.ɵbind(ctx.visible));
             }
           }
@@ -1949,8 +1956,9 @@ describe('compiler compliance', () => {
                   $r3$.ɵelementEnd();
                 }
                 if (rf & 2) {
+                  $r3$.ɵselect(0);
                   $r3$.ɵtextBinding(0, $r3$.ɵinterpolation1("", $r3$.ɵpipeBind2(1, 3, $r3$.ɵpipeBind2(2, 6, ctx.name, ctx.size), ctx.size), ""));
-                  $r3$.ɵflushHooksUpTo(4);
+                  $r3$.ɵselect(4);
                   $r3$.ɵtextBinding(4, $r3$.ɵinterpolation2("", $r3$.ɵpipeBindV(5, 9, $r3$.ɵpureFunction1(18, $c0$, ctx.name)), " ", (ctx.name ? 1 : $r3$.ɵpipeBind1(6, 16, 2)), ""));
                 }
               },
@@ -2013,6 +2021,7 @@ describe('compiler compliance', () => {
                   $r3$.ɵpipe(5, "myPipe");
                 }
                 if (rf & 2) {
+                  $r3$.ɵselect(0);
                   $r3$.ɵtextBinding(0, $r3$.ɵinterpolation5(
                     "0:", i0.ɵpipeBind1(1, 5, ctx.name),
                     "1:", i0.ɵpipeBind2(2, 7, ctx.name, 1),
@@ -2065,7 +2074,7 @@ describe('compiler compliance', () => {
             }
             if (rf & 2) {
               const $user$ = $r3$.ɵreference(1);
-              $r3$.ɵflushHooksUpTo(2);
+              $r3$.ɵselect(2);
               $r3$.ɵtextBinding(2, $r3$.ɵinterpolation1("Hello ", $user$.value, "!"));
             }
           },
@@ -2128,7 +2137,7 @@ describe('compiler compliance', () => {
             $r3$.ɵnextContext();
             const $foo$ = $r3$.ɵreference(1);
             const $baz$ = $r3$.ɵreference(5);
-            $r3$.ɵflushHooksUpTo(1);
+            $r3$.ɵselect(1);
             $r3$.ɵtextBinding(1, $r3$.ɵinterpolation3("", $foo$, "-", $bar$, "-", $baz$, ""));
           }
         }
@@ -2144,7 +2153,7 @@ describe('compiler compliance', () => {
             const $bar$ = $r3$.ɵreference(4);
             $r3$.ɵnextContext();
             const $foo$ = $r3$.ɵreference(1);
-            $r3$.ɵflushHooksUpTo(1);
+            $r3$.ɵselect(1);
             $r3$.ɵtextBinding(1, $r3$.ɵinterpolation2(" ", $foo$, "-", $bar$, " "));
           }
         }
@@ -2164,7 +2173,7 @@ describe('compiler compliance', () => {
             }
             if (rf & 2) {
               const $foo$ = $r3$.ɵreference(1);
-              $r3$.ɵflushHooksUpTo(2);
+              $r3$.ɵselect(2);
               $r3$.ɵtextBinding(2, $r3$.ɵinterpolation1(" ", $foo$, " "));
             }
           },
@@ -2217,7 +2226,7 @@ describe('compiler compliance', () => {
         if (rf & 2) {
           const $item$ = $i0$.ɵnextContext().$implicit;
           const $foo$ = $i0$.ɵreference(2);
-          $r3$.ɵflushHooksUpTo(1);
+          $r3$.ɵselect(1);
           $i0$.ɵtextBinding(1, $i0$.ɵinterpolation2(" ", $foo$, " - ", $item$, " "));
         }
       }
@@ -2231,7 +2240,7 @@ describe('compiler compliance', () => {
         }
         if (rf & 2) {
           const $app$ = $i0$.ɵnextContext();
-          $r3$.ɵflushHooksUpTo(3);
+          $r3$.ɵselect(3);
           $i0$.ɵelementProperty(3, "ngIf", $i0$.ɵbind($app$.showing));
         }
       }
@@ -2242,6 +2251,7 @@ describe('compiler compliance', () => {
           $i0$.ɵtemplate(0, MyComponent_div_0_Template, 4, 1, "div", $c0$);
         }
         if (rf & 2) {
+          $i0$.ɵselect(0);
           $i0$.ɵelementProperty(0, "ngForOf", $i0$.ɵbind(ctx.items));
         }
       }`;
@@ -2322,8 +2332,9 @@ describe('compiler compliance', () => {
                 $r3$.ɵelement(1, "lifecycle-comp", $e1_attrs$);
               }
               if (rf & 2) {
+                $r3$.ɵselect(0);
                 $r3$.ɵelementProperty(0, "name", $r3$.ɵbind(ctx.name1));
-                $r3$.ɵflushHooksUpTo(1);
+                $r3$.ɵselect(1);
                 $r3$.ɵelementProperty(1, "name", $r3$.ɵbind(ctx.name2));
               }
             },
@@ -2455,7 +2466,7 @@ describe('compiler compliance', () => {
                     $r3$.ɵelementEnd();
                   }
                   if (rf & 2) {
-                    $r3$.ɵflushHooksUpTo(1);
+                    $r3$.ɵselect(1);
                     $r3$.ɵelementProperty(1,"forOf",$r3$.ɵbind(ctx.items));
                   }
                 },
@@ -2519,7 +2530,7 @@ describe('compiler compliance', () => {
             }
             if (rf & 2) {
               const $item$ = ctx.$implicit;
-              $r3$.ɵflushHooksUpTo(1);
+              $r3$.ɵselect(1);
               $r3$.ɵtextBinding(1, $r3$.ɵinterpolation1("", $item$.name, ""));
             }
           }
@@ -2537,7 +2548,7 @@ describe('compiler compliance', () => {
                 $r3$.ɵelementEnd();
               }
               if (rf & 2) {
-                $r3$.ɵflushHooksUpTo(1);
+                $r3$.ɵselect(1);
                 $r3$.ɵelementProperty(1, "forOf", $r3$.ɵbind(ctx.items));
               }
             },
@@ -2602,7 +2613,7 @@ describe('compiler compliance', () => {
             if (rf & 2) {
               const $info$ = ctx.$implicit;
               const $item$ = $r3$.ɵnextContext().$implicit;
-              $r3$.ɵflushHooksUpTo(1);
+              $r3$.ɵselect(1);
               $r3$.ɵtextBinding(1, $r3$.ɵinterpolation2(" ", $item$.name, ": ", $info$.description, " "));
             }
           }
@@ -2620,9 +2631,9 @@ describe('compiler compliance', () => {
             }
             if (rf & 2) {
               const $item$ = ctx.$implicit;
-              $r3$.ɵflushHooksUpTo(2);
+              $r3$.ɵselect(2);
               $r3$.ɵtextBinding(2, $r3$.ɵinterpolation1("", IDENT.name, ""));
-              $r3$.ɵflushHooksUpTo(4);
+              $r3$.ɵselect(4);
               $r3$.ɵelementProperty(4, "forOf", $r3$.ɵbind(IDENT.infos));
             }
           }
@@ -2641,7 +2652,7 @@ describe('compiler compliance', () => {
                 $r3$.ɵelementEnd();
               }
               if (rf & 2) {
-                $r3$.ɵflushHooksUpTo(1);
+                $r3$.ɵselect(1);
                 $r3$.ɵelementProperty(1, "forOf", $r3$.ɵbind(ctx.items));
               }
             },

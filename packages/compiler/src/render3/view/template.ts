@@ -121,10 +121,11 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
    */
   private _updateCodeFns: (() => o.Statement)[] = [];
   /**
-   * Memorizes the last node index for which a flushHooksUpTo instruction has been generated.
-   * Initialized to 0 to avoid generating a useless flushHooksUpTo(0).
+   * Memorizes the last node index for which a select instruction has been generated.
+   * We're initializing this to -1 to ensure the `select(0)` instruction is generated before any
+   * relevant update instructions.
    */
-  private _lastNodeIndexWithFlush: number = 0;
+  private _lastNodeIndexWithFlush: number = -1;
   /** Temporary variable declarations generated from visiting pipes, literals, etc. */
   private _tempVariables: o.Statement[] = [];
   /**
@@ -999,7 +1000,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       nodeIndex: number, span: ParseSourceSpan|null, reference: o.ExternalReference,
       paramsOrFn?: o.Expression[]|(() => o.Expression[])) {
     if (this._lastNodeIndexWithFlush < nodeIndex) {
-      this.instructionFn(this._updateCodeFns, span, R3.flushHooksUpTo, [o.literal(nodeIndex)]);
+      this.instructionFn(this._updateCodeFns, span, R3.select, [o.literal(nodeIndex)]);
       this._lastNodeIndexWithFlush = nodeIndex;
     }
     this.instructionFn(this._updateCodeFns, span, reference, paramsOrFn || []);
