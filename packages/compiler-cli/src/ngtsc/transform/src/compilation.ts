@@ -11,6 +11,8 @@ import * as ts from 'typescript';
 
 import {ErrorCode, FatalDiagnosticError} from '../../diagnostics';
 import {ImportRewriter} from '../../imports';
+import {IncrementalState} from '../../incremental';
+import {PerfRecorder} from '../../perf';
 import {ClassDeclaration, ReflectionHost, isNamedClassDeclaration, reflectNameOfDeclaration} from '../../reflection';
 import {TypeCheckContext} from '../../typecheck';
 import {getSourceFile} from '../../util/src/typescript';
@@ -75,6 +77,7 @@ export class IvyCompilation {
   constructor(
       private handlers: DecoratorHandler<any, any>[], private checker: ts.TypeChecker,
       private reflector: ReflectionHost, private importRewriter: ImportRewriter,
+      private incrementalState: IncrementalState, private perf: PerfRecorder,
       private sourceToFactorySymbols: Map<string, Set<string>>|null) {}
 
 
@@ -169,6 +172,10 @@ export class IvyCompilation {
   private analyze(sf: ts.SourceFile, preanalyze: boolean): Promise<void>|undefined {
     const promises: Promise<void>[] = [];
 
+    // This flag begins as true for the file. If even one handler is matched and does not explicitly
+    // state that analysis/emit can be skipped, then the flag will be set to false.
+    let allowSkipAnalysisAndEmit = true;
+
     const analyzeClass = (node: ClassDeclaration): void => {
       const ivyClass = this.detectHandlersForClass(node);
 
@@ -182,6 +189,7 @@ export class IvyCompilation {
       for (const match of ivyClass.matchedHandlers) {
         // The analyze() function will run the analysis phase of the handler.
         const analyze = () => {
+          const analyzeClassSpan = this.perf.start('analyzeClass', node);
           try {
             match.analyzed = match.handler.analyze(node, match.detected.metadata);
 
@@ -195,12 +203,19 @@ export class IvyCompilation {
               this.sourceToFactorySymbols.get(sf.fileName) !.add(match.analyzed.factorySymbolName);
             }
 
+            // Update the allowSkipAnalysisAndEmit flag - it will only remain true if match.analyzed
+            // also explicitly specifies a value of true for the flag.
+            allowSkipAnalysisAndEmit =
+                allowSkipAnalysisAndEmit && (!!match.analyzed.allowSkipAnalysisAndEmit);
+
           } catch (err) {
             if (err instanceof FatalDiagnosticError) {
               this._diagnostics.push(err.toDiagnostic());
             } else {
               throw err;
             }
+          } finally {
+            this.perf.stop(analyzeClassSpan);
           }
         };
 
@@ -235,18 +250,30 @@ export class IvyCompilation {
 
     visit(sf);
 
+    const updateIncrementalState = () => {
+      if (allowSkipAnalysisAndEmit) {
+        this.incrementalState.markFileAsSafeToSkipEmitIfUnchanged(sf);
+      }
+    };
+
     if (preanalyze && promises.length > 0) {
-      return Promise.all(promises).then(() => undefined);
+      return Promise.all(promises).then(() => {
+        updateIncrementalState();
+        return undefined;
+      });
     } else {
+      updateIncrementalState();
       return undefined;
     }
   }
 
   resolve(): void {
+    const resolveSpan = this.perf.start('resolve');
     this.ivyClasses.forEach((ivyClass, node) => {
       for (const match of ivyClass.matchedHandlers) {
         if (match.handler.resolve !== undefined && match.analyzed !== null &&
             match.analyzed.analysis !== undefined) {
+          const resolveClassSpan = this.perf.start('resolveClass', node);
           try {
             const res = match.handler.resolve(node, match.analyzed.analysis);
             if (res.reexports !== undefined) {
@@ -268,10 +295,13 @@ export class IvyCompilation {
             } else {
               throw err;
             }
+          } finally {
+            this.perf.stop(resolveClassSpan);
           }
         }
       }
     });
+    this.perf.stop(resolveSpan);
   }
 
   typeCheck(context: TypeCheckContext): void {
@@ -305,8 +335,10 @@ export class IvyCompilation {
         continue;
       }
 
+      const compileSpan = this.perf.start('compileClass', original);
       const compileMatchRes =
           match.handler.compile(node as ClassDeclaration, match.analyzed.analysis, constantPool);
+      this.perf.stop(compileSpan);
       if (!Array.isArray(compileMatchRes)) {
         res.push(compileMatchRes);
       } else {
