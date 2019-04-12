@@ -35,7 +35,7 @@ import {prepareSyntheticListenerFunctionName, prepareSyntheticListenerName, prep
 import {I18nContext} from './i18n/context';
 import {I18nMetaVisitor} from './i18n/meta';
 import {getSerializedI18nContent} from './i18n/serializer';
-import {I18N_ICU_MAPPING_PREFIX, assembleBoundTextPlaceholders, assembleI18nBoundString, formatI18nPlaceholderName, getTranslationConstPrefix, getTranslationDeclStmts, icuFromI18nMessage, isI18nRootNode, isSingleI18nIcu, metaFromI18nMessage, placeholdersToParams, wrapI18nPlaceholder} from './i18n/util';
+import {I18N_ICU_MAPPING_PREFIX, TRANSLATION_PREFIX, assembleBoundTextPlaceholders, assembleI18nBoundString, formatI18nPlaceholderName, getTranslationConstPrefix, getTranslationDeclStmts, icuFromI18nMessage, isI18nRootNode, isSingleI18nIcu, metaFromI18nMessage, placeholdersToParams, wrapI18nPlaceholder} from './i18n/util';
 import {Instruction, StylingBuilder} from './styling_builder';
 import {CONTEXT_NAME, IMPLICIT_REFERENCE, NON_BINDABLE_ATTR, REFERENCE_PREFIX, RENDER_FLAGS, asLiteral, getAttrsForDirectiveMatching, invalid, trimTrailingNulls, unsupported} from './util';
 
@@ -44,6 +44,9 @@ const DEFAULT_NG_CONTENT_SELECTOR = '*';
 
 // Selector attribute name of `<ng-content>`
 const NG_CONTENT_SELECT_ATTR = 'select';
+
+// Attribute name of `ngProjectAs`.
+const NG_PROJECT_AS_ATTR_NAME = 'ngProjectAs';
 
 // List of supported global targets for event listeners
 const GLOBAL_TARGET_RESOLVERS = new Map<string, o.ExternalReference>(
@@ -264,11 +267,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       // Only selectors with a non-default value are generated
       if (this._ngContentSelectors.length) {
         const r3Selectors = this._ngContentSelectors.map(s => core.parseSelectorToR3Selector(s));
-        // `projectionDef` needs both the parsed and raw value of the selectors
-        const parsed = this.constantPool.getConstLiteral(asLiteral(r3Selectors), true);
-        const unParsed =
-            this.constantPool.getConstLiteral(asLiteral(this._ngContentSelectors), true);
-        parameters.push(parsed, unParsed);
+        parameters.push(this.constantPool.getConstLiteral(asLiteral(r3Selectors), true));
       }
 
       // Since we accumulate ngContent selectors while processing template elements,
@@ -322,14 +321,18 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   i18nTranslate(
       message: i18n.Message, params: {[name: string]: o.Expression} = {}, ref?: o.ReadVarExpr,
       transformFn?: (raw: o.ReadVarExpr) => o.Expression): o.ReadVarExpr {
-    const _ref = ref || this.i18nAllocateRef(message.id);
+    const _ref = ref || o.variable(this.constantPool.uniqueName(TRANSLATION_PREFIX));
+    // Closure Compiler requires const names to start with `MSG_` but disallows any other const to
+    // start with `MSG_`. We define a variable starting with `MSG_` just for the `goog.getMsg` call
+    const closureVar = this.i18nGenerateClosureVar(message.id);
     const _params: {[key: string]: any} = {};
     if (params && Object.keys(params).length) {
       Object.keys(params).forEach(key => _params[formatI18nPlaceholderName(key)] = params[key]);
     }
     const meta = metaFromI18nMessage(message);
     const content = getSerializedI18nContent(message);
-    const statements = getTranslationDeclStmts(_ref, content, meta, _params, transformFn);
+    const statements =
+        getTranslationDeclStmts(_ref, closureVar, content, meta, _params, transformFn);
     this.constantPool.statements.push(...statements);
     return _ref;
   }
@@ -361,7 +364,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     return bound;
   }
 
-  i18nAllocateRef(messageId: string): o.ReadVarExpr {
+  i18nGenerateClosureVar(messageId: string): o.ReadVarExpr {
     let name: string;
     const suffix = this.fileBasedI18nSuffix.toUpperCase();
     if (this.i18nUseExternalIds) {
@@ -425,7 +428,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     if (this.i18nContext) {
       this.i18n = this.i18nContext.forkChildContext(index, this.templateIndex !, meta);
     } else {
-      const ref = this.i18nAllocateRef((meta as i18n.Message).id);
+      const ref = o.variable(this.constantPool.uniqueName(TRANSLATION_PREFIX));
       this.i18n = new I18nContext(index, ref, 0, this.templateIndex, meta);
     }
 
@@ -475,18 +478,19 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
         0 :
         this._ngContentSelectors.push(ngContent.selector) + this._ngContentSelectorsOffset;
     const parameters: o.Expression[] = [o.literal(slot)];
-
-    const attributeAsList: string[] = [];
+    const attributes: o.Expression[] = [];
 
     ngContent.attributes.forEach((attribute) => {
       const {name, value} = attribute;
-      if (name.toLowerCase() !== NG_CONTENT_SELECT_ATTR) {
-        attributeAsList.push(name, value);
+      if (name === NG_PROJECT_AS_ATTR_NAME) {
+        attributes.push(...getNgProjectAsLiteral(attribute));
+      } else if (name.toLowerCase() !== NG_CONTENT_SELECT_ATTR) {
+        attributes.push(o.literal(name), o.literal(value));
       }
     });
 
-    if (attributeAsList.length > 0) {
-      parameters.push(o.literal(selectorIndex), asLiteral(attributeAsList));
+    if (attributes.length > 0) {
+      parameters.push(o.literal(selectorIndex), o.literalArr(attributes));
     } else if (selectorIndex !== 0) {
       parameters.push(o.literal(selectorIndex));
     }
@@ -574,7 +578,11 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     });
 
     outputAttrs.forEach(attr => {
-      attributes.push(...getAttributeNameLiterals(attr.name), o.literal(attr.value));
+      if (attr.name === NG_PROJECT_AS_ATTR_NAME) {
+        attributes.push(...getNgProjectAsLiteral(attr));
+      } else {
+        attributes.push(...getAttributeNameLiterals(attr.name), o.literal(attr.value));
+      }
     });
 
     // add attributes for directive and projection matching purposes
@@ -840,7 +848,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       return trimTrailingNulls(parameters);
     });
 
-    // handle property bindings e.g. ΔelementProperty(1, 'ngForOf', Δbind(ctx.items));
+    // handle property bindings e.g. ɵɵelementProperty(1, 'ngForOf', ɵɵbind(ctx.items));
     const context = o.variable(CONTEXT_NAME);
     this.templatePropertyBindings(template, templateIndex, context, template.templateAttrs);
 
@@ -1569,6 +1577,17 @@ function createCssSelector(tag: string, attributes: {[name: string]: string}): C
   });
 
   return cssSelector;
+}
+
+/**
+ * Creates an array of expressions out of an `ngProjectAs` attributes
+ * which can be added to the instruction parameters.
+ */
+function getNgProjectAsLiteral(attribute: t.TextAttribute): o.Expression[] {
+  // Parse the attribute value into a CssSelectorList. Note that we only take the
+  // first selector, because we don't support multiple selectors in ngProjectAs.
+  const parsedR3Selector = core.parseSelectorToR3Selector(attribute.value)[0];
+  return [o.literal(core.AttributeMarker.ProjectAs), asLiteral(parsedR3Selector)];
 }
 
 function interpolate(args: o.Expression[]): o.Expression {

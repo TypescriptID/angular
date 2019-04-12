@@ -62,9 +62,9 @@ import {scheduleTick, setInputsForProperty} from './shared';
  * @param styleSanitizer An optional sanitizer function that will be used to sanitize any CSS
  *        style values that are applied to the element (during rendering).
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔelementStyling(
+export function ɵɵelementStyling(
     classBindingNames?: string[] | null, styleBindingNames?: string[] | null,
     styleSanitizer?: StyleSanitizeFn | null): void {
   const tNode = getPreviousOrParentTNode();
@@ -104,9 +104,9 @@ export function ΔelementStyling(
  *        will not be used if the same property is assigned in another directive or
  *        on the element directly.
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔelementHostStyling(
+export function ɵɵelementHostStyling(
     classBindingNames?: string[] | null, styleBindingNames?: string[] | null,
     styleSanitizer?: StyleSanitizeFn | null): void {
   const tNode = getPreviousOrParentTNode();
@@ -164,9 +164,9 @@ function initElementStyling(
  * @param forceOverride Whether or not to update the styling value immediately
  *        (despite the other bindings possibly having priority)
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔelementStyleProp(
+export function ɵɵelementStyleProp(
     index: number, styleIndex: number, value: string | number | String | PlayerFactory | null,
     suffix?: string | null, forceOverride?: boolean): void {
   const valueToAdd = resolveStylePropValue(value, suffix);
@@ -198,9 +198,9 @@ export function ΔelementStyleProp(
  * @param forceOverride Whether or not to update the styling value immediately
  *        (despite the other bindings possibly having priority)
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔelementHostStyleProp(
+export function ɵɵelementHostStyleProp(
     styleIndex: number, value: string | number | String | PlayerFactory | null,
     suffix?: string | null, forceOverride?: boolean): void {
   const directiveStylingIndex = getActiveDirectiveStylingIndex();
@@ -251,9 +251,9 @@ function resolveStylePropValue(
  * @param forceOverride Whether or not this value will be applied regardless
  *        of where it is being set within the styling priority structure.
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔelementClassProp(
+export function ɵɵelementClassProp(
     index: number, classIndex: number, value: boolean | PlayerFactory,
     forceOverride?: boolean): void {
   const input = (value instanceof BoundPlayerFactory) ?
@@ -281,9 +281,9 @@ export function ΔelementClassProp(
  * @param forceOverride Whether or not this value will be applied regardless
  *        of where it is being set within the stylings priority structure.
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔelementHostClassProp(
+export function ɵɵelementHostClassProp(
     classIndex: number, value: boolean | PlayerFactory, forceOverride?: boolean): void {
   const directiveStylingIndex = getActiveDirectiveStylingIndex();
   const hostElementIndex = getSelectedIndex();
@@ -324,9 +324,9 @@ function booleanOrNull(value: any): boolean|null {
  *        Any missing styles (that have already been applied to the element beforehand) will be
  *        removed (unset) from the element's styling.
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔelementStylingMap(
+export function ɵɵelementStylingMap(
     index: number, classes: {[key: string]: any} | string | NO_CHANGE | null,
     styles?: {[styleName: string]: any} | NO_CHANGE | null): void {
   const lView = getLView();
@@ -377,9 +377,9 @@ export function ΔelementStylingMap(
  *        Any missing styles (that have already been applied to the element beforehand) will be
  *        removed (unset) from the element's styling.
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔelementHostStylingMap(
+export function ɵɵelementHostStylingMap(
     classes: {[key: string]: any} | string | NO_CHANGE | null,
     styles?: {[styleName: string]: any} | NO_CHANGE | null): void {
   const directiveStylingIndex = getActiveDirectiveStylingIndex();
@@ -403,9 +403,9 @@ export function ΔelementHostStylingMap(
  *
  * @param index Index of the element's with which styling is associated.
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔelementStylingApply(index: number): void {
+export function ɵɵelementStylingApply(index: number): void {
   elementStylingApplyInternal(DEFAULT_TEMPLATE_DIRECTIVE_INDEX, index);
 }
 
@@ -417,9 +417,9 @@ export function ΔelementStylingApply(index: number): void {
  * been run and will only apply styling to the host element if any
  * styling bindings have been updated.
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔelementHostStylingApply(): void {
+export function ɵɵelementHostStylingApply(): void {
   elementStylingApplyInternal(getActiveDirectiveStylingIndex(), getSelectedIndex());
 }
 

@@ -30,7 +30,7 @@ import {StylingContext} from '../interfaces/styling';
 import {BINDING_INDEX, CHILD_HEAD, CHILD_TAIL, CLEANUP, CONTEXT, DECLARATION_VIEW, ExpandoInstructions, FLAGS, HEADER_OFFSET, HOST, INJECTOR, InitPhaseState, LView, LViewFlags, NEXT, PARENT, QUERIES, RENDERER, RENDERER_FACTORY, RootContext, RootContextFlags, SANITIZER, TData, TVIEW, TView, T_HOST} from '../interfaces/view';
 import {assertNodeOfPossibleTypes, assertNodeType} from '../node_assert';
 import {isNodeMatchingSelectorList} from '../node_selector_matcher';
-import {enterView, getBindingsEnabled, getCheckNoChangesMode, getIsParent, getLView, getNamespace, getPreviousOrParentTNode, incrementActiveDirectiveId, isCreationMode, leaveView, resetComponentState, setActiveHostElement, setBindingRoot, setCheckNoChangesMode, setCurrentDirectiveDef, setCurrentQueryIndex, setIsParent, setPreviousOrParentTNode, setSelectedIndex, ΔnamespaceHTML} from '../state';
+import {enterView, getBindingsEnabled, getCheckNoChangesMode, getIsParent, getLView, getNamespace, getPreviousOrParentTNode, incrementActiveDirectiveId, isCreationMode, leaveView, resetComponentState, setActiveHostElement, setBindingRoot, setCheckNoChangesMode, setCurrentDirectiveDef, setCurrentQueryIndex, setIsParent, setPreviousOrParentTNode, setSelectedIndex, ɵɵnamespaceHTML} from '../state';
 import {initializeStaticContext as initializeStaticStylingContext} from '../styling/class_and_style_bindings';
 import {ANIMATION_PROP_PREFIX, isAnimationProp} from '../styling/util';
 import {NO_CHANGE} from '../tokens';
@@ -431,7 +431,7 @@ export function renderEmbeddedTemplate<T>(viewToRender: LView, tView: TView, con
 
       oldView = enterView(viewToRender, viewToRender[T_HOST]);
       resetPreOrderHookFlags(viewToRender);
-      ΔnamespaceHTML();
+      ɵɵnamespaceHTML();
 
       // Reset the selected index so we can assert that `select` was called later
       setSelectedIndex(-1);
@@ -466,7 +466,7 @@ function renderComponentOrTemplate<T>(
     if (creationModeIsActive) {
       // creation mode pass
       if (templateFn) {
-        ΔnamespaceHTML();
+        ɵɵnamespaceHTML();
 
         // Reset the selected index so we can assert that `select` was called later
         setSelectedIndex(-1);
@@ -1360,18 +1360,22 @@ function generateInitialInputs(
       // We do not allow inputs on namespaced attributes.
       i += 4;
       continue;
+    } else if (attrName === AttributeMarker.ProjectAs) {
+      // Skip over the `ngProjectAs` value.
+      i += 2;
+      continue;
     }
 
     // If we hit any other attribute markers, we're done anyway. None of those are valid inputs.
     if (typeof attrName === 'number') break;
 
-    const minifiedInputName = inputs[attrName];
+    const minifiedInputName = inputs[attrName as string];
     const attrValue = attrs[i + 1];
 
     if (minifiedInputName !== undefined) {
       const inputsToStore: InitialInputs =
           initialInputData[directiveIndex] || (initialInputData[directiveIndex] = []);
-      inputsToStore.push(attrName, minifiedInputName, attrValue as string);
+      inputsToStore.push(attrName as string, minifiedInputName, attrValue as string);
     }
 
     i += 2;
@@ -1668,7 +1672,7 @@ export function checkView<T>(hostView: LView, component: T) {
 
   try {
     resetPreOrderHookFlags(hostView);
-    ΔnamespaceHTML();
+    ɵɵnamespaceHTML();
     creationMode && executeViewQueryFn(RenderFlags.Create, hostTView, component);
 
     // Reset the selected index so we can assert that `select` was called later

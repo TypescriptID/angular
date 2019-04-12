@@ -9,10 +9,10 @@
 import {WrappedValue} from '../change_detection/change_detection_util';
 import {PipeTransform} from '../change_detection/pipe_transform';
 
-import {store, Δload} from './instructions/all';
+import {store, ɵɵload} from './instructions/all';
 import {PipeDef, PipeDefList} from './interfaces/definition';
 import {BINDING_INDEX, HEADER_OFFSET, TVIEW} from './interfaces/view';
-import {ΔpureFunction1, ΔpureFunction2, ΔpureFunction3, ΔpureFunction4, ΔpureFunctionV} from './pure_function';
+import {ɵɵpureFunction1, ɵɵpureFunction2, ɵɵpureFunction3, ɵɵpureFunction4, ɵɵpureFunctionV} from './pure_function';
 import {getLView} from './state';
 import {NO_CHANGE} from './tokens';
 
@@ -25,9 +25,9 @@ import {NO_CHANGE} from './tokens';
  * @param pipeName The name of the pipe
  * @returns T the instance of the pipe.
  *
- * @publicApi
+ * @codeGenApi
  */
-export function Δpipe(index: number, pipeName: string): any {
+export function ɵɵpipe(index: number, pipeName: string): any {
   const tView = getLView()[TVIEW];
   let pipeDef: PipeDef<any>;
   const adjustedIndex = index + HEADER_OFFSET;
@@ -79,12 +79,12 @@ function getPipeDef(name: string, registry: PipeDefList | null): PipeDef<any> {
  * @param slotOffset the offset in the reserved slot space
  * @param v1 1st argument to {@link PipeTransform#transform}.
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔpipeBind1(index: number, slotOffset: number, v1: any): any {
-  const pipeInstance = Δload<PipeTransform>(index);
+export function ɵɵpipeBind1(index: number, slotOffset: number, v1: any): any {
+  const pipeInstance = ɵɵload<PipeTransform>(index);
   return unwrapValue(
-      isPure(index) ? ΔpureFunction1(slotOffset, pipeInstance.transform, v1, pipeInstance) :
+      isPure(index) ? ɵɵpureFunction1(slotOffset, pipeInstance.transform, v1, pipeInstance) :
                       pipeInstance.transform(v1));
 }
 
@@ -99,12 +99,12 @@ export function ΔpipeBind1(index: number, slotOffset: number, v1: any): any {
  * @param v1 1st argument to {@link PipeTransform#transform}.
  * @param v2 2nd argument to {@link PipeTransform#transform}.
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔpipeBind2(index: number, slotOffset: number, v1: any, v2: any): any {
-  const pipeInstance = Δload<PipeTransform>(index);
+export function ɵɵpipeBind2(index: number, slotOffset: number, v1: any, v2: any): any {
+  const pipeInstance = ɵɵload<PipeTransform>(index);
   return unwrapValue(
-      isPure(index) ? ΔpureFunction2(slotOffset, pipeInstance.transform, v1, v2, pipeInstance) :
+      isPure(index) ? ɵɵpureFunction2(slotOffset, pipeInstance.transform, v1, v2, pipeInstance) :
                       pipeInstance.transform(v1, v2));
 }
 
@@ -120,13 +120,14 @@ export function ΔpipeBind2(index: number, slotOffset: number, v1: any, v2: any)
  * @param v2 2nd argument to {@link PipeTransform#transform}.
  * @param v3 4rd argument to {@link PipeTransform#transform}.
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔpipeBind3(index: number, slotOffset: number, v1: any, v2: any, v3: any): any {
-  const pipeInstance = Δload<PipeTransform>(index);
+export function ɵɵpipeBind3(index: number, slotOffset: number, v1: any, v2: any, v3: any): any {
+  const pipeInstance = ɵɵload<PipeTransform>(index);
   return unwrapValue(
-      isPure(index) ? ΔpureFunction3(slotOffset, pipeInstance.transform, v1, v2, v3, pipeInstance) :
-                      pipeInstance.transform(v1, v2, v3));
+      isPure(index) ?
+          ɵɵpureFunction3(slotOffset, pipeInstance.transform, v1, v2, v3, pipeInstance) :
+          pipeInstance.transform(v1, v2, v3));
 }
 
 /**
@@ -142,14 +143,14 @@ export function ΔpipeBind3(index: number, slotOffset: number, v1: any, v2: any,
  * @param v3 3rd argument to {@link PipeTransform#transform}.
  * @param v4 4th argument to {@link PipeTransform#transform}.
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔpipeBind4(
+export function ɵɵpipeBind4(
     index: number, slotOffset: number, v1: any, v2: any, v3: any, v4: any): any {
-  const pipeInstance = Δload<PipeTransform>(index);
+  const pipeInstance = ɵɵload<PipeTransform>(index);
   return unwrapValue(
       isPure(index) ?
-          ΔpureFunction4(slotOffset, pipeInstance.transform, v1, v2, v3, v4, pipeInstance) :
+          ɵɵpureFunction4(slotOffset, pipeInstance.transform, v1, v2, v3, v4, pipeInstance) :
           pipeInstance.transform(v1, v2, v3, v4));
 }
 
@@ -163,12 +164,12 @@ export function ΔpipeBind4(
  * @param slotOffset the offset in the reserved slot space
  * @param values Array of arguments to pass to {@link PipeTransform#transform} method.
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔpipeBindV(index: number, slotOffset: number, values: any[]): any {
-  const pipeInstance = Δload<PipeTransform>(index);
+export function ɵɵpipeBindV(index: number, slotOffset: number, values: any[]): any {
+  const pipeInstance = ɵɵload<PipeTransform>(index);
   return unwrapValue(
-      isPure(index) ? ΔpureFunctionV(slotOffset, pipeInstance.transform, values, pipeInstance) :
+      isPure(index) ? ɵɵpureFunctionV(slotOffset, pipeInstance.transform, values, pipeInstance) :
                       pipeInstance.transform.apply(pipeInstance, values));
 }
 

@@ -82,17 +82,17 @@ export function getBindingsEnabled(): boolean {
  *   Should match component / directive.
  * </my-comp>
  * <div ngNonBindable>
- *   <!-- ΔdisableBindings() -->
+ *   <!-- ɵɵdisableBindings() -->
  *   <my-comp my-directive>
  *     Should not match component / directive because we are in ngNonBindable.
  *   </my-comp>
- *   <!-- ΔenableBindings() -->
+ *   <!-- ɵɵenableBindings() -->
  * </div>
  * ```
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔenableBindings(): void {
+export function ɵɵenableBindings(): void {
   bindingsEnabled = true;
 }
 
@@ -105,17 +105,17 @@ export function ΔenableBindings(): void {
  *   Should match component / directive.
  * </my-comp>
  * <div ngNonBindable>
- *   <!-- ΔdisableBindings() -->
+ *   <!-- ɵɵdisableBindings() -->
  *   <my-comp my-directive>
  *     Should not match component / directive because we are in ngNonBindable.
  *   </my-comp>
- *   <!-- ΔenableBindings() -->
+ *   <!-- ɵɵenableBindings() -->
  * </div>
  * ```
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔdisableBindings(): void {
+export function ɵɵdisableBindings(): void {
   bindingsEnabled = false;
 }
 
@@ -267,9 +267,9 @@ export function getActiveDirectiveSuperClassDepth() {
  *
  * @param viewToRestore The OpaqueViewState instance to restore.
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔrestoreView(viewToRestore: OpaqueViewState) {
+export function ɵɵrestoreView(viewToRestore: OpaqueViewState) {
   contextLView = viewToRestore as any as LView;
 }
 
@@ -490,18 +490,18 @@ let _currentNamespace: string|null = null;
 /**
  * Sets the namespace used to create elements to `'http://www.w3.org/2000/svg'` in global state.
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔnamespaceSVG() {
+export function ɵɵnamespaceSVG() {
   _currentNamespace = 'http://www.w3.org/2000/svg';
 }
 
 /**
  * Sets the namespace used to create elements to `'http://www.w3.org/1998/MathML/'` in global state.
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔnamespaceMathML() {
+export function ɵɵnamespaceMathML() {
   _currentNamespace = 'http://www.w3.org/1998/MathML/';
 }
 
@@ -509,9 +509,9 @@ export function ΔnamespaceMathML() {
  * Sets the namespace used to create elements no `null`, which forces element creation to use
  * `createElement` rather than `createElementNS`.
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔnamespaceHTML() {
+export function ɵɵnamespaceHTML() {
   _currentNamespace = null;
 }
 

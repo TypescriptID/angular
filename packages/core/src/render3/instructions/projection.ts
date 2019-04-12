@@ -5,14 +5,16 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-import {TElementNode, TNode, TNodeType} from '../interfaces/node';
+import {TAttributes, TElementNode, TNode, TNodeType} from '../interfaces/node';
 import {CssSelectorList} from '../interfaces/projection';
 import {T_HOST} from '../interfaces/view';
 import {appendProjectedNodes} from '../node_manipulation';
 import {matchingProjectionSelectorIndex} from '../node_selector_matcher';
 import {getLView, setIsParent} from '../state';
 import {findComponentView} from '../util/view_traversal_utils';
+
 import {createNodeAtIndex} from './shared';
+
 
 /**
  * Instruction to distribute projectable nodes among <ng-content> occurrences in a given template.
@@ -35,9 +37,9 @@ import {createNodeAtIndex} from './shared';
  * @param selectors A collection of parsed CSS selectors
  * @param rawSelectors A collection of CSS selectors in the raw, un-parsed form
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔprojectionDef(selectors?: CssSelectorList[], textSelectors?: string[]): void {
+export function ɵɵprojectionDef(selectors?: CssSelectorList[]): void {
   const componentNode = findComponentView(getLView())[T_HOST] as TElementNode;
 
   if (!componentNode.projection) {
@@ -49,9 +51,8 @@ export function ΔprojectionDef(selectors?: CssSelectorList[], textSelectors?: s
     let componentChild: TNode|null = componentNode.child;
 
     while (componentChild !== null) {
-      const bucketIndex = selectors ?
-          matchingProjectionSelectorIndex(componentChild, selectors, textSelectors !) :
-          0;
+      const bucketIndex =
+          selectors ? matchingProjectionSelectorIndex(componentChild, selectors) : 0;
 
       if (tails[bucketIndex]) {
         tails[bucketIndex] !.projectionNext = componentChild;
@@ -75,9 +76,10 @@ export function ΔprojectionDef(selectors?: CssSelectorList[], textSelectors?: s
  *        - 0 when the selector is `*` (or unspecified as this is the default value),
  *        - 1 based index of the selector from the {@link projectionDef}
   *
- * @publicApi
+ * @codeGenApi
 */
-export function Δprojection(nodeIndex: number, selectorIndex: number = 0, attrs?: string[]): void {
+export function ɵɵprojection(
+    nodeIndex: number, selectorIndex: number = 0, attrs?: TAttributes): void {
   const lView = getLView();
   const tProjectionNode =
       createNodeAtIndex(nodeIndex, TNodeType.Projection, null, null, attrs || null);

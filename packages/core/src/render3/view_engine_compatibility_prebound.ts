@@ -20,8 +20,8 @@ import {createTemplateRef} from './view_engine_compatibility';
  * Retrieves `TemplateRef` instance from `Injector` when a local reference is placed on the
  * `<ng-template>` element.
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔtemplateRefExtractor(tNode: TNode, currentView: LView) {
+export function ɵɵtemplateRefExtractor(tNode: TNode, currentView: LView) {
   return createTemplateRef(ViewEngine_TemplateRef, ViewEngine_ElementRef, tNode, currentView);
 }

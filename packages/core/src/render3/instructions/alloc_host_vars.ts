@@ -17,9 +17,9 @@ import {NO_CHANGE} from '../tokens';
  *
  * @param count Amount of vars to be allocated
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔallocHostVars(count: number): void {
+export function ɵɵallocHostVars(count: number): void {
   const lView = getLView();
   const tView = lView[TVIEW];
   if (!tView.firstTemplatePass) return;

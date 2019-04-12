@@ -38,9 +38,9 @@ import {getBindingRoot, getLView, isCreationMode} from './state';
  * @param thisArg Optional calling context of pureFn
  * @returns value
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔpureFunction0<T>(slotOffset: number, pureFn: () => T, thisArg?: any): T {
+export function ɵɵpureFunction0<T>(slotOffset: number, pureFn: () => T, thisArg?: any): T {
   // TODO(kara): use bindingRoot instead of bindingStartIndex when implementing host bindings
   const bindingIndex = getBindingRoot() + slotOffset;
   const lView = getLView();
@@ -59,9 +59,9 @@ export function ΔpureFunction0<T>(slotOffset: number, pureFn: () => T, thisArg?
  * @param thisArg Optional calling context of pureFn
  * @returns Updated or cached value
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔpureFunction1(
+export function ɵɵpureFunction1(
     slotOffset: number, pureFn: (v: any) => any, exp: any, thisArg?: any): any {
   // TODO(kara): use bindingRoot instead of bindingStartIndex when implementing host bindings
   const lView = getLView();
@@ -82,9 +82,9 @@ export function ΔpureFunction1(
  * @param thisArg Optional calling context of pureFn
  * @returns Updated or cached value
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔpureFunction2(
+export function ɵɵpureFunction2(
     slotOffset: number, pureFn: (v1: any, v2: any) => any, exp1: any, exp2: any,
     thisArg?: any): any {
   // TODO(kara): use bindingRoot instead of bindingStartIndex when implementing host bindings
@@ -109,9 +109,9 @@ export function ΔpureFunction2(
  * @param thisArg Optional calling context of pureFn
  * @returns Updated or cached value
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔpureFunction3(
+export function ɵɵpureFunction3(
     slotOffset: number, pureFn: (v1: any, v2: any, v3: any) => any, exp1: any, exp2: any, exp3: any,
     thisArg?: any): any {
   // TODO(kara): use bindingRoot instead of bindingStartIndex when implementing host bindings
@@ -137,9 +137,9 @@ export function ΔpureFunction3(
  * @param thisArg Optional calling context of pureFn
  * @returns Updated or cached value
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔpureFunction4(
+export function ɵɵpureFunction4(
     slotOffset: number, pureFn: (v1: any, v2: any, v3: any, v4: any) => any, exp1: any, exp2: any,
     exp3: any, exp4: any, thisArg?: any): any {
   // TODO(kara): use bindingRoot instead of bindingStartIndex when implementing host bindings
@@ -166,9 +166,9 @@ export function ΔpureFunction4(
  * @param thisArg Optional calling context of pureFn
  * @returns Updated or cached value
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔpureFunction5(
+export function ɵɵpureFunction5(
     slotOffset: number, pureFn: (v1: any, v2: any, v3: any, v4: any, v5: any) => any, exp1: any,
     exp2: any, exp3: any, exp4: any, exp5: any, thisArg?: any): any {
   // TODO(kara): use bindingRoot instead of bindingStartIndex when implementing host bindings
@@ -197,9 +197,9 @@ export function ΔpureFunction5(
  * @param thisArg Optional calling context of pureFn
  * @returns Updated or cached value
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔpureFunction6(
+export function ɵɵpureFunction6(
     slotOffset: number, pureFn: (v1: any, v2: any, v3: any, v4: any, v5: any, v6: any) => any,
     exp1: any, exp2: any, exp3: any, exp4: any, exp5: any, exp6: any, thisArg?: any): any {
   // TODO(kara): use bindingRoot instead of bindingStartIndex when implementing host bindings
@@ -230,9 +230,9 @@ export function ΔpureFunction6(
  * @param thisArg Optional calling context of pureFn
  * @returns Updated or cached value
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔpureFunction7(
+export function ɵɵpureFunction7(
     slotOffset: number,
     pureFn: (v1: any, v2: any, v3: any, v4: any, v5: any, v6: any, v7: any) => any, exp1: any,
     exp2: any, exp3: any, exp4: any, exp5: any, exp6: any, exp7: any, thisArg?: any): any {
@@ -265,9 +265,9 @@ export function ΔpureFunction7(
  * @param thisArg Optional calling context of pureFn
  * @returns Updated or cached value
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔpureFunction8(
+export function ɵɵpureFunction8(
     slotOffset: number,
     pureFn: (v1: any, v2: any, v3: any, v4: any, v5: any, v6: any, v7: any, v8: any) => any,
     exp1: any, exp2: any, exp3: any, exp4: any, exp5: any, exp6: any, exp7: any, exp8: any,
@@ -297,9 +297,9 @@ export function ΔpureFunction8(
  * @param thisArg Optional calling context of pureFn
  * @returns Updated or cached value
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔpureFunctionV(
+export function ɵɵpureFunctionV(
     slotOffset: number, pureFn: (...v: any[]) => any, exps: any[], thisArg?: any): any {
   // TODO(kara): use bindingRoot instead of bindingStartIndex when implementing host bindings
   let bindingIndex = getBindingRoot() + slotOffset;

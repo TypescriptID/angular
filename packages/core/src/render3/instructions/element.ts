@@ -42,9 +42,9 @@ import {getActiveDirectiveStylingIndex} from './styling';
  * hold an attribute name and elements with an odd index hold an attribute value, ex.:
  * ['id', 'warning5', 'class', 'alert']
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔelementStart(
+export function ɵɵelementStart(
     index: number, name: string, attrs?: TAttributes | null, localRefs?: string[] | null): void {
   const lView = getLView();
   const tView = lView[TVIEW];
@@ -127,9 +127,9 @@ export function ΔelementStart(
 /**
  * Mark the end of the element.
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔelementEnd(): void {
+export function ɵɵelementEnd(): void {
   let previousOrParentTNode = getPreviousOrParentTNode();
   if (getIsParent()) {
     setIsParent(false);
@@ -179,12 +179,12 @@ export function ΔelementEnd(): void {
  *              element on creation. Use [AttributeMarker] to denote the meaning of this array.
  * @param localRefs A set of local reference bindings on the element.
  *
- * @publicApi
+ * @codeGenApi
  */
-export function Δelement(
+export function ɵɵelement(
     index: number, name: string, attrs?: TAttributes | null, localRefs?: string[] | null): void {
-  ΔelementStart(index, name, attrs, localRefs);
-  ΔelementEnd();
+  ɵɵelementStart(index, name, attrs, localRefs);
+  ɵɵelementEnd();
 }
 
 
@@ -198,9 +198,9 @@ export function Δelement(
  * @param sanitizer An optional function used to sanitize the value.
  * @param namespace Optional namespace to use when setting the attribute.
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔelementAttribute(
+export function ɵɵelementAttribute(
     index: number, name: string, value: any, sanitizer?: SanitizerFn | null,
     namespace?: string): void {
   if (value !== NO_CHANGE) {
@@ -266,9 +266,9 @@ export function ΔelementAttribute(
  * @param attrs An array of static values (attributes, classes and styles) with the correct marker
  * values.
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔelementHostAttrs(attrs: TAttributes) {
+export function ɵɵelementHostAttrs(attrs: TAttributes) {
   const hostElementIndex = getSelectedIndex();
   const lView = getLView();
   const tNode = getTNode(hostElementIndex, lView);

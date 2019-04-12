@@ -31,9 +31,9 @@ export function store<T>(index: number, value: T): void {
  *
  * @param index The index of the local ref in contextViewData.
  *
- * @publicApi
+ * @codeGenApi
  */
-export function Δreference<T>(index: number) {
+export function ɵɵreference<T>(index: number) {
   const contextLView = getContextLView();
   return loadInternal<T>(contextLView, index);
 }
@@ -41,8 +41,8 @@ export function Δreference<T>(index: number) {
 /**
  * Retrieves a value from current `viewData`.
  *
- * @publicApi
+ * @codeGenApi
  */
-export function Δload<T>(index: number): T {
+export function ɵɵload<T>(index: number): T {
   return loadInternal<T>(getLView(), index);
 }

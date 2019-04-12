@@ -23,9 +23,9 @@ import {getLView, getPreviousOrParentTNode} from '../state';
  * class SomeDirective {
  *   constructor(directive: DirectiveA) {}
  *
- *   static ngDirectiveDef = ΔdefineDirective({
+ *   static ngDirectiveDef = ɵɵdefineDirective({
  *     type: SomeDirective,
- *     factory: () => new SomeDirective(ΔdirectiveInject(DirectiveA))
+ *     factory: () => new SomeDirective(ɵɵdirectiveInject(DirectiveA))
  *   });
  * }
  * ```
@@ -33,11 +33,11 @@ import {getLView, getPreviousOrParentTNode} from '../state';
  * @param flags Injection flags
  * @returns the value from the injector or `null` when not found
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔdirectiveInject<T>(token: Type<T>| InjectionToken<T>): T;
-export function ΔdirectiveInject<T>(token: Type<T>| InjectionToken<T>, flags: InjectFlags): T;
-export function ΔdirectiveInject<T>(
+export function ɵɵdirectiveInject<T>(token: Type<T>| InjectionToken<T>): T;
+export function ɵɵdirectiveInject<T>(token: Type<T>| InjectionToken<T>, flags: InjectFlags): T;
+export function ɵɵdirectiveInject<T>(
     token: Type<T>| InjectionToken<T>, flags = InjectFlags.Default): T|null {
   token = resolveForwardRef(token);
   return getOrCreateInjectable<T>(
@@ -48,8 +48,8 @@ export function ΔdirectiveInject<T>(
 /**
  * Facade for the attribute injection from DI.
  *
- * @publicApi
+ * @codeGenApi
  */
-export function ΔinjectAttribute(attrNameToInject: string): string|null {
+export function ɵɵinjectAttribute(attrNameToInject: string): string|null {
   return injectAttributeImpl(getPreviousOrParentTNode(), attrNameToInject);
 }
