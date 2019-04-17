@@ -14,7 +14,7 @@ import {GlobalTargetResolver, RElement, Renderer3, isProceduralRenderer} from '.
 import {CLEANUP, FLAGS, LView, LViewFlags, RENDERER, TVIEW} from '../interfaces/view';
 import {assertNodeOfPossibleTypes} from '../node_assert';
 import {getLView, getPreviousOrParentTNode} from '../state';
-import {getComponentViewByIndex, getNativeByTNode, unwrapRNode} from '../util/view_utils';
+import {getComponentViewByIndex, getNativeByTNode, hasDirectives, unwrapRNode} from '../util/view_utils';
 import {BindingDirection, generatePropertyAliases, getCleanup, handleError, loadComponentRenderer, markViewDirty} from './shared';
 
 /**
@@ -132,12 +132,16 @@ function listenerInternal(
       // In order to have just one native event handler in presence of multiple handler functions,
       // we just register a first handler function as a native event listener and then chain
       // (coalesce) other handler functions on top of the first native handler function.
-      //
+      let existingListener = null;
       // Please note that the coalescing described here doesn't happen for events specifying an
       // alternative target (ex. (document:click)) - this is to keep backward compatibility with the
       // view engine.
-      const existingListener =
-          eventTargetResolver ? null : findExistingListener(lView, eventName, tNode.index);
+      // Also, we don't have to search for existing listeners is there are no directives
+      // matching on a given node as we can't register multiple event handlers for the same event in
+      // a template (this would mean having duplicate attributes).
+      if (!eventTargetResolver && hasDirectives(tNode)) {
+        existingListener = findExistingListener(lView, eventName, tNode.index);
+      }
       if (existingListener !== null) {
         // Attach a new listener at the head of the coalesced listeners list.
         (<any>listenerFn).__ngNextListenerFn__ = (<any>existingListener).__ngNextListenerFn__;
@@ -198,9 +202,11 @@ function listenerInternal(
   }
 }
 
-function executeListenerWithErrorHandling(lView: LView, listenerFn: (e?: any) => any, e: any): any {
+function executeListenerWithErrorHandling(
+    lView: LView, listenerFn: (e?: any) => any, e: any): boolean {
   try {
-    return listenerFn(e);
+    // Only explicitly returning false from a listener should preventDefault
+    return listenerFn(e) !== false;
   } catch (error) {
     handleError(lView, error);
     return false;
@@ -238,7 +244,8 @@ function wrapListener(
     // their presence and invoke as needed.
     let nextListenerFn = (<any>wrapListenerIn_markDirtyAndPreventDefault).__ngNextListenerFn__;
     while (nextListenerFn) {
-      result = executeListenerWithErrorHandling(lView, nextListenerFn, e);
+      // We should prevent default if any of the listeners explicitly return false
+      result = executeListenerWithErrorHandling(lView, nextListenerFn, e) && result;
       nextListenerFn = (<any>nextListenerFn).__ngNextListenerFn__;
     }
 

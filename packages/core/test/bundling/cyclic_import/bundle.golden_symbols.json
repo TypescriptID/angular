@@ -84,6 +84,9 @@
     "name": "NG_ELEMENT_ID"
   },
   {
+    "name": "NG_INJECTABLE_DEF"
+  },
+  {
     "name": "NG_PIPE_DEF"
   },
   {
@@ -408,7 +411,7 @@
     "name": "getRootView"
   },
   {
-    "name": "getStylingContext"
+    "name": "getStylingContextFromLView"
   },
   {
     "name": "getTNode"
@@ -615,6 +618,9 @@
     "name": "setBindingRoot"
   },
   {
+    "name": "setCachedStylingContext"
+  },
+  {
     "name": "setClass"
   },
   {
@@ -676,6 +682,9 @@
   },
   {
     "name": "ɵɵdefineComponent"
+  },
+  {
+    "name": "ɵɵdefineInjectable"
   },
   {
     "name": "ɵɵdefineInjector"
