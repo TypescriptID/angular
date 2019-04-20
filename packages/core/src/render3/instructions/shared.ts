@@ -30,7 +30,7 @@ import {StylingContext} from '../interfaces/styling';
 import {BINDING_INDEX, CHILD_HEAD, CHILD_TAIL, CLEANUP, CONTEXT, DECLARATION_VIEW, ExpandoInstructions, FLAGS, HEADER_OFFSET, HOST, INJECTOR, InitPhaseState, LView, LViewFlags, NEXT, PARENT, QUERIES, RENDERER, RENDERER_FACTORY, RootContext, RootContextFlags, SANITIZER, TData, TVIEW, TView, T_HOST} from '../interfaces/view';
 import {assertNodeOfPossibleTypes, assertNodeType} from '../node_assert';
 import {isNodeMatchingSelectorList} from '../node_selector_matcher';
-import {enterView, getBindingsEnabled, getCheckNoChangesMode, getIsParent, getLView, getNamespace, getPreviousOrParentTNode, incrementActiveDirectiveId, isCreationMode, leaveView, resetComponentState, setActiveHostElement, setBindingRoot, setCheckNoChangesMode, setCurrentDirectiveDef, setCurrentQueryIndex, setIsParent, setPreviousOrParentTNode, setSelectedIndex, ɵɵnamespaceHTML} from '../state';
+import {enterView, getBindingsEnabled, getCheckNoChangesMode, getIsParent, getLView, getNamespace, getPreviousOrParentTNode, getSelectedIndex, incrementActiveDirectiveId, isCreationMode, leaveView, resetComponentState, setActiveHostElement, setBindingRoot, setCheckNoChangesMode, setCurrentDirectiveDef, setCurrentQueryIndex, setIsParent, setPreviousOrParentTNode, setSelectedIndex, ɵɵnamespaceHTML} from '../state';
 import {initializeStaticContext as initializeStaticStylingContext} from '../styling/class_and_style_bindings';
 import {ANIMATION_PROP_PREFIX, isAnimationProp} from '../styling/util';
 import {NO_CHANGE} from '../tokens';
@@ -101,51 +101,55 @@ export function refreshDescendantViews(lView: LView) {
 
 /** Sets the host bindings for the current view. */
 export function setHostBindings(tView: TView, viewData: LView): void {
-  if (tView.expandoInstructions) {
-    let bindingRootIndex = viewData[BINDING_INDEX] = tView.expandoStartIndex;
-    setBindingRoot(bindingRootIndex);
-    let currentDirectiveIndex = -1;
-    let currentElementIndex = -1;
-    for (let i = 0; i < tView.expandoInstructions.length; i++) {
-      const instruction = tView.expandoInstructions[i];
-      if (typeof instruction === 'number') {
-        if (instruction <= 0) {
-          // Negative numbers mean that we are starting new EXPANDO block and need to update
-          // the current element and directive index.
-          currentElementIndex = -instruction;
-          setActiveHostElement(currentElementIndex);
+  const selectedIndex = getSelectedIndex();
+  try {
+    if (tView.expandoInstructions) {
+      let bindingRootIndex = viewData[BINDING_INDEX] = tView.expandoStartIndex;
+      setBindingRoot(bindingRootIndex);
+      let currentDirectiveIndex = -1;
+      let currentElementIndex = -1;
+      for (let i = 0; i < tView.expandoInstructions.length; i++) {
+        const instruction = tView.expandoInstructions[i];
+        if (typeof instruction === 'number') {
+          if (instruction <= 0) {
+            // Negative numbers mean that we are starting new EXPANDO block and need to update
+            // the current element and directive index.
+            currentElementIndex = -instruction;
+            setActiveHostElement(currentElementIndex);
 
-          // Injector block and providers are taken into account.
-          const providerCount = (tView.expandoInstructions[++i] as number);
-          bindingRootIndex += INJECTOR_BLOOM_PARENT_SIZE + providerCount;
+            // Injector block and providers are taken into account.
+            const providerCount = (tView.expandoInstructions[++i] as number);
+            bindingRootIndex += INJECTOR_BLOOM_PARENT_SIZE + providerCount;
 
-          currentDirectiveIndex = bindingRootIndex;
+            currentDirectiveIndex = bindingRootIndex;
+          } else {
+            // This is either the injector size (so the binding root can skip over directives
+            // and get to the first set of host bindings on this node) or the host var count
+            // (to get to the next set of host bindings on this node).
+            bindingRootIndex += instruction;
+          }
+          setBindingRoot(bindingRootIndex);
         } else {
-          // This is either the injector size (so the binding root can skip over directives
-          // and get to the first set of host bindings on this node) or the host var count
-          // (to get to the next set of host bindings on this node).
-          bindingRootIndex += instruction;
-        }
-        setBindingRoot(bindingRootIndex);
-      } else {
-        // If it's not a number, it's a host binding function that needs to be executed.
-        if (instruction !== null) {
-          viewData[BINDING_INDEX] = bindingRootIndex;
-          const hostCtx = unwrapRNode(viewData[currentDirectiveIndex]);
-          instruction(RenderFlags.Update, hostCtx, currentElementIndex);
+          // If it's not a number, it's a host binding function that needs to be executed.
+          if (instruction !== null) {
+            viewData[BINDING_INDEX] = bindingRootIndex;
+            const hostCtx = unwrapRNode(viewData[currentDirectiveIndex]);
+            instruction(RenderFlags.Update, hostCtx, currentElementIndex);
 
-          // Each directive gets a uniqueId value that is the same for both
-          // create and update calls when the hostBindings function is called. The
-          // directive uniqueId is not set anywhere--it is just incremented between
-          // each hostBindings call and is useful for helping instruction code
-          // uniquely determine which directive is currently active when executed.
-          incrementActiveDirectiveId();
+            // Each directive gets a uniqueId value that is the same for both
+            // create and update calls when the hostBindings function is called. The
+            // directive uniqueId is not set anywhere--it is just incremented between
+            // each hostBindings call and is useful for helping instruction code
+            // uniquely determine which directive is currently active when executed.
+            incrementActiveDirectiveId();
+          }
+          currentDirectiveIndex++;
         }
-        currentDirectiveIndex++;
       }
     }
+  } finally {
+    setActiveHostElement(selectedIndex);
   }
-  setActiveHostElement(null);
 }
 
 /** Refreshes content queries for all directives in the given view. */
@@ -431,12 +435,8 @@ export function renderEmbeddedTemplate<T>(viewToRender: LView, tView: TView, con
 
       oldView = enterView(viewToRender, viewToRender[T_HOST]);
       resetPreOrderHookFlags(viewToRender);
-      ɵɵnamespaceHTML();
+      executeTemplate(tView.template !, getRenderFlags(viewToRender), context);
 
-      // Reset the selected index so we can assert that `select` was called later
-      setSelectedIndex(-1);
-
-      tView.template !(getRenderFlags(viewToRender), context);
       // This must be set to false immediately after the first creation run because in an
       // ngFor loop, all the views will be created together before update mode runs and turns
       // off firstTemplatePass. If we don't set it here, instances will perform directive
@@ -465,14 +465,7 @@ function renderComponentOrTemplate<T>(
 
     if (creationModeIsActive) {
       // creation mode pass
-      if (templateFn) {
-        ɵɵnamespaceHTML();
-
-        // Reset the selected index so we can assert that `select` was called later
-        setSelectedIndex(-1);
-
-        templateFn(RenderFlags.Create, context);
-      }
+      templateFn && executeTemplate(templateFn, RenderFlags.Create, context);
 
       refreshDescendantViews(hostView);
       hostView[FLAGS] &= ~LViewFlags.CreationMode;
@@ -480,13 +473,24 @@ function renderComponentOrTemplate<T>(
 
     // update mode pass
     resetPreOrderHookFlags(hostView);
-    templateFn && templateFn(RenderFlags.Update, context);
+    templateFn && executeTemplate(templateFn, RenderFlags.Update, context);
     refreshDescendantViews(hostView);
   } finally {
     if (normalExecutionPath && !creationModeIsActive && rendererFactory.end) {
       rendererFactory.end();
     }
     leaveView(oldView);
+  }
+}
+
+function executeTemplate<T>(templateFn: ComponentTemplate<T>, rf: RenderFlags, context: T) {
+  ɵɵnamespaceHTML();
+  const prevSelectedIndex = getSelectedIndex();
+  try {
+    setActiveHostElement(null);
+    templateFn(rf, context);
+  } finally {
+    setSelectedIndex(prevSelectedIndex);
   }
 }
 
@@ -781,7 +785,7 @@ export function createTNode(
 /**
  * Consolidates all inputs or outputs of all directives on this logical node.
  *
- * @param tNodeFlags node flags
+ * @param tNode
  * @param direction whether to consider inputs or outputs
  * @returns PropertyAliases|null aggregate of all properties if any, `null` otherwise
  */
@@ -842,7 +846,18 @@ export function elementPropertyInternal<T>(
     if (isComponent(tNode)) markDirtyIfOnPush(lView, index + HEADER_OFFSET);
     if (ngDevMode) {
       if (tNode.type === TNodeType.Element || tNode.type === TNodeType.Container) {
-        setNgReflectProperties(lView, element, tNode.type, dataValue, value);
+        /**
+         * dataValue is an array containing runtime input or output names for the directives:
+         * i+0: directive instance index
+         * i+1: publicName
+         * i+2: privateName
+         *
+         * e.g. [0, 'change', 'change-minified']
+         * we want to set the reflected property with the privateName: dataValue[i+2]
+         */
+        for (let i = 0; i < dataValue.length; i += 3) {
+          setNgReflectProperty(lView, element, tNode.type, dataValue[i + 2] as string, value);
+        }
       }
     }
   } else if (tNode.type === TNodeType.Element) {
@@ -884,24 +899,21 @@ function markDirtyIfOnPush(lView: LView, viewIndex: number): void {
   }
 }
 
-function setNgReflectProperties(
-    lView: LView, element: RElement | RComment, type: TNodeType, inputs: PropertyAliasValue,
-    value: any) {
-  for (let i = 0; i < inputs.length; i += 3) {
-    const renderer = lView[RENDERER];
-    const attrName = normalizeDebugBindingName(inputs[i + 2] as string);
-    const debugValue = normalizeDebugBindingValue(value);
-    if (type === TNodeType.Element) {
-      isProceduralRenderer(renderer) ?
-          renderer.setAttribute((element as RElement), attrName, debugValue) :
-          (element as RElement).setAttribute(attrName, debugValue);
-    } else if (value !== undefined) {
-      const value = `bindings=${JSON.stringify({[attrName]: debugValue}, null, 2)}`;
-      if (isProceduralRenderer(renderer)) {
-        renderer.setValue((element as RComment), value);
-      } else {
-        (element as RComment).textContent = value;
-      }
+export function setNgReflectProperty(
+    lView: LView, element: RElement | RComment, type: TNodeType, attrName: string, value: any) {
+  const renderer = lView[RENDERER];
+  attrName = normalizeDebugBindingName(attrName);
+  const debugValue = normalizeDebugBindingValue(value);
+  if (type === TNodeType.Element) {
+    isProceduralRenderer(renderer) ?
+        renderer.setAttribute((element as RElement), attrName, debugValue) :
+        (element as RElement).setAttribute(attrName, debugValue);
+  } else if (value !== undefined) {
+    const value = `bindings=${JSON.stringify({[attrName]: debugValue}, null, 2)}`;
+    if (isProceduralRenderer(renderer)) {
+      renderer.setValue((element as RComment), value);
+    } else {
+      (element as RComment).textContent = value;
     }
   }
 }
@@ -1065,26 +1077,29 @@ function invokeDirectivesHostBindings(tView: TView, viewData: LView, tNode: TNod
   const expando = tView.expandoInstructions !;
   const firstTemplatePass = tView.firstTemplatePass;
   const elementIndex = tNode.index - HEADER_OFFSET;
-  setActiveHostElement(elementIndex);
+  const selectedIndex = getSelectedIndex();
+  try {
+    setActiveHostElement(elementIndex);
 
-  for (let i = start; i < end; i++) {
-    const def = tView.data[i] as DirectiveDef<any>;
-    const directive = viewData[i];
-    if (def.hostBindings) {
-      invokeHostBindingsInCreationMode(def, expando, directive, tNode, firstTemplatePass);
+    for (let i = start; i < end; i++) {
+      const def = tView.data[i] as DirectiveDef<any>;
+      const directive = viewData[i];
+      if (def.hostBindings) {
+        invokeHostBindingsInCreationMode(def, expando, directive, tNode, firstTemplatePass);
 
-      // Each directive gets a uniqueId value that is the same for both
-      // create and update calls when the hostBindings function is called. The
-      // directive uniqueId is not set anywhere--it is just incremented between
-      // each hostBindings call and is useful for helping instruction code
-      // uniquely determine which directive is currently active when executed.
-      incrementActiveDirectiveId();
-    } else if (firstTemplatePass) {
-      expando.push(null);
+        // Each directive gets a uniqueId value that is the same for both
+        // create and update calls when the hostBindings function is called. The
+        // directive uniqueId is not set anywhere--it is just incremented between
+        // each hostBindings call and is useful for helping instruction code
+        // uniquely determine which directive is currently active when executed.
+        incrementActiveDirectiveId();
+      } else if (firstTemplatePass) {
+        expando.push(null);
+      }
     }
+  } finally {
+    setActiveHostElement(selectedIndex);
   }
-
-  setActiveHostElement(null);
 }
 
 export function invokeHostBindingsInCreationMode(
@@ -1306,7 +1321,7 @@ function addComponentLogic<T>(
  *
  * @param directiveIndex Index of the directive in directives array
  * @param instance Instance of the directive on which to set the initial inputs
- * @param inputs The list of inputs from the directive def
+ * @param def The directive def that contains the list of inputs
  * @param tNode The static data for this node
  */
 function setInputsFromAttrs<T>(
@@ -1327,6 +1342,11 @@ function setInputsFromAttrs<T>(
         def.setInput !(instance, value, publicName, privateName);
       } else {
         (instance as any)[privateName] = value;
+      }
+      if (ngDevMode) {
+        const lView = getLView();
+        const nativeElement = getNativeByTNode(tNode, lView) as RElement;
+        setNgReflectProperty(lView, nativeElement, tNode.type, privateName, value);
       }
     }
   }
@@ -1672,14 +1692,8 @@ export function checkView<T>(hostView: LView, component: T) {
 
   try {
     resetPreOrderHookFlags(hostView);
-    ɵɵnamespaceHTML();
     creationMode && executeViewQueryFn(RenderFlags.Create, hostTView, component);
-
-    // Reset the selected index so we can assert that `select` was called later
-    setSelectedIndex(-1);
-
-    templateFn(getRenderFlags(hostView), component);
-
+    executeTemplate(templateFn, getRenderFlags(hostView), component);
     refreshDescendantViews(hostView);
     // Only check view queries again in creation mode if there are static view queries
     if (!creationMode || hostTView.staticViewQueries) {
@@ -1772,7 +1786,7 @@ export function handleError(lView: LView, error: any): void {
  * Set the inputs of directives at the current node to corresponding value.
  *
  * @param lView the `LView` which contains the directives.
- * @param inputAliases mapping between the public "input" name and privately-known,
+ * @param inputs mapping between the public "input" name and privately-known,
  * possibly minified, property names to write to.
  * @param value Value to set.
  */

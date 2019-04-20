@@ -8,11 +8,12 @@
 
 import * as ts from 'typescript';
 
-import {AbsoluteModuleStrategy, LocalIdentifierStrategy, LogicalProjectStrategy, ReferenceEmitter} from '../../imports';
-import {LogicalFileSystem} from '../../path';
+import {AbsoluteModuleStrategy, LocalIdentifierStrategy, LogicalProjectStrategy, Reference, ReferenceEmitter} from '../../imports';
+import {AbsoluteFsPath, LogicalFileSystem} from '../../path';
 import {isNamedClassDeclaration} from '../../reflection';
 import {getDeclaration, makeProgram} from '../../testing/in_memory_typescript';
 import {getRootDirs} from '../../util/src/typescript';
+import {TypeCheckingConfig} from '../src/api';
 import {TypeCheckContext} from '../src/context';
 import {TypeCheckProgramHost} from '../src/host';
 
@@ -22,6 +23,14 @@ const LIB_D_TS = {
     type Partial<T> = { [P in keyof T]?: T[P]; };
     type Pick<T, K extends keyof T> = { [P in K]: T[P]; };
     type NonNullable<T> = T extends null | undefined ? never : T;`
+};
+
+const ALL_ENABLED_CONFIG: TypeCheckingConfig = {
+  applyTemplateContextGuards: true,
+  checkTemplateBodies: true,
+  checkTypeOfBindings: true,
+  checkTypeOfPipes: true,
+  strictSafeNavigationTypes: true,
 };
 
 describe('ngtsc typechecking', () => {
@@ -47,9 +56,10 @@ TestClass.ngTypeCtor({value: 'test'});
         new AbsoluteModuleStrategy(program, checker, options, host),
         new LogicalProjectStrategy(checker, logicalFs),
       ]);
-      const ctx = new TypeCheckContext(emitter);
+      const ctx = new TypeCheckContext(
+          ALL_ENABLED_CONFIG, emitter, AbsoluteFsPath.fromUnchecked('/_typecheck_.ts'));
       const TestClass = getDeclaration(program, 'main.ts', 'TestClass', isNamedClassDeclaration);
-      ctx.addTypeCtor(program.getSourceFile('main.ts') !, TestClass, {
+      ctx.addInlineTypeCtor(program.getSourceFile('main.ts') !, new Reference(TestClass), {
         fnName: 'ngTypeCtor',
         body: true,
         fields: {
@@ -58,8 +68,7 @@ TestClass.ngTypeCtor({value: 'test'});
           queries: [],
         },
       });
-      const augHost = new TypeCheckProgramHost(program, host, ctx);
-      makeProgram(files, undefined, augHost, true);
+      ctx.calculateTemplateDiagnostics(program, host, options);
     });
   });
 });

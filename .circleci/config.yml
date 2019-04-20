@@ -249,10 +249,7 @@ jobs:
       - run: yarn --cwd aio lint
         # Run PWA-score tests
         # (Run before unit and e2e tests, which destroy the `dist/` directory.)
-        # Temporarily lowering the min required PWA score to avoid flakes on CI.
-        # TODO(gkalpak): Re-enable once https://github.com/angular/angular/issues/29910 is resolved.
-      # - run: yarn --cwd aio test-pwa-score-localhost $CI_AIO_MIN_PWA_SCORE
-      - run: yarn --cwd aio test-pwa-score-localhost 70
+      - run: yarn --cwd aio test-pwa-score-localhost $CI_AIO_MIN_PWA_SCORE
         # Check the bundle sizes.
         # (Run before unit and e2e tests, which destroy the `dist/` directory.)
       - run: yarn --cwd aio payload-size
@@ -287,10 +284,7 @@ jobs:
       - run: yarn --cwd aio build-local --progress=false
         # Run PWA-score tests
         # (Run before unit and e2e tests, which destroy the `dist/` directory.)
-        # Temporarily lowering the min required PWA score to avoid flakes on CI.
-        # TODO(gkalpak): Re-enable once https://github.com/angular/angular/issues/29910 is resolved.
-      # - run: yarn --cwd aio test-pwa-score-localhost $CI_AIO_MIN_PWA_SCORE
-      - run: yarn --cwd aio test-pwa-score-localhost 70
+      - run: yarn --cwd aio test-pwa-score-localhost $CI_AIO_MIN_PWA_SCORE
         # Run unit tests
       - run: yarn --cwd aio test --progress=false --watch=false
         # Run e2e tests
@@ -301,12 +295,6 @@ jobs:
     steps:
       - *attach_workspace
       - *init_environment
-        # Rename the Ivy packages dist folder to "dist/packages-dist" as the AIO
-        # package installer picks up the locally built packages from that location.
-        # *Note*: We could also adjust the packages installer, but given we won't have
-        # two different folders of Angular distributions in the future, it's likely not
-        # worth the efforts to change the AIO packages installer.
-      - run: mv dist/packages-dist-ivy-aot dist/packages-dist
         # Build aio with Ivy (using local Angular packages)
       - run: yarn --cwd aio build-with-ivy --progress=false
 
@@ -638,7 +626,7 @@ workflows:
             - build-npm-packages
       - test_aio_local_ivy:
           requires:
-            - build-ivy-npm-packages
+            - build-npm-packages
       - test_aio_tools:
           requires:
             - build-npm-packages

@@ -33,8 +33,11 @@ def ts_api_guardian_test(
     """Runs ts_api_guardian
     """
     data += [
+        # BEGIN-INTERNAL
+        # Locally we need to add the TS build target
         "@angular//tools/ts-api-guardian:lib",
-        "@angular//tools/ts-api-guardian:bin/ts-api-guardian",
+        # END-INTERNAL
+        "@angular//tools/ts-api-guardian:bin",
     ]
 
     args = [
@@ -55,7 +58,7 @@ def ts_api_guardian_test(
     nodejs_test(
         name = name,
         data = data,
-        node_modules = "@ts-api-guardian_deps//:node_modules",
+        node_modules = "@npm//:node_modules",
         entry_point = "angular/tools/ts-api-guardian/bin/ts-api-guardian",
         templated_args = args + ["--verify", golden, actual],
         **kwargs
@@ -65,7 +68,7 @@ def ts_api_guardian_test(
         name = name + ".accept",
         testonly = True,
         data = data,
-        node_modules = "@ts-api-guardian_deps//:node_modules",
+        node_modules = "@npm//:node_modules",
         entry_point = "angular/tools/ts-api-guardian/bin/ts-api-guardian",
         templated_args = args + ["--out", golden, actual],
         **kwargs

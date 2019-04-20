@@ -106,6 +106,12 @@ export function createTemplateRef<T>(
 
       createEmbeddedView(context: T, container?: LContainer, index?: number):
           viewEngine_EmbeddedViewRef<T> {
+        const currentQueries = this._declarationParentView[QUERIES];
+        // Query container may be missing if this view was created in a directive
+        // constructor. Create it now to avoid losing results in embedded views.
+        if (currentQueries && this._hostLContainer[QUERIES] == null) {
+          this._hostLContainer[QUERIES] = currentQueries !.container();
+        }
         const lView = createEmbeddedViewAndNode(
             this._tView, context, this._declarationParentView, this._hostLContainer[QUERIES],
             this._injectorIndex);
@@ -275,8 +281,8 @@ export function createContainerRef(
       detach(index?: number): viewEngine_ViewRef|null {
         const adjustedIdx = this._adjustIndex(index, -1);
         const view = detachView(this._lContainer, adjustedIdx);
-        const wasDetached = this._viewRefs.splice(adjustedIdx, 1)[0] != null;
-        return wasDetached ? new ViewRef(view, view[CONTEXT], -1) : null;
+        const wasDetached = view && this._viewRefs.splice(adjustedIdx, 1)[0] != null;
+        return wasDetached ? new ViewRef(view !, view ![CONTEXT], -1) : null;
       }
 
       private _adjustIndex(index?: number, shift: number = 0) {

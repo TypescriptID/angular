@@ -13,9 +13,11 @@ import * as ts from 'typescript';
 import {CycleAnalyzer} from '../../cycles';
 import {ErrorCode, FatalDiagnosticError} from '../../diagnostics';
 import {DefaultImportRecorder, ModuleResolver, Reference, ReferenceEmitter} from '../../imports';
+import {DirectiveMeta, MetadataReader, MetadataRegistry, extractDirectiveGuards} from '../../metadata';
+import {flattenInheritedDirectiveMetadata} from '../../metadata/src/inheritance';
 import {EnumValue, PartialEvaluator} from '../../partial_evaluator';
 import {ClassDeclaration, Decorator, ReflectionHost, filterToMembersWithDecorator, reflectObjectLiteral} from '../../reflection';
-import {LocalModuleScopeRegistry, ScopeDirective, extractDirectiveGuards} from '../../scope';
+import {LocalModuleScopeRegistry} from '../../scope';
 import {AnalysisOutput, CompileResult, DecoratorHandler, DetectResult, HandlerPrecedence, ResolveResult} from '../../transform';
 import {TypeCheckContext} from '../../typecheck';
 import {tsSourceMapBug29300Fixed} from '../../util/src/ts_source_map_bug_29300';
@@ -23,7 +25,7 @@ import {tsSourceMapBug29300Fixed} from '../../util/src/ts_source_map_bug_29300';
 import {ResourceLoader} from './api';
 import {extractDirectiveMetadata, extractQueriesFromDecorator, parseFieldArrayValue, queriesFromFields} from './directive';
 import {generateSetClassMetadataCall} from './metadata';
-import {findAngularDecorator, isAngularCoreReference, isExpressionForwardReference, unwrapExpression} from './util';
+import {findAngularDecorator, isAngularCoreReference, isExpressionForwardReference, readBaseClass, unwrapExpression} from './util';
 
 const EMPTY_MAP = new Map<string, Expression>();
 const EMPTY_ARRAY: any[] = [];
@@ -41,6 +43,7 @@ export class ComponentDecoratorHandler implements
     DecoratorHandler<ComponentHandlerData, Decorator> {
   constructor(
       private reflector: ReflectionHost, private evaluator: PartialEvaluator,
+      private metaRegistry: MetadataRegistry, private metaReader: MetadataReader,
       private scopeRegistry: LocalModuleScopeRegistry, private isCore: boolean,
       private resourceLoader: ResourceLoader, private rootDirs: string[],
       private defaultPreserveWhitespaces: boolean, private i18nUseExternalIds: boolean,
@@ -48,7 +51,7 @@ export class ComponentDecoratorHandler implements
       private refEmitter: ReferenceEmitter, private defaultImportRecorder: DefaultImportRecorder) {}
 
   private literalCache = new Map<Decorator, ts.ObjectLiteralExpression>();
-  private boundTemplateCache = new Map<ts.Declaration, BoundTarget<ScopeDirective>>();
+  private boundTemplateCache = new Map<ts.Declaration, BoundTarget<DirectiveMeta>>();
   private elementSchemaRegistry = new DomElementSchemaRegistry();
 
   /**
@@ -211,7 +214,7 @@ export class ComponentDecoratorHandler implements
     // determined.
     if (metadata.selector !== null) {
       const ref = new Reference(node);
-      this.scopeRegistry.registerDirective({
+      this.metaRegistry.registerDirectiveMetadata({
         ref,
         name: node.name.text,
         selector: metadata.selector,
@@ -220,6 +223,7 @@ export class ComponentDecoratorHandler implements
         outputs: metadata.outputs,
         queries: metadata.queries.map(query => query.propertyName),
         isComponent: true, ...extractDirectiveGuards(node, this.reflector),
+        baseClass: readBaseClass(node, this.reflector, this.evaluator),
       });
     }
 
@@ -302,13 +306,22 @@ export class ComponentDecoratorHandler implements
       return;
     }
     const scope = this.scopeRegistry.getScopeForComponent(node);
-    const matcher = new SelectorMatcher<ScopeDirective>();
+    const matcher = new SelectorMatcher<DirectiveMeta>();
     if (scope !== null) {
       for (const meta of scope.compilation.directives) {
-        matcher.addSelectables(CssSelector.parse(meta.selector), meta);
+        const extMeta = flattenInheritedDirectiveMetadata(this.metaReader, meta.ref);
+        matcher.addSelectables(CssSelector.parse(meta.selector), extMeta);
       }
       const bound = new R3TargetBinder(matcher).bind({template: meta.parsedTemplate});
-      ctx.addTemplate(node, bound);
+      const pipes = new Map<string, Reference<ClassDeclaration<ts.ClassDeclaration>>>();
+      for (const {name, ref} of scope.compilation.pipes) {
+        if (!ts.isClassDeclaration(ref.node)) {
+          throw new Error(
+              `Unexpected non-class declaration ${ts.SyntaxKind[ref.node.kind]} for pipe ${ref.debugName}`);
+        }
+        pipes.set(name, ref as Reference<ClassDeclaration<ts.ClassDeclaration>>);
+      }
+      ctx.addTemplate(new Reference(node), bound, pipes);
     }
   }
 
@@ -343,7 +356,7 @@ export class ComponentDecoratorHandler implements
       // Set up the R3TargetBinder, as well as a 'directives' array and a 'pipes' map that are later
       // fed to the TemplateDefinitionBuilder. First, a SelectorMatcher is constructed to match
       // directives that are in scope.
-      const matcher = new SelectorMatcher<ScopeDirective&{expression: Expression}>();
+      const matcher = new SelectorMatcher<DirectiveMeta&{expression: Expression}>();
       const directives: {selector: string, expression: Expression}[] = [];
 
       for (const dir of scope.compilation.directives) {

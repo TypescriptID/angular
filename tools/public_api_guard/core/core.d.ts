@@ -224,11 +224,17 @@ export declare const DebugElement: {
     new (...args: any[]): DebugElement;
 };
 
+export declare class DebugEventListener {
+    callback: Function;
+    name: string;
+    constructor(name: string, callback: Function);
+}
+
 export interface DebugNode {
     readonly componentInstance: any;
     readonly context: any;
     readonly injector: Injector;
-    readonly listeners: EventListener[];
+    readonly listeners: DebugEventListener[];
     readonly nativeNode: any;
     readonly parent: DebugElement | null;
     readonly providerTokens: any[];
@@ -930,6 +936,8 @@ export declare type ɵɵPipeDefWithMeta<T, Name extends string> = PipeDef<T>;
 export declare function ɵɵprojection(nodeIndex: number, selectorIndex?: number, attrs?: TAttributes): void;
 
 export declare function ɵɵprojectionDef(selectors?: CssSelectorList[]): void;
+
+export declare function ɵɵproperty<T>(propName: string, value: T, sanitizer?: SanitizerFn | null, nativeOnly?: boolean): TsickleIssue1009;
 
 export declare function ɵɵProvidersFeature<T>(providers: Provider[], viewProviders?: Provider[]): (definition: DirectiveDef<T>) => void;
 

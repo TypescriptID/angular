@@ -9,6 +9,7 @@
 import {ɵɵdefineInjectable, ɵɵdefineInjector,} from '../../di/interface/defs';
 import {ɵɵinject} from '../../di/injector_compatibility';
 import * as r3 from '../index';
+import {registerNgModuleType} from '../../linker/ng_module_factory_loader';
 import * as sanitization from '../../sanitization/sanitization';
 
 
@@ -84,6 +85,7 @@ export const angularCoreEnv: {[name: string]: Function} = {
   'ɵɵpipeBind4': r3.ɵɵpipeBind4,
   'ɵɵpipeBindV': r3.ɵɵpipeBindV,
   'ɵɵprojectionDef': r3.ɵɵprojectionDef,
+  'ɵɵproperty': r3.ɵɵproperty,
   'ɵɵpipe': r3.ɵɵpipe,
   'ɵɵqueryRefresh': r3.ɵɵqueryRefresh,
   'ɵɵviewQuery': r3.ɵɵviewQuery,
@@ -130,5 +132,7 @@ export const angularCoreEnv: {[name: string]: Function} = {
   'ɵɵsanitizeResourceUrl': sanitization.ɵɵsanitizeResourceUrl,
   'ɵɵsanitizeScript': sanitization.ɵɵsanitizeScript,
   'ɵɵsanitizeUrl': sanitization.ɵɵsanitizeUrl,
-  'ɵɵsanitizeUrlOrResourceUrl': sanitization.ɵɵsanitizeUrlOrResourceUrl
+  'ɵɵsanitizeUrlOrResourceUrl': sanitization.ɵɵsanitizeUrlOrResourceUrl,
+
+  'ɵregisterNgModuleType': registerNgModuleType,
 };
