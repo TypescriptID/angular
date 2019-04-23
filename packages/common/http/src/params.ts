@@ -83,7 +83,7 @@ export interface HttpParamsOptions {
    */
   fromString?: string;
 
-  /** Object map of the HTTP params. Mutally exclusive with `fromString`. */
+  /** Object map of the HTTP params. Mutually exclusive with `fromString`. */
   fromObject?: {[param: string]: string | string[]};
 
   /** Encoding codec used to parse and serialize the params. */
@@ -227,7 +227,7 @@ export class HttpParams {
             }
         }
       });
-      this.cloneFrom = null;
+      this.cloneFrom = this.updates = null;
     }
   }
 }

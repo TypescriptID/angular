@@ -649,6 +649,30 @@ describe('compiler compliance: styling', () => {
       expectEmit(result.source, template, 'Incorrect template');
 
     });
+
+    it('should not create instructions for empty style bindings', () => {
+      const files = {
+        app: {
+          'spec.ts': `
+            import {Component, NgModule} from '@angular/core';
+
+            @Component({
+              selector: 'my-component',
+              template: \`<div [style.color]></div>\`
+            })
+            export class MyComponent {
+            }
+
+            @NgModule({declarations: [MyComponent]})
+            export class MyModule {}
+          `
+        }
+      };
+
+      const result = compile(files, angularFiles);
+      expect(result.source).not.toContain('elementStyling');
+    });
+
   });
 
   describe('[class]', () => {
@@ -802,6 +826,30 @@ describe('compiler compliance: styling', () => {
          const result = compile(files, angularFiles);
          expectEmit(result.source, template, 'Incorrect template');
        });
+
+    it('should not create instructions for empty class bindings', () => {
+      const files = {
+        app: {
+          'spec.ts': `
+            import {Component, NgModule} from '@angular/core';
+
+            @Component({
+              selector: 'my-component',
+              template: \`<div [class.is-open]></div>\`
+            })
+            export class MyComponent {
+            }
+
+            @NgModule({declarations: [MyComponent]})
+            export class MyModule {}
+          `
+        }
+      };
+
+      const result = compile(files, angularFiles);
+      expect(result.source).not.toContain('elementStyling');
+    });
+
   });
 
   describe('[style] mixed with [class]', () => {
@@ -1285,8 +1333,8 @@ describe('compiler compliance: styling', () => {
           $r3$.ɵɵelementHostStyling(null, null, $r3$.ɵɵdefaultStyleSanitizer);
         }
         if (rf & 2) {
-          $r3$.ɵɵelementProperty(elIndex, "id", $r3$.ɵɵbind(ctx.id), null, true);
-          $r3$.ɵɵelementProperty(elIndex, "title", $r3$.ɵɵbind(ctx.title), null, true);
+          $r3$.ɵɵproperty("id", ctx.id, null, true);
+          $r3$.ɵɵproperty("title", ctx.title, null, true);
           $r3$.ɵɵelementHostStylingMap(ctx.myClass, ctx.myStyle);
           $r3$.ɵɵelementHostStylingApply();
         }
@@ -1331,8 +1379,8 @@ describe('compiler compliance: styling', () => {
           $r3$.ɵɵelementHostStyling($_c0$, $_c1$);
         }
         if (rf & 2) {
-          $r3$.ɵɵelementProperty(elIndex, "id", $r3$.ɵɵbind(ctx.id), null, true);
-          $r3$.ɵɵelementProperty(elIndex, "title", $r3$.ɵɵbind(ctx.title), null, true);
+          $r3$.ɵɵproperty("id", ctx.id, null, true);
+          $r3$.ɵɵproperty("title", ctx.title, null, true);
           $r3$.ɵɵelementHostStyleProp(0, ctx.myWidth);
           $r3$.ɵɵelementHostClassProp(0, ctx.myFooClass);
           $r3$.ɵɵelementHostStylingApply();
