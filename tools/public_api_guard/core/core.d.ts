@@ -586,6 +586,7 @@ export declare abstract class NgModuleFactory<T> {
     abstract create(parentInjector: Injector | null): NgModuleRef<T>;
 }
 
+/** @deprecated */
 export declare abstract class NgModuleFactoryLoader {
     abstract load(path: string): Promise<NgModuleFactory<any>>;
 }
@@ -662,6 +663,7 @@ export interface OutputDecorator {
 export declare function ɵɵallocHostVars(count: number): void;
 
 export interface ɵɵBaseDef<T> {
+    contentQueries: ContentQueriesFunction<T> | null;
     /** @deprecated */ readonly declaredInputs: {
         [P in keyof T]: string;
     };
@@ -671,6 +673,7 @@ export interface ɵɵBaseDef<T> {
     readonly outputs: {
         [P in keyof T]: string;
     };
+    viewQuery: ViewQueriesFunction<T> | null;
 }
 
 export declare function ɵɵbind<T>(value: T): T | NO_CHANGE;
@@ -702,6 +705,8 @@ export declare function ɵɵdefineBase<T>(baseDefinition: {
     outputs?: {
         [P in keyof T]?: string;
     };
+    contentQueries?: ContentQueriesFunction<T> | null;
+    viewQuery?: ViewQueriesFunction<T> | null;
 }): ɵɵBaseDef<T>;
 
 export declare function ɵɵdefineComponent<T>(componentDefinition: {
@@ -1293,11 +1298,13 @@ export interface SkipSelfDecorator {
 
 export declare type StaticProvider = ValueProvider | ExistingProvider | StaticClassProvider | ConstructorProvider | FactoryProvider | any[];
 
+/** @deprecated */
 export declare class SystemJsNgModuleLoader implements NgModuleFactoryLoader {
     constructor(_compiler: Compiler, config?: SystemJsNgModuleLoaderConfig);
     load(path: string): Promise<NgModuleFactory<any>>;
 }
 
+/** @deprecated */
 export declare abstract class SystemJsNgModuleLoaderConfig {
     factoryPathPrefix: string;
     factoryPathSuffix: string;

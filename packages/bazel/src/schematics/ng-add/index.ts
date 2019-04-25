@@ -11,7 +11,7 @@
 import {JsonAstObject, parseJsonAst} from '@angular-devkit/core';
 import {Rule, SchematicContext, SchematicsException, Tree, apply, applyTemplates, chain, mergeWith, url} from '@angular-devkit/schematics';
 import {NodePackageInstallTask} from '@angular-devkit/schematics/tasks';
-import {getWorkspacePath} from '@schematics/angular/utility/config';
+import {getWorkspace, getWorkspacePath} from '@schematics/angular/utility/config';
 import {findPropertyInAstObject, insertPropertyInAstObjectInOrder} from '@schematics/angular/utility/json-utils';
 import {validateProjectName} from '@schematics/angular/utility/validation';
 
@@ -55,13 +55,19 @@ function addDevDependenciesToPackageJson(options: Schema) {
     };
 
     const recorder = host.beginUpdate(packageJson);
-    const depsToInstall = Object.keys(devDependencies).filter((name) => {
-      return !findPropertyInAstObject(devDeps, name);
-    });
-    for (const packageName of depsToInstall) {
+    for (const packageName of Object.keys(devDependencies)) {
+      const existingDep = findPropertyInAstObject(deps, packageName);
+      if (existingDep) {
+        const content = packageJsonContent.toString();
+        removeKeyValueInAstObject(recorder, content, deps, packageName);
+      }
       const version = devDependencies[packageName];
       const indent = 4;
-      insertPropertyInAstObjectInOrder(recorder, devDeps, packageName, version, indent);
+      if (findPropertyInAstObject(devDeps, packageName)) {
+        replacePropertyInAstObject(recorder, devDeps, packageName, version, indent);
+      } else {
+        insertPropertyInAstObjectInOrder(recorder, devDeps, packageName, version, indent);
+      }
     }
     host.commitUpdate(recorder);
     return host;
@@ -112,7 +118,7 @@ function updateGitignore() {
  */
 function updateAngularJsonToUseBazelBuilder(options: Schema): Rule {
   return (host: Tree, context: SchematicContext) => {
-    const {name} = options;
+    const name = options.name !;
     const workspacePath = getWorkspacePath(host);
     if (!workspacePath) {
       throw new Error('Could not find angular.json');
@@ -368,6 +374,10 @@ function installNodeModules(options: Schema): Rule {
 
 export default function(options: Schema): Rule {
   return (host: Tree) => {
+    options.name = options.name || getWorkspace(host).defaultProject;
+    if (!options.name) {
+      throw new Error('Please specify a project using "--name project-name"');
+    }
     validateProjectName(options.name);
 
     return chain([

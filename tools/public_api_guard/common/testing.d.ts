@@ -7,6 +7,7 @@ export declare class MockLocationStrategy extends LocationStrategy {
     back(): void;
     forward(): void;
     getBaseHref(): string;
+    getState(): unknown;
     onPopState(fn: (value: any) => void): void;
     path(includeHash?: boolean): string;
     prepareExternalUrl(internal: string): string;
@@ -15,13 +16,36 @@ export declare class MockLocationStrategy extends LocationStrategy {
     simulatePopState(url: string): void;
 }
 
+export declare class MockPlatformLocation implements PlatformLocation {
+    readonly hash: string;
+    readonly hostname: string;
+    readonly href: string;
+    readonly pathname: string;
+    readonly port: string;
+    readonly protocol: string;
+    readonly search: string;
+    readonly state: unknown;
+    readonly url: string;
+    constructor(config?: MockPlatformLocationConfig);
+    back(): void;
+    forward(): void;
+    getBaseHrefFromDOM(): string;
+    getState(): unknown;
+    onHashChange(fn: LocationChangeListener): void;
+    onPopState(fn: LocationChangeListener): void;
+    pushState(state: any, title: string, newUrl: string): void;
+    replaceState(state: any, title: string, newUrl: string): void;
+}
+
 export declare class SpyLocation implements Location {
     urlChanges: string[];
     back(): void;
     forward(): void;
+    getState(): unknown;
     go(path: string, query?: string, state?: any): void;
     isCurrentPathEqualTo(path: string, query?: string): boolean;
     normalize(url: string): string;
+    onUrlChange(fn: (url: string, state: unknown) => void): void;
     path(): string;
     prepareExternalUrl(url: string): string;
     replaceState(path: string, query?: string, state?: any): void;
