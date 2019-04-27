@@ -666,9 +666,9 @@
           "tooltip": "Angular versioning, release, support, and deprecation policies and practices."
         },
         {
-          "url": "guide/deprecation",
-          "title": "Deprecation Summary",
-          "tooltip": "Summary of Angular features and APIs that are deprecated."
+          "url": "guide/deprecations",
+          "title": "Deprecations",
+          "tooltip": "Summary of Angular APIs and features that are deprecated."
         }
       ]
     },

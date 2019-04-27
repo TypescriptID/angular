@@ -85,13 +85,13 @@ export class AppComponent implements OnInit {
   searchResults: Observable<SearchResults>;
   @ViewChildren('searchBox, searchResultsView', { read: ElementRef })
   searchElements: QueryList<ElementRef>;
-  @ViewChild(SearchBoxComponent)
+  @ViewChild(SearchBoxComponent, { static: true })
   searchBox: SearchBoxComponent;
 
-  @ViewChild(MatSidenav)
+  @ViewChild(MatSidenav, { static: true })
   sidenav: MatSidenav;
 
-  @ViewChild(NotificationComponent)
+  @ViewChild(NotificationComponent, { static: true })
   notification: NotificationComponent;
   notificationAnimating = false;
 
@@ -284,10 +284,10 @@ export class AppComponent implements OnInit {
 
   notificationDismissed() {
     this.notificationAnimating = true;
-      // this should be kept in sync with the animation durations in:
-      // - aio/src/styles/2-modules/_notification.scss
-      // - aio/src/app/layout/notification/notification.component.ts
-      setTimeout(() => this.notificationAnimating = false, 250);
+    // this should be kept in sync with the animation durations in:
+    // - aio/src/styles/2-modules/_notification.scss
+    // - aio/src/app/layout/notification/notification.component.ts
+    setTimeout(() => this.notificationAnimating = false, 250);
     this.updateHostClasses();
   }
 

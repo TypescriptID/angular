@@ -37,6 +37,11 @@ def ts_api_guardian_test(
         # But it will replaced to @npm//ts-api-guardian when publishing
         "@angular//tools/ts-api-guardian:lib",
         "@angular//tools/ts-api-guardian:bin",
+        # The below are required during runtime
+        "@npm//chalk",
+        "@npm//diff",
+        "@npm//minimist",
+        "@npm//typescript",
     ]
 
     args = [
@@ -46,7 +51,8 @@ def ts_api_guardian_test(
     ]
 
     for i in strip_export_pattern:
-        args += ["--stripExportPattern", i]
+        # The below replacement is needed because under Windows '^' needs to be escaped twice
+        args += ["--stripExportPattern", i.replace("^", "^^^^")]
 
     for i in allow_module_identifiers:
         args += ["--allowModuleIdentifiers", i]
