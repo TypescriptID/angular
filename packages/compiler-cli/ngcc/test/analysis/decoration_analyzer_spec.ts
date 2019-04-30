@@ -13,12 +13,15 @@ import {DecoratorHandler, DetectResult} from '../../../src/ngtsc/transform';
 import {CompiledClass, DecorationAnalyses, DecorationAnalyzer} from '../../src/analysis/decoration_analyzer';
 import {NgccReferencesRegistry} from '../../src/analysis/ngcc_references_registry';
 import {Esm2015ReflectionHost} from '../../src/host/esm2015_host';
+import {Folder, MockFileSystem} from '../helpers/mock_file_system';
 import {MockLogger} from '../helpers/mock_logger';
-import {makeTestBundleProgram} from '../helpers/utils';
+import {createFileSystemFromProgramFiles, makeTestBundleProgram} from '../helpers/utils';
+
+const _ = AbsoluteFsPath.fromUnchecked;
 
 const TEST_PROGRAM = [
   {
-    name: 'test.js',
+    name: _('/test.js'),
     contents: `
       import {Component, Directive, Injectable} from '@angular/core';
 
@@ -33,7 +36,7 @@ const TEST_PROGRAM = [
     `,
   },
   {
-    name: 'other.js',
+    name: _('/other.js'),
     contents: `
       import {Component} from '@angular/core';
 
@@ -45,7 +48,7 @@ const TEST_PROGRAM = [
 
 const INTERNAL_COMPONENT_PROGRAM = [
   {
-    name: 'entrypoint.js',
+    name: _('/entrypoint.js'),
     contents: `
     import {Component, NgModule} from '@angular/core';
     import {ImportedComponent} from './component';
@@ -61,7 +64,7 @@ const INTERNAL_COMPONENT_PROGRAM = [
   `
   },
   {
-    name: 'component.js',
+    name: _('/component.js'),
     contents: `
     import {Component} from '@angular/core';
     export class ImportedComponent {}
@@ -136,8 +139,9 @@ describe('DecorationAnalyzer', () => {
       const reflectionHost =
           new Esm2015ReflectionHost(new MockLogger(), false, program.getTypeChecker());
       const referencesRegistry = new NgccReferencesRegistry(reflectionHost);
+      const fs = new MockFileSystem(createFileSystemFromProgramFiles(...progArgs));
       const analyzer = new DecorationAnalyzer(
-          program, options, host, program.getTypeChecker(), reflectionHost, referencesRegistry,
+          fs, program, options, host, program.getTypeChecker(), reflectionHost, referencesRegistry,
           [AbsoluteFsPath.fromUnchecked('/')], false);
       testHandler = createTestHandler();
       analyzer.handlers = [testHandler];

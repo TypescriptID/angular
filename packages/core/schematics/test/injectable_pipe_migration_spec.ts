@@ -20,7 +20,7 @@ describe('injectable pipe migration', () => {
   let previousWorkingDir: string;
 
   beforeEach(() => {
-    runner = new SchematicTestRunner('test', require.resolve('../migrations.json'));
+    runner = new SchematicTestRunner('test', require.resolve('../test-migrations.json'));
     host = new TempScopedNodeJsSyncHost();
     tree = new UnitTestTree(new HostTree(host));
 
@@ -70,8 +70,10 @@ describe('injectable pipe migration', () => {
     `);
 
     runMigration();
-    expect(tree.readContent('/index.ts'))
-        .toContain('import { Pipe, Injectable } from \'@angular/core\'');
+
+    const content = tree.readContent('/index.ts');
+    expect(content).toContain('import { Pipe, Injectable } from \'@angular/core\'');
+    expect((content.match(/import/g) || []).length).toBe(1, 'Expected only one import statement');
   });
 
   it('should not add an import for Injectable if it is imported already', () => {
@@ -121,5 +123,5 @@ describe('injectable pipe migration', () => {
     host.sync.write(normalize(filePath), virtualFs.stringToFileBuffer(contents));
   }
 
-  function runMigration() { runner.runSchematic('migration-v8-injectable-pipe', {}, tree); }
+  function runMigration() { runner.runSchematic('migration-injectable-pipe', {}, tree); }
 });

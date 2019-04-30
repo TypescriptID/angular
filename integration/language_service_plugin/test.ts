@@ -13,7 +13,6 @@ describe('Angular Language Service', () => {
   beforeEach(() => {
     jasmine.addMatchers(goldenMatcher);
     server = fork(SERVER_PATH, [
-      '--globalPlugins', '@angular/language-service',
       '--logVerbosity', 'verbose',
       '--logFile', join(PWD, 'tsserver.log'),
     ], {
@@ -118,6 +117,17 @@ describe('Angular Language Service', () => {
       offset: 28,
     });
     expect(resp2).toMatchGolden('quickinfo.json');
+
+    client.sendRequest('open', {
+      file: `${PWD}/project/app/widget.component.html`,
+    });
+
+    const resp3 = await client.sendRequest('quickinfo', {
+      file: `${PWD}/project/app/widget.component.html`,
+      line: 1,
+      offset: 19,
+    });
+    expect(resp3).toMatchGolden('quickinfo_externalTemplate.json');
   });
 
   it('should perform definition', async () => {
@@ -139,4 +149,25 @@ describe('Angular Language Service', () => {
     });
     expect(resp2).toMatchGolden('definition.json');
   });
+
+  it('should perform definitionAndBoundSpan', async () => {
+    client.sendRequest('open', {
+      file: `${PWD}/project/app/app.component.ts`,
+    });
+
+     const resp1 = await client.sendRequest('reload', {
+      file: `${PWD}/project/app/app.component.ts`,
+      tmpFile: `${PWD}/project/app/app.component.ts`,
+    }) as any;
+    expect(resp1.command).toBe('reload');
+    expect(resp1.success).toBe(true);
+
+     const resp2 = await client.sendRequest('definitionAndBoundSpan', {
+      file: `${PWD}/project/app/app.component.ts`,
+      line: 5,
+      offset: 28,
+    });
+    expect(resp2).toMatchGolden('definitionAndBoundSpan.json');
+  });
+
 });

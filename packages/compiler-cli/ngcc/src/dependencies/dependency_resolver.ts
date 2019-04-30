@@ -6,14 +6,14 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {resolve} from 'canonical-path';
 import {DepGraph} from 'dependency-graph';
 
 import {AbsoluteFsPath} from '../../../src/ngtsc/path';
 import {Logger} from '../logging/logger';
+import {EntryPoint, EntryPointJsonProperty, getEntryPointFormat} from '../packages/entry_point';
 
 import {DependencyHost} from './dependency_host';
-import {EntryPoint, EntryPointJsonProperty, getEntryPointFormat} from './entry_point';
+
 
 
 /**
@@ -48,6 +48,11 @@ export interface IgnoredDependency {
   dependencyPath: string;
 }
 
+export interface DependencyDiagnostics {
+  invalidEntryPoints: InvalidEntryPoint[];
+  ignoredDependencies: IgnoredDependency[];
+}
+
 /**
  * A list of entry-points, sorted by their dependencies.
  *
@@ -57,11 +62,7 @@ export interface IgnoredDependency {
  * Some entry points or their dependencies may be have been ignored. These are captured for
  * diagnostic purposes in `invalidEntryPoints` and `ignoredDependencies` respectively.
  */
-export interface SortedEntryPointsInfo {
-  entryPoints: EntryPoint[];
-  invalidEntryPoints: InvalidEntryPoint[];
-  ignoredDependencies: IgnoredDependency[];
-}
+export interface SortedEntryPointsInfo extends DependencyDiagnostics { entryPoints: EntryPoint[]; }
 
 /**
  * A class that resolves dependencies between entry-points.
@@ -77,12 +78,17 @@ export class DependencyResolver {
    */
   sortEntryPointsByDependency(entryPoints: EntryPoint[], target?: EntryPoint):
       SortedEntryPointsInfo {
-    const {invalidEntryPoints, ignoredDependencies, graph} = this.createDependencyInfo(entryPoints);
+    const {invalidEntryPoints, ignoredDependencies, graph} =
+        this.computeDependencyGraph(entryPoints);
 
     let sortedEntryPointNodes: string[];
     if (target) {
-      sortedEntryPointNodes = graph.dependenciesOf(target.path);
-      sortedEntryPointNodes.push(target.path);
+      if (target.compiledByAngular) {
+        sortedEntryPointNodes = graph.dependenciesOf(target.path);
+        sortedEntryPointNodes.push(target.path);
+      } else {
+        sortedEntryPointNodes = [];
+      }
     } else {
       sortedEntryPointNodes = graph.overallOrder();
     }
@@ -100,18 +106,20 @@ export class DependencyResolver {
    * The graph only holds entry-points that ngcc cares about and whose dependencies
    * (direct and transitive) all exist.
    */
-  private createDependencyInfo(entryPoints: EntryPoint[]) {
+  private computeDependencyGraph(entryPoints: EntryPoint[]): DependencyGraph {
     const invalidEntryPoints: InvalidEntryPoint[] = [];
     const ignoredDependencies: IgnoredDependency[] = [];
     const graph = new DepGraph<EntryPoint>();
 
-    // Add the entry points to the graph as nodes
-    entryPoints.forEach(entryPoint => graph.addNode(entryPoint.path, entryPoint));
+    const angularEntryPoints = entryPoints.filter(entryPoint => entryPoint.compiledByAngular);
+
+    // Add the Angular compiled entry points to the graph as nodes
+    angularEntryPoints.forEach(entryPoint => graph.addNode(entryPoint.path, entryPoint));
 
     // Now add the dependencies between them
-    entryPoints.forEach(entryPoint => {
+    angularEntryPoints.forEach(entryPoint => {
       const entryPointPath = getEntryPointPath(entryPoint);
-      const {dependencies, missing, deepImports} = this.host.computeDependencies(entryPointPath);
+      const {dependencies, missing, deepImports} = this.host.findDependencies(entryPointPath);
 
       if (missing.size > 0) {
         // This entry point has dependencies that are missing
@@ -162,8 +170,12 @@ function getEntryPointPath(entryPoint: EntryPoint): AbsoluteFsPath {
 
     if (format === 'esm2015' || format === 'esm5') {
       const formatPath = entryPoint.packageJson[property] !;
-      return AbsoluteFsPath.from(resolve(entryPoint.path, formatPath));
+      return AbsoluteFsPath.resolve(entryPoint.path, formatPath);
     }
   }
   throw new Error(`There is no format with import statements in '${entryPoint.path}' entry-point.`);
+}
+
+interface DependencyGraph extends DependencyDiagnostics {
+  graph: DepGraph<EntryPoint>;
 }

@@ -5,7 +5,6 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-import {dirname} from 'canonical-path';
 import MagicString from 'magic-string';
 import * as ts from 'typescript';
 import {AbsoluteFsPath} from '../../../src/ngtsc/path';
@@ -15,22 +14,25 @@ import {SwitchMarkerAnalyzer} from '../../src/analysis/switch_marker_analyzer';
 import {Esm5ReflectionHost} from '../../src/host/esm5_host';
 import {Esm5Renderer} from '../../src/rendering/esm5_renderer';
 import {makeTestEntryPointBundle, getDeclaration} from '../helpers/utils';
+import {MockFileSystem} from '../helpers/mock_file_system';
 import {MockLogger} from '../helpers/mock_logger';
 
-function setup(file: {name: string, contents: string}) {
+const _ = AbsoluteFsPath.fromUnchecked;
+
+function setup(file: {name: AbsoluteFsPath, contents: string}) {
+  const fs = new MockFileSystem();
   const logger = new MockLogger();
-  const dir = dirname(file.name);
   const bundle = makeTestEntryPointBundle('module', 'esm5', false, [file]);
   const typeChecker = bundle.src.program.getTypeChecker();
   const host = new Esm5ReflectionHost(logger, false, typeChecker);
   const referencesRegistry = new NgccReferencesRegistry(host);
   const decorationAnalyses =
       new DecorationAnalyzer(
-          bundle.src.program, bundle.src.options, bundle.src.host, typeChecker, host,
+          fs, bundle.src.program, bundle.src.options, bundle.src.host, typeChecker, host,
           referencesRegistry, [AbsoluteFsPath.fromUnchecked('/')], false)
           .analyzeProgram();
   const switchMarkerAnalyses = new SwitchMarkerAnalyzer(host).analyzeProgram(bundle.src.program);
-  const renderer = new Esm5Renderer(logger, host, false, bundle, dir);
+  const renderer = new Esm5Renderer(fs, logger, host, false, bundle);
   return {
     host,
     program: bundle.src.program,
@@ -39,7 +41,7 @@ function setup(file: {name: string, contents: string}) {
 }
 
 const PROGRAM = {
-  name: '/some/file.js',
+  name: _('/some/file.js'),
   contents: `
 /* A copyright notice */
 import 'some-side-effect';
@@ -99,7 +101,7 @@ export {A, B, C, NoIife, BadIife};`
 };
 
 const PROGRAM_DECORATE_HELPER = {
-  name: '/some/file.js',
+  name: _('/some/file.js'),
   contents: `
 import * as tslib_1 from "tslib";
 /* A copyright notice */
@@ -174,10 +176,10 @@ import * as i1 from '@angular/common';`);
     it('should insert the given exports at the end of the source file', () => {
       const {renderer} = setup(PROGRAM);
       const output = new MagicString(PROGRAM.contents);
-      renderer.addExports(output, PROGRAM.name.replace(/\.js$/, ''), [
-        {from: '/some/a.js', dtsFrom: '/some/a.d.ts', identifier: 'ComponentA1'},
-        {from: '/some/a.js', dtsFrom: '/some/a.d.ts', identifier: 'ComponentA2'},
-        {from: '/some/foo/b.js', dtsFrom: '/some/foo/b.d.ts', identifier: 'ComponentB'},
+      renderer.addExports(output, _(PROGRAM.name.replace(/\.js$/, '')), [
+        {from: _('/some/a.js'), dtsFrom: _('/some/a.d.ts'), identifier: 'ComponentA1'},
+        {from: _('/some/a.js'), dtsFrom: _('/some/a.d.ts'), identifier: 'ComponentA2'},
+        {from: _('/some/foo/b.js'), dtsFrom: _('/some/foo/b.d.ts'), identifier: 'ComponentB'},
         {from: PROGRAM.name, dtsFrom: PROGRAM.name, identifier: 'TopLevelComponent'},
       ]);
       expect(output.toString()).toContain(`
@@ -191,10 +193,10 @@ export {TopLevelComponent};`);
     it('should not insert alias exports in js output', () => {
       const {renderer} = setup(PROGRAM);
       const output = new MagicString(PROGRAM.contents);
-      renderer.addExports(output, PROGRAM.name.replace(/\.js$/, ''), [
-        {from: '/some/a.js', alias: 'eComponentA1', identifier: 'ComponentA1'},
-        {from: '/some/a.js', alias: 'eComponentA2', identifier: 'ComponentA2'},
-        {from: '/some/foo/b.js', alias: 'eComponentB', identifier: 'ComponentB'},
+      renderer.addExports(output, _(PROGRAM.name.replace(/\.js$/, '')), [
+        {from: _('/some/a.js'), alias: _('eComponentA1'), identifier: 'ComponentA1'},
+        {from: _('/some/a.js'), alias: _('eComponentA2'), identifier: 'ComponentA2'},
+        {from: _('/some/foo/b.js'), alias: _('eComponentB'), identifier: 'ComponentB'},
         {from: PROGRAM.name, alias: 'eTopLevelComponent', identifier: 'TopLevelComponent'},
       ]);
       const outputString = output.toString();
@@ -284,14 +286,14 @@ SOME DEFINITION TEXT
 
       const noIifeDeclaration =
           getDeclaration(program, sourceFile.fileName, 'NoIife', ts.isFunctionDeclaration);
-      const mockNoIifeClass: any = {declaration: noIifeDeclaration, name: 'NoIife'};
+      const mockNoIifeClass: any = {declaration: noIifeDeclaration, name: _('NoIife')};
       expect(() => renderer.addDefinitions(output, mockNoIifeClass, 'SOME DEFINITION TEXT'))
           .toThrowError(
               'Compiled class declaration is not inside an IIFE: NoIife in /some/file.js');
 
       const badIifeDeclaration =
           getDeclaration(program, sourceFile.fileName, 'BadIife', ts.isVariableDeclaration);
-      const mockBadIifeClass: any = {declaration: badIifeDeclaration, name: 'BadIife'};
+      const mockBadIifeClass: any = {declaration: badIifeDeclaration, name: _('BadIife')};
       expect(() => renderer.addDefinitions(output, mockBadIifeClass, 'SOME DEFINITION TEXT'))
           .toThrowError(
               'Compiled class wrapper IIFE does not have a return statement: BadIife in /some/file.js');

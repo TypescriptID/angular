@@ -5,10 +5,10 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-import * as fs from 'fs';
 import MagicString from 'magic-string';
 import * as ts from 'typescript';
 import {fromObject, generateMapFileComment} from 'convert-source-map';
+import {AbsoluteFsPath} from '../../../src/ngtsc/path';
 import {CompiledClass, DecorationAnalyzer} from '../../src/analysis/decoration_analyzer';
 import {NgccReferencesRegistry} from '../../src/analysis/ngcc_references_registry';
 import {ModuleWithProvidersAnalyzer} from '../../src/analysis/module_with_providers_analyzer';
@@ -17,14 +17,19 @@ import {SwitchMarkerAnalyzer} from '../../src/analysis/switch_marker_analyzer';
 import {Esm2015ReflectionHost} from '../../src/host/esm2015_host';
 import {RedundantDecoratorMap, Renderer} from '../../src/rendering/renderer';
 import {EntryPointBundle} from '../../src/packages/entry_point_bundle';
-import {makeTestEntryPointBundle} from '../helpers/utils';
+import {makeTestEntryPointBundle, createFileSystemFromProgramFiles} from '../helpers/utils';
 import {Logger} from '../../src/logging/logger';
+import {MockFileSystem} from '../helpers/mock_file_system';
 import {MockLogger} from '../helpers/mock_logger';
+import {FileSystem} from '../../src/file_system/file_system';
+
+const _ = AbsoluteFsPath.fromUnchecked;
 
 class TestRenderer extends Renderer {
   constructor(
-      logger: Logger, host: Esm2015ReflectionHost, isCore: boolean, bundle: EntryPointBundle) {
-    super(logger, host, isCore, bundle, '/src');
+      fs: FileSystem, logger: Logger, host: Esm2015ReflectionHost, isCore: boolean,
+      bundle: EntryPointBundle) {
+    super(fs, logger, host, isCore, bundle);
   }
   addImports(
       output: MagicString, imports: {specifier: string, qualifier: string}[], sf: ts.SourceFile) {
@@ -52,15 +57,17 @@ class TestRenderer extends Renderer {
 
 function createTestRenderer(
     packageName: string, files: {name: string, contents: string}[],
-    dtsFiles?: {name: string, contents: string}[]) {
+    dtsFiles?: {name: string, contents: string}[],
+    mappingFiles?: {name: string, contents: string}[]) {
   const logger = new MockLogger();
+  const fs = new MockFileSystem(createFileSystemFromProgramFiles(files, dtsFiles, mappingFiles));
   const isCore = packageName === '@angular/core';
   const bundle = makeTestEntryPointBundle('es2015', 'esm2015', isCore, files, dtsFiles);
   const typeChecker = bundle.src.program.getTypeChecker();
   const host = new Esm2015ReflectionHost(logger, isCore, typeChecker, bundle.dts);
   const referencesRegistry = new NgccReferencesRegistry(host);
   const decorationAnalyses = new DecorationAnalyzer(
-                                 bundle.src.program, bundle.src.options, bundle.src.host,
+                                 fs, bundle.src.program, bundle.src.options, bundle.src.host,
                                  typeChecker, host, referencesRegistry, bundle.rootDirs, isCore)
                                  .analyzeProgram();
   const switchMarkerAnalyses = new SwitchMarkerAnalyzer(host).analyzeProgram(bundle.src.program);
@@ -68,7 +75,7 @@ function createTestRenderer(
       new ModuleWithProvidersAnalyzer(host, referencesRegistry).analyzeProgram(bundle.src.program);
   const privateDeclarationsAnalyses =
       new PrivateDeclarationsAnalyzer(host, referencesRegistry).analyzeProgram(bundle.src.program);
-  const renderer = new TestRenderer(logger, host, isCore, bundle);
+  const renderer = new TestRenderer(fs, logger, host, isCore, bundle);
   spyOn(renderer, 'addImports').and.callThrough();
   spyOn(renderer, 'addDefinitions').and.callThrough();
   spyOn(renderer, 'removeDecorators').and.callThrough();
@@ -193,8 +200,8 @@ describe('Renderer', () => {
            const addDefinitionsSpy = renderer.addDefinitions as jasmine.Spy;
            expect(addDefinitionsSpy.calls.first().args[0].toString()).toEqual(RENDERED_CONTENTS);
            expect(addDefinitionsSpy.calls.first().args[1]).toEqual(jasmine.objectContaining({
-             name: 'A',
-             decorators: [jasmine.objectContaining({name: 'Directive'})],
+             name: _('A'),
+             decorators: [jasmine.objectContaining({name: _('Directive')})]
            }));
            expect(addDefinitionsSpy.calls.first().args[2])
                .toEqual(
@@ -252,15 +259,15 @@ describe('Renderer', () => {
 
       it('should merge any external source map from the original file and write the output to an external source map',
          () => {
-           // Mock out reading the map file from disk
-           spyOn(fs, 'readFileSync').and.returnValue(INPUT_PROGRAM_MAP.toJSON());
+           const sourceFiles = [{
+             ...INPUT_PROGRAM,
+             contents: INPUT_PROGRAM.contents + '\n//# sourceMappingURL=file.js.map'
+           }];
+           const mappingFiles =
+               [{name: INPUT_PROGRAM.name + '.map', contents: INPUT_PROGRAM_MAP.toJSON()}];
            const {decorationAnalyses, renderer, switchMarkerAnalyses, privateDeclarationsAnalyses,
                   moduleWithProvidersAnalyses} =
-               createTestRenderer(
-                   'test-package', [{
-                     ...INPUT_PROGRAM,
-                     contents: INPUT_PROGRAM.contents + '\n//# sourceMappingURL=file.js.map'
-                   }]);
+               createTestRenderer('test-package', sourceFiles, undefined, mappingFiles);
            const result = renderer.renderProgram(
                decorationAnalyses, switchMarkerAnalyses, privateDeclarationsAnalyses,
                moduleWithProvidersAnalyses);
@@ -268,7 +275,7 @@ describe('Renderer', () => {
            expect(result[0].contents)
                .toEqual(RENDERED_CONTENTS + '\n' + generateMapFileComment('file.js.map'));
            expect(result[1].path).toEqual('/src/file.js.map');
-           expect(result[1].contents).toEqual(MERGED_OUTPUT_PROGRAM_MAP.toJSON());
+           expect(JSON.parse(result[1].contents)).toEqual(MERGED_OUTPUT_PROGRAM_MAP.toObject());
          });
     });
 
@@ -354,7 +361,7 @@ describe('Renderer', () => {
 
         // Add a mock export to trigger export rendering
         privateDeclarationsAnalyses.push(
-            {identifier: 'ComponentB', from: '/src/file.js', dtsFrom: '/typings/b.d.ts'});
+            {identifier: 'ComponentB', from: _('/src/file.js'), dtsFrom: _('/typings/b.d.ts')});
 
         const result = renderer.renderProgram(
             decorationAnalyses, switchMarkerAnalyses, privateDeclarationsAnalyses,

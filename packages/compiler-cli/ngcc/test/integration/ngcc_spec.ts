@@ -9,10 +9,9 @@
 import {AbsoluteFsPath} from '@angular/compiler-cli/src/ngtsc/path';
 import {existsSync, readFileSync, readdirSync, statSync, writeFileSync} from 'fs';
 import * as mockFs from 'mock-fs';
-import {join} from 'path';
-const Module = require('module');
 
 import {getAngularPackagesFromRunfiles, resolveNpmTreeArtifact} from '../../../test/runfile_helpers';
+import {NodeJSFileSystem} from '../../src/file_system/node_js_file_system';
 import {mainNgcc} from '../../src/main';
 import {markAsProcessed} from '../../src/packages/build_marker';
 import {EntryPointJsonProperty, EntryPointPackageJson, SUPPORTED_FORMAT_PROPERTIES} from '../../src/packages/entry_point';
@@ -40,39 +39,27 @@ describe('ngcc main()', () => {
 
   describe('with targetEntryPointPath', () => {
     it('should only compile the given package entry-point (and its dependencies).', () => {
-      mainNgcc({basePath: '/node_modules', targetEntryPointPath: '@angular/common/http'});
+      const STANDARD_MARKERS = {
+        module: '0.0.0-PLACEHOLDER',
+        es2015: '0.0.0-PLACEHOLDER',
+        esm5: '0.0.0-PLACEHOLDER',
+        esm2015: '0.0.0-PLACEHOLDER',
+        fesm5: '0.0.0-PLACEHOLDER',
+        fesm2015: '0.0.0-PLACEHOLDER',
+        typings: '0.0.0-PLACEHOLDER',
+      };
 
-      expect(loadPackage('@angular/common/http').__processed_by_ivy_ngcc__).toEqual({
-        module: '0.0.0-PLACEHOLDER',
-        es2015: '0.0.0-PLACEHOLDER',
-        esm5: '0.0.0-PLACEHOLDER',
-        esm2015: '0.0.0-PLACEHOLDER',
-        fesm5: '0.0.0-PLACEHOLDER',
-        fesm2015: '0.0.0-PLACEHOLDER',
-        typings: '0.0.0-PLACEHOLDER',
-      });
-      // * `common` is a dependency of `common/http`, so is compiled.
-      expect(loadPackage('@angular/common').__processed_by_ivy_ngcc__).toEqual({
-        module: '0.0.0-PLACEHOLDER',
-        es2015: '0.0.0-PLACEHOLDER',
-        esm5: '0.0.0-PLACEHOLDER',
-        esm2015: '0.0.0-PLACEHOLDER',
-        fesm5: '0.0.0-PLACEHOLDER',
-        fesm2015: '0.0.0-PLACEHOLDER',
-        typings: '0.0.0-PLACEHOLDER',
-      });
-      // * `core` is a dependency of `common`, so is compiled.
-      expect(loadPackage('@angular/core').__processed_by_ivy_ngcc__).toEqual({
-        module: '0.0.0-PLACEHOLDER',
-        es2015: '0.0.0-PLACEHOLDER',
-        esm5: '0.0.0-PLACEHOLDER',
-        esm2015: '0.0.0-PLACEHOLDER',
-        fesm5: '0.0.0-PLACEHOLDER',
-        fesm2015: '0.0.0-PLACEHOLDER',
-        typings: '0.0.0-PLACEHOLDER',
-      });
-
-      // * `common/testing` is not a dependency of `common/http` so is not compiled.
+      mainNgcc({basePath: '/node_modules', targetEntryPointPath: '@angular/common/http/testing'});
+      expect(loadPackage('@angular/common/http/testing').__processed_by_ivy_ngcc__)
+          .toEqual(STANDARD_MARKERS);
+      // * `common/http` is a dependency of `common/http/testing`, so is compiled.
+      expect(loadPackage('@angular/common/http').__processed_by_ivy_ngcc__)
+          .toEqual(STANDARD_MARKERS);
+      // * `core` is a dependency of `common/http`, so is compiled.
+      expect(loadPackage('@angular/core').__processed_by_ivy_ngcc__).toEqual(STANDARD_MARKERS);
+      // * `common` is a private (only in .js not .d.ts) dependency so is compiled.
+      expect(loadPackage('@angular/common').__processed_by_ivy_ngcc__).toEqual(STANDARD_MARKERS);
+      // * `common/testing` is not a dependency so is not compiled.
       expect(loadPackage('@angular/common/testing').__processed_by_ivy_ngcc__).toBeUndefined();
     });
 
@@ -154,11 +141,13 @@ describe('ngcc main()', () => {
 
 
   function markPropertiesAsProcessed(packagePath: string, properties: EntryPointJsonProperty[]) {
-    const basePath = '/node_modules';
-    const targetPackageJsonPath = _(join(basePath, packagePath, 'package.json'));
+    const basePath = _('/node_modules');
+    const targetPackageJsonPath = AbsoluteFsPath.join(basePath, packagePath, 'package.json');
     const targetPackage = loadPackage(packagePath);
-    markAsProcessed(targetPackage, targetPackageJsonPath, 'typings');
-    properties.forEach(property => markAsProcessed(targetPackage, targetPackageJsonPath, property));
+    const fs = new NodeJSFileSystem();
+    markAsProcessed(fs, targetPackage, targetPackageJsonPath, 'typings');
+    properties.forEach(
+        property => markAsProcessed(fs, targetPackage, targetPackageJsonPath, property));
   }
 
 
@@ -322,6 +311,24 @@ describe('ngcc main()', () => {
       expect(logger.logs.info).toContain(['Compiling @angular/common/http : esm2015 as esm2015']);
     });
   });
+
+  describe('with pathMappings', () => {
+    it('should find and compile packages accessible via the pathMappings', () => {
+      mainNgcc({
+        basePath: '/node_modules',
+        propertiesToConsider: ['es2015'],
+        pathMappings: {paths: {'*': ['dist/*']}, baseUrl: '/'},
+      });
+      expect(loadPackage('@angular/core').__processed_by_ivy_ngcc__).toEqual({
+        es2015: '0.0.0-PLACEHOLDER',
+        typings: '0.0.0-PLACEHOLDER',
+      });
+      expect(loadPackage('local-package', '/dist').__processed_by_ivy_ngcc__).toEqual({
+        es2015: '0.0.0-PLACEHOLDER',
+        typings: '0.0.0-PLACEHOLDER',
+      });
+    });
+  });
 });
 
 
@@ -332,13 +339,26 @@ function createMockFileSystem() {
     '/node_modules/tslib': loadDirectory(resolveNpmTreeArtifact('tslib', 'tslib.js')),
     '/node_modules/test-package': {
       'package.json': '{"name": "test-package", "es2015": "./index.js", "typings": "./index.d.ts"}',
+      // no metadata.json file so not compiled by Angular.
       'index.js':
-          'import {AppModule} from "@angular/common"; export class MyApp extends AppModule;',
-      'index.d.s':
+          'import {AppModule} from "@angular/common"; export class MyApp extends AppModule {};',
+      'index.d.ts':
           'import {AppModule} from "@angular/common"; export declare class MyApp extends AppModule;',
-    }
+    },
+    '/dist/local-package': {
+      'package.json':
+          '{"name": "local-package", "es2015": "./index.js", "typings": "./index.d.ts"}',
+      'index.metadata.json': 'DUMMY DATA',
+      'index.js': `
+          import {Component} from '@angular/core';
+          export class AppComponent {};
+          AppComponent.decorators = [
+            { type: Component, args: [{selector: 'app', template: '<h2>Hello</h2>'}] }
+          ];`,
+      'index.d.ts': `
+          export declare class AppComponent {};`,
+    },
   });
-  spyOn(Module, '_resolveFilename').and.callFake(mockResolve);
 }
 
 function restoreRealFileSystem() {
@@ -365,7 +385,7 @@ function loadDirectory(directoryPath: string): Directory {
   const directory: Directory = {};
 
   readdirSync(directoryPath).forEach(item => {
-    const itemPath = join(directoryPath, item);
+    const itemPath = AbsoluteFsPath.resolve(directoryPath, item);
     if (statSync(itemPath).isDirectory()) {
       directory[item] = loadDirectory(itemPath);
     } else {
@@ -380,37 +400,6 @@ interface Directory {
   [pathSegment: string]: string|Directory;
 }
 
-/**
- * A mock implementation of the node.js Module._resolveFilename function,
- * which we are spying on to support mocking out the file-system in these tests.
- *
- * @param request the path to a module that needs resolving.
- */
-function mockResolve(request: string): string|null {
-  if (existsSync(request)) {
-    const stat = statSync(request);
-    if (stat.isFile()) {
-      return request;
-    } else if (stat.isDirectory()) {
-      const pIndex = mockResolve(request + '/index');
-      if (pIndex && existsSync(pIndex)) {
-        return pIndex;
-      }
-    }
-  }
-  for (const ext of ['.js', '.d.ts']) {
-    if (existsSync(request + ext)) {
-      return request + ext;
-    }
-  }
-  if (request.indexOf('/node_modules') === 0) {
-    // We already tried adding node_modules so give up.
-    return null;
-  } else {
-    return mockResolve(join('/node_modules', request));
-  }
-}
-
-function loadPackage(packageName: string): EntryPointPackageJson {
-  return JSON.parse(readFileSync(`/node_modules/${packageName}/package.json`, 'utf8'));
+function loadPackage(packageName: string, basePath = '/node_modules'): EntryPointPackageJson {
+  return JSON.parse(readFileSync(`${basePath}/${packageName}/package.json`, 'utf8'));
 }

@@ -5,16 +5,12 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-
-import {readFileSync, writeFileSync} from 'fs';
-import * as mockFs from 'mock-fs';
-
 import {AbsoluteFsPath} from '../../../src/ngtsc/path';
 import {hasBeenProcessed, markAsProcessed} from '../../src/packages/build_marker';
-import {EntryPoint} from '../../src/packages/entry_point';
+import {MockFileSystem} from '../helpers/mock_file_system';
 
 function createMockFileSystem() {
-  mockFs({
+  return new MockFileSystem({
     '/node_modules/@angular/common': {
       'package.json': `{
         "fesm2015": "./fesm2015/common.js",
@@ -90,37 +86,33 @@ function createMockFileSystem() {
   });
 }
 
-function restoreRealFileSystem() {
-  mockFs.restore();
-}
-
 describe('Marker files', () => {
-  beforeEach(createMockFileSystem);
-  afterEach(restoreRealFileSystem);
-
   const COMMON_PACKAGE_PATH = AbsoluteFsPath.from('/node_modules/@angular/common/package.json');
 
   describe('markAsProcessed', () => {
     it('should write a property in the package.json containing the version placeholder', () => {
-      let pkg = JSON.parse(readFileSync(COMMON_PACKAGE_PATH, 'utf8'));
+      const fs = createMockFileSystem();
+
+      let pkg = JSON.parse(fs.readFile(COMMON_PACKAGE_PATH));
       expect(pkg.__processed_by_ivy_ngcc__).toBeUndefined();
       expect(pkg.__processed_by_ivy_ngcc__).toBeUndefined();
 
-      markAsProcessed(pkg, COMMON_PACKAGE_PATH, 'fesm2015');
-      pkg = JSON.parse(readFileSync(COMMON_PACKAGE_PATH, 'utf8'));
+      markAsProcessed(fs, pkg, COMMON_PACKAGE_PATH, 'fesm2015');
+      pkg = JSON.parse(fs.readFile(COMMON_PACKAGE_PATH));
       expect(pkg.__processed_by_ivy_ngcc__.fesm2015).toEqual('0.0.0-PLACEHOLDER');
       expect(pkg.__processed_by_ivy_ngcc__.esm5).toBeUndefined();
 
-      markAsProcessed(pkg, COMMON_PACKAGE_PATH, 'esm5');
-      pkg = JSON.parse(readFileSync(COMMON_PACKAGE_PATH, 'utf8'));
+      markAsProcessed(fs, pkg, COMMON_PACKAGE_PATH, 'esm5');
+      pkg = JSON.parse(fs.readFile(COMMON_PACKAGE_PATH));
       expect(pkg.__processed_by_ivy_ngcc__.fesm2015).toEqual('0.0.0-PLACEHOLDER');
       expect(pkg.__processed_by_ivy_ngcc__.esm5).toEqual('0.0.0-PLACEHOLDER');
     });
 
     it('should update the packageJson object in-place', () => {
-      let pkg = JSON.parse(readFileSync(COMMON_PACKAGE_PATH, 'utf8'));
+      const fs = createMockFileSystem();
+      let pkg = JSON.parse(fs.readFile(COMMON_PACKAGE_PATH));
       expect(pkg.__processed_by_ivy_ngcc__).toBeUndefined();
-      markAsProcessed(pkg, COMMON_PACKAGE_PATH, 'fesm2015');
+      markAsProcessed(fs, pkg, COMMON_PACKAGE_PATH, 'fesm2015');
       expect(pkg.__processed_by_ivy_ngcc__.fesm2015).toEqual('0.0.0-PLACEHOLDER');
     });
   });
