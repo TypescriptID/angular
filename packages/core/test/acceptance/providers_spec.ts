@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Component, Directive, Inject, Injectable, InjectionToken} from '@angular/core';
+import {Component, Directive, Inject, Injectable, InjectionToken, Injector, NgModule, Optional, forwardRef} from '@angular/core';
 import {TestBed, async, inject} from '@angular/core/testing';
 import {By} from '@angular/platform-browser';
 import {onlyInIvy} from '@angular/private/testing';
@@ -281,6 +281,65 @@ describe('providers', () => {
          async(inject([MyComp, MyService], (comp: MyComp, service: MyService) => {
            expect(comp.svc.value).toEqual('some value');
          })));
+    });
+  });
+
+  describe('forward refs', () => {
+
+    it('should support forward refs in provider deps', () => {
+      class MyService {
+        constructor(public dep: {value: string}) {}
+      }
+
+      class OtherService {
+        value = 'one';
+      }
+
+      @Component({selector: 'app-comp', template: ``})
+      class AppComp {
+        constructor(public myService: MyService) {}
+      }
+
+      @NgModule({
+        providers: [
+          OtherService, {
+            provide: MyService,
+            useFactory: (dep: {value: string}) => new MyService(dep),
+            deps: [forwardRef(() => OtherService)]
+          }
+        ],
+        declarations: [AppComp]
+      })
+      class MyModule {
+      }
+
+      TestBed.configureTestingModule({imports: [MyModule]});
+
+      const fixture = TestBed.createComponent(AppComp);
+      expect(fixture.componentInstance.myService.dep.value).toBe('one');
+    });
+
+  });
+
+  describe('flags', () => {
+
+    class MyService {
+      constructor(public value: OtherService|null) {}
+    }
+
+    class OtherService {}
+
+    it('should support Optional flag in deps', () => {
+      const injector =
+          Injector.create([{provide: MyService, deps: [[new Optional(), OtherService]]}]);
+
+      expect(injector.get(MyService).value).toBe(null);
+    });
+
+    it('should support Optional flag in deps without instantiating it', () => {
+      const injector = Injector.create([{provide: MyService, deps: [[Optional, OtherService]]}]);
+
+      expect(injector.get(MyService).value).toBe(null);
     });
   });
 });
