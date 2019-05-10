@@ -9,7 +9,7 @@ import {createLView, createTView} from '@angular/core/src/render3/instructions/s
 
 import {createRootContext} from '../../../src/render3/component';
 import {getLContext} from '../../../src/render3/context_discovery';
-import {ɵɵdefineComponent, ɵɵdefineDirective, ɵɵelementClassMap, ɵɵelementClassProp, ɵɵelementEnd, ɵɵelementHostClassProp, ɵɵelementHostStyleProp, ɵɵelementHostStyling, ɵɵelementHostStylingApply, ɵɵelementStart, ɵɵelementStyleMap, ɵɵelementStyleProp, ɵɵelementStyling, ɵɵelementStylingApply, ɵɵnamespaceSVG} from '../../../src/render3/index';
+import {ɵɵclassMap, ɵɵclassProp, ɵɵdefineComponent, ɵɵdefineDirective, ɵɵelementEnd, ɵɵelementStart, ɵɵnamespaceSVG, ɵɵselect, ɵɵstyleMap, ɵɵstyleProp, ɵɵstyling, ɵɵstylingApply} from '../../../src/render3/index';
 import {RenderFlags} from '../../../src/render3/interfaces/definition';
 import {AttributeMarker, TAttributes} from '../../../src/render3/interfaces/node';
 import {BindingStore, BindingType, PlayState, Player, PlayerContext, PlayerFactory, PlayerHandler} from '../../../src/render3/interfaces/player';
@@ -392,13 +392,14 @@ describe('style and class based bindings', () => {
                  'opacity',
                  '0.5',
                ]);
-               ɵɵelementStyling(null, ['width']);
+               ɵɵstyling(null, ['width']);
                ɵɵelementEnd();
              }
              if (rf & RenderFlags.Update) {
-               ɵɵelementStyleMap(0, ctx.myStyles);
-               ɵɵelementStyleProp(0, 0, ctx.myWidth);
-               ɵɵelementStylingApply(0);
+               ɵɵselect(0);
+               ɵɵstyleMap(ctx.myStyles);
+               ɵɵstyleProp(0, ctx.myWidth);
+               ɵɵstylingApply();
              }
            }
 
@@ -428,15 +429,16 @@ describe('style and class based bindings', () => {
               if (rf & RenderFlags.Create) {
                 ɵɵnamespaceSVG();
                 ɵɵelementStart(0, 'svg');
-                ɵɵelementStyling(null, ['width', 'height']);
+                ɵɵstyling(null, ['width', 'height']);
                 ɵɵelementStart(1, 'circle', ['stroke', 'green', 'fill', 'yellow']);
                 ɵɵelementEnd();
                 ɵɵelementEnd();
               }
               if (rf & RenderFlags.Update) {
-                ɵɵelementStyleProp(0, 0, ctx.diameter, 'px');
-                ɵɵelementStyleProp(0, 1, ctx.diameter, 'px');
-                ɵɵelementStylingApply(0);
+                ɵɵselect(0);
+                ɵɵstyleProp(0, ctx.diameter, 'px');
+                ɵɵstyleProp(1, ctx.diameter, 'px');
+                ɵɵstylingApply();
               }
             }
           });
@@ -469,13 +471,14 @@ describe('style and class based bindings', () => {
             template: (rf: RenderFlags, ctx: Comp) => {
               if (rf & RenderFlags.Create) {
                 ɵɵelementStart(0, 'div');
-                ɵɵelementStyling(null, ['borderWidth', 'border-color']);
+                ɵɵstyling(null, ['borderWidth', 'border-color']);
                 ɵɵelementEnd();
               }
               if (rf & RenderFlags.Update) {
-                ɵɵelementStyleProp(0, 0, ctx.borderWidth);
-                ɵɵelementStyleProp(0, 1, ctx.borderColor);
-                ɵɵelementStylingApply(0);
+                ɵɵselect(0);
+                ɵɵstyleProp(0, ctx.borderWidth);
+                ɵɵstyleProp(1, ctx.borderColor);
+                ɵɵstylingApply();
               }
             }
           });
@@ -3106,15 +3109,16 @@ describe('style and class based bindings', () => {
              template: (rf: RenderFlags, ctx: Comp) => {
                if (rf & RenderFlags.Create) {
                  ɵɵelementStart(0, 'div');
-                 ɵɵelementStyling(['foo'], ['width']);
+                 ɵɵstyling(['foo'], ['width']);
                  ɵɵelementEnd();
                }
                if (rf & RenderFlags.Update) {
-                 ɵɵelementStyleMap(0, styleMapFactory);
-                 ɵɵelementClassMap(0, classMapFactory);
-                 ɵɵelementStyleProp(0, 0, widthFactory);
-                 ɵɵelementClassProp(0, 0, fooFactory);
-                 ɵɵelementStylingApply(0);
+                 ɵɵselect(0);
+                 ɵɵstyleMap(styleMapFactory);
+                 ɵɵclassMap(classMapFactory);
+                 ɵɵstyleProp(0, widthFactory);
+                 ɵɵclassProp(0, fooFactory);
+                 ɵɵstylingApply();
                }
              }
            });
@@ -3180,15 +3184,16 @@ describe('style and class based bindings', () => {
           template: (rf: RenderFlags, ctx: Comp) => {
             if (rf & RenderFlags.Create) {
               ɵɵelementStart(0, 'div');
-              ɵɵelementStyling(['foo'], ['width']);
+              ɵɵstyling(['foo'], ['width']);
               ɵɵelementEnd();
             }
             if (rf & RenderFlags.Update) {
-              ɵɵelementStyleMap(0, styleMapFactory);
-              ɵɵelementClassMap(0, classMapFactory);
-              ɵɵelementStyleProp(0, 0, widthFactory);
-              ɵɵelementClassProp(0, 0, fooFactory);
-              ɵɵelementStylingApply(0);
+              ɵɵselect(0);
+              ɵɵstyleMap(styleMapFactory);
+              ɵɵclassMap(classMapFactory);
+              ɵɵstyleProp(0, widthFactory);
+              ɵɵclassProp(0, fooFactory);
+              ɵɵstylingApply();
             }
           }
         });
@@ -3252,12 +3257,12 @@ describe('style and class based bindings', () => {
           factory: () => new MyDir(),
           hostBindings: function(rf: RenderFlags, ctx: MyDir, elementIndex: number) {
             if (rf & RenderFlags.Create) {
-              ɵɵelementHostStyling(['foo'], ['width']);
+              ɵɵstyling(['foo'], ['width']);
             }
             if (rf & RenderFlags.Update) {
-              ɵɵelementHostStyleProp(0, ctx.widthFactory);
-              ɵɵelementHostClassProp(0, ctx.fooFactory);
-              ɵɵelementHostStylingApply();
+              ɵɵstyleProp(0, ctx.widthFactory);
+              ɵɵclassProp(0, ctx.fooFactory);
+              ɵɵstylingApply();
             }
           }
         });
@@ -3277,13 +3282,14 @@ describe('style and class based bindings', () => {
           template: (rf: RenderFlags, ctx: Comp) => {
             if (rf & RenderFlags.Create) {
               ɵɵelementStart(0, 'div', ['my-dir', '']);
-              ɵɵelementStyling(['foo'], ['width']);
+              ɵɵstyling(['foo'], ['width']);
               ɵɵelementEnd();
             }
             if (rf & RenderFlags.Update) {
-              ɵɵelementStyleProp(0, 0, ctx.widthFactory);
-              ɵɵelementClassProp(0, 0, ctx.fooFactory);
-              ɵɵelementStylingApply(0);
+              ɵɵselect(0);
+              ɵɵstyleProp(0, ctx.widthFactory);
+              ɵɵclassProp(0, ctx.fooFactory);
+              ɵɵstylingApply();
             }
           }
         });

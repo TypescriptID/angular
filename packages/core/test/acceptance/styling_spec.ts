@@ -6,10 +6,15 @@
  * found in the LICENSE file at https://angular.io/license
  */
 import {Component, Directive, ElementRef} from '@angular/core';
+import {ngDevModeResetPerfCounters} from '@angular/core/src/util/ng_dev_mode';
 import {TestBed} from '@angular/core/testing';
+import {DomSanitizer, SafeStyle} from '@angular/platform-browser';
 import {expect} from '@angular/platform-browser/testing/src/matchers';
+import {onlyInIvy} from '@angular/private/testing';
 
 describe('styling', () => {
+  beforeEach(ngDevModeResetPerfCounters);
+
   it('should render inline style and class attribute values on the element before a directive is instantiated',
      () => {
        @Component({
@@ -129,5 +134,30 @@ describe('styling', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.innerHTML).toBe('<div></div>');
+  });
+
+  it('should be able to bind a SafeValue to backgroundImage', () => {
+    @Component({template: '<div [style.backgroundImage]="image"></div>'})
+    class Cmp {
+      image !: SafeStyle;
+    }
+
+    TestBed.configureTestingModule({declarations: [Cmp]});
+    const fixture = TestBed.createComponent(Cmp);
+    const sanitizer: DomSanitizer = TestBed.get(DomSanitizer);
+
+    fixture.componentInstance.image = sanitizer.bypassSecurityTrustStyle('url("#test")');
+    fixture.detectChanges();
+
+    const div = fixture.nativeElement.querySelector('div') as HTMLDivElement;
+    expect(div.style.backgroundImage).toBe('url("#test")');
+
+    onlyInIvy('perf counters').expectPerfCounters({
+      stylingApply: 2,
+      stylingApplyCacheMiss: 1,
+      stylingProp: 2,
+      stylingPropCacheMiss: 1,
+      tNode: 3,
+    });
   });
 });

@@ -10,8 +10,8 @@ import {ElementRef, TemplateRef, ViewContainerRef} from '@angular/core';
 
 import {RendererType2} from '../../src/render/api';
 import {getLContext} from '../../src/render3/context_discovery';
-import {AttributeMarker, ɵɵdefineComponent, ɵɵdefineDirective, ɵɵelementClassMap, ɵɵelementHostClassMap, ɵɵelementHostStyleMap, ɵɵelementStyleMap, ɵɵtemplateRefExtractor} from '../../src/render3/index';
-import {ɵɵallocHostVars, ɵɵbind, ɵɵcontainer, ɵɵcontainerRefreshEnd, ɵɵcontainerRefreshStart, ɵɵdirectiveInject, ɵɵelement, ɵɵelementAttribute, ɵɵelementClassProp, ɵɵelementContainerEnd, ɵɵelementContainerStart, ɵɵelementEnd, ɵɵelementHostAttrs, ɵɵelementHostClassProp, ɵɵelementHostStyleProp, ɵɵelementHostStyling, ɵɵelementHostStylingApply, ɵɵelementProperty, ɵɵelementStart, ɵɵelementStyleProp, ɵɵelementStyling, ɵɵelementStylingApply, ɵɵembeddedViewEnd, ɵɵembeddedViewStart, ɵɵinterpolation1, ɵɵinterpolation2, ɵɵinterpolation3, ɵɵinterpolation4, ɵɵinterpolation5, ɵɵinterpolation6, ɵɵinterpolation7, ɵɵinterpolation8, ɵɵinterpolationV, ɵɵprojection, ɵɵprojectionDef, ɵɵreference, ɵɵtemplate, ɵɵtext, ɵɵtextBinding} from '../../src/render3/instructions/all';
+import {AttributeMarker, ɵɵclassMap, ɵɵdefineComponent, ɵɵdefineDirective, ɵɵstyleMap, ɵɵtemplateRefExtractor} from '../../src/render3/index';
+import {ɵɵallocHostVars, ɵɵbind, ɵɵclassProp, ɵɵcontainer, ɵɵcontainerRefreshEnd, ɵɵcontainerRefreshStart, ɵɵdirectiveInject, ɵɵelement, ɵɵelementAttribute, ɵɵelementContainerEnd, ɵɵelementContainerStart, ɵɵelementEnd, ɵɵelementHostAttrs, ɵɵelementProperty, ɵɵelementStart, ɵɵembeddedViewEnd, ɵɵembeddedViewStart, ɵɵinterpolation1, ɵɵinterpolation2, ɵɵinterpolation3, ɵɵinterpolation4, ɵɵinterpolation5, ɵɵinterpolation6, ɵɵinterpolation7, ɵɵinterpolation8, ɵɵinterpolationV, ɵɵprojection, ɵɵprojectionDef, ɵɵreference, ɵɵselect, ɵɵstyleProp, ɵɵstyling, ɵɵstylingApply, ɵɵtemplate, ɵɵtext, ɵɵtextBinding} from '../../src/render3/instructions/all';
 import {MONKEY_PATCH_KEY_NAME} from '../../src/render3/interfaces/context';
 import {RenderFlags} from '../../src/render3/interfaces/definition';
 import {RElement, Renderer3, RendererFactory3, domRendererFactory3} from '../../src/render3/interfaces/renderer';
@@ -1421,12 +1421,13 @@ describe('render3 integration test', () => {
         const App = createComponent('app', function(rf: RenderFlags, ctx: any) {
           if (rf & RenderFlags.Create) {
             ɵɵelementStart(0, 'span');
-            ɵɵelementStyling(null, ['border-color']);
+            ɵɵstyling(null, ['border-color']);
             ɵɵelementEnd();
           }
           if (rf & RenderFlags.Update) {
-            ɵɵelementStyleProp(0, 0, ctx.color);
-            ɵɵelementStylingApply(0);
+            ɵɵselect(0);
+            ɵɵstyleProp(0, ctx.color);
+            ɵɵstylingApply();
           }
         }, 1);
 
@@ -1448,12 +1449,13 @@ describe('render3 integration test', () => {
         const App = createComponent('app', function(rf: RenderFlags, ctx: any) {
           if (rf & RenderFlags.Create) {
             ɵɵelementStart(0, 'span');
-            ɵɵelementStyling(null, ['font-size']);
+            ɵɵstyling(null, ['font-size']);
             ɵɵelementEnd();
           }
           if (rf & RenderFlags.Update) {
-            ɵɵelementStyleProp(0, 0, ctx.time, 'px');
-            ɵɵelementStylingApply(0);
+            ɵɵselect(0);
+            ɵɵstyleProp(0, ctx.time, 'px');
+            ɵɵstylingApply();
           }
         }, 1);
 
@@ -1482,12 +1484,13 @@ describe('render3 integration test', () => {
         const App = createComponent('app', function(rf: RenderFlags, ctx: any) {
           if (rf & RenderFlags.Create) {
             ɵɵelementStart(0, 'span');
-            ɵɵelementStyling(['active']);
+            ɵɵstyling(['active']);
             ɵɵelementEnd();
           }
           if (rf & RenderFlags.Update) {
-            ɵɵelementClassProp(0, 0, ctx.class);
-            ɵɵelementStylingApply(0);
+            ɵɵselect(0);
+            ɵɵclassProp(0, ctx.class);
+            ɵɵstylingApply();
           }
         }, 1);
 
@@ -1523,12 +1526,13 @@ describe('render3 integration test', () => {
         const App = createComponent('app', function(rf: RenderFlags, ctx: any) {
           if (rf & RenderFlags.Create) {
             ɵɵelementStart(0, 'span', [AttributeMarker.Classes, 'existing']);
-            ɵɵelementStyling(['existing', 'active']);
+            ɵɵstyling(['existing', 'active']);
             ɵɵelementEnd();
           }
           if (rf & RenderFlags.Update) {
-            ɵɵelementClassProp(0, 1, ctx.class);
-            ɵɵelementStylingApply(0);
+            ɵɵselect(0);
+            ɵɵclassProp(1, ctx.class);
+            ɵɵstylingApply();
           }
         }, 1);
 
@@ -1555,12 +1559,13 @@ describe('render3 integration test', () => {
         const App = createComponent('app', function(rf: RenderFlags, ctx: any) {
           if (rf & RenderFlags.Create) {
             ɵɵelementStart(0, 'my-comp');
-            ɵɵelementStyling(['active']);
+            ɵɵstyling(['active']);
             ɵɵelementEnd();
           }
           if (rf & RenderFlags.Update) {
-            ɵɵelementClassProp(0, 0, ctx.class);
-            ɵɵelementStylingApply(0);
+            ɵɵselect(0);
+            ɵɵclassProp(0, ctx.class);
+            ɵɵstylingApply();
           }
         }, 1, 0, [MyComp]);
 
@@ -1617,13 +1622,14 @@ describe('render3 integration test', () => {
             ɵɵtemplate(
                 0, FooTemplate, 1, 0, 'ng-template', null, ['foo', ''], ɵɵtemplateRefExtractor);
             ɵɵelementStart(2, 'structural-comp');
-            ɵɵelementStyling(['active']);
+            ɵɵstyling(['active']);
             ɵɵelementEnd();
           }
           if (rf & RenderFlags.Update) {
             const foo = ɵɵreference(1) as any;
-            ɵɵelementClassProp(2, 0, ctx.class);
-            ɵɵelementStylingApply(2);
+            ɵɵselect(2);
+            ɵɵclassProp(0, ctx.class);
+            ɵɵstylingApply();
             ɵɵelementProperty(2, 'tmp', ɵɵbind(foo));
           }
         }, 3, 1, [StructuralComp]);
@@ -1681,11 +1687,12 @@ describe('render3 integration test', () => {
                ɵɵelementStart(
                    0, 'div',
                    ['DirWithClass', '', AttributeMarker.Classes, 'apple', 'orange', 'banana']);
-               ɵɵelementStyling();
+               ɵɵstyling();
                ɵɵelementEnd();
              }
              if (rf & RenderFlags.Update) {
-               ɵɵelementStylingApply(0);
+               ɵɵselect(0);
+               ɵɵstylingApply();
              }
            }, 1, 0, [DirWithClassDirective]);
 
@@ -1703,11 +1710,12 @@ describe('render3 integration test', () => {
                ɵɵelementStart(0, 'div', [
                  'DirWithStyle', '', AttributeMarker.Styles, 'width', '100px', 'height', '200px'
                ]);
-               ɵɵelementStyling();
+               ɵɵstyling();
                ɵɵelementEnd();
              }
              if (rf & RenderFlags.Update) {
-               ɵɵelementStylingApply(0);
+               ɵɵselect(0);
+               ɵɵstylingApply();
              }
            }, 1, 0, [DirWithStyleDirective]);
 
@@ -1723,12 +1731,13 @@ describe('render3 integration test', () => {
            const App = createComponent('app', function(rf: RenderFlags, ctx: any) {
              if (rf & RenderFlags.Create) {
                ɵɵelementStart(0, 'div', ['DirWithClass']);
-               ɵɵelementStyling();
+               ɵɵstyling();
                ɵɵelementEnd();
              }
              if (rf & RenderFlags.Update) {
-               ɵɵelementClassMap(0, 'cucumber grape');
-               ɵɵelementStylingApply(0);
+               ɵɵselect(0);
+               ɵɵclassMap('cucumber grape');
+               ɵɵstylingApply();
              }
            }, 1, 0, [DirWithClassDirective]);
 
@@ -1744,12 +1753,13 @@ describe('render3 integration test', () => {
            const App = createComponent('app', function(rf: RenderFlags, ctx: any) {
              if (rf & RenderFlags.Create) {
                ɵɵelementStart(0, 'div', ['DirWithStyle']);
-               ɵɵelementStyling();
+               ɵɵstyling();
                ɵɵelementEnd();
              }
              if (rf & RenderFlags.Update) {
-               ɵɵelementStyleMap(0, {width: '200px', height: '500px'});
-               ɵɵelementStylingApply(0);
+               ɵɵselect(0);
+               ɵɵstyleMap({width: '200px', height: '500px'});
+               ɵɵstylingApply();
              }
            }, 1, 0, [DirWithStyleDirective]);
 
@@ -1820,13 +1830,13 @@ describe('render3 integration test', () => {
                  if (rf & RenderFlags.Create) {
                    ɵɵelementHostAttrs(
                        [AttributeMarker.Classes, 'def', AttributeMarker.Styles, 'width', '555px']);
-                   ɵɵelementHostStyling(['xyz'], ['width', 'height']);
+                   ɵɵstyling(['xyz'], ['width', 'height']);
                  }
                  if (rf & RenderFlags.Update) {
-                   ɵɵelementHostStyleProp(0, ctx.width);
-                   ɵɵelementHostStyleProp(1, ctx.height);
-                   ɵɵelementHostClassProp(0, ctx.activateXYZClass);
-                   ɵɵelementHostStylingApply();
+                   ɵɵstyleProp(0, ctx.width);
+                   ɵɵstyleProp(1, ctx.height);
+                   ɵɵclassProp(0, ctx.activateXYZClass);
+                   ɵɵstylingApply();
                  }
                }
              });
@@ -1893,11 +1903,11 @@ describe('render3 integration test', () => {
                factory: () => dir1Instance = new Dir1WithStyle(),
                hostBindings: function(rf: RenderFlags, ctx: Dir1WithStyle, elementIndex: number) {
                  if (rf & RenderFlags.Create) {
-                   ɵɵelementHostStyling(null, ['width']);
+                   ɵɵstyling(null, ['width']);
                  }
                  if (rf & RenderFlags.Update) {
-                   ɵɵelementHostStyleProp(0, ctx.width);
-                   ɵɵelementHostStylingApply();
+                   ɵɵstyleProp(0, ctx.width);
+                   ɵɵstylingApply();
                  }
                }
              });
@@ -1918,11 +1928,11 @@ describe('render3 integration test', () => {
                hostBindings: function(rf: RenderFlags, ctx: Dir2WithStyle, elementIndex: number) {
                  if (rf & RenderFlags.Create) {
                    ɵɵelementHostAttrs([AttributeMarker.Styles, 'width', '111px']);
-                   ɵɵelementHostStyling(null, ['width']);
+                   ɵɵstyling(null, ['width']);
                  }
                  if (rf & RenderFlags.Update) {
-                   ɵɵelementHostStyleProp(0, ctx.width);
-                   ɵɵelementHostStylingApply();
+                   ɵɵstyleProp(0, ctx.width);
+                   ɵɵstylingApply();
                  }
                }
              });
@@ -1936,11 +1946,12 @@ describe('render3 integration test', () => {
            const App = createComponent('app', function(rf: RenderFlags, ctx: any) {
              if (rf & RenderFlags.Create) {
                ɵɵelement(0, 'div', ['Dir1WithStyle', '', 'Dir2WithStyle', '']);
-               ɵɵelementStyling(null, ['width']);
+               ɵɵstyling(null, ['width']);
              }
              if (rf & RenderFlags.Update) {
-               ɵɵelementStyleProp(0, 0, ctx.width);
-               ɵɵelementStylingApply(0);
+               ɵɵselect(0);
+               ɵɵstyleProp(0, ctx.width);
+               ɵɵstylingApply();
              }
            }, 1, 0, [Dir1WithStyle, Dir2WithStyle]);
 
@@ -1990,12 +2001,12 @@ describe('render3 integration test', () => {
                factory: () => dir1Instance = new Dir1WithStyling(),
                hostBindings: function(rf: RenderFlags, ctx: Dir1WithStyling, elementIndex: number) {
                  if (rf & RenderFlags.Create) {
-                   ɵɵelementHostStyling();
+                   ɵɵstyling();
                  }
                  if (rf & RenderFlags.Update) {
-                   ɵɵelementHostStyleMap(ctx.stylesExp);
-                   ɵɵelementHostClassMap(ctx.classesExp);
-                   ɵɵelementHostStylingApply();
+                   ɵɵstyleMap(ctx.stylesExp);
+                   ɵɵclassMap(ctx.classesExp);
+                   ɵɵstylingApply();
                  }
                }
              });
@@ -2018,11 +2029,11 @@ describe('render3 integration test', () => {
                hostBindings: function(rf: RenderFlags, ctx: Dir2WithStyling, elementIndex: number) {
                  if (rf & RenderFlags.Create) {
                    ɵɵelementHostAttrs([AttributeMarker.Styles, 'width', '111px']);
-                   ɵɵelementHostStyling();
+                   ɵɵstyling();
                  }
                  if (rf & RenderFlags.Update) {
-                   ɵɵelementHostStyleMap(ctx.stylesExp);
-                   ɵɵelementHostStylingApply();
+                   ɵɵstyleMap(ctx.stylesExp);
+                   ɵɵstylingApply();
                  }
                }
              });
@@ -2037,12 +2048,13 @@ describe('render3 integration test', () => {
            const App = createComponent('app', function(rf: RenderFlags, ctx: any) {
              if (rf & RenderFlags.Create) {
                ɵɵelement(0, 'div', ['Dir1WithStyling', '', 'Dir2WithStyling', '']);
-               ɵɵelementStyling();
+               ɵɵstyling();
              }
              if (rf & RenderFlags.Update) {
-               ɵɵelementStyleMap(0, ctx.stylesExp);
-               ɵɵelementClassMap(0, ctx.classesExp);
-               ɵɵelementStylingApply(0);
+               ɵɵselect(0);
+               ɵɵstyleMap(ctx.stylesExp);
+               ɵɵclassMap(ctx.classesExp);
+               ɵɵstylingApply();
              }
            }, 1, 0, [Dir1WithStyling, Dir2WithStyling]);
 
@@ -2114,12 +2126,13 @@ describe('render3 integration test', () => {
       const App = createComponent('app', function(rf: RenderFlags, ctx: any) {
         if (rf & RenderFlags.Create) {
           ɵɵelementStart(0, 'div');
-          ɵɵelementStyling();
+          ɵɵstyling();
           ɵɵelementEnd();
         }
         if (rf & RenderFlags.Update) {
-          ɵɵelementClassMap(0, ɵɵinterpolation2('-', ctx.name, '-', ctx.age, '-'));
-          ɵɵelementStylingApply(0);
+          ɵɵselect(0);
+          ɵɵclassMap(ɵɵinterpolation2('-', ctx.name, '-', ctx.age, '-'));
+          ɵɵstylingApply();
         }
       }, 1, 2);
 
@@ -2614,11 +2627,12 @@ describe('element discovery', () => {
            template: (rf: RenderFlags, ctx: StructuredComp) => {
              if (rf & RenderFlags.Create) {
                ɵɵelementStart(0, 'section');
-               ɵɵelementStyling(['class-foo']);
+               ɵɵstyling(['class-foo']);
                ɵɵelementEnd();
              }
              if (rf & RenderFlags.Update) {
-               ɵɵelementStylingApply(0);
+               ɵɵselect(0);
+               ɵɵstylingApply();
              }
            }
          });

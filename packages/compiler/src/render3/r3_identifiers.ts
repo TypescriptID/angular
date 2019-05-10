@@ -41,7 +41,7 @@ export class Identifiers {
 
   static elementAttribute: o.ExternalReference = {name: 'ɵɵelementAttribute', moduleName: CORE};
 
-  static elementClassProp: o.ExternalReference = {name: 'ɵɵelementClassProp', moduleName: CORE};
+  static classProp: o.ExternalReference = {name: 'ɵɵclassProp', moduleName: CORE};
 
   static elementContainerStart:
       o.ExternalReference = {name: 'ɵɵelementContainerStart', moduleName: CORE};
@@ -49,35 +49,17 @@ export class Identifiers {
   static elementContainerEnd:
       o.ExternalReference = {name: 'ɵɵelementContainerEnd', moduleName: CORE};
 
-  static elementStyling: o.ExternalReference = {name: 'ɵɵelementStyling', moduleName: CORE};
+  static styling: o.ExternalReference = {name: 'ɵɵstyling', moduleName: CORE};
 
-  static elementStyleMap: o.ExternalReference = {name: 'ɵɵelementStyleMap', moduleName: CORE};
+  static styleMap: o.ExternalReference = {name: 'ɵɵstyleMap', moduleName: CORE};
 
-  static elementClassMap: o.ExternalReference = {name: 'ɵɵelementClassMap', moduleName: CORE};
+  static classMap: o.ExternalReference = {name: 'ɵɵclassMap', moduleName: CORE};
 
-  static elementStyleProp: o.ExternalReference = {name: 'ɵɵelementStyleProp', moduleName: CORE};
+  static styleProp: o.ExternalReference = {name: 'ɵɵstyleProp', moduleName: CORE};
 
-  static elementStylingApply:
-      o.ExternalReference = {name: 'ɵɵelementStylingApply', moduleName: CORE};
+  static stylingApply: o.ExternalReference = {name: 'ɵɵstylingApply', moduleName: CORE};
 
   static elementHostAttrs: o.ExternalReference = {name: 'ɵɵelementHostAttrs', moduleName: CORE};
-
-  static elementHostStyling: o.ExternalReference = {name: 'ɵɵelementHostStyling', moduleName: CORE};
-
-  static elementHostStyleMap:
-      o.ExternalReference = {name: 'ɵɵelementHostStyleMap', moduleName: CORE};
-
-  static elementHostClassMap:
-      o.ExternalReference = {name: 'ɵɵelementHostClassMap', moduleName: CORE};
-
-  static elementHostStyleProp:
-      o.ExternalReference = {name: 'ɵɵelementHostStyleProp', moduleName: CORE};
-
-  static elementHostClassProp:
-      o.ExternalReference = {name: 'ɵɵelementHostClassProp', moduleName: CORE};
-
-  static elementHostStylingApply:
-      o.ExternalReference = {name: 'ɵɵelementHostStylingApply', moduleName: CORE};
 
   static containerCreate: o.ExternalReference = {name: 'ɵɵcontainer', moduleName: CORE};
 
