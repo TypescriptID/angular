@@ -14,6 +14,7 @@ import {ImportRewriter} from '../../imports';
 import {IncrementalState} from '../../incremental';
 import {PerfRecorder} from '../../perf';
 import {ClassDeclaration, ReflectionHost, isNamedClassDeclaration, reflectNameOfDeclaration} from '../../reflection';
+import {LocalModuleScopeRegistry} from '../../scope';
 import {TypeCheckContext} from '../../typecheck';
 import {getSourceFile} from '../../util/src/typescript';
 
@@ -75,10 +76,10 @@ export class IvyCompilation {
    * `null` in most cases.
    */
   constructor(
-      private handlers: DecoratorHandler<any, any>[], private checker: ts.TypeChecker,
-      private reflector: ReflectionHost, private importRewriter: ImportRewriter,
-      private incrementalState: IncrementalState, private perf: PerfRecorder,
-      private sourceToFactorySymbols: Map<string, Set<string>>|null) {}
+      private handlers: DecoratorHandler<any, any>[], private reflector: ReflectionHost,
+      private importRewriter: ImportRewriter, private incrementalState: IncrementalState,
+      private perf: PerfRecorder, private sourceToFactorySymbols: Map<string, Set<string>>|null,
+      private scopeRegistry: LocalModuleScopeRegistry) {}
 
 
   get exportStatements(): Map<string, Map<string, [string, string]>> { return this.reexportMap; }
@@ -171,11 +172,9 @@ export class IvyCompilation {
   private analyze(sf: ts.SourceFile, preanalyze: true): Promise<void>|undefined;
   private analyze(sf: ts.SourceFile, preanalyze: boolean): Promise<void>|undefined {
     const promises: Promise<void>[] = [];
-
-    // This flag begins as true for the file. If even one handler is matched and does not explicitly
-    // state that analysis/emit can be skipped, then the flag will be set to false.
-    let allowSkipAnalysisAndEmit = true;
-
+    if (this.incrementalState.safeToSkip(sf)) {
+      return;
+    }
     const analyzeClass = (node: ClassDeclaration): void => {
       const ivyClass = this.detectHandlersForClass(node);
 
@@ -202,12 +201,6 @@ export class IvyCompilation {
                 this.sourceToFactorySymbols.has(sf.fileName)) {
               this.sourceToFactorySymbols.get(sf.fileName) !.add(match.analyzed.factorySymbolName);
             }
-
-            // Update the allowSkipAnalysisAndEmit flag - it will only remain true if match.analyzed
-            // also explicitly specifies a value of true for the flag.
-            allowSkipAnalysisAndEmit =
-                allowSkipAnalysisAndEmit && (!!match.analyzed.allowSkipAnalysisAndEmit);
-
           } catch (err) {
             if (err instanceof FatalDiagnosticError) {
               this._diagnostics.push(err.toDiagnostic());
@@ -250,19 +243,9 @@ export class IvyCompilation {
 
     visit(sf);
 
-    const updateIncrementalState = () => {
-      if (allowSkipAnalysisAndEmit) {
-        this.incrementalState.markFileAsSafeToSkipEmitIfUnchanged(sf);
-      }
-    };
-
     if (preanalyze && promises.length > 0) {
-      return Promise.all(promises).then(() => {
-        updateIncrementalState();
-        return undefined;
-      });
+      return Promise.all(promises).then(() => undefined);
     } else {
-      updateIncrementalState();
       return undefined;
     }
   }
@@ -302,6 +285,22 @@ export class IvyCompilation {
       }
     });
     this.perf.stop(resolveSpan);
+    this.recordNgModuleScopeDependencies();
+  }
+
+  private recordNgModuleScopeDependencies() {
+    const recordSpan = this.perf.start('recordDependencies');
+    this.scopeRegistry !.getCompilationScopes().forEach(scope => {
+      const file = scope.declaration.getSourceFile();
+      // Register the file containing the NgModule where the declaration is declared.
+      this.incrementalState.trackFileDependency(scope.ngModule.getSourceFile(), file);
+      scope.directives.forEach(
+          directive =>
+              this.incrementalState.trackFileDependency(directive.ref.node.getSourceFile(), file));
+      scope.pipes.forEach(
+          pipe => this.incrementalState.trackFileDependency(pipe.ref.node.getSourceFile(), file));
+    });
+    this.perf.stop(recordSpan);
   }
 
   typeCheck(context: TypeCheckContext): void {
