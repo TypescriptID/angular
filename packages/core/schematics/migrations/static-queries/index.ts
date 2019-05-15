@@ -53,7 +53,6 @@ async function runMigration(tree: Tree, context: SchematicContext) {
   logger.info('In preparation for Ivy, developers can now explicitly specify the');
   logger.info('timing of their queries. Read more about this here:');
   logger.info('https://github.com/angular/angular/pull/28810');
-  logger.info('');
 
   if (!buildPaths.length && !testPaths.length) {
     throw new SchematicsException(
@@ -61,11 +60,12 @@ async function runMigration(tree: Tree, context: SchematicContext) {
         'to explicit timing.');
   }
 
+  const analyzedFiles = new Set<string>();
   const buildProjects = new Set<AnalyzedProject>();
   const failures = [];
 
   for (const tsconfigPath of buildPaths) {
-    const project = analyzeProject(tree, tsconfigPath, basePath);
+    const project = analyzeProject(tree, tsconfigPath, basePath, analyzedFiles);
     if (project) {
       buildProjects.add(project);
     }
@@ -83,7 +83,7 @@ async function runMigration(tree: Tree, context: SchematicContext) {
   // For the "test" tsconfig projects we always want to use the test strategy as
   // we can't detect the proper timing within spec files.
   for (const tsconfigPath of testPaths) {
-    const project = await analyzeProject(tree, tsconfigPath, basePath);
+    const project = await analyzeProject(tree, tsconfigPath, basePath, analyzedFiles);
     if (project) {
       failures.push(
           ...await runStaticQueryMigration(tree, project, SELECTED_STRATEGY.TESTS, logger));
@@ -91,6 +91,7 @@ async function runMigration(tree: Tree, context: SchematicContext) {
   }
 
   if (failures.length) {
+    logger.info('');
     logger.info('Some queries could not be migrated automatically. Please go');
     logger.info('through those manually and apply the appropriate timing:');
     failures.forEach(failure => logger.warn(`⮑   ${failure}`));
@@ -103,7 +104,8 @@ async function runMigration(tree: Tree, context: SchematicContext) {
  * Analyzes the given TypeScript project by looking for queries that need to be
  * migrated. In case there are no queries that can be migrated, null is returned.
  */
-function analyzeProject(tree: Tree, tsconfigPath: string, basePath: string):
+function analyzeProject(
+    tree: Tree, tsconfigPath: string, basePath: string, analyzedFiles: Set<string>):
     AnalyzedProject|null {
       const parsed = parseTsconfigFile(tsconfigPath, dirname(tsconfigPath));
       const host = ts.createCompilerHost(parsed.options, true);
@@ -125,7 +127,16 @@ function analyzeProject(tree: Tree, tsconfigPath: string, basePath: string):
 
       // Analyze all project source-files and collect all queries that
       // need to be migrated.
-      sourceFiles.forEach(sourceFile => queryVisitor.visitNode(sourceFile));
+      sourceFiles.forEach(sourceFile => {
+        const relativePath = relative(basePath, sourceFile.fileName);
+
+        // Only look for queries within the current source files if the
+        // file has not been analyzed before.
+        if (!analyzedFiles.has(relativePath)) {
+          analyzedFiles.add(relativePath);
+          queryVisitor.visitNode(sourceFile);
+        }
+      });
 
       if (queryVisitor.resolvedQueries.size === 0) {
         return null;
@@ -142,7 +153,7 @@ function analyzeProject(tree: Tree, tsconfigPath: string, basePath: string):
  */
 async function runStaticQueryMigration(
     tree: Tree, project: AnalyzedProject, selectedStrategy: SELECTED_STRATEGY,
-    logger: logging.LoggerApi) {
+    logger: logging.LoggerApi): Promise<string[]> {
   const {sourceFiles, typeChecker, host, queryVisitor, tsconfigPath, basePath} = project;
   const printer = ts.createPrinter();
   const failureMessages: string[] = [];
@@ -179,22 +190,22 @@ async function runStaticQueryMigration(
   try {
     strategy.setup();
   } catch (e) {
-    // In case the strategy could not be set up properly, we just exit the
-    // migration. We don't want to throw an exception as this could mean
-    // that other migrations are interrupted.
-    logger.warn(
-        `Could not setup migration strategy for "${project.tsconfigPath}". The ` +
-        `following error has been reported:`);
     if (selectedStrategy === SELECTED_STRATEGY.TEMPLATE) {
       logger.warn(
           `The template migration strategy uses the Angular compiler ` +
           `internally and therefore projects that no longer build successfully after ` +
           `the update cannot use the template migration strategy. Please ensure ` +
-          `there are no AOT compilation errors.`);
+          `there are no AOT compilation errors.\n`);
     }
-    logger.error(e);
+    // In case the strategy could not be set up properly, we just exit the
+    // migration. We don't want to throw an exception as this could mean
+    // that other migrations are interrupted.
+    logger.warn(
+        `Could not setup migration strategy for "${project.tsconfigPath}". The ` +
+        `following error has been reported:\n`);
+    logger.error(`${e.toString()}\n`);
     logger.info(
-        'Migration can be rerun with: "ng update @angular/core --from 7 --to 8 --migrate-only"');
+        'Migration can be rerun with: "ng update @angular/core --from 7 --to 8 --migrate-only"\n');
     return [];
   }
 

@@ -67,6 +67,9 @@ export interface R3NgModuleMetadata {
    * The set of schemas that declare elements to be allowed in the NgModule.
    */
   schemas: R3Reference[]|null;
+
+  /** Unique ID or expression representing the unique ID of an NgModule. */
+  id: o.Expression|null;
 }
 
 /**
@@ -81,7 +84,8 @@ export function compileNgModule(meta: R3NgModuleMetadata): R3NgModuleDef {
     exports,
     schemas,
     containsForwardDecls,
-    emitInline
+    emitInline,
+    id
   } = meta;
 
   const additionalStatements: o.Statement[] = [];
@@ -93,7 +97,8 @@ export function compileNgModule(meta: R3NgModuleMetadata): R3NgModuleDef {
     declarations: o.Expression,
     imports: o.Expression,
     exports: o.Expression,
-    schemas: o.LiteralArrayExpr
+    schemas: o.LiteralArrayExpr,
+    id: o.Expression
   };
 
   // Only generate the keys in the metadata if the arrays have values.
@@ -102,7 +107,7 @@ export function compileNgModule(meta: R3NgModuleMetadata): R3NgModuleDef {
   }
 
   // If requested to emit scope information inline, pass the declarations, imports and exports to
-  // the `ɵɵdefineNgModule` call. The JIT compilation uses this.
+  // the `ΔdefineNgModule` call. The JIT compilation uses this.
   if (emitInline) {
     if (declarations.length) {
       definitionMap.declarations = refsToArray(declarations, containsForwardDecls);
@@ -117,7 +122,7 @@ export function compileNgModule(meta: R3NgModuleMetadata): R3NgModuleDef {
     }
   }
 
-  // If not emitting inline, the scope information is not passed into `ɵɵdefineNgModule` as it would
+  // If not emitting inline, the scope information is not passed into `ΔdefineNgModule` as it would
   // prevent tree-shaking of the declarations, imports and exports references.
   else {
     const setNgModuleScopeCall = generateSetNgModuleScopeCall(meta);
@@ -128,6 +133,10 @@ export function compileNgModule(meta: R3NgModuleMetadata): R3NgModuleDef {
 
   if (schemas && schemas.length) {
     definitionMap.schemas = o.literalArr(schemas.map(ref => ref.value));
+  }
+
+  if (id) {
+    definitionMap.id = id;
   }
 
   const expression = o.importExpr(R3.defineNgModule).callFn([mapToMapExpression(definitionMap)]);
@@ -141,7 +150,7 @@ export function compileNgModule(meta: R3NgModuleMetadata): R3NgModuleDef {
 }
 
 /**
- * Generates a function call to `ɵɵsetNgModuleScope` with all necessary information so that the
+ * Generates a function call to `ΔsetNgModuleScope` with all necessary information so that the
  * transitive module scope can be computed during runtime in JIT mode. This call is marked pure
  * such that the references to declarations, imports and exports may be elided causing these
  * symbols to become tree-shakeable.

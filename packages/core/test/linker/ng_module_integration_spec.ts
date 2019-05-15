@@ -8,7 +8,7 @@
 
 import {ANALYZE_FOR_ENTRY_COMPONENTS, CUSTOM_ELEMENTS_SCHEMA, ChangeDetectorRef, Compiler, Component, ComponentFactoryResolver, Directive, HostBinding, Inject, Injectable, InjectionToken, Injector, Input, NgModule, NgModuleRef, Optional, Pipe, Provider, Self, Type, forwardRef, getModuleFactory, ɵivyEnabled as ivyEnabled} from '@angular/core';
 import {Console} from '@angular/core/src/console';
-import {ɵɵInjectableDef, ɵɵdefineInjectable} from '@angular/core/src/di/interface/defs';
+import {ΔInjectableDef, ΔdefineInjectable} from '@angular/core/src/di/interface/defs';
 import {getNgModuleDef} from '@angular/core/src/render3/definition';
 import {NgModuleData} from '@angular/core/src/view/types';
 import {tokenKey} from '@angular/core/src/view/util';
@@ -17,7 +17,7 @@ import {expect} from '@angular/platform-browser/testing/src/matchers';
 import {modifiedInIvy, obsoleteInIvy, onlyInIvy} from '@angular/private/testing';
 
 import {InternalNgModuleRef, NgModuleFactory} from '../../src/linker/ng_module_factory';
-import {clearModulesForTest} from '../../src/linker/ng_module_factory_loader';
+import {clearModulesForTest} from '../../src/linker/ng_module_factory_registration';
 import {stringify} from '../../src/util/stringify';
 
 class Engine {}
@@ -326,6 +326,18 @@ function declareTests(config?: {useJit: boolean}) {
           }
           createModule(SomeOtherModule);
         }).toThrowError(/Duplicate module registered/);
+      });
+
+      it('should not throw immediately if two modules have the same id', () => {
+        expect(() => {
+          @NgModule({id: 'some-module'})
+          class ModuleA {
+          }
+
+          @NgModule({id: 'some-module'})
+          class ModuleB {
+          }
+        }).not.toThrow();
       });
     });
 
@@ -1362,7 +1374,7 @@ function declareTests(config?: {useJit: boolean}) {
               }
 
               class Bar {
-                static ngInjectableDef: ɵɵInjectableDef<Bar> = ɵɵdefineInjectable({
+                static ngInjectableDef: ΔInjectableDef<Bar> = ΔdefineInjectable({
                   factory: () => new Bar(),
                   providedIn: SomeModule,
                 });
@@ -1394,7 +1406,7 @@ function declareTests(config?: {useJit: boolean}) {
               }
 
               class Bar {
-                static ngInjectableDef: ɵɵInjectableDef<Bar> = ɵɵdefineInjectable({
+                static ngInjectableDef: ΔInjectableDef<Bar> = ΔdefineInjectable({
                   factory: () => new Bar(),
                   providedIn: SomeModule,
                 });

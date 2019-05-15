@@ -2028,11 +2028,13 @@ describe('ngc transformer command-line', () => {
       const exitCode =
           main(['-p', path.join(basePath, 'src/tsconfig.json')], message => messages.push(message));
       expect(exitCode).toBe(1, 'Compile was expected to fail');
+      const srcPathWithSep = `lib${path.sep}`;
       expect(messages[0])
-          .toEqual(`lib/test.component.ts(6,21): Error during template compile of 'TestComponent'
+          .toEqual(
+              `${srcPathWithSep}test.component.ts(6,21): Error during template compile of 'TestComponent'
   Tagged template expressions are not supported in metadata in 't1'
-    't1' references 't2' at lib/indirect1.ts(3,27)
-      't2' contains the error at lib/indirect2.ts(4,27).
+    't1' references 't2' at ${srcPathWithSep}indirect1.ts(3,27)
+      't2' contains the error at ${srcPathWithSep}indirect2.ts(4,27).
 `);
     });
   });
@@ -2111,7 +2113,7 @@ describe('ngc transformer command-line', () => {
         })
         export class Service {}
       `);
-      expect(source).toMatch(/ngInjectableDef = .+\.ɵɵdefineInjectable\(/);
+      expect(source).toMatch(/ngInjectableDef = .+\.ΔdefineInjectable\(/);
       expect(source).toMatch(/ngInjectableDef.*token: Service/);
       expect(source).toMatch(/ngInjectableDef.*providedIn: .+\.Module/);
     });
@@ -2167,7 +2169,7 @@ describe('ngc transformer command-line', () => {
         })
         export class Service {}
       `);
-      expect(source).toMatch(/ngInjectableDef.*return ..\.ɵɵinject\(Existing\)/);
+      expect(source).toMatch(/ngInjectableDef.*return ..\.Δinject\(Existing\)/);
     });
 
     it('compiles a useFactory InjectableDef with optional dep', () => {
@@ -2187,7 +2189,7 @@ describe('ngc transformer command-line', () => {
           constructor(e: Existing|null) {}
         }
       `);
-      expect(source).toMatch(/ngInjectableDef.*return ..\(..\.ɵɵinject\(Existing, 8\)/);
+      expect(source).toMatch(/ngInjectableDef.*return ..\(..\.Δinject\(Existing, 8\)/);
     });
 
     it('compiles a useFactory InjectableDef with skip-self dep', () => {
@@ -2207,7 +2209,7 @@ describe('ngc transformer command-line', () => {
           constructor(e: Existing) {}
         }
       `);
-      expect(source).toMatch(/ngInjectableDef.*return ..\(..\.ɵɵinject\(Existing, 4\)/);
+      expect(source).toMatch(/ngInjectableDef.*return ..\(..\.Δinject\(Existing, 4\)/);
     });
 
     it('compiles a service that depends on a token', () => {
@@ -2224,7 +2226,7 @@ describe('ngc transformer command-line', () => {
           constructor(@Inject(TOKEN) value: boolean) {}
         }
       `);
-      expect(source).toMatch(/ngInjectableDef = .+\.ɵɵdefineInjectable\(/);
+      expect(source).toMatch(/ngInjectableDef = .+\.ΔdefineInjectable\(/);
       expect(source).toMatch(/ngInjectableDef.*token: Service/);
       expect(source).toMatch(/ngInjectableDef.*providedIn: .+\.Module/);
     });
@@ -2251,7 +2253,7 @@ describe('ngc transformer command-line', () => {
           constructor(@Inject(TOKEN) token: any) {}
         }
       `);
-      expect(source).toMatch(/new Service\(i0\.ɵɵinject\(exports\.TOKEN\)\);/);
+      expect(source).toMatch(/new Service\(i0\.Δinject\(exports\.TOKEN\)\);/);
     });
   });
 
