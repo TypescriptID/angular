@@ -7,12 +7,15 @@
  */
 import MagicString from 'magic-string';
 import * as ts from 'typescript';
+import {NoopImportRewriter} from '../../../src/ngtsc/imports';
 import {AbsoluteFsPath} from '../../../src/ngtsc/path';
+import {ImportManager} from '../../../src/ngtsc/translator';
 import {DecorationAnalyzer} from '../../src/analysis/decoration_analyzer';
 import {NgccReferencesRegistry} from '../../src/analysis/ngcc_references_registry';
 import {SwitchMarkerAnalyzer} from '../../src/analysis/switch_marker_analyzer';
+import {IMPORT_PREFIX} from '../../src/constants';
 import {Esm5ReflectionHost} from '../../src/host/esm5_host';
-import {Esm5Renderer} from '../../src/rendering/esm5_renderer';
+import {Esm5RenderingFormatter} from '../../src/rendering/esm5_rendering_formatter';
 import {makeTestEntryPointBundle, getDeclaration} from '../helpers/utils';
 import {MockFileSystem} from '../helpers/mock_file_system';
 import {MockLogger} from '../helpers/mock_logger';
@@ -32,11 +35,12 @@ function setup(file: {name: AbsoluteFsPath, contents: string}) {
           referencesRegistry, [AbsoluteFsPath.fromUnchecked('/')], false)
           .analyzeProgram();
   const switchMarkerAnalyses = new SwitchMarkerAnalyzer(host).analyzeProgram(bundle.src.program);
-  const renderer = new Esm5Renderer(fs, logger, host, false, bundle);
+  const renderer = new Esm5RenderingFormatter(host, false);
+  const importManager = new ImportManager(new NoopImportRewriter(), IMPORT_PREFIX);
   return {
     host,
     program: bundle.src.program,
-    sourceFile: bundle.src.file, renderer, decorationAnalyses, switchMarkerAnalyses
+    sourceFile: bundle.src.file, renderer, decorationAnalyses, switchMarkerAnalyses, importManager
   };
 }
 
@@ -87,8 +91,8 @@ var BadIife = (function() {
 var compileNgModuleFactory = compileNgModuleFactory__PRE_R3__;
 var badlyFormattedVariable = __PRE_R3__badlyFormattedVariable;
 function compileNgModuleFactory__PRE_R3__(injector, options, moduleType) {
-  const compilerFactory = injector.get(CompilerFactory);
-  const compiler = compilerFactory.createCompiler([options]);
+  var compilerFactory = injector.get(CompilerFactory);
+  var compiler = compilerFactory.createCompiler([options]);
   return compiler.compileModuleAsync(moduleType);
 }
 
@@ -151,7 +155,7 @@ export { D };
 // Some other content`
 };
 
-describe('Esm5Renderer', () => {
+describe('Esm5RenderingFormatter', () => {
 
   describe('addImports', () => {
     it('should insert the given imports after existing imports of the source file', () => {
@@ -174,14 +178,17 @@ import * as i1 from '@angular/common';`);
 
   describe('addExports', () => {
     it('should insert the given exports at the end of the source file', () => {
-      const {renderer} = setup(PROGRAM);
+      const {importManager, renderer, sourceFile} = setup(PROGRAM);
       const output = new MagicString(PROGRAM.contents);
-      renderer.addExports(output, _(PROGRAM.name.replace(/\.js$/, '')), [
-        {from: _('/some/a.js'), dtsFrom: _('/some/a.d.ts'), identifier: 'ComponentA1'},
-        {from: _('/some/a.js'), dtsFrom: _('/some/a.d.ts'), identifier: 'ComponentA2'},
-        {from: _('/some/foo/b.js'), dtsFrom: _('/some/foo/b.d.ts'), identifier: 'ComponentB'},
-        {from: PROGRAM.name, dtsFrom: PROGRAM.name, identifier: 'TopLevelComponent'},
-      ]);
+      renderer.addExports(
+          output, _(PROGRAM.name.replace(/\.js$/, '')),
+          [
+            {from: _('/some/a.js'), dtsFrom: _('/some/a.d.ts'), identifier: 'ComponentA1'},
+            {from: _('/some/a.js'), dtsFrom: _('/some/a.d.ts'), identifier: 'ComponentA2'},
+            {from: _('/some/foo/b.js'), dtsFrom: _('/some/foo/b.d.ts'), identifier: 'ComponentB'},
+            {from: PROGRAM.name, dtsFrom: PROGRAM.name, identifier: 'TopLevelComponent'},
+          ],
+          importManager, sourceFile);
       expect(output.toString()).toContain(`
 export {A, B, C, NoIife, BadIife};
 export {ComponentA1} from './a';
@@ -191,14 +198,17 @@ export {TopLevelComponent};`);
     });
 
     it('should not insert alias exports in js output', () => {
-      const {renderer} = setup(PROGRAM);
+      const {importManager, renderer, sourceFile} = setup(PROGRAM);
       const output = new MagicString(PROGRAM.contents);
-      renderer.addExports(output, _(PROGRAM.name.replace(/\.js$/, '')), [
-        {from: _('/some/a.js'), alias: _('eComponentA1'), identifier: 'ComponentA1'},
-        {from: _('/some/a.js'), alias: _('eComponentA2'), identifier: 'ComponentA2'},
-        {from: _('/some/foo/b.js'), alias: _('eComponentB'), identifier: 'ComponentB'},
-        {from: PROGRAM.name, alias: 'eTopLevelComponent', identifier: 'TopLevelComponent'},
-      ]);
+      renderer.addExports(
+          output, _(PROGRAM.name.replace(/\.js$/, '')),
+          [
+            {from: _('/some/a.js'), alias: _('eComponentA1'), identifier: 'ComponentA1'},
+            {from: _('/some/a.js'), alias: _('eComponentA2'), identifier: 'ComponentA2'},
+            {from: _('/some/foo/b.js'), alias: _('eComponentB'), identifier: 'ComponentB'},
+            {from: PROGRAM.name, alias: 'eTopLevelComponent', identifier: 'TopLevelComponent'},
+          ],
+          importManager, sourceFile);
       const outputString = output.toString();
       expect(outputString).not.toContain(`{eComponentA1 as ComponentA1}`);
       expect(outputString).not.toContain(`{eComponentB as ComponentB}`);
@@ -214,11 +224,11 @@ export {TopLevelComponent};`);
         throw new Error(`Could not find source file`);
       }
       const output = new MagicString(PROGRAM.contents);
-      renderer.addConstants(output, 'const x = 3;', file);
+      renderer.addConstants(output, 'var x = 3;', file);
       expect(output.toString()).toContain(`
 import {Directive} from '@angular/core';
 
-const x = 3;
+var x = 3;
 var A = (function() {`);
     });
 
@@ -229,13 +239,13 @@ var A = (function() {`);
         throw new Error(`Could not find source file`);
       }
       const output = new MagicString(PROGRAM.contents);
-      renderer.addConstants(output, 'const x = 3;', file);
+      renderer.addConstants(output, 'var x = 3;', file);
       renderer.addImports(output, [{specifier: '@angular/core', qualifier: 'i0'}], file);
       expect(output.toString()).toContain(`
 import {Directive} from '@angular/core';
 import * as i0 from '@angular/core';
 
-const x = 3;
+var x = 3;
 var A = (function() {`);
     });
   });
@@ -281,7 +291,7 @@ SOME DEFINITION TEXT
        });
 
     it('should error if the compiledClass is not valid', () => {
-      const {renderer, host, sourceFile, program} = setup(PROGRAM);
+      const {renderer, sourceFile, program} = setup(PROGRAM);
       const output = new MagicString(PROGRAM.contents);
 
       const noIifeDeclaration =
@@ -355,9 +365,7 @@ SOME DEFINITION TEXT
          expect(output.toString()).toContain(`{ type: Directive, args: [{ selector: '[b]' }] }`);
          expect(output.toString()).toContain(`{ type: OtherB }`);
          expect(output.toString()).toContain(`function C() {}\nSOME DEFINITION TEXT\n  return C;`);
-         expect(output.toString()).not.toContain(`C.decorators = [
-  { type: Directive, args: [{ selector: '[c]' }] },
-];`);
+         expect(output.toString()).not.toContain(`C.decorators`);
        });
 
   });

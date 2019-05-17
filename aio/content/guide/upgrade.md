@@ -838,6 +838,59 @@ After this, the service is injectable anywhere in AngularJS code:
 <code-example path="upgrade-module/src/app/a-to-ajs-providers/hero-detail.component.ts" header="hero-detail.component.ts">
 </code-example>
 
+## Using the Unified Angular Location Service
+
+In AngularJS, the [$location service](https://docs.angularjs.org/api/ng/service/$location) handles all routing configuration and navigation, encoding and decoding of URLS, redirects, and interactions with browser APIs. Angular uses its own underlying `Location` service for all of these tasks. 
+
+When you migrate from AngularJS to Angular you will want to move as much responsibility as possible to Angular, so that you can take advantage of new APIs. To help with the transition, Angular provides the `LocationUpgradeModule`. This module enables a _unified_ location service that shifts responsibilities from the AngularJS `$location` service to the Angular `Location` service.
+
+To use the `LocationUpgradeModule`, import the symbol from `@angular/common/upgrade` and add it to your `AppModule` imports using the static `LocationUpgradeModule.config()` method.
+
+```ts
+// Other imports ...
+import { LocationUpgradeModule } from '@angular/common/upgrade';
+
+@NgModule({
+  imports: [
+    // Other NgModule imports...
+    LocationUpgradeModule.config()
+  ]
+})
+export class AppModule {}
+```
+
+The `LocationUpgradeModule.config()` method accepts a configuration object that allows you to configure options including the `LocationStrategy` with the `useHash` property, and the URL prefix with the `hashPrefix` property.
+
+The `useHash` property defaults to `false`, and the `hashPrefix` defaults to an empty `string`. Pass the configuration object to override the defaults.
+
+```ts
+LocationUpgradeModule.config({
+  useHash: true
+  hashPrefix: '!'
+})
+```
+
+<div class="alert is-important">
+
+**Note:** See the `LocationUpgradeConfig` for more configuration options available to the `LocationUpgradeModule.config()` method.
+
+</div>
+
+This registers a drop-in replacement for the `$location` provider in AngularJS. Once registered, all navigation, routing broadcast messages, and any necessary digest cycles in AngularJS triggered during navigation are handled by Angular. This gives you a single way to navigate within both sides of your hybrid application consistently.
+
+For usage of the `$location` service as a provider in AngularJS, you need to downgrade the `$locationShim` using a factory provider.
+
+```ts
+// Other imports ...
+import { $locationShim } from '@angular/common/upgrade';
+import { downgradeInjectable } from '@angular/upgrade/static';
+
+angular.module('myHybridApp', [...])
+  .factory('$location', downgradeInjectable($locationShim));
+```
+
+Once you introduce the Angular Router, using the Angular Router triggers navigations through the unified location service, still providing a single source for navigating with AngularJS and Angular.
+
 ## Using Ahead-of-time compilation with hybrid apps
 
 You can take advantage of Ahead-of-time (AOT) compilation on hybrid apps just like on any other

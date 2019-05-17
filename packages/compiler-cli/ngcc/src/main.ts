@@ -10,6 +10,7 @@ import {AbsoluteFsPath} from '../../src/ngtsc/path';
 import {DependencyResolver} from './dependencies/dependency_resolver';
 import {EsmDependencyHost} from './dependencies/esm_dependency_host';
 import {ModuleResolver} from './dependencies/module_resolver';
+import {UmdDependencyHost} from './dependencies/umd_dependency_host';
 import {FileSystem} from './file_system/file_system';
 import {NodeJSFileSystem} from './file_system/node_js_file_system';
 import {ConsoleLogger, LogLevel} from './logging/console_logger';
@@ -63,7 +64,7 @@ export interface NgccOptions {
   pathMappings?: PathMappings;
 }
 
-const SUPPORTED_FORMATS: EntryPointFormat[] = ['esm5', 'esm2015'];
+const SUPPORTED_FORMATS: EntryPointFormat[] = ['esm5', 'esm2015', 'umd'];
 
 /**
  * This is the main entry-point into ngcc (aNGular Compatibility Compiler).
@@ -80,8 +81,10 @@ export function mainNgcc(
   const fs = new NodeJSFileSystem();
   const transformer = new Transformer(fs, logger);
   const moduleResolver = new ModuleResolver(fs, pathMappings);
-  const host = new EsmDependencyHost(fs, moduleResolver);
-  const resolver = new DependencyResolver(logger, host);
+  const esmDependencyHost = new EsmDependencyHost(fs, moduleResolver);
+  const umdDependencyHost = new UmdDependencyHost(fs, moduleResolver);
+  const resolver = new DependencyResolver(
+      logger, {esm5: esmDependencyHost, esm2015: esmDependencyHost, umd: umdDependencyHost});
   const finder = new EntryPointFinder(fs, logger, resolver);
   const fileWriter = getFileWriter(fs, createNewEntryPointFormats);
 
