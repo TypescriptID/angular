@@ -10,6 +10,7 @@ import {SchemaMetadata, ViewEncapsulation} from '../../core';
 import {ProcessProvidersFunction} from '../../di/interface/provider';
 import {Type} from '../../interface/type';
 import {CssSelectorList} from './projection';
+import {TView} from './view';
 
 
 /**
@@ -19,7 +20,7 @@ export type ComponentTemplate<T> = {
   // Note: the ctx parameter is typed as T|U, as using only U would prevent a template with
   // e.g. ctx: {} from being assigned to ComponentTemplate<any> as TypeScript won't infer U = any
   // in that scenario. By including T this incompatibility is resolved.
-  <U extends T>(rf: RenderFlags, ctx: T | U): void; ngPrivateData?: never;
+  <U extends T>(rf: RenderFlags, ctx: T | U): void;
 };
 
 /**
@@ -88,7 +89,7 @@ export interface PipeType<T> extends Type<T> { ngPipeDef: never; }
 /**
  * @codeGenApi
  */
-export type ΔDirectiveDefWithMeta<
+export type ɵɵDirectiveDefWithMeta<
     T, Selector extends string, ExportAs extends string[], InputMap extends{[key: string]: string},
     OutputMap extends{[key: string]: string}, QueryFields extends string[]> = DirectiveDef<T>;
 
@@ -103,7 +104,7 @@ export type ΔDirectiveDefWithMeta<
  *
  * @codeGenApi
  */
-export interface ΔBaseDef<T> {
+export interface ɵɵBaseDef<T> {
   /**
    * A dictionary mapping the inputs' minified property names to their public API names, which
    * are their aliases if any, or their original unminified property names
@@ -156,7 +157,7 @@ export interface ΔBaseDef<T> {
  *
  * See: {@link defineDirective}
  */
-export interface DirectiveDef<T> extends ΔBaseDef<T> {
+export interface DirectiveDef<T> extends ɵɵBaseDef<T> {
   /** Token representing the directive. Used by DI. */
   type: Type<T>;
 
@@ -202,7 +203,7 @@ export interface DirectiveDef<T> extends ΔBaseDef<T> {
 /**
  * @codeGenApi
  */
-export type ΔComponentDefWithMeta<
+export type ɵɵComponentDefWithMeta<
     T, Selector extends String, ExportAs extends string[], InputMap extends{[key: string]: string},
     OutputMap extends{[key: string]: string}, QueryFields extends string[]> = ComponentDef<T>;
 
@@ -303,6 +304,12 @@ export interface ComponentDef<T> extends DirectiveDef<T> {
   schemas: SchemaMetadata[]|null;
 
   /**
+   * Ivy runtime uses this place to store the computed tView for the component. This gets filled on
+   * the first run of component.
+   */
+  tView: TView|null;
+
+  /**
    * Used to store the result of `noSideEffects` function so that it is not removed by closure
    * compiler. The property should never be read.
    */
@@ -349,7 +356,7 @@ export interface PipeDef<T> {
 /**
  * @codeGenApi
  */
-export type ΔPipeDefWithMeta<T, Name extends string> = PipeDef<T>;
+export type ɵɵPipeDefWithMeta<T, Name extends string> = PipeDef<T>;
 
 export interface DirectiveDefFeature {
   <T>(directiveDef: DirectiveDef<T>): void;
