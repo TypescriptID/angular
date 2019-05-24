@@ -470,7 +470,7 @@ describe('i18n support in the view compiler', () => {
           }
           if (rf & 2) {
             $r3$.ɵɵselect(0);
-            $r3$.ɵɵi18nExp($r3$.ɵɵbind($r3$.ɵɵpipeBind1(1, 0, ctx.valueA)));
+            $r3$.ɵɵi18nExp($r3$.ɵɵbind($r3$.ɵɵpipeBind1(1, 6, ctx.valueA)));
             $r3$.ɵɵi18nExp($r3$.ɵɵbind(ctx.valueB));
             $r3$.ɵɵi18nApply(2);
             $r3$.ɵɵselect(3);
@@ -520,7 +520,7 @@ describe('i18n support in the view compiler', () => {
           }
           if (rf & 2) {
             $r3$.ɵɵselect(0);
-            $r3$.ɵɵi18nExp($r3$.ɵɵbind($r3$.ɵɵpipeBind1(1, 0, ctx.valueA)));
+            $r3$.ɵɵi18nExp($r3$.ɵɵbind($r3$.ɵɵpipeBind1(1, 1, ctx.valueA)));
             $r3$.ɵɵi18nApply(2);
           }
         }
@@ -567,7 +567,7 @@ describe('i18n support in the view compiler', () => {
           if (rf & 2) {
             const $outer_r1$ = ctx.$implicit;
             $r3$.ɵɵselect(1);
-            $r3$.ɵɵi18nExp($r3$.ɵɵbind($r3$.ɵɵpipeBind1(2, 0, $outer_r1$)));
+            $r3$.ɵɵi18nExp($r3$.ɵɵbind($r3$.ɵɵpipeBind1(2, 1, $outer_r1$)));
             $r3$.ɵɵi18nApply(3);
           }
         }
@@ -699,7 +699,7 @@ describe('i18n support in the view compiler', () => {
           }
           if (rf & 2) {
             $r3$.ɵɵselect(0);
-            $r3$.ɵɵi18nExp($r3$.ɵɵbind($r3$.ɵɵpipeBind1(1, 0, ctx.valueA)));
+            $r3$.ɵɵi18nExp($r3$.ɵɵbind($r3$.ɵɵpipeBind1(1, 6, ctx.valueA)));
             $r3$.ɵɵi18nExp($r3$.ɵɵbind(ctx.valueB));
             $r3$.ɵɵi18nApply(2);
             $r3$.ɵɵselect(3);
@@ -754,7 +754,7 @@ describe('i18n support in the view compiler', () => {
           if (rf & 2) {
             const $outer_r1$ = ctx.$implicit;
             $r3$.ɵɵselect(1);
-            $r3$.ɵɵi18nExp($r3$.ɵɵbind($r3$.ɵɵpipeBind1(2, 0, $outer_r1$)));
+            $r3$.ɵɵi18nExp($r3$.ɵɵbind($r3$.ɵɵpipeBind1(2, 1, $outer_r1$)));
             $r3$.ɵɵi18nApply(3);
           }
         }
@@ -2692,7 +2692,7 @@ describe('i18n support in the view compiler', () => {
               "startItalicText": "\uFFFD#4\uFFFD",
               "closeItalicText": "\uFFFD/#4\uFFFD",
               "closeTagDiv": "\uFFFD/#3\uFFFD",
-              "icu": I18N_APP_SPEC_TS_1
+              "icu": $I18N_1$
             });
             $I18N_0$ = $MSG_EXTERNAL_5791551881115084301$$APP_SPEC_TS_0$;
         }
@@ -2704,7 +2704,7 @@ describe('i18n support in the view compiler', () => {
               "startItalicText": "\uFFFD#4\uFFFD",
               "closeItalicText": "\uFFFD/#4\uFFFD",
               "closeTagDiv": "\uFFFD/#3\uFFFD",
-              "icu": I18N_APP_SPEC_TS_1
+              "icu": $I18N_1$
             });
         }
         …
@@ -2715,14 +2715,14 @@ describe('i18n support in the view compiler', () => {
             $r3$.ɵɵelementStart(0, "div");
             $r3$.ɵɵi18nStart(1, $I18N_0$);
             $r3$.ɵɵelement(2, "b");
-            $r3$.ɵɵelementStart(3, "div");
-            $r3$.ɵɵstyling($_c2$);
+            $r3$.ɵɵelementStart(3, "div", $_c2$);
             $r3$.ɵɵelement(4, "i");
             $r3$.ɵɵelementEnd();
             $r3$.ɵɵi18nEnd();
             $r3$.ɵɵelementEnd();
           }
           if (rf & 2) {
+            $r3$.ɵɵselect(1);
             $r3$.ɵɵi18nExp($r3$.ɵɵbind(ctx.gender));
             $r3$.ɵɵi18nApply(1);
           }

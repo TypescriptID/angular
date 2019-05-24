@@ -661,6 +661,26 @@ export interface OutputDecorator {
 
 export declare function ɵɵallocHostVars(count: number): void;
 
+export declare function ɵɵattribute(name: string, value: any, sanitizer?: SanitizerFn | null, namespace?: string): void;
+
+export declare function ɵɵattributeInterpolate1(attrName: string, prefix: string, v0: any, suffix: string, sanitizer?: SanitizerFn, namespace?: string): TsickleIssue1009;
+
+export declare function ɵɵattributeInterpolate2(attrName: string, prefix: string, v0: any, i0: string, v1: any, suffix: string, sanitizer?: SanitizerFn, namespace?: string): TsickleIssue1009;
+
+export declare function ɵɵattributeInterpolate3(attrName: string, prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, suffix: string, sanitizer?: SanitizerFn, namespace?: string): TsickleIssue1009;
+
+export declare function ɵɵattributeInterpolate4(attrName: string, prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, i2: string, v3: any, suffix: string, sanitizer?: SanitizerFn, namespace?: string): TsickleIssue1009;
+
+export declare function ɵɵattributeInterpolate5(attrName: string, prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, i2: string, v3: any, i3: string, v4: any, suffix: string, sanitizer?: SanitizerFn, namespace?: string): TsickleIssue1009;
+
+export declare function ɵɵattributeInterpolate6(attrName: string, prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, i2: string, v3: any, i3: string, v4: any, i4: string, v5: any, suffix: string, sanitizer?: SanitizerFn, namespace?: string): TsickleIssue1009;
+
+export declare function ɵɵattributeInterpolate7(attrName: string, prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, i2: string, v3: any, i3: string, v4: any, i4: string, v5: any, i5: string, v6: any, suffix: string, sanitizer?: SanitizerFn, namespace?: string): TsickleIssue1009;
+
+export declare function ɵɵattributeInterpolate8(attrName: string, prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, i2: string, v3: any, i3: string, v4: any, i4: string, v5: any, i5: string, v6: any, i6: string, v7: any, suffix: string, sanitizer?: SanitizerFn, namespace?: string): TsickleIssue1009;
+
+export declare function ɵɵattributeInterpolateV(attrName: string, values: any[], sanitizer?: SanitizerFn, namespace?: string): TsickleIssue1009;
+
 export interface ɵɵBaseDef<T> {
     contentQueries: ContentQueriesFunction<T> | null;
     /** @deprecated */ readonly declaredInputs: {
@@ -1420,14 +1440,19 @@ export declare class WrappedValue {
     static wrap(value: any): WrappedValue;
 }
 
+/** @deprecated */
 export declare const wtfCreateScope: (signature: string, flags?: any) => WtfScopeFn;
 
+/** @deprecated */
 export declare const wtfEndTimeRange: (range: any) => void;
 
+/** @deprecated */
 export declare const wtfLeave: <T>(scope: any, returnValue?: T) => T;
 
+/** @deprecated */
 export interface WtfScopeFn {
     (arg0?: any, arg1?: any): any;
 }
 
+/** @deprecated */
 export declare const wtfStartTimeRange: (rangeType: string, action: string) => any;

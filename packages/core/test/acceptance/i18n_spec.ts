@@ -570,6 +570,14 @@ onlyInIvy('Ivy i18n logic').describe('runtime i18n', () => {
       expect(fixture.nativeElement.innerHTML).toEqual(`<div title="bonjour John"></div>`);
     });
 
+    it('with pipes', () => {
+      ɵi18nConfigureLocalize(
+          {translations: {'hello {$interpolation}': 'bonjour {$interpolation}'}});
+      const fixture = initWithTemplate(
+          AppComp, `<div i18n i18n-title title="hello {{name | uppercase}}"></div>`);
+      expect(fixture.nativeElement.innerHTML).toEqual(`<div title="bonjour ANGULAR"></div>`);
+    });
+
     it('multiple attributes', () => {
       ɵi18nConfigureLocalize(
           {translations: {'hello {$interpolation}': 'bonjour {$interpolation}'}});
@@ -888,10 +896,10 @@ onlyInIvy('Ivy i18n logic').describe('runtime i18n', () => {
       @Component({selector: 'div-query', template: '<ng-container #vc></ng-container>'})
       class DivQuery {
         // TODO(issue/24571): remove '!'.
-        @ContentChild(TemplateRef) template !: TemplateRef<any>;
+        @ContentChild(TemplateRef, {static: true}) template !: TemplateRef<any>;
 
         // TODO(issue/24571): remove '!'.
-        @ViewChild('vc', {read: ViewContainerRef})
+        @ViewChild('vc', {read: ViewContainerRef, static: true})
         vc !: ViewContainerRef;
 
         // TODO(issue/24571): remove '!'.
@@ -929,14 +937,14 @@ onlyInIvy('Ivy i18n logic').describe('runtime i18n', () => {
       fixture.detectChanges();
       expect(q.query.length).toEqual(1);
       expect(toHtml(fixture.nativeElement))
-          .toEqual(`<div-query><!--ng-container-->Contenu<!--container--></div-query>`);
+          .toEqual(`<div-query>Contenu<!--ng-container--></div-query>`);
 
       // Disable ng-if
       fixture.componentInstance.visible = false;
       fixture.detectChanges();
       expect(q.query.length).toEqual(0);
       expect(toHtml(fixture.nativeElement))
-          .toEqual(`<div-query><!--ng-container-->Contenu<!--container--></div-query>`);
+          .toEqual(`<div-query>Contenu<!--ng-container--></div-query>`);
     });
   });
 });

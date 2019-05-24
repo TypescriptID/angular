@@ -50,7 +50,7 @@ v8 - v11
 | `@angular/upgrade` | [`@angular/upgrade`](#upgrade) | <!--v8--> v9 |
 | `@angular/upgrade` | [`getAngularLib`](#upgrade-static) | <!--v8--> v9 |
 | `@angular/upgrade` | [`setAngularLib`](#upgrade-static) | <!--v8--> v9 |
-| template syntax | [`/deep/`, `>>>`, and `::ng-deep`](#deep-component-style-selector) | <!--v7--> v9 |
+| template syntax | [`/deep/`, `>>>`, and `::ng-deep`](#deep-component-style-selector) | <!--v7--> unspecified |
 | template syntax | [`<template`>](#template-tag) | <!--v7--> v9 |
 | service worker | [`versionedFiles` setting](#sw-versionedfiles)| v9 |
 | polyfills | [reflect-metadata](#reflect-metadata) | <!--v8--> v9 |
@@ -101,6 +101,11 @@ Tip: In the [API reference section](api) of this doc site, deprecated APIs are i
 | [`Renderer`](api/core/Renderer) | [`Renderer2`](api/core/Renderer2) | v4 | none |
 | [`RootRenderer`](api/core/RootRenderer) | [`RendererFactory2`](api/core/RendererFactory2) | v4 | none |
 | [`ViewEncapsulation.Native`](api/core/ViewEncapsulation#Native) | [`ViewEncapsulation.ShadowDom`](api/core/ViewEncapsulation#ShadowDom) | v6 | Use the native encapsulation mechanism of the renderer. See [view.ts](https://github.com/angular/angular/blob/3e992e18ebf51d6036818f26c3d77b52d3ec48eb/packages/core/src/metadata/view.ts#L32).
+| [`WtfScopeFn`](api/core/WtfScopeFn) | none | v8 | See [Web Tracing Framework](#wtf) |
+| [`wtfCreateScope`](api/core/wtfCreateScope) | none | v8 | See [Web Tracing Framework](#wtf) |
+| [`wtfStartTimeRange`](api/core/wtfStartTimeRange) | none | v8 | See [Web Tracing Framework](#wtf) |
+| [`wtfEndTimeRange`](api/core/wtfEndTimeRange) | none | v8 | See [Web Tracing Framework](#wtf) |
+| [`wtfLeave`](api/core/wtfLeave) | none | v8 | See [Web Tracing Framework](#wtf) |
 
 
 {@a forms}
@@ -117,6 +122,19 @@ Tip: In the [API reference section](api) of this doc site, deprecated APIs are i
 | --- | ----------- | --------------------- | ----- |
 | [`preserveQueryParams`](api/router/NavigationExtras#preserveQueryParams) | [`queryParamsHandling`](api/router/NavigationExtras#queryParamsHandling) | v4 | none |
 
+{@a platform-webworker}
+### @angular/platform-webworker
+
+| API | Replacement | Deprecation announced | Notes |
+| --- | ----------- | --------------------- | ----- |
+| [All entry points](api/platform-webworker) | none | v8 | See [platform-webworker](#webworker-apps). |
+
+{@a platform-webworker-dynamic}
+### @angular/platform-webworker-dynamic
+
+| API | Replacement | Deprecation announced | Notes |
+| --- | ----------- | --------------------- | ----- |
+| [All entry points](api/platform-webworker-dynamic) | none | v8 | See [platform-webworker](#webworker-apps). |
 
 {@a upgrade}
 ### @angular/upgrade
@@ -140,6 +158,12 @@ Tip: In the [API reference section](api) of this doc site, deprecated APIs are i
 
 This section lists all of the currently-deprecated features, which includes template syntax, configuration options, and any other deprecations not listed in the [Deprecated APIs](#deprecated-apis) section above. It also includes deprecated API usage scenarios or API combinations, to augment the information above.
 
+
+
+{@a wtf}
+### Web Tracing Framework integration
+
+Angular previously has supported an integration with the Web Tracing Framework (WTF) for performance testing of Angular applications. This integration has not been maintained and likely does not work for the majority of Angular applications today. As a result, we are deprecating the integration in Angular version 8.
 
 
 {@a deep-component-style-selector}
@@ -234,7 +258,7 @@ Reminder: If you use these `Deprecated*` pipes, you should migrate to the curren
 
 When Angular first introduced lazy routes, there wasn't browser support for dynamically loading additional JavaScript. Angular created our own scheme using the syntax `loadChildren: './lazy/lazy.module#LazyModule'` and built tooling to support it. Now that ECMAScript dynamic import is supported in many browsers, Angular is moving toward this new syntax.
 
-In v8, the string syntax for the [`loadChildren`](api/router/LoadChildren) route specification was deprecated, in favor of new syntax that uses `import()` syntax.
+In version 8, the string syntax for the [`loadChildren`](api/router/LoadChildren) route specification was deprecated, in favor of new syntax that uses `import()` syntax.
 
 Before:
 
@@ -260,7 +284,7 @@ const routes: Routes = [{
 <div class="alert is-helpful">
 
 
-**v8 update**: When you update to version 8, the [`ng update`](cli/update) command performs the transformation automatically. Prior to version 7, the `import()` syntax only works in JIT mode (with view engine).
+**Version 8 update**: When you update to version 8, the [`ng update`](cli/update) command performs the transformation automatically. Prior to version 7, the `import()` syntax only works in JIT mode (with view engine).
 
 
 </div>
@@ -286,10 +310,86 @@ Angular applications, and specifically applications that relied on the JIT compi
 
 The need for this polyfill was removed in Angular version 8.0 ([see #14473](https://github.com/angular/angular-cli/pull/14473)), rendering the presence of the poylfill in most Angular applications unnecessary. Because the polyfill can be depended on by 3rd-party libraries, instead of removing it from all Angular projects, we are deprecating the requirement for this polyfill as of version 8.0. This should give library authors and application developers sufficient time to evaluate if they need the polyfill, and perform any refactoring necessary to remove the dependency on it.
 
-In typical Angular project, the polyfill is not used in production builds, so deprecating it (rather than removing it)  doesn't have impact on the production applications. The goal behind this removal is overall simplification of the build setup and decrease in the number of external dependencies.
+In a typical Angular project, the polyfill is not used in production builds, so removing it should not impact production applications. The goal behind this removal is overall simplification of the build setup and decrease in the number of external dependencies.
 
 We expect to remove the polyfill from most if not all CLI projects via an `ng upgrade` migration from version 8 to 9.
 
+{@a static-query-resolution}
+### `@ViewChild()` / `@ContentChild()` static resolution as the default
+
+See our [dedicated migration guide for static queries](guide/static-query-migration).
+
+{@a contentchild-input-together}
+### `@ContentChild()` / `@Input()` used together
+
+The following pattern is deprecated:
+
+```ts
+@Input() @ContentChild(TemplateRef) tpl !: TemplateRef<any>;
+```
+
+Rather than using this pattern, separate the two decorators into their own
+properties and add fallback logic as in the following example:
+
+```ts
+@Input() tpl !: TemplateRef<any>;
+@ContentChild(TemplateRef) inlineTemplate !: TemplateRef<any>;
+```
+{@a cant-assign-template-vars}
+### Cannot assign to template variables
+
+In the following example, the two-way binding means that `optionName`
+should be written when the `valueChange` event fires.
+
+```html
+<option *ngFor="let optionName of options" [(value)]="optionName"></cmp>
+```
+
+However, in practice, Angular simply ignores two-way bindings to template variables. Starting in version 8, attempting to write to template variables is deprecated. In a future version, we will throw to indicate that the write is not supported.
+
+```html
+<option *ngFor="let optionName of options" [value]="optionName"></cmp>
+```
+
+{@a binding-to-innertext}
+### Binding to `innerText` in `platform-server`
+
+[Domino](https://github.com/fgnass/domino), which is used in server-side rendering, doesn't support `innerText`, so in platform-server's "domino adapter", there was special code to fall back to `textContent` if you tried to bind to `innerText`.
+
+These two properties have subtle differences, so switching to `textContent` under the hood can be surprising to users. For this reason, we are deprecating this behavior. Going forward, users should explicitly bind to `textContent` when using Domino.
+
+{@a wtf-apis}
+### `wtfStartTimeRange` and all `wtf*` APIs
+
+All of the `wtf*` APIs are deprecated and will be removed in a future version.
+
+{@a platform-webworker}
+### `platform-webworker`
+
+The `@angular/platform-*` packages enable Angular to be run in different contexts. Some examples are running Angular on the server (`@angular/platform-server`), in the browser (`@angular/platform-browser`), or in a [web worker](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API) (`@angular/platform-webworker`).
+
+Though web worker is useful to offload things requiring lots of processing, pushing whole apps to run in the web worker isn't a winning strategy due to many unresolved issues.
+
+Angular CLI doesn't allow use of these APIs because the build system and bundling doesn't support them. This whole package is deprecated in Angular version 8 and will be removed in the future.
+
+Instead, use web workers primarily for offloading CPU intensive, but functionally not critical, work needed for initial rendering (for example, in memory search, image processing, and so on).
+
+
+
+{@a webworker-apps}
+### platform-webworker Angular applications
+
+
+platform-webworker has been around since the initial release of Angular version 2. It began as an experiment to leverage Angular's rendering architecture and try something different: to run an entire web application in a web worker.
+
+We've learned a lot from this experiment, and have come to the conclusion that pushing entire applications to run in a web worker is not a recipe for success for most applications. This is due to a number of unresolved issues, including:
+
+* Poor or non-existent support for web worker APIs in web crawlers/indexers.
+* Poor support in build and bundling tooling.
+
+As a result, as of Angular version 8, we are deprecating the `platform-webworker` APIs in Angular. This consists of both NPM packages, `@angular/platform-webworker` and `@angular/platform-webworker-dynamic`.
+
+Going forward, we will focus our efforts related to web workers around their primary use case of offloading CPU-intensive but not critical work.
 
 {@a removed}
 ## Removed APIs

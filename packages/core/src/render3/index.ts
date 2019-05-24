@@ -21,7 +21,20 @@ export {
   markDirty,
   store,
   tick,
+
   ɵɵallocHostVars,
+
+  ɵɵattribute,
+  ɵɵattributeInterpolate1,
+  ɵɵattributeInterpolate2,
+  ɵɵattributeInterpolate3,
+  ɵɵattributeInterpolate4,
+  ɵɵattributeInterpolate5,
+  ɵɵattributeInterpolate6,
+  ɵɵattributeInterpolate7,
+  ɵɵattributeInterpolate8,
+  ɵɵattributeInterpolateV,
+
   ɵɵbind,
   ɵɵclassMap,
   ɵɵclassProp,

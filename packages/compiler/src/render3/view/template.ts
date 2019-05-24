@@ -643,8 +643,9 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
               i18nAttrArgs.push(o.literal(attr.name), this.i18nTranslate(message, params));
               converted.expressions.forEach(expression => {
                 hasBindings = true;
-                const binding = this.convertExpressionBinding(implicit, expression);
-                this.updateInstruction(elementIndex, element.sourceSpan, R3.i18nExp, [binding]);
+                this.updateInstruction(
+                    elementIndex, element.sourceSpan, R3.i18nExp,
+                    () => [this.convertExpressionBinding(implicit, expression)]);
               });
             }
           }
@@ -752,31 +753,30 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
 
           if (inputType === BindingType.Property) {
             if (value instanceof Interpolation) {
-              this.updateInstruction(
-                  elementIndex, input.sourceSpan, getPropertyInterpolationExpression(value),
-                  () =>
-                      [o.literal(attrName),
-                       ...this.getUpdateInstructionArguments(o.variable(CONTEXT_NAME), value),
-                       ...params]);
-
+              // prop="{{value}}" and friends
+              this.interpolatedUpdateInstruction(
+                  getPropertyInterpolationExpression(value), elementIndex, attrName, input, value,
+                  params);
             } else {
-              // Bound, un-interpolated properties
-              this.updateInstruction(elementIndex, input.sourceSpan, R3.property, () => {
-                return [
-                  o.literal(attrName), this.convertPropertyBinding(implicit, value, true), ...params
-                ];
-              });
+              // [prop]="value"
+              this.boundUpdateInstruction(
+                  R3.property, elementIndex, attrName, input, implicit, value, params);
+            }
+          } else if (inputType === BindingType.Attribute) {
+            if (value instanceof Interpolation && getInterpolationArgsLength(value) > 1) {
+              // attr.name="text{{value}}" and friends
+              this.interpolatedUpdateInstruction(
+                  getAttributeInterpolationExpression(value), elementIndex, attrName, input, value,
+                  params);
+            } else {
+              const boundValue = value instanceof Interpolation ? value.expressions[0] : value;
+              // [attr.name]="value" or attr.name="{{value}}"
+              this.boundUpdateInstruction(
+                  R3.attribute, elementIndex, attrName, input, implicit, boundValue, params);
             }
           } else {
-            let instruction: any;
-
-            if (inputType === BindingType.Class) {
-              instruction = R3.classProp;
-            } else {
-              instruction = R3.elementAttribute;
-            }
-
-            this.updateInstruction(elementIndex, input.sourceSpan, instruction, () => {
+            // class prop
+            this.updateInstruction(elementIndex, input.sourceSpan, R3.classProp, () => {
               return [
                 o.literal(elementIndex), o.literal(attrName),
                 this.convertPropertyBinding(implicit, value), ...params
@@ -805,6 +805,32 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       }
       this.creationInstruction(span, isNgContainer ? R3.elementContainerEnd : R3.elementEnd);
     }
+  }
+
+  /**
+   * Adds an update instruction for a bound property or attribute, such as `[prop]="value"` or
+   * `[attr.title]="value"`
+   */
+  boundUpdateInstruction(
+      instruction: o.ExternalReference, elementIndex: number, attrName: string,
+      input: t.BoundAttribute, implicit: o.ReadVarExpr, value: any, params: any[]) {
+    this.updateInstruction(elementIndex, input.sourceSpan, instruction, () => {
+      return [o.literal(attrName), this.convertPropertyBinding(implicit, value, true), ...params];
+    });
+  }
+
+  /**
+   * Adds an update instruction for an interpolated property or attribute, such as
+   * `prop="{{value}}"` or `attr.title="{{value}}"`
+   */
+  interpolatedUpdateInstruction(
+      instruction: o.ExternalReference, elementIndex: number, attrName: string,
+      input: t.BoundAttribute, value: any, params: any[]) {
+    this.updateInstruction(
+        elementIndex, input.sourceSpan, instruction,
+        () =>
+            [o.literal(attrName),
+             ...this.getUpdateInstructionArguments(o.variable(CONTEXT_NAME), value), ...params]);
   }
 
   visitTemplate(template: t.Template) {
@@ -1680,6 +1706,33 @@ function getPropertyInterpolationExpression(interpolation: Interpolation) {
       return R3.propertyInterpolate8;
     default:
       return R3.propertyInterpolateV;
+  }
+}
+
+/**
+ * Gets the instruction to generate for an interpolated attribute
+ * @param interpolation An Interpolation AST
+ */
+function getAttributeInterpolationExpression(interpolation: Interpolation) {
+  switch (getInterpolationArgsLength(interpolation)) {
+    case 3:
+      return R3.attributeInterpolate1;
+    case 5:
+      return R3.attributeInterpolate2;
+    case 7:
+      return R3.attributeInterpolate3;
+    case 9:
+      return R3.attributeInterpolate4;
+    case 11:
+      return R3.attributeInterpolate5;
+    case 13:
+      return R3.attributeInterpolate6;
+    case 15:
+      return R3.attributeInterpolate7;
+    case 17:
+      return R3.attributeInterpolate8;
+    default:
+      return R3.attributeInterpolateV;
   }
 }
 
