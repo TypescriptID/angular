@@ -102,6 +102,7 @@ export {
   ɵɵselect,
   ɵɵstyleMap,
   ɵɵstyleProp,
+  ɵɵstyleSanitizer,
   ɵɵstyling,
   ɵɵstylingApply,
   ɵɵtemplate,
@@ -120,7 +121,7 @@ export {
   ɵɵtextInterpolateV,
 } from './instructions/all';
 export {RenderFlags} from './interfaces/definition';
-export {CssSelectorList} from './interfaces/projection';
+export {CssSelectorList, ProjectionSlots} from './interfaces/projection';
 
 export {
   ɵɵrestoreView,
@@ -130,6 +131,7 @@ export {
 } from './state';
 
 export {
+  DEFAULT_LOCALE_ID,
   ɵɵi18n,
   ɵɵi18nAttributes,
   ɵɵi18nExp,
@@ -139,6 +141,8 @@ export {
   ɵɵi18nPostprocess,
   i18nConfigureLocalize,
   ɵɵi18nLocalize,
+  getLocaleId,
+  setLocaleId,
 } from './i18n';
 
 export {NgModuleFactory, NgModuleRef, NgModuleType} from './ng_module_ref';

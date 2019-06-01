@@ -197,7 +197,7 @@ describe('i18n support in the view compiler', () => {
         else {
             $I18N_0$ = $r3$.ɵɵi18nLocalize("Content A");
         }
-        const $_c2$ = ["title", "Title B"];
+        const $_c2$ = [${AttributeMarker.I18n}, "title"];
         var $I18N_3$;
         if (ngI18nClosureMode) {
             /**
@@ -211,7 +211,6 @@ describe('i18n support in the view compiler', () => {
             $I18N_3$ = $r3$.ɵɵi18nLocalize("Title B");
         }
         const $_c5$ = ["title", $I18N_3$];
-        const $_c6$ = ["title", "Title C"];
         var $I18N_7$;
         if (ngI18nClosureMode) {
             /**
@@ -224,7 +223,6 @@ describe('i18n support in the view compiler', () => {
             $I18N_7$ = $r3$.ɵɵi18nLocalize("Title C");
         }
         const $_c9$ = ["title", $I18N_7$];
-        const $_c10$ = ["title", "Title D"];
         var $I18N_11$;
         if (ngI18nClosureMode) {
             /**
@@ -238,7 +236,6 @@ describe('i18n support in the view compiler', () => {
             $I18N_11$ = $r3$.ɵɵi18nLocalize("Title D");
         }
         const $_c13$ = ["title", $I18N_11$];
-        const $_c14$ = ["title", "Title E"];
         var $I18N_15$;
         if (ngI18nClosureMode) {
             /**
@@ -251,7 +248,6 @@ describe('i18n support in the view compiler', () => {
             $I18N_15$ = $r3$.ɵɵi18nLocalize("Title E");
         }
         const $_c17$ = ["title", $I18N_15$];
-        const $_c18$ = ["title", "Title F"];
         var $I18N_19$;
         if (ngI18nClosureMode) {
             const $MSG_EXTERNAL_idF$$APP_SPEC_TS_20$ = goog.getMsg("Title F");
@@ -261,7 +257,6 @@ describe('i18n support in the view compiler', () => {
             $I18N_19$ = $r3$.ɵɵi18nLocalize("Title F");
         }
         const $_c21$ = ["title", $I18N_19$];
-        const $_c22$ = ["title", "Title G"];
         var $I18N_23$;
         if (ngI18nClosureMode) {
             /**
@@ -335,7 +330,7 @@ describe('i18n support in the view compiler', () => {
       `;
 
       const output = `
-        const $_c0$ = ["id", "static", "title", "introduction"];
+        const $_c0$ = ["id", "static", ${AttributeMarker.I18n}, "title"];
         var $I18N_1$;
         if (ngI18nClosureMode) {
           /**
@@ -376,7 +371,7 @@ describe('i18n support in the view compiler', () => {
       `;
 
       const output = String.raw `
-        const $_c0$ = ["id", "dynamic-1", "aria-roledescription", "static text", ${AttributeMarker.Bindings}, "title", "aria-label"];
+        const $_c0$ = ["id", "dynamic-1", ${AttributeMarker.I18n}, "aria-roledescription", "title", "aria-label"];
         var $I18N_1$;
         if (ngI18nClosureMode) {
           const $MSG_EXTERNAL_5526535577705876535$$APP_SPEC_TS_1$ = goog.getMsg("static text");
@@ -422,7 +417,7 @@ describe('i18n support in the view compiler', () => {
           "title", $I18N_2$,
           "aria-label", $I18N_3$
         ];
-        const $_c2$ = ["id", "dynamic-2", ${AttributeMarker.Bindings}, "title", "aria-roledescription"];
+        const $_c2$ = ["id", "dynamic-2", ${AttributeMarker.I18n}, "title", "aria-roledescription"];
         var $I18N_6$;
         if (ngI18nClosureMode) {
             /**
@@ -492,7 +487,7 @@ describe('i18n support in the view compiler', () => {
       `;
 
       const output = String.raw `
-        const $_c0$ = [${AttributeMarker.Bindings}, "title"];
+        const $_c0$ = [${AttributeMarker.I18n}, "title"];
         var $I18N_1$;
         if (ngI18nClosureMode) {
             /**
@@ -537,7 +532,7 @@ describe('i18n support in the view compiler', () => {
 
       const output = String.raw `
         const $_c0$ = [${AttributeMarker.Template}, "ngFor", "ngForOf"];
-        const $_c1$ = [${AttributeMarker.Bindings}, "title"];
+        const $_c1$ = [${AttributeMarker.I18n}, "title"];
         var $I18N_1$;
         if (ngI18nClosureMode) {
             /**
@@ -603,8 +598,8 @@ describe('i18n support in the view compiler', () => {
 
       const output = String.raw `
         const $_c0$ = [
-          "id", "dynamic-1", "aria-roledescription", "static text",
-          ${AttributeMarker.Bindings}, "title", "aria-label"
+          "id", "dynamic-1", 
+          ${AttributeMarker.I18n}, "aria-roledescription", "title", "aria-label"
         ];
         var $I18N_1$;
         if (ngI18nClosureMode) {
@@ -651,7 +646,7 @@ describe('i18n support in the view compiler', () => {
           "title", $I18N_2$,
           "aria-label", $I18N_3$
         ];
-        const $_c2$ = ["id", "dynamic-2", ${AttributeMarker.Bindings}, "title", "aria-roledescription"];
+        const $_c2$ = ["id", "dynamic-2", ${AttributeMarker.I18n}, "title", "aria-roledescription"];
         var $I18N_6$;
         if (ngI18nClosureMode) {
             /**
@@ -724,7 +719,7 @@ describe('i18n support in the view compiler', () => {
 
       const output = String.raw `
         const $_c0$ = [${AttributeMarker.Template}, "ngFor", "ngForOf"];
-        const $_c1$ = [${AttributeMarker.Bindings}, "title"];
+        const $_c1$ = [${AttributeMarker.I18n}, "title"];
         var $I18N_2$;
         if (ngI18nClosureMode) {
             /**
@@ -781,7 +776,7 @@ describe('i18n support in the view compiler', () => {
       `;
 
       const output = String.raw `
-        const $_c0$ = ["title", "Element title"];
+        const $_c0$ = [${AttributeMarker.I18n}, "title"];
         var $I18N_0$;
         if (ngI18nClosureMode) {
             /**
@@ -1261,7 +1256,7 @@ describe('i18n support in the view compiler', () => {
       `;
 
       const output = String.raw `
-        const $_c1$ = [${AttributeMarker.Bindings}, "title"];
+        const $_c1$ = [${AttributeMarker.I18n}, "title"];
         var $I18N_2$;
         if (ngI18nClosureMode) {
             const $MSG_EXTERNAL_4782264005467235841$$APP_SPEC_TS_3$ = goog.getMsg("Span title {$interpolation} and {$interpolation_1}", {
@@ -1453,7 +1448,7 @@ describe('i18n support in the view compiler', () => {
             $r3$.ɵɵelement(0, "img", $_c0$);
           }
         }
-        const $_c3$ = ["src", "logo.png", ${AttributeMarker.Bindings}, "title"];
+        const $_c3$ = ["src", "logo.png", ${AttributeMarker.I18n}, "title"];
         var $I18N_2$;
         if (ngI18nClosureMode) {
             const $MSG_EXTERNAL_2367729185105559721$$APP_SPEC_TS__2$ = goog.getMsg("App logo #{$interpolation}", {

@@ -6,7 +6,9 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Component, ContentChild, ContentChildren, Directive, HostBinding, QueryList, TemplateRef, Type, ViewChild, ViewContainerRef, ɵi18nConfigureLocalize} from '@angular/core';
+import {registerLocaleData} from '@angular/common';
+import localeRo from '@angular/common/locales/ro';
+import {Component, ContentChild, ContentChildren, Directive, HostBinding, Input, LOCALE_ID, QueryList, TemplateRef, Type, ViewChild, ViewContainerRef, ɵi18nConfigureLocalize} from '@angular/core';
 import {TestBed} from '@angular/core/testing';
 import {expect} from '@angular/platform-browser/testing/src/matchers';
 import {onlyInIvy} from '@angular/private/testing';
@@ -549,6 +551,46 @@ onlyInIvy('Ivy i18n logic').describe('runtime i18n', () => {
       expect(fixture.nativeElement.innerHTML)
           .toEqual(`<div>4 animaux<!--nested ICU 0-->!<!--ICU 5--></div>`);
     });
+
+    it('should return the correct plural form for ICU expressions when using a specific locale',
+       () => {
+         registerLocaleData(localeRo);
+         TestBed.configureTestingModule({providers: [{provide: LOCALE_ID, useValue: 'ro'}]});
+         // We could also use `TestBed.overrideProvider(LOCALE_ID, {useValue: 'ro'});`
+         const fixture = initWithTemplate(AppComp, `
+          {count, plural,
+            =0 {no email}
+            =one {one email}
+            =few {a few emails}
+            =other {lots of emails}
+          }`);
+
+         expect(fixture.nativeElement.innerHTML).toEqual('no email<!--ICU 2-->');
+
+         // Change detection cycle, no model changes
+         fixture.detectChanges();
+         expect(fixture.nativeElement.innerHTML).toEqual('no email<!--ICU 2-->');
+
+         fixture.componentInstance.count = 3;
+         fixture.detectChanges();
+         expect(fixture.nativeElement.innerHTML).toEqual('a few emails<!--ICU 2-->');
+
+         fixture.componentInstance.count = 1;
+         fixture.detectChanges();
+         expect(fixture.nativeElement.innerHTML).toEqual('one email<!--ICU 2-->');
+
+         fixture.componentInstance.count = 10;
+         fixture.detectChanges();
+         expect(fixture.nativeElement.innerHTML).toEqual('a few emails<!--ICU 2-->');
+
+         fixture.componentInstance.count = 20;
+         fixture.detectChanges();
+         expect(fixture.nativeElement.innerHTML).toEqual('lots of emails<!--ICU 2-->');
+
+         fixture.componentInstance.count = 0;
+         fixture.detectChanges();
+         expect(fixture.nativeElement.innerHTML).toEqual('no email<!--ICU 2-->');
+       });
   });
 
   describe('should support attributes', () => {
@@ -583,14 +625,14 @@ onlyInIvy('Ivy i18n logic').describe('runtime i18n', () => {
           {translations: {'hello {$interpolation}': 'bonjour {$interpolation}'}});
       const fixture = initWithTemplate(
           AppComp,
-          `<div i18n i18n-title title="hello {{name}}" i18n-aria-label aria-label="hello {{name}}"></div>`);
+          `<input i18n i18n-title title="hello {{name}}" i18n-placeholder placeholder="hello {{name}}">`);
       expect(fixture.nativeElement.innerHTML)
-          .toEqual(`<div title="bonjour Angular" aria-label="bonjour Angular"></div>`);
+          .toEqual(`<input title="bonjour Angular" placeholder="bonjour Angular">`);
 
       fixture.componentRef.instance.name = 'John';
       fixture.detectChanges();
       expect(fixture.nativeElement.innerHTML)
-          .toEqual(`<div title="bonjour John" aria-label="bonjour John"></div>`);
+          .toEqual(`<input title="bonjour John" placeholder="bonjour John">`);
     });
 
     it('on removed elements', () => {
@@ -688,6 +730,44 @@ onlyInIvy('Ivy i18n logic').describe('runtime i18n', () => {
     expect(fixture.nativeElement.innerHTML)
         .toEqual(
             `<div test="" title="début 3 milieu 2 fin" class="bar"> traduction: 2 emails<!--ICU 19--></div><div test="" class="bar"></div>`);
+  });
+
+  it('should handle i18n attribute with directive inputs', () => {
+    let calledTitle = false;
+    let calledValue = false;
+    @Component({selector: 'my-comp', template: ''})
+    class MyComp {
+      t !: string;
+      @Input()
+      get title() { return this.t; }
+      set title(title) {
+        calledTitle = true;
+        this.t = title;
+      }
+
+      @Input()
+      get value() { return this.val; }
+      set value(value: string) {
+        calledValue = true;
+        this.val = value;
+      }
+      val !: string;
+    }
+
+    TestBed.configureTestingModule({declarations: [AppComp, MyComp]});
+    ɵi18nConfigureLocalize({
+      translations: {'Hello {$interpolation}': 'Bonjour {$interpolation}', 'works': 'fonctionne'}
+    });
+    const fixture = initWithTemplate(
+        AppComp,
+        `<my-comp i18n i18n-title title="works" i18n-value="hi" value="Hello {{name}}"></my-comp>`);
+    fixture.detectChanges();
+
+    const directive = fixture.debugElement.children[0].injector.get(MyComp);
+    expect(calledValue).toEqual(true);
+    expect(calledTitle).toEqual(true);
+    expect(directive.value).toEqual(`Bonjour Angular`);
+    expect(directive.title).toEqual(`fonctionne`);
   });
 
   it('should support adding/moving/removing nodes', () => {

@@ -20,7 +20,8 @@ import {assertDefined} from '../util/assert';
 import {stringify} from '../util/stringify';
 
 import {ComponentFactoryResolver} from './component_ref';
-import {getNgModuleDef} from './definition';
+import {getNgLocaleIdDef, getNgModuleDef} from './definition';
+import {setLocaleId} from './i18n';
 import {maybeUnwrapFn} from './util/misc_utils';
 
 export interface NgModuleType<T = any> extends Type<T> { ngModuleDef: NgModuleDef<T>; }
@@ -46,6 +47,11 @@ export class NgModuleRef<T> extends viewEngine_NgModuleRef<T> implements Interna
     ngDevMode && assertDefined(
                      ngModuleDef,
                      `NgModule '${stringify(ngModuleType)}' is not a subtype of 'NgModuleType'.`);
+
+    const ngLocaleIdDef = getNgLocaleIdDef(ngModuleType);
+    if (ngLocaleIdDef) {
+      setLocaleId(ngLocaleIdDef);
+    }
 
     this._bootstrapComponents = maybeUnwrapFn(ngModuleDef !.bootstrap);
     const additionalProviders: StaticProvider[] = [
@@ -86,14 +92,39 @@ export class NgModuleRef<T> extends viewEngine_NgModuleRef<T> implements Interna
 }
 
 export class NgModuleFactory<T> extends viewEngine_NgModuleFactory<T> {
-  constructor(public moduleType: Type<T>) { super(); }
+  constructor(public moduleType: Type<T>) {
+    super();
+
+    const ngModuleDef = getNgModuleDef(moduleType);
+    if (ngModuleDef !== null) {
+      // Register the NgModule with Angular's module registry. The location (and hence timing) of
+      // this call is critical to ensure this works correctly (modules get registered when expected)
+      // without bloating bundles (modules are registered when otherwise not referenced).
+      //
+      // In View Engine, registration occurs in the .ngfactory.js file as a side effect. This has
+      // several practical consequences:
+      //
+      // - If an .ngfactory file is not imported from, the module won't be registered (and can be
+      //   tree shaken).
+      // - If an .ngfactory file is imported from, the module will be registered even if an instance
+      //   is not actually created (via `create` below).
+      // - Since an .ngfactory file in View Engine references the .ngfactory files of the NgModule's
+      //   imports,
+      //
+      // In Ivy, things are a bit different. .ngfactory files still exist for compatibility, but are
+      // not a required API to use - there are other ways to obtain an NgModuleFactory for a given
+      // NgModule. Thus, relying on a side effect in the .ngfactory file is not sufficient. Instead,
+      // the side effect of registration is added here, in the constructor of NgModuleFactory,
+      // ensuring no matter how a factory is created, the module is registered correctly.
+      //
+      // An alternative would be to include the registration side effect inline following the actual
+      // NgModule definition. This also has the correct timing, but breaks tree-shaking - modules
+      // will be registered and retained even if they're otherwise never referenced.
+      registerNgModuleType(moduleType as NgModuleType);
+    }
+  }
 
   create(parentInjector: Injector|null): viewEngine_NgModuleRef<T> {
-    const moduleType = this.moduleType;
-    const moduleRef = new NgModuleRef(moduleType, parentInjector);
-    const ngModuleDef = getNgModuleDef(moduleType);
-    ngModuleDef && ngModuleDef.id &&
-        registerNgModuleType(ngModuleDef.id, moduleType as NgModuleType);
-    return moduleRef;
+    return new NgModuleRef(this.moduleType, parentInjector);
   }
 }
