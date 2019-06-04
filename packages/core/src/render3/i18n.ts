@@ -7,15 +7,17 @@
  */
 
 import '../util/ng_i18n_closure_mode';
+
 import {getPluralCase} from '../i18n/localization';
 import {SRCSET_ATTRS, URI_ATTRS, VALID_ATTRS, VALID_ELEMENTS, getTemplateContent} from '../sanitization/html_sanitizer';
 import {InertBodyHelper} from '../sanitization/inert_body';
 import {_sanitizeUrl, sanitizeSrcset} from '../sanitization/url_sanitizer';
 import {addAllToArray} from '../util/array_utils';
 import {assertDataInRange, assertDefined, assertEqual, assertGreaterThan} from '../util/assert';
+
 import {attachPatchData} from './context_discovery';
-import {attachI18nOpCodesDebug} from './debug';
 import {elementAttributeInternal, ɵɵload, ɵɵtextBinding} from './instructions/all';
+import {attachI18nOpCodesDebug} from './instructions/lview_debug';
 import {allocExpando, elementPropertyInternal, getOrCreateTNode, setInputsForProperty} from './instructions/shared';
 import {LContainer, NATIVE} from './interfaces/container';
 import {COMMENT_MARKER, ELEMENT_MARKER, I18nMutateOpCode, I18nMutateOpCodes, I18nUpdateOpCode, I18nUpdateOpCodes, IcuType, TI18n, TIcu} from './interfaces/i18n';
@@ -121,7 +123,7 @@ function extractParts(pattern: string): (string | IcuExpression)[] {
         const block = pattern.substring(prevPos, pos);
         if (ICU_BLOCK_REGEXP.test(block)) {
           results.push(parseICUBlock(block));
-        } else if (block) {  // Don't push empty strings
+        } else {
           results.push(block);
         }
 
@@ -138,10 +140,7 @@ function extractParts(pattern: string): (string | IcuExpression)[] {
   }
 
   const substring = pattern.substring(prevPos);
-  if (substring != '') {
-    results.push(substring);
-  }
-
+  results.push(substring);
   return results;
 }
 
@@ -180,7 +179,7 @@ function parseICUBlock(pattern: string): IcuExpression {
     }
 
     const blocks = extractParts(parts[pos++]) as string[];
-    if (blocks.length) {
+    if (cases.length > values.length) {
       values.push(blocks);
     }
   }
