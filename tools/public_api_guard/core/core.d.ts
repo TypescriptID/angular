@@ -712,8 +712,6 @@ export declare type ɵɵComponentDefWithMeta<T, Selector extends String, ExportA
 
 export declare function ɵɵcomponentHostSyntheticListener<T>(eventName: string, listenerFn: (e?: any) => any, useCapture?: boolean, eventTargetResolver?: GlobalTargetResolver): void;
 
-export declare function ɵɵcomponentHostSyntheticProperty<T>(index: number, propName: string, value: T | NO_CHANGE, sanitizer?: SanitizerFn | null, nativeOnly?: boolean): void;
-
 export declare function ɵɵcontainer(index: number): void;
 
 export declare function ɵɵcontainerRefreshEnd(): void;
@@ -1077,6 +1075,8 @@ export declare function ɵɵtextInterpolate8(prefix: string, v0: any, i0: string
 
 export declare function ɵɵtextInterpolateV(values: any[]): TsickleIssue1009;
 
+export declare function ɵɵupdateSyntheticHostBinding<T>(propName: string, value: T | NO_CHANGE, sanitizer?: SanitizerFn | null, nativeOnly?: boolean): void;
+
 export declare function ɵɵviewQuery<T>(predicate: Type<any> | string[], descend: boolean, read: any): QueryList<T>;
 
 export declare const PACKAGE_ROOT_URL: InjectionToken<string>;
@@ -1136,6 +1136,7 @@ export declare class QueryList<T> {
     readonly first: T;
     readonly last: T;
     readonly length: number;
+    constructor();
     destroy(): void;
     filter(fn: (item: T, index: number, array: T[]) => boolean): T[];
     find(fn: (item: T, index: number, array: T[]) => boolean): T | undefined;
