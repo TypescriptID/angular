@@ -715,6 +715,42 @@ onlyInIvy('Ivy i18n logic').describe('runtime i18n', () => {
       const element = fixture.nativeElement.firstChild;
       expect(element.title).toBe('Bonjour Angular');
     });
+
+    it('should apply i18n attributes during second template pass', () => {
+      @Directive({
+        selector: '[test]',
+        inputs: ['test'],
+        exportAs: 'dir',
+      })
+      class Dir {
+      }
+
+      @Component({
+        selector: 'other',
+        template: `<div i18n #ref="dir" test="Set" i18n-test="This is also a test"></div>`
+      })
+      class Other {
+      }
+
+      @Component({
+        selector: 'blah',
+        template: `
+          <other></other>
+          <other></other>
+        `
+      })
+      class Cmp {
+      }
+
+      TestBed.configureTestingModule({
+        declarations: [Dir, Cmp, Other],
+      });
+
+      const fixture = TestBed.createComponent(Cmp);
+      fixture.detectChanges();
+      expect(fixture.debugElement.children[0].children[0].references.ref.test).toBe('Set');
+      expect(fixture.debugElement.children[1].children[0].references.ref.test).toBe('Set');
+    });
   });
 
   it('should work with directives and host bindings', () => {
@@ -939,8 +975,7 @@ onlyInIvy('Ivy i18n logic').describe('runtime i18n', () => {
           .toEqual('<child><grand-child><div><b>Bonjour</b> monde!</div></grand-child></child>');
     });
 
-    // FW-1319 Runtime i18n should be able to remove projected placeholders
-    xit('should be able to remove projected placeholders', () => {
+    it('should be able to remove projected placeholders', () => {
       @Component({selector: 'grand-child', template: '<div><ng-content></ng-content></div>'})
       class GrandChild {
       }

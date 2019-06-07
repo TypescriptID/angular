@@ -7,19 +7,21 @@
  */
 
 import '../util/ng_i18n_closure_mode';
+
 import {getPluralCase} from '../i18n/localization';
 import {SRCSET_ATTRS, URI_ATTRS, VALID_ATTRS, VALID_ELEMENTS, getTemplateContent} from '../sanitization/html_sanitizer';
 import {InertBodyHelper} from '../sanitization/inert_body';
 import {_sanitizeUrl, sanitizeSrcset} from '../sanitization/url_sanitizer';
 import {addAllToArray} from '../util/array_utils';
 import {assertDataInRange, assertDefined, assertEqual, assertGreaterThan} from '../util/assert';
+
 import {attachPatchData} from './context_discovery';
-import {elementAttributeInternal, setDelayProjection, ɵɵload, ɵɵtextBinding} from './instructions/all';
+import {setDelayProjection, ɵɵload, ɵɵtextBinding} from './instructions/all';
 import {attachI18nOpCodesDebug} from './instructions/lview_debug';
-import {allocExpando, elementPropertyInternal, getOrCreateTNode, setInputsForProperty} from './instructions/shared';
+import {allocExpando, elementAttributeInternal, elementPropertyInternal, getOrCreateTNode, setInputsForProperty} from './instructions/shared';
 import {LContainer, NATIVE} from './interfaces/container';
 import {COMMENT_MARKER, ELEMENT_MARKER, I18nMutateOpCode, I18nMutateOpCodes, I18nUpdateOpCode, I18nUpdateOpCodes, IcuType, TI18n, TIcu} from './interfaces/i18n';
-import {TElementNode, TIcuContainerNode, TNode, TNodeType, TProjectionNode} from './interfaces/node';
+import {TElementNode, TIcuContainerNode, TNode, TNodeFlags, TNodeType, TProjectionNode} from './interfaces/node';
 import {RComment, RElement, RText} from './interfaces/renderer';
 import {SanitizerFn} from './interfaces/sanitization';
 import {StylingContext} from './interfaces/styling';
@@ -755,10 +757,9 @@ function readCreateOpCodes(
           const elementNodeIndex = opCode >>> I18nMutateOpCode.SHIFT_REF;
           const attrName = createOpCodes[++i] as string;
           const attrValue = createOpCodes[++i] as string;
-          const renderer = viewData[RENDERER];
           // This code is used for ICU expressions only, since we don't support
           // directives/components in ICUs, we don't need to worry about inputs here
-          elementAttributeInternal(elementNodeIndex, attrName, attrValue, viewData, renderer);
+          elementAttributeInternal(elementNodeIndex, attrName, attrValue, viewData);
           break;
         default:
           throw new Error(`Unable to determine the type of mutate operation for "${opCode}"`);
@@ -910,6 +911,8 @@ function removeNode(index: number, viewData: LView) {
     }
   }
 
+  // Define this node as detached so that we don't risk projecting it
+  removedPhTNode.flags |= TNodeFlags.isDetached;
   ngDevMode && ngDevMode.rendererRemoveNode++;
 }
 
@@ -955,9 +958,7 @@ export function ɵɵi18n(index: number, message: string, subTemplateIndex?: numb
 export function ɵɵi18nAttributes(index: number, values: string[]): void {
   const tView = getLView()[TVIEW];
   ngDevMode && assertDefined(tView, `tView should be defined`);
-  if (tView.firstTemplatePass && tView.data[index + HEADER_OFFSET] === null) {
-    i18nAttributesFirstPass(tView, index, values);
-  }
+  i18nAttributesFirstPass(tView, index, values);
 }
 
 /**
@@ -982,12 +983,13 @@ function i18nAttributesFirstPass(tView: TView, index: number, values: string[]) 
         // Even indexes are text (including bindings)
         const hasBinding = !!value.match(BINDING_REGEXP);
         if (hasBinding) {
-          addAllToArray(
-              generateBindingUpdateOpCodes(value, previousElementIndex, attrName), updateOpCodes);
+          if (tView.firstTemplatePass && tView.data[index + HEADER_OFFSET] === null) {
+            addAllToArray(
+                generateBindingUpdateOpCodes(value, previousElementIndex, attrName), updateOpCodes);
+          }
         } else {
           const lView = getLView();
-          const renderer = lView[RENDERER];
-          elementAttributeInternal(previousElementIndex, attrName, value, lView, renderer);
+          elementAttributeInternal(previousElementIndex, attrName, value, lView);
           // Check if that attribute is a directive input
           const tNode = getTNode(previousElementIndex, lView);
           const dataValue = tNode.inputs && tNode.inputs[attrName];
@@ -999,7 +1001,9 @@ function i18nAttributesFirstPass(tView: TView, index: number, values: string[]) 
     }
   }
 
-  tView.data[index + HEADER_OFFSET] = updateOpCodes;
+  if (tView.firstTemplatePass && tView.data[index + HEADER_OFFSET] === null) {
+    tView.data[index + HEADER_OFFSET] = updateOpCodes;
+  }
 }
 
 let changeMask = 0b0;

@@ -9,7 +9,7 @@
 import {NgForOfContext} from '@angular/common';
 
 import {ɵɵdefineComponent} from '../../src/render3/definition';
-import {RenderFlags, ɵɵbind, ɵɵclassMap, ɵɵelement, ɵɵelementAttribute, ɵɵelementEnd, ɵɵelementStart, ɵɵinterpolation1, ɵɵproperty, ɵɵselect, ɵɵstyleMap, ɵɵstyleProp, ɵɵstyling, ɵɵstylingApply, ɵɵtemplate, ɵɵtext, ɵɵtextBinding} from '../../src/render3/index';
+import {RenderFlags, ɵɵattribute, ɵɵclassMap, ɵɵelement, ɵɵelementEnd, ɵɵelementStart, ɵɵinterpolation1, ɵɵproperty, ɵɵselect, ɵɵstyleMap, ɵɵstyleProp, ɵɵstyling, ɵɵstylingApply, ɵɵtemplate, ɵɵtext, ɵɵtextBinding} from '../../src/render3/index';
 import {AttributeMarker} from '../../src/render3/interfaces/node';
 import {bypassSanitizationTrustHtml, bypassSanitizationTrustResourceUrl, bypassSanitizationTrustScript, bypassSanitizationTrustStyle, bypassSanitizationTrustUrl} from '../../src/sanitization/bypass';
 import {ɵɵdefaultStyleSanitizer, ɵɵsanitizeHtml, ɵɵsanitizeResourceUrl, ɵɵsanitizeScript, ɵɵsanitizeStyle, ɵɵsanitizeUrl} from '../../src/sanitization/sanitization';
@@ -50,7 +50,6 @@ describe('instructions', () => {
       const t = new TemplateFixture(createDiv, () => {}, 1, 0);
       expect(() => { t.update(() => { ɵɵselect(-1); }); }).toThrow();
       expect(() => { t.update(() => { ɵɵselect(1); }); }).toThrow();
-      expect(() => { t.update(() => { ɵɵselect(0); }); }).not.toThrow();
     });
   });
 
@@ -119,16 +118,20 @@ describe('instructions', () => {
     });
   });
 
-  describe('elementAttribute', () => {
+  describe('attribute', () => {
     it('should use sanitizer function', () => {
-      const t = new TemplateFixture(createDiv, () => {}, 1);
+      const t = new TemplateFixture(createDiv, () => {}, 1, 1);
 
-      t.update(() => ɵɵelementAttribute(0, 'title', 'javascript:true', ɵɵsanitizeUrl));
+      t.update(() => {
+        ɵɵselect(0);
+        ɵɵattribute('title', 'javascript:true', ɵɵsanitizeUrl);
+      });
       expect(t.html).toEqual('<div title="unsafe:javascript:true"></div>');
 
-      t.update(
-          () => ɵɵelementAttribute(
-              0, 'title', bypassSanitizationTrustUrl('javascript:true'), ɵɵsanitizeUrl));
+      t.update(() => {
+        ɵɵselect(0);
+        ɵɵattribute('title', bypassSanitizationTrustUrl('javascript:true'), ɵɵsanitizeUrl);
+      });
       expect(t.html).toEqual('<div title="javascript:true"></div>');
       expect(ngDevMode).toHaveProperties({
         firstTemplatePass: 1,
@@ -149,15 +152,9 @@ describe('instructions', () => {
     it('should chain', () => {
       // <div [title]="title" [accesskey]="key"></div>
       const t = new TemplateFixture(createDiv, () => {}, 1, 2);
-      t.update(() => {
-        ɵɵselect(0);
-        ɵɵproperty('title', 'one')('accessKey', 'A');
-      });
+      t.update(() => { ɵɵproperty('title', 'one')('accessKey', 'A'); });
       expect(t.html).toEqual('<div accesskey="A" title="one"></div>');
-      t.update(() => {
-        ɵɵselect(0);
-        ɵɵproperty('title', 'two')('accessKey', 'B');
-      });
+      t.update(() => { ɵɵproperty('title', 'two')('accessKey', 'B'); });
       expect(t.html).toEqual('<div accesskey="B" title="two"></div>');
       expect(ngDevMode).toHaveProperties({
         firstTemplatePass: 1,
@@ -167,17 +164,6 @@ describe('instructions', () => {
         rendererSetProperty: 4,
       });
     });
-
-    it('should error in dev mode if ɵɵselect was not called prior', () => {
-      const t = new TemplateFixture(createDiv, () => {}, 1, 1);
-      expect(() => { t.update(() => { ɵɵproperty('title', 'test'); }); }).toThrow();
-      expect(() => {
-        t.update(() => {
-          ɵɵselect(0);
-          ɵɵproperty('title', 'test');
-        });
-      }).not.toThrow();
-    });
   });
 
   describe('styleProp', () => {
@@ -186,7 +172,6 @@ describe('instructions', () => {
         return createDiv(null, null, null, ['background-image'], ɵɵdefaultStyleSanitizer);
       }, () => {}, 1);
       t.update(() => {
-        ɵɵselect(0);
         ɵɵstyleProp(0, 'url("http://server")');
         ɵɵstylingApply();
       });
@@ -194,7 +179,6 @@ describe('instructions', () => {
       expect(t.html).toEqual('<div></div>');
 
       t.update(() => {
-        ɵɵselect(0);
         ɵɵstyleProp(0, bypassSanitizationTrustStyle('url("http://server2")'));
         ɵɵstylingApply();
       });
@@ -210,7 +194,6 @@ describe('instructions', () => {
           1, sanitizerInterceptor);
 
       t.update(() => {
-        ɵɵselect(0);
         ɵɵstyleProp(0, bypassSanitizationTrustStyle('apple'));
         ɵɵstylingApply();
       });
@@ -219,7 +202,6 @@ describe('instructions', () => {
       sanitizerInterceptor.lastValue = null;
 
       t.update(() => {
-        ɵɵselect(0);
         ɵɵstyleProp(0, bypassSanitizationTrustStyle('apple'));
         ɵɵstylingApply();
       });
@@ -237,7 +219,6 @@ describe('instructions', () => {
     it('should add style', () => {
       const fixture = new TemplateFixture(createDivWithStyle, () => {}, 1);
       fixture.update(() => {
-        ɵɵselect(0);
         ɵɵstyleMap({'background-color': 'red'});
         ɵɵstylingApply();
       });
@@ -253,7 +234,6 @@ describe('instructions', () => {
           sanitizerInterceptor);
 
       fixture.update(() => {
-        ɵɵselect(0);
         ɵɵstyleMap({
           'background-image': 'background-image',
           'background': 'background',
@@ -283,7 +263,6 @@ describe('instructions', () => {
     it('should add class', () => {
       const fixture = new TemplateFixture(createDivWithStyling, () => {}, 1);
       fixture.update(() => {
-        ɵɵselect(0);
         ɵɵclassMap('multiple classes');
         ɵɵstylingApply();
       });
@@ -360,99 +339,126 @@ describe('instructions', () => {
   describe('sanitization injection compatibility', () => {
     it('should work for url sanitization', () => {
       const s = new LocalMockSanitizer(value => `${value}-sanitized`);
-      const t = new TemplateFixture(createAnchor, undefined, 1, 0, null, null, s);
+      const t = new TemplateFixture(createAnchor, undefined, 1, 1, null, null, s);
       const inputValue = 'http://foo';
       const outputValue = 'http://foo-sanitized';
 
-      t.update(() => ɵɵelementAttribute(0, 'href', inputValue, ɵɵsanitizeUrl));
+      t.update(() => {
+        ɵɵselect(0);
+        ɵɵattribute('href', inputValue, ɵɵsanitizeUrl);
+      });
       expect(t.html).toEqual(`<a href="${outputValue}"></a>`);
       expect(s.lastSanitizedValue).toEqual(outputValue);
     });
 
     it('should bypass url sanitization if marked by the service', () => {
       const s = new LocalMockSanitizer(value => '');
-      const t = new TemplateFixture(createAnchor, undefined, 1, 0, null, null, s);
+      const t = new TemplateFixture(createAnchor, undefined, 1, 1, null, null, s);
       const inputValue = s.bypassSecurityTrustUrl('http://foo');
       const outputValue = 'http://foo';
 
-      t.update(() => ɵɵelementAttribute(0, 'href', inputValue, ɵɵsanitizeUrl));
+      t.update(() => {
+        ɵɵselect(0);
+        ɵɵattribute('href', inputValue, ɵɵsanitizeUrl);
+      });
       expect(t.html).toEqual(`<a href="${outputValue}"></a>`);
       expect(s.lastSanitizedValue).toBeFalsy();
     });
 
     it('should bypass ivy-level url sanitization if a custom sanitizer is used', () => {
       const s = new LocalMockSanitizer(value => '');
-      const t = new TemplateFixture(createAnchor, undefined, 1, 0, null, null, s);
+      const t = new TemplateFixture(createAnchor, undefined, 1, 1, null, null, s);
       const inputValue = bypassSanitizationTrustUrl('http://foo');
       const outputValue = 'http://foo-ivy';
 
-      t.update(() => ɵɵelementAttribute(0, 'href', inputValue, ɵɵsanitizeUrl));
+      t.update(() => {
+        ɵɵselect(0);
+        ɵɵattribute('href', inputValue, ɵɵsanitizeUrl);
+      });
       expect(t.html).toEqual(`<a href="${outputValue}"></a>`);
       expect(s.lastSanitizedValue).toBeFalsy();
     });
 
     it('should work for style sanitization', () => {
       const s = new LocalMockSanitizer(value => `color:blue`);
-      const t = new TemplateFixture(createDiv, undefined, 1, 0, null, null, s);
+      const t = new TemplateFixture(createDiv, undefined, 1, 1, null, null, s);
       const inputValue = 'color:red';
       const outputValue = 'color:blue';
 
-      t.update(() => ɵɵelementAttribute(0, 'style', inputValue, ɵɵsanitizeStyle));
+      t.update(() => {
+        ɵɵselect(0);
+        ɵɵattribute('style', inputValue, ɵɵsanitizeStyle);
+      });
       expect(stripStyleWsCharacters(t.html)).toEqual(`<div style="${outputValue}"></div>`);
       expect(s.lastSanitizedValue).toEqual(outputValue);
     });
 
     it('should bypass style sanitization if marked by the service', () => {
       const s = new LocalMockSanitizer(value => '');
-      const t = new TemplateFixture(createDiv, undefined, 1, 0, null, null, s);
+      const t = new TemplateFixture(createDiv, undefined, 1, 1, null, null, s);
       const inputValue = s.bypassSecurityTrustStyle('color:maroon');
       const outputValue = 'color:maroon';
 
-      t.update(() => ɵɵelementAttribute(0, 'style', inputValue, ɵɵsanitizeStyle));
+      t.update(() => {
+        ɵɵselect(0);
+        ɵɵattribute('style', inputValue, ɵɵsanitizeStyle);
+      });
       expect(stripStyleWsCharacters(t.html)).toEqual(`<div style="${outputValue}"></div>`);
       expect(s.lastSanitizedValue).toBeFalsy();
     });
 
     it('should bypass ivy-level style sanitization if a custom sanitizer is used', () => {
       const s = new LocalMockSanitizer(value => '');
-      const t = new TemplateFixture(createDiv, undefined, 1, 0, null, null, s);
+      const t = new TemplateFixture(createDiv, undefined, 1, 1, null, null, s);
       const inputValue = bypassSanitizationTrustStyle('font-family:foo');
       const outputValue = 'font-family:foo-ivy';
 
-      t.update(() => ɵɵelementAttribute(0, 'style', inputValue, ɵɵsanitizeStyle));
+      t.update(() => {
+        ɵɵselect(0);
+        ɵɵattribute('style', inputValue, ɵɵsanitizeStyle);
+      });
       expect(stripStyleWsCharacters(t.html)).toEqual(`<div style="${outputValue}"></div>`);
       expect(s.lastSanitizedValue).toBeFalsy();
     });
 
     it('should work for resourceUrl sanitization', () => {
       const s = new LocalMockSanitizer(value => `${value}-sanitized`);
-      const t = new TemplateFixture(createScript, undefined, 1, 0, null, null, s);
+      const t = new TemplateFixture(createScript, undefined, 1, 1, null, null, s);
       const inputValue = 'http://resource';
       const outputValue = 'http://resource-sanitized';
 
-      t.update(() => ɵɵelementAttribute(0, 'src', inputValue, ɵɵsanitizeResourceUrl));
+      t.update(() => {
+        ɵɵselect(0);
+        ɵɵattribute('src', inputValue, ɵɵsanitizeResourceUrl);
+      });
       expect(t.html).toEqual(`<script src="${outputValue}"></script>`);
       expect(s.lastSanitizedValue).toEqual(outputValue);
     });
 
     it('should bypass resourceUrl sanitization if marked by the service', () => {
       const s = new LocalMockSanitizer(value => '');
-      const t = new TemplateFixture(createScript, undefined, 1, 0, null, null, s);
+      const t = new TemplateFixture(createScript, undefined, 1, 1, null, null, s);
       const inputValue = s.bypassSecurityTrustResourceUrl('file://all-my-secrets.pdf');
       const outputValue = 'file://all-my-secrets.pdf';
 
-      t.update(() => ɵɵelementAttribute(0, 'src', inputValue, ɵɵsanitizeResourceUrl));
+      t.update(() => {
+        ɵɵselect(0);
+        ɵɵattribute('src', inputValue, ɵɵsanitizeResourceUrl);
+      });
       expect(t.html).toEqual(`<script src="${outputValue}"></script>`);
       expect(s.lastSanitizedValue).toBeFalsy();
     });
 
     it('should bypass ivy-level resourceUrl sanitization if a custom sanitizer is used', () => {
       const s = new LocalMockSanitizer(value => '');
-      const t = new TemplateFixture(createScript, undefined, 1, 0, null, null, s);
+      const t = new TemplateFixture(createScript, undefined, 1, 1, null, null, s);
       const inputValue = bypassSanitizationTrustResourceUrl('file://all-my-secrets.pdf');
       const outputValue = 'file://all-my-secrets.pdf-ivy';
 
-      t.update(() => ɵɵelementAttribute(0, 'src', inputValue, ɵɵsanitizeResourceUrl));
+      t.update(() => {
+        ɵɵselect(0);
+        ɵɵattribute('src', inputValue, ɵɵsanitizeResourceUrl);
+      });
       expect(t.html).toEqual(`<script src="${outputValue}"></script>`);
       expect(s.lastSanitizedValue).toBeFalsy();
     });

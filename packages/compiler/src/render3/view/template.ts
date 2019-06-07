@@ -1024,10 +1024,13 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     attrs.forEach(input => {
       if (input instanceof t.BoundAttribute) {
         const value = input.value.visit(this._valueConverter);
-        this.allocateBindingSlots(value);
-        this.updateInstruction(
-            templateIndex, template.sourceSpan, R3.property,
-            () => [o.literal(input.name), this.convertPropertyBinding(context, value, true)]);
+
+        if (value !== undefined) {
+          this.allocateBindingSlots(value);
+          this.updateInstruction(
+              templateIndex, template.sourceSpan, R3.property,
+              () => [o.literal(input.name), this.convertPropertyBinding(context, value, true)]);
+        }
       }
     });
   }
@@ -1069,7 +1072,9 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       nodeIndex: number, span: ParseSourceSpan|null, reference: o.ExternalReference,
       paramsOrFn?: o.Expression[]|(() => o.Expression[])) {
     if (this._lastNodeIndexWithFlush < nodeIndex) {
-      this.instructionFn(this._updateCodeFns, span, R3.select, [o.literal(nodeIndex)]);
+      if (nodeIndex > 0) {
+        this.instructionFn(this._updateCodeFns, span, R3.select, [o.literal(nodeIndex)]);
+      }
       this._lastNodeIndexWithFlush = nodeIndex;
     }
     this.instructionFn(this._updateCodeFns, span, reference, paramsOrFn || []);

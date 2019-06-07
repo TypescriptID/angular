@@ -9,7 +9,7 @@ import {Injector} from '../../di';
 import {ErrorHandler} from '../../error_handler';
 import {Type} from '../../interface/type';
 import {CUSTOM_ELEMENTS_SCHEMA, NO_ERRORS_SCHEMA, SchemaMetadata} from '../../metadata/schema';
-import {validateAgainstEventProperties} from '../../sanitization/sanitization';
+import {validateAgainstEventAttributes, validateAgainstEventProperties} from '../../sanitization/sanitization';
 import {Sanitizer} from '../../sanitization/security';
 import {assertDataInRange, assertDefined, assertDomNode, assertEqual, assertLessThan, assertNotEqual, assertNotSame} from '../../util/assert';
 import {createNamedArrayType} from '../../util/named_array_type';
@@ -35,12 +35,11 @@ import {initializeStaticContext as initializeStaticStylingContext} from '../styl
 import {ANIMATION_PROP_PREFIX, isAnimationProp} from '../styling/util';
 import {NO_CHANGE} from '../tokens';
 import {attrsStylingIndexOf} from '../util/attrs_utils';
-import {INTERPOLATION_DELIMITER, stringifyForError} from '../util/misc_utils';
+import {INTERPOLATION_DELIMITER, renderStringify, stringifyForError} from '../util/misc_utils';
 import {getLViewParent, getRootContext} from '../util/view_traversal_utils';
 import {getComponentViewByIndex, getNativeByIndex, getNativeByTNode, getTNode, isComponent, isComponentDef, isContentQueryHost, isLContainer, isRootView, readPatchedLView, resetPreOrderHookFlags, unwrapRNode, viewAttachedToChangeDetector} from '../util/view_utils';
-
 import {LCleanup, LViewBlueprint, MatchesArray, TCleanup, TNodeInitialData, TNodeInitialInputs, TNodeLocalNames, TViewComponents, TViewConstructor, attachLContainerDebug, attachLViewDebug, cloneToLView, cloneToTViewData} from './lview_debug';
-
+import {selectInternal} from './select';
 
 
 /**
@@ -394,7 +393,7 @@ export function renderEmbeddedTemplate<T>(viewToRender: LView, tView: TView, con
 
       oldView = enterView(viewToRender, viewToRender[T_HOST]);
       resetPreOrderHookFlags(viewToRender);
-      executeTemplate(tView.template !, getRenderFlags(viewToRender), context);
+      executeTemplate(viewToRender, tView.template !, getRenderFlags(viewToRender), context);
 
       // This must be set to false immediately after the first creation run because in an
       // ngFor loop, all the views will be created together before update mode runs and turns
@@ -423,7 +422,7 @@ export function renderComponentOrTemplate<T>(
 
     if (creationModeIsActive) {
       // creation mode pass
-      templateFn && executeTemplate(templateFn, RenderFlags.Create, context);
+      templateFn && executeTemplate(hostView, templateFn, RenderFlags.Create, context);
 
       refreshDescendantViews(hostView);
       hostView[FLAGS] &= ~LViewFlags.CreationMode;
@@ -431,7 +430,7 @@ export function renderComponentOrTemplate<T>(
 
     // update mode pass
     resetPreOrderHookFlags(hostView);
-    templateFn && executeTemplate(templateFn, RenderFlags.Update, context);
+    templateFn && executeTemplate(hostView, templateFn, RenderFlags.Update, context);
     refreshDescendantViews(hostView);
   } finally {
     if (normalExecutionPath && !creationModeIsActive && rendererFactory.end) {
@@ -441,11 +440,17 @@ export function renderComponentOrTemplate<T>(
   }
 }
 
-function executeTemplate<T>(templateFn: ComponentTemplate<T>, rf: RenderFlags, context: T) {
+function executeTemplate<T>(
+    lView: LView, templateFn: ComponentTemplate<T>, rf: RenderFlags, context: T) {
   ɵɵnamespaceHTML();
   const prevSelectedIndex = getSelectedIndex();
   try {
     setActiveHostElement(null);
+    if (rf & RenderFlags.Update) {
+      // When we're updating, have an inherent ɵɵselect(0) so we don't have to generate that
+      // instruction for most update blocks
+      selectInternal(lView, 0);
+    }
     templateFn(rf, context);
   } finally {
     setSelectedIndex(prevSelectedIndex);
@@ -1303,6 +1308,33 @@ function addComponentLogic<T>(
   }
 }
 
+export function elementAttributeInternal(
+    index: number, name: string, value: any, lView: LView, sanitizer?: SanitizerFn | null,
+    namespace?: string) {
+  ngDevMode && assertNotSame(value, NO_CHANGE as any, 'Incoming value should never be NO_CHANGE.');
+  ngDevMode && validateAgainstEventAttributes(name);
+  const element = getNativeByIndex(index, lView) as RElement;
+  const renderer = lView[RENDERER];
+  if (value == null) {
+    ngDevMode && ngDevMode.rendererRemoveAttribute++;
+    isProceduralRenderer(renderer) ? renderer.removeAttribute(element, name, namespace) :
+                                     element.removeAttribute(name);
+  } else {
+    ngDevMode && ngDevMode.rendererSetAttribute++;
+    const tNode = getTNode(index, lView);
+    const strValue =
+        sanitizer == null ? renderStringify(value) : sanitizer(value, tNode.tagName || '', name);
+
+
+    if (isProceduralRenderer(renderer)) {
+      renderer.setAttribute(element, name, strValue, namespace);
+    } else {
+      namespace ? element.setAttributeNS(namespace, name, strValue) :
+                  element.setAttribute(name, strValue);
+    }
+  }
+}
+
 /**
  * Sets initial input properties on directive instances from attribute data
  *
@@ -1692,7 +1724,7 @@ export function checkView<T>(hostView: LView, component: T) {
   try {
     resetPreOrderHookFlags(hostView);
     creationMode && executeViewQueryFn(RenderFlags.Create, hostTView, component);
-    executeTemplate(templateFn, getRenderFlags(hostView), component);
+    executeTemplate(hostView, templateFn, getRenderFlags(hostView), component);
     refreshDescendantViews(hostView);
     // Only check view queries again in creation mode if there are static view queries
     if (!creationMode || hostTView.staticViewQueries) {
