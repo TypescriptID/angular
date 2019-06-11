@@ -8,7 +8,7 @@
 
 import * as ts from 'typescript';
 
-import {ClassMemberKind, CtorParameter, Decorator, Import, isNamedClassDeclaration, isNamedFunctionDeclaration, isNamedVariableDeclaration} from '../../../src/ngtsc/reflection';
+import {ClassMemberKind, CtorParameter, Decorator, Import, TsHelperFn, isNamedClassDeclaration, isNamedFunctionDeclaration, isNamedVariableDeclaration} from '../../../src/ngtsc/reflection';
 import {Esm2015ReflectionHost} from '../../src/host/esm2015_host';
 import {Esm5ReflectionHost, getIifeBody} from '../../src/host/esm5_host';
 import {MockLogger} from '../helpers/mock_logger';
@@ -1409,7 +1409,7 @@ describe('Esm5ReflectionHost', () => {
 
       const fooNode =
           getDeclaration(program, FUNCTION_BODY_FILE.name, 'foo', isNamedFunctionDeclaration) !;
-      const fooDef = host.getDefinitionOfFunction(fooNode);
+      const fooDef = host.getDefinitionOfFunction(fooNode) !;
       expect(fooDef.node).toBe(fooNode);
       expect(fooDef.body !.length).toEqual(1);
       expect(fooDef.body ![0].getText()).toEqual(`return x;`);
@@ -1419,7 +1419,7 @@ describe('Esm5ReflectionHost', () => {
 
       const barNode =
           getDeclaration(program, FUNCTION_BODY_FILE.name, 'bar', isNamedFunctionDeclaration) !;
-      const barDef = host.getDefinitionOfFunction(barNode);
+      const barDef = host.getDefinitionOfFunction(barNode) !;
       expect(barDef.node).toBe(barNode);
       expect(barDef.body !.length).toEqual(1);
       expect(ts.isReturnStatement(barDef.body ![0])).toBeTruthy();
@@ -1432,7 +1432,7 @@ describe('Esm5ReflectionHost', () => {
 
       const bazNode =
           getDeclaration(program, FUNCTION_BODY_FILE.name, 'baz', isNamedFunctionDeclaration) !;
-      const bazDef = host.getDefinitionOfFunction(bazNode);
+      const bazDef = host.getDefinitionOfFunction(bazNode) !;
       expect(bazDef.node).toBe(bazNode);
       expect(bazDef.body !.length).toEqual(3);
       expect(bazDef.parameters.length).toEqual(1);
@@ -1441,12 +1441,50 @@ describe('Esm5ReflectionHost', () => {
 
       const quxNode =
           getDeclaration(program, FUNCTION_BODY_FILE.name, 'qux', isNamedFunctionDeclaration) !;
-      const quxDef = host.getDefinitionOfFunction(quxNode);
+      const quxDef = host.getDefinitionOfFunction(quxNode) !;
       expect(quxDef.node).toBe(quxNode);
       expect(quxDef.body !.length).toEqual(2);
       expect(quxDef.parameters.length).toEqual(1);
       expect(quxDef.parameters[0].name).toEqual('x');
       expect(quxDef.parameters[0].initializer).toBe(null);
+    });
+
+    it('should recognize TypeScript __spread helper function declaration', () => {
+      const file = {
+        name: 'declaration.d.ts',
+        contents: `export declare function __spread(...args: any[]): any[];`,
+      };
+      const program = makeTestProgram(file);
+      const host = new Esm5ReflectionHost(new MockLogger(), false, program.getTypeChecker());
+
+      const node = getDeclaration(program, file.name, '__spread', isNamedFunctionDeclaration) !;
+
+      const definition = host.getDefinitionOfFunction(node) !;
+      expect(definition.node).toBe(node);
+      expect(definition.body).toBeNull();
+      expect(definition.helper).toBe(TsHelperFn.Spread);
+      expect(definition.parameters.length).toEqual(0);
+    });
+
+    it('should recognize TypeScript __spread helper function implementation', () => {
+      const file = {
+        name: 'implementation.js',
+        contents: `
+          var __spread = (this && this.__spread) || function () {
+            for (var ar = [], i = 0; i < arguments.length; i++) ar = ar.concat(__read(arguments[i]));
+            return ar;
+          };`,
+      };
+      const program = makeTestProgram(file);
+      const host = new Esm5ReflectionHost(new MockLogger(), false, program.getTypeChecker());
+
+      const node = getDeclaration(program, file.name, '__spread', ts.isVariableDeclaration) !;
+
+      const definition = host.getDefinitionOfFunction(node) !;
+      expect(definition.node).toBe(node);
+      expect(definition.body).toBeNull();
+      expect(definition.helper).toBe(TsHelperFn.Spread);
+      expect(definition.parameters.length).toEqual(0);
     });
   });
 
@@ -1749,27 +1787,41 @@ describe('Esm5ReflectionHost', () => {
     });
   });
 
-  describe('findDecoratedClasses()', () => {
-    it('should return an array of all decorated classes in the given source file', () => {
+  describe('findClassSymbols()', () => {
+    it('should return an array of all classes in the given source file', () => {
       const program = makeTestProgram(...DECORATED_FILES);
       const host = new Esm5ReflectionHost(new MockLogger(), false, program.getTypeChecker());
-      const primary = program.getSourceFile(DECORATED_FILES[0].name) !;
+      const primaryFile = program.getSourceFile(DECORATED_FILES[0].name) !;
+      const secondaryFile = program.getSourceFile(DECORATED_FILES[1].name) !;
 
-      const primaryDecoratedClasses = host.findDecoratedClasses(primary);
-      expect(primaryDecoratedClasses.length).toEqual(2);
-      const classA = primaryDecoratedClasses.find(c => c.name === 'A') !;
-      expect(classA.decorators.map(decorator => decorator.name)).toEqual(['Directive']);
-      // Note that `B` is not exported from `primary.js`
-      const classB = primaryDecoratedClasses.find(c => c.name === 'B') !;
-      expect(classB.decorators.map(decorator => decorator.name)).toEqual(['Directive']);
+      const classSymbolsPrimary = host.findClassSymbols(primaryFile);
+      expect(classSymbolsPrimary.length).toEqual(2);
+      expect(classSymbolsPrimary.map(c => c.name)).toEqual(['A', 'B']);
 
-      const secondary = program.getSourceFile(DECORATED_FILES[1].name) !;
-      const secondaryDecoratedClasses = host.findDecoratedClasses(secondary);
-      expect(secondaryDecoratedClasses.length).toEqual(1);
-      // Note that `D` is exported from `secondary.js` but not exported from `primary.js`
-      const classD = secondaryDecoratedClasses.find(c => c.name === 'D') !;
-      expect(classD.name).toEqual('D');
-      expect(classD.decorators.map(decorator => decorator.name)).toEqual(['Directive']);
+      const classSymbolsSecondary = host.findClassSymbols(secondaryFile);
+      expect(classSymbolsSecondary.length).toEqual(1);
+      expect(classSymbolsSecondary.map(c => c.name)).toEqual(['D']);
+    });
+  });
+
+  describe('getDecoratorsOfSymbol()', () => {
+    it('should return decorators of class symbol', () => {
+      const program = makeTestProgram(...DECORATED_FILES);
+      const host = new Esm5ReflectionHost(new MockLogger(), false, program.getTypeChecker());
+      const primaryFile = program.getSourceFile(DECORATED_FILES[0].name) !;
+      const secondaryFile = program.getSourceFile(DECORATED_FILES[1].name) !;
+
+      const classSymbolsPrimary = host.findClassSymbols(primaryFile);
+      const classDecoratorsPrimary = classSymbolsPrimary.map(s => host.getDecoratorsOfSymbol(s));
+      expect(classDecoratorsPrimary.length).toEqual(2);
+      expect(classDecoratorsPrimary[0] !.map(d => d.name)).toEqual(['Directive']);
+      expect(classDecoratorsPrimary[1] !.map(d => d.name)).toEqual(['Directive']);
+
+      const classSymbolsSecondary = host.findClassSymbols(secondaryFile);
+      const classDecoratorsSecondary =
+          classSymbolsSecondary.map(s => host.getDecoratorsOfSymbol(s));
+      expect(classDecoratorsSecondary.length).toEqual(1);
+      expect(classDecoratorsSecondary[0] !.map(d => d.name)).toEqual(['Directive']);
     });
   });
 
