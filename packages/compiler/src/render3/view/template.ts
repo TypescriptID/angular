@@ -458,7 +458,8 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     if (bindings.size) {
       bindings.forEach(binding => {
         this.updateInstruction(
-            index, span, R3.i18nExp, () => [this.convertPropertyBinding(binding)]);
+            index, span, R3.i18nExp,
+            () => [this.convertPropertyBinding(binding, /* skipBindFn */ true)]);
       });
       this.updateInstruction(index, span, R3.i18nApply, [o.literal(index)]);
     }
@@ -656,7 +657,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
                 hasBindings = true;
                 this.updateInstruction(
                     elementIndex, element.sourceSpan, R3.i18nExp,
-                    () => [this.convertExpressionBinding(expression)]);
+                    () => [this.convertExpressionBinding(expression, /* skipBindFn */ true)]);
               });
             }
           }
@@ -711,6 +712,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     // special value to symbolize that there is no RHS to this binding
     // TODO (matsko): revisit this once FW-959 is approached
     const emptyValueBindInstruction = o.literal(undefined);
+    const propertyBindings: ChainablePropertyBinding[] = [];
 
     // Generate element input bindings
     allOtherInputs.forEach((input: t.BoundAttribute) => {
@@ -728,14 +730,12 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
         // defined in...
         const hasValue = value instanceof LiteralPrimitive ? !!value.value : true;
         this.allocateBindingSlots(value);
-        const bindingName = prepareSyntheticPropertyName(input.name);
 
-        this.updateInstruction(elementIndex, input.sourceSpan, R3.property, () => {
-          return [
-            o.literal(bindingName),
-            (hasValue ? this.convertPropertyBinding(value, /* skipBindFn */ true) :
-                        emptyValueBindInstruction),
-          ];
+        propertyBindings.push({
+          name: prepareSyntheticPropertyName(input.name),
+          input,
+          value: () => hasValue ? this.convertPropertyBinding(value, /* skipBindFn */ true) :
+                                  emptyValueBindInstruction
         });
       } else {
         // we must skip attributes with associated i18n context, since these attributes are handled
@@ -770,8 +770,12 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
                   params);
             } else {
               // [prop]="value"
-              this.boundUpdateInstruction(
-                  R3.property, elementIndex, attrName, input, value, params);
+              // Collect all the properties so that we can chain into a single function at the end.
+              propertyBindings.push({
+                name: attrName,
+                input,
+                value: () => this.convertPropertyBinding(value, true), params
+              });
             }
           } else if (inputType === BindingType.Attribute) {
             if (value instanceof Interpolation && getInterpolationArgsLength(value) > 1) {
@@ -797,6 +801,10 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
         }
       }
     });
+
+    if (propertyBindings.length > 0) {
+      this.propertyInstructionChain(elementIndex, propertyBindings);
+    }
 
     // Traverse element child nodes
     t.visitAll(this, element.children);
@@ -826,7 +834,9 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       instruction: o.ExternalReference, elementIndex: number, attrName: string,
       input: t.BoundAttribute, value: any, params: any[]) {
     this.updateInstruction(elementIndex, input.sourceSpan, instruction, () => {
-      return [o.literal(attrName), this.convertPropertyBinding(value, true), ...params];
+      return [
+        o.literal(attrName), this.convertPropertyBinding(value, /* skipBindFn */ true), ...params
+      ];
     });
   }
 
@@ -909,12 +919,12 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     });
 
     // handle property bindings e.g. ɵɵproperty('ngForOf', ctx.items), et al;
-    this.templatePropertyBindings(template, templateIndex, template.templateAttrs);
+    this.templatePropertyBindings(templateIndex, template.templateAttrs);
 
     // Only add normal input/output binding instructions on explicit ng-template elements.
     if (template.tagName === NG_TEMPLATE_TAG_NAME) {
       // Add the input bindings
-      this.templatePropertyBindings(template, templateIndex, template.inputs);
+      this.templatePropertyBindings(templateIndex, template.inputs);
       // Generate listeners for directive output
       template.outputs.forEach((outputAst: t.BoundEvent) => {
         this.creationInstruction(
@@ -1021,19 +1031,26 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   private bindingContext() { return `${this._bindingContext++}`; }
 
   private templatePropertyBindings(
-      template: t.Template, templateIndex: number, attrs: (t.BoundAttribute|t.TextAttribute)[]) {
+      templateIndex: number, attrs: (t.BoundAttribute|t.TextAttribute)[]) {
+    const propertyBindings: ChainablePropertyBinding[] = [];
     attrs.forEach(input => {
       if (input instanceof t.BoundAttribute) {
         const value = input.value.visit(this._valueConverter);
 
         if (value !== undefined) {
           this.allocateBindingSlots(value);
-          this.updateInstruction(
-              templateIndex, template.sourceSpan, R3.property,
-              () => [o.literal(input.name), this.convertPropertyBinding(value, true)]);
+          propertyBindings.push({
+            name: input.name,
+            input,
+            value: () => this.convertPropertyBinding(value, /* skipBindFn */ true)
+          });
         }
       }
     });
+
+    if (propertyBindings.length > 0) {
+      this.propertyInstructionChain(templateIndex, propertyBindings);
+    }
   }
 
   // Bindings must only be resolved after all local refs have been visited, so all
@@ -1052,8 +1069,8 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   private processStylingInstruction(
       elementIndex: number, instruction: Instruction|null, createMode: boolean) {
     if (instruction) {
-      const paramsFn = () =>
-          instruction.buildParams(value => this.convertPropertyBinding(value, true));
+      const paramsFn = () => instruction.buildParams(
+          value => this.convertPropertyBinding(value, /* skipBindFn */ true));
       if (createMode) {
         this.creationInstruction(instruction.sourceSpan, instruction.reference, paramsFn);
       } else {
@@ -1072,13 +1089,37 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   private updateInstruction(
       nodeIndex: number, span: ParseSourceSpan|null, reference: o.ExternalReference,
       paramsOrFn?: o.Expression[]|(() => o.Expression[])) {
+    this.addSelectInstructionIfNecessary(nodeIndex, span);
+    this.instructionFn(this._updateCodeFns, span, reference, paramsOrFn || []);
+  }
+
+  private updateInstructionChain(
+      nodeIndex: number, span: ParseSourceSpan|null, reference: o.ExternalReference,
+      callsOrFn?: o.Expression[][]|(() => o.Expression[][])) {
+    this.addSelectInstructionIfNecessary(nodeIndex, span);
+    this._updateCodeFns.push(() => {
+      const calls = typeof callsOrFn === 'function' ? callsOrFn() : callsOrFn;
+      return chainedInstruction(span, reference, calls || []).toStmt();
+    });
+  }
+
+  private propertyInstructionChain(
+      nodeIndex: number, propertyBindings: ChainablePropertyBinding[]) {
+    this.updateInstructionChain(
+        nodeIndex, propertyBindings.length ? propertyBindings[0].input.sourceSpan : null,
+        R3.property, () => {
+          return propertyBindings.map(
+              property => [o.literal(property.name), property.value(), ...(property.params || [])]);
+        });
+  }
+
+  private addSelectInstructionIfNecessary(nodeIndex: number, span: ParseSourceSpan|null) {
     if (this._lastNodeIndexWithFlush < nodeIndex) {
       if (nodeIndex > 0) {
         this.instructionFn(this._updateCodeFns, span, R3.select, [o.literal(nodeIndex)]);
       }
       this._lastNodeIndexWithFlush = nodeIndex;
     }
-    this.instructionFn(this._updateCodeFns, span, reference, paramsOrFn || []);
   }
 
   private allocatePureFunctionSlots(numSlots: number): number {
@@ -1105,12 +1146,12 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
         this._bindingScope.getOrCreateSharedContextVar(0);
   }
 
-  private convertExpressionBinding(value: AST): o.Expression {
+  private convertExpressionBinding(value: AST, skipBindFn?: boolean): o.Expression {
     const convertedPropertyBinding = convertPropertyBinding(
         this, this.getImplicitReceiverExpr(), value, this.bindingContext(), BindingForm.TrySimple);
     const valExpr = convertedPropertyBinding.currValExpr;
 
-    return o.importExpr(R3.bind).callFn([valExpr]);
+    return skipBindFn ? valExpr : o.importExpr(R3.bind).callFn([valExpr]);
   }
 
   private convertPropertyBinding(value: AST, skipBindFn?: boolean): o.Expression {
@@ -1381,6 +1422,22 @@ function instruction(
     span: ParseSourceSpan | null, reference: o.ExternalReference,
     params: o.Expression[]): o.Expression {
   return o.importExpr(reference, null, span).callFn(params, span);
+}
+
+function chainedInstruction(
+    span: ParseSourceSpan | null, reference: o.ExternalReference, calls: o.Expression[][]) {
+  let expression = o.importExpr(reference, null, span) as o.Expression;
+
+  if (calls.length > 0) {
+    for (let i = 0; i < calls.length; i++) {
+      expression = expression.callFn(calls[i], span);
+    }
+  } else {
+    // Add a blank invocation, in case the `calls` array is empty.
+    expression = expression.callFn([], span);
+  }
+
+  return expression;
 }
 
 // e.g. x(2);
@@ -1973,4 +2030,11 @@ function isTextNode(node: t.Node): boolean {
 
 function hasTextChildrenOnly(children: t.Node[]): boolean {
   return children.every(isTextNode);
+}
+
+interface ChainablePropertyBinding {
+  name: string;
+  input: t.BoundAttribute;
+  value: () => o.Expression;
+  params?: any[];
 }

@@ -16,7 +16,7 @@ import {addAllToArray} from '../util/array_utils';
 import {assertDataInRange, assertDefined, assertEqual, assertGreaterThan} from '../util/assert';
 
 import {attachPatchData} from './context_discovery';
-import {setDelayProjection, ɵɵload} from './instructions/all';
+import {setDelayProjection, ɵɵbind, ɵɵload} from './instructions/all';
 import {attachI18nOpCodesDebug} from './instructions/lview_debug';
 import {allocExpando, elementAttributeInternal, elementPropertyInternal, getOrCreateTNode, setInputsForProperty, textBindingInternal} from './instructions/shared';
 import {LContainer, NATIVE} from './interfaces/container';
@@ -1013,11 +1013,12 @@ let shiftsCounter = 0;
  * Stores the values of the bindings during each update cycle in order to determine if we need to
  * update the translated nodes.
  *
- * @param expression The binding's new value or NO_CHANGE
+ * @param value The binding's value
  *
  * @codeGenApi
  */
-export function ɵɵi18nExp<T>(expression: T | NO_CHANGE): void {
+export function ɵɵi18nExp<T>(value: T): void {
+  const expression = ɵɵbind(value);
   if (expression !== NO_CHANGE) {
     changeMask = changeMask | (1 << shiftsCounter);
   }
@@ -1315,13 +1316,14 @@ const LOCALIZE_PH_REGEXP = /\{\$(.*?)\}/g;
  * @codeGenApi
  * @deprecated this method is temporary & should not be used as it will be removed soon
  */
-export function ɵɵi18nLocalize(input: string, placeholders: {[key: string]: string} = {}) {
+export function ɵɵi18nLocalize(input: string, placeholders?: {[key: string]: string}) {
   if (typeof TRANSLATIONS[input] !== 'undefined') {  // to account for empty string
     input = TRANSLATIONS[input];
   }
-  return Object.keys(placeholders).length ?
-      input.replace(LOCALIZE_PH_REGEXP, (match, key) => placeholders[key] || '') :
-      input;
+  if (placeholders !== undefined && Object.keys(placeholders).length) {
+    return input.replace(LOCALIZE_PH_REGEXP, (_, key) => placeholders[key] || '');
+  }
+  return input;
 }
 
 /**
