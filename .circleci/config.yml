@@ -106,7 +106,7 @@ var_10: &restore_cache
 
 # Branch filter that can be specified for jobs that should only run on publish branches
 # (e.g. master or the patch branch)
-var_12: &publish_branches_filter
+var_11: &publish_branches_filter
   branches:
     only:
       - master
@@ -117,9 +117,29 @@ var_12: &publish_branches_filter
 # `build-npm-packages`.
 # https://circleci.com/docs/2.0/workflows/#using-workspaces-to-share-data-among-jobs
 # https://circleci.com/blog/deep-diving-into-circleci-workspaces/
-var_13: &attach_workspace
+var_12: &attach_workspace
   attach_workspace:
     at: ~/
+
+var_13: &notify_caretaker_on_fail
+  run:
+    when: on_fail
+    name: Notify caretaker about failure
+    # `$SLACK_CARETAKER_WEBHOOK_URL` is a secret env var defined in CircleCI project settings.
+    # The URL comes from https://angular-team.slack.com/apps/A0F7VRE7N-circleci.
+    command: |
+      notificationJson="{\"text\":\":x: \`$CIRCLE_JOB\` job failed on build $CIRCLE_BUILD_NUM: $CIRCLE_BUILD_URL :scream:\"}"
+      curl --request POST --header "Content-Type: application/json" --data "$notificationJson" $SLACK_CARETAKER_WEBHOOK_URL
+
+var_14: &notify_dev_infra_on_fail
+  run:
+    when: on_fail
+    name: Notify dev-infra about failure
+    # `$SLACK_DEV_INFRA_CI_FAILURES_WEBHOOK_URL` is a secret env var defined in CircleCI project settings.
+    # The URL comes from https://angular-team.slack.com/apps/A0F7VRE7N-circleci.
+    command: |
+      notificationJson="{\"text\":\":x: \`$CIRCLE_JOB\` job failed on build $CIRCLE_BUILD_NUM: $CIRCLE_BUILD_URL :scream:\"}"
+      curl --request POST --header "Content-Type: application/json" --data "$notificationJson" $SLACK_DEV_INFRA_CI_FAILURES_WEBHOOK_URL
 
 version: 2
 jobs:
@@ -247,6 +267,7 @@ jobs:
         # //packages/forms/test:web_test_sauce TIMEOUT in 315.0s
       - run: yarn bazel test --config=saucelabs //:test_web_all
       - run: ./scripts/saucelabs/stop-tunnel.sh
+      - *notify_dev_infra_on_fail
 
   test_aio:
     <<: *job_defaults
@@ -534,12 +555,8 @@ jobs:
       - run:
           name: Run tests against https://angular.io/
           command: ./aio/scripts/test-production.sh https://angular.io/ $CI_AIO_MIN_PWA_SCORE
-      - run:
-          name: Notify caretaker about failure
-          # `$SLACK_CARETAKER_WEBHOOK_URL` is a secret env var defined in CircleCI project settings.
-          # The URL comes from https://angular-team.slack.com/apps/A0F7VRE7N-circleci.
-          command: 'curl --request POST --header "Content-Type: application/json" --data "{\"text\":\":x: \`$CIRCLE_JOB\` job failed on build $CIRCLE_BUILD_NUM: $CIRCLE_BUILD_URL :scream:\"}" $SLACK_CARETAKER_WEBHOOK_URL'
-          when: on_fail
+      - *notify_caretaker_on_fail
+      - *notify_dev_infra_on_fail
 
   aio_monitoring_next:
     <<: *job_defaults
@@ -553,12 +570,8 @@ jobs:
       - run:
           name: Run tests against https://next.angular.io/
           command: ./aio/scripts/test-production.sh https://next.angular.io/ $CI_AIO_MIN_PWA_SCORE
-      - run:
-          name: Notify caretaker about failure
-          # `$SLACK_CARETAKER_WEBHOOK_URL` is a secret env var defined in CircleCI project settings.
-          # The URL comes from https://angular-team.slack.com/apps/A0F7VRE7N-circleci.
-          command: 'curl --request POST --header "Content-Type: application/json" --data "{\"text\":\":x: \`$CIRCLE_JOB\` job failed on build $CIRCLE_BUILD_NUM: $CIRCLE_BUILD_URL :scream:\"}" $SLACK_CARETAKER_WEBHOOK_URL'
-          when: on_fail
+      - *notify_caretaker_on_fail
+      - *notify_dev_infra_on_fail
 
   legacy-unit-tests-saucelabs:
     <<: *job_defaults
@@ -640,6 +653,17 @@ jobs:
       - run:
           name: "Running Material unit tests"
           command: ./scripts/ci/run_angular_material_unit_tests.sh
+
+  test_zonejs:
+    <<: *job_defaults
+    steps:
+      - *attach_workspace
+      - *init_environment
+        # Install
+      - run: yarn --cwd packages/zone.js install --frozen-lockfile --non-interactive
+        # Run zone.js tools tests
+      - run: yarn --cwd packages/zone.js promisetest
+      - run: yarn --cwd packages/zone.js promisefinallytest
 
 workflows:
   version: 2
@@ -725,6 +749,9 @@ workflows:
       - material-unit-tests:
           requires:
             - build-ivy-npm-packages
+      - test_zonejs:
+          requires:
+            - setup
 
   saucelabs_tests:
     jobs:

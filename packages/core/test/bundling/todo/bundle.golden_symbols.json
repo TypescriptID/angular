@@ -279,6 +279,9 @@
     "name": "UnsubscriptionErrorImpl"
   },
   {
+    "name": "VIEW_REFS"
+  },
+  {
     "name": "ViewContainerRef"
   },
   {
@@ -505,6 +508,9 @@
   },
   {
     "name": "baseResolveDirective"
+  },
+  {
+    "name": "bind"
   },
   {
     "name": "bindingUpdated"
@@ -1573,9 +1579,6 @@
   },
   {
     "name": "wrapListener"
-  },
-  {
-    "name": "ɵɵbind"
   },
   {
     "name": "ɵɵclassProp"

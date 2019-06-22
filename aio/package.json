@@ -19,7 +19,7 @@
     "build-local": "yarn ~~build",
     "prebuild-with-ivy": "yarn setup-local && node scripts/switch-to-ivy",
     "build-with-ivy": "yarn ~~build",
-    "extract-cli-command-docs": "node tools/transforms/cli-docs-package/extract-cli-commands.js ab6f36229",
+    "extract-cli-command-docs": "node tools/transforms/cli-docs-package/extract-cli-commands.js a7d4472eb",
     "lint": "yarn check-env && yarn docs-lint && ng lint && yarn example-lint && yarn tools-lint",
     "test": "yarn check-env && ng test",
     "pree2e": "yarn check-env && yarn update-webdriver",
@@ -93,8 +93,8 @@
     "zone.js": "^0.9.1"
   },
   "devDependencies": {
-    "@angular-devkit/build-angular": "0.800.2",
-    "@angular/cli": "8.0.2",
+    "@angular-devkit/build-angular": "0.801.0-beta.2",
+    "@angular/cli": "8.1.0-beta.2",
     "@angular/compiler": "^8.1.0-next.1",
     "@angular/compiler-cli": "^8.1.0-next.1",
     "@angular/language-service": "^8.1.0-next.1",
