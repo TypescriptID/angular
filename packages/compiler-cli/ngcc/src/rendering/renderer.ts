@@ -8,15 +8,13 @@
 import {ConstantPool, Expression, Statement, WrappedNodeExpr, WritePropExpr} from '@angular/compiler';
 import MagicString from 'magic-string';
 import * as ts from 'typescript';
-
-import {NOOP_DEFAULT_IMPORT_RECORDER} from '@angular/compiler-cli/src/ngtsc/imports';
+import {NOOP_DEFAULT_IMPORT_RECORDER} from '../../../src/ngtsc/imports';
 import {translateStatement, ImportManager} from '../../../src/ngtsc/translator';
 import {CompiledClass, CompiledFile, DecorationAnalyses} from '../analysis/decoration_analyzer';
 import {PrivateDeclarationsAnalyses} from '../analysis/private_declarations_analyzer';
 import {SwitchMarkerAnalyses, SwitchMarkerAnalysis} from '../analysis/switch_marker_analyzer';
 import {IMPORT_PREFIX} from '../constants';
-import {FileSystem} from '../file_system/file_system';
-import {NgccReflectionHost} from '../host/ngcc_host';
+import {FileSystem} from '../../../src/ngtsc/file_system';
 import {EntryPointBundle} from '../packages/entry_point_bundle';
 import {Logger} from '../logging/logger';
 import {FileToWrite, getImportRewriter, stripExtension} from './utils';
@@ -32,8 +30,7 @@ import {extractSourceMap, renderSourceAndMap} from './source_maps';
 export class Renderer {
   constructor(
       private srcFormatter: RenderingFormatter, private fs: FileSystem, private logger: Logger,
-      private host: NgccReflectionHost, private isCore: boolean, private bundle: EntryPointBundle) {
-  }
+      private bundle: EntryPointBundle) {}
 
   renderProgram(
       decorationAnalyses: DecorationAnalyses, switchMarkerAnalyses: SwitchMarkerAnalyses,
@@ -73,7 +70,8 @@ export class Renderer {
     }
 
     const importManager = new ImportManager(
-        getImportRewriter(this.bundle.src.r3SymbolsFile, this.isCore, this.bundle.isFlatCore),
+        getImportRewriter(
+            this.bundle.src.r3SymbolsFile, this.bundle.isCore, this.bundle.isFlatCore),
         IMPORT_PREFIX);
 
     if (compiledFile) {

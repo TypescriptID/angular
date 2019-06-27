@@ -7,8 +7,7 @@
  */
 
 import {DepGraph} from 'dependency-graph';
-import {AbsoluteFsPath} from '../../../src/ngtsc/path';
-import {FileSystem} from '../file_system/file_system';
+import {AbsoluteFsPath, FileSystem, resolve} from '../../../src/ngtsc/file_system';
 import {Logger} from '../logging/logger';
 import {EntryPoint, EntryPointFormat, EntryPointJsonProperty, getEntryPointFormat} from '../packages/entry_point';
 import {DependencyHost} from './dependency_host';
@@ -131,12 +130,13 @@ export class DependencyResolver {
         removeNodes(entryPoint, Array.from(missing));
       } else {
         dependencies.forEach(dependencyPath => {
-          if (graph.hasNode(dependencyPath)) {
-            if (graph.hasNode(entryPoint.path)) {
-              // The entry-point is still valid (i.e. has no missing dependencies) and
-              // the dependency maps to an entry point that exists in the graph so add it
-              graph.addDependency(entryPoint.path, dependencyPath);
-            }
+          if (!graph.hasNode(entryPoint.path)) {
+            // The entry-point has already been identified as invalid so we don't need
+            // to do any further work on it.
+          } else if (graph.hasNode(dependencyPath)) {
+            // The entry-point is still valid (i.e. has no missing dependencies) and
+            // the dependency maps to an entry point that exists in the graph so add it
+            graph.addDependency(entryPoint.path, dependencyPath);
           } else if (invalidEntryPoints.some(i => i.entryPoint.path === dependencyPath)) {
             // The dependency path maps to an entry-point that was previously removed
             // from the graph, so remove this entry-point as well.
@@ -176,7 +176,7 @@ export class DependencyResolver {
 
       if (format === 'esm2015' || format === 'esm5' || format === 'umd' || format === 'commonjs') {
         const formatPath = entryPoint.packageJson[property] !;
-        return {format, path: AbsoluteFsPath.resolve(entryPoint.path, formatPath)};
+        return {format, path: resolve(entryPoint.path, formatPath)};
       }
     }
     throw new Error(

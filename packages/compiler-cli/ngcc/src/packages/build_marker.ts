@@ -5,9 +5,7 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-
-import {AbsoluteFsPath} from '../../../src/ngtsc/path';
-import {FileSystem} from '../file_system/file_system';
+import {AbsoluteFsPath, FileSystem, dirname} from '../../../src/ngtsc/file_system';
 import {EntryPointJsonProperty, EntryPointPackageJson} from './entry_point';
 
 export const NGCC_VERSION = '0.0.0-PLACEHOLDER';
@@ -51,5 +49,8 @@ export function markAsProcessed(
     format: EntryPointJsonProperty) {
   if (!packageJson.__processed_by_ivy_ngcc__) packageJson.__processed_by_ivy_ngcc__ = {};
   packageJson.__processed_by_ivy_ngcc__[format] = NGCC_VERSION;
+  // Just in case this package.json was synthesized due to a custom configuration
+  // we will ensure that the path to the containing folder exists before we write the file.
+  fs.ensureDir(dirname(packageJsonPath));
   fs.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2));
 }

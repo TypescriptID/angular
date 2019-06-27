@@ -10,16 +10,17 @@ import * as ts from 'typescript';
 
 import {BaseDefDecoratorHandler, ComponentDecoratorHandler, DirectiveDecoratorHandler, InjectableDecoratorHandler, NgModuleDecoratorHandler, PipeDecoratorHandler, ReferencesRegistry, ResourceLoader} from '../../../src/ngtsc/annotations';
 import {CycleAnalyzer, ImportGraph} from '../../../src/ngtsc/cycles';
+import {FileSystem, LogicalFileSystem, absoluteFrom, dirname, resolve} from '../../../src/ngtsc/file_system';
 import {AbsoluteModuleStrategy, LocalIdentifierStrategy, LogicalProjectStrategy, ModuleResolver, NOOP_DEFAULT_IMPORT_RECORDER, ReferenceEmitter} from '../../../src/ngtsc/imports';
 import {CompoundMetadataReader, CompoundMetadataRegistry, DtsMetadataReader, LocalMetadataRegistry} from '../../../src/ngtsc/metadata';
 import {PartialEvaluator} from '../../../src/ngtsc/partial_evaluator';
-import {AbsoluteFsPath, LogicalFileSystem} from '../../../src/ngtsc/path';
 import {ClassDeclaration, ClassSymbol, Decorator} from '../../../src/ngtsc/reflection';
 import {LocalModuleScopeRegistry, MetadataDtsModuleScopeResolver} from '../../../src/ngtsc/scope';
 import {CompileResult, DecoratorHandler, DetectResult, HandlerPrecedence} from '../../../src/ngtsc/transform';
-import {FileSystem} from '../file_system/file_system';
 import {NgccReflectionHost} from '../host/ngcc_host';
+import {EntryPointBundle} from '../packages/entry_point_bundle';
 import {isDefined} from '../utils';
+import {isWithinPackage} from './util';
 
 export interface AnalyzedFile {
   sourceFile: ts.SourceFile;
@@ -57,9 +58,9 @@ class NgccResourceLoader implements ResourceLoader {
   constructor(private fs: FileSystem) {}
   canPreload = false;
   preload(): undefined|Promise<void> { throw new Error('Not implemented.'); }
-  load(url: string): string { return this.fs.readFile(AbsoluteFsPath.resolve(url)); }
+  load(url: string): string { return this.fs.readFile(resolve(url)); }
   resolve(url: string, containingFile: string): string {
-    return AbsoluteFsPath.resolve(AbsoluteFsPath.dirname(AbsoluteFsPath.from(containingFile)), url);
+    return resolve(dirname(absoluteFrom(containingFile)), url);
   }
 }
 
@@ -67,6 +68,13 @@ class NgccResourceLoader implements ResourceLoader {
  * This Analyzer will analyze the files that have decorated classes that need to be transformed.
  */
 export class DecorationAnalyzer {
+  private program = this.bundle.src.program;
+  private options = this.bundle.src.options;
+  private host = this.bundle.src.host;
+  private typeChecker = this.bundle.src.program.getTypeChecker();
+  private rootDirs = this.bundle.rootDirs;
+  private packagePath = this.bundle.entryPoint.package;
+  private isCore = this.bundle.isCore;
   resourceManager = new NgccResourceLoader(this.fs);
   metaRegistry = new LocalMetadataRegistry();
   dtsMetaReader = new DtsMetadataReader(this.typeChecker, this.reflectionHost);
@@ -113,10 +121,8 @@ export class DecorationAnalyzer {
   ];
 
   constructor(
-      private fs: FileSystem, private program: ts.Program, private options: ts.CompilerOptions,
-      private host: ts.CompilerHost, private typeChecker: ts.TypeChecker,
-      private reflectionHost: NgccReflectionHost, private referencesRegistry: ReferencesRegistry,
-      private rootDirs: AbsoluteFsPath[], private isCore: boolean) {}
+      private fs: FileSystem, private bundle: EntryPointBundle,
+      private reflectionHost: NgccReflectionHost, private referencesRegistry: ReferencesRegistry) {}
 
   /**
    * Analyze a program to find all the decorated files should be transformed.
@@ -126,6 +132,7 @@ export class DecorationAnalyzer {
   analyzeProgram(): DecorationAnalyses {
     const decorationAnalyses = new DecorationAnalyses();
     const analysedFiles = this.program.getSourceFiles()
+                              .filter(sourceFile => isWithinPackage(this.packagePath, sourceFile))
                               .map(sourceFile => this.analyzeFile(sourceFile))
                               .filter(isDefined);
     analysedFiles.forEach(analysedFile => this.resolveFile(analysedFile));

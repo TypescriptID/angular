@@ -7,20 +7,19 @@
  */
 import MagicString from 'magic-string';
 import * as ts from 'typescript';
-
+import {FileSystem} from '../../../src/ngtsc/file_system';
+import {CompileResult} from '../../../src/ngtsc/transform';
 import {translateType, ImportManager} from '../../../src/ngtsc/translator';
 import {DecorationAnalyses} from '../analysis/decoration_analyzer';
 import {ModuleWithProvidersInfo, ModuleWithProvidersAnalyses} from '../analysis/module_with_providers_analyzer';
 import {PrivateDeclarationsAnalyses, ExportInfo} from '../analysis/private_declarations_analyzer';
 import {IMPORT_PREFIX} from '../constants';
-import {FileSystem} from '../file_system/file_system';
 import {NgccReflectionHost} from '../host/ngcc_host';
 import {EntryPointBundle} from '../packages/entry_point_bundle';
 import {Logger} from '../logging/logger';
 import {FileToWrite, getImportRewriter} from './utils';
 import {RenderingFormatter} from './rendering_formatter';
 import {extractSourceMap, renderSourceAndMap} from './source_maps';
-import {CompileResult} from '@angular/compiler-cli/src/ngtsc/transform';
 
 /**
  * A structure that captures information about what needs to be rendered
@@ -54,8 +53,7 @@ export interface DtsClassInfo {
 export class DtsRenderer {
   constructor(
       private dtsFormatter: RenderingFormatter, private fs: FileSystem, private logger: Logger,
-      private host: NgccReflectionHost, private isCore: boolean, private bundle: EntryPointBundle) {
-  }
+      private host: NgccReflectionHost, private bundle: EntryPointBundle) {}
 
   renderProgram(
       decorationAnalyses: DecorationAnalyses,
@@ -85,7 +83,8 @@ export class DtsRenderer {
     const outputText = new MagicString(input.source);
     const printer = ts.createPrinter();
     const importManager = new ImportManager(
-        getImportRewriter(this.bundle.dts !.r3SymbolsFile, this.isCore, false), IMPORT_PREFIX);
+        getImportRewriter(this.bundle.dts !.r3SymbolsFile, this.bundle.isCore, false),
+        IMPORT_PREFIX);
 
     renderInfo.classInfo.forEach(dtsClass => {
       const endOfClass = dtsClass.dtsDeclaration.getEnd();

@@ -672,6 +672,24 @@
     "name": "enterView"
   },
   {
+    "name": "executeActionOnContainer"
+  },
+  {
+    "name": "executeActionOnElementContainer"
+  },
+  {
+    "name": "executeActionOnElementOrContainer"
+  },
+  {
+    "name": "executeActionOnNode"
+  },
+  {
+    "name": "executeActionOnProjection"
+  },
+  {
+    "name": "executeActionOnView"
+  },
+  {
     "name": "executeContentQueries"
   },
   {
@@ -679,9 +697,6 @@
   },
   {
     "name": "executeListenerWithErrorHandling"
-  },
-  {
-    "name": "executeNodeAction"
   },
   {
     "name": "executeOnDestroys"
@@ -1281,9 +1296,6 @@
     "name": "prepareInitialFlag"
   },
   {
-    "name": "projectionNodeStack"
-  },
-  {
     "name": "queueComponentIndexForCheck"
   },
   {
@@ -1570,9 +1582,6 @@
   },
   {
     "name": "viewAttachedToContainer"
-  },
-  {
-    "name": "walkTNodeTree"
   },
   {
     "name": "walkUpViews"

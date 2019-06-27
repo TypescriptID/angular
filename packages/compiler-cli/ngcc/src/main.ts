@@ -5,18 +5,16 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-import {AbsoluteFsPath} from '../../src/ngtsc/path';
-
+import {AbsoluteFsPath, FileSystem, absoluteFrom, dirname, getFileSystem, resolve} from '../../src/ngtsc/file_system';
 import {CommonJsDependencyHost} from './dependencies/commonjs_dependency_host';
 import {DependencyResolver} from './dependencies/dependency_resolver';
 import {EsmDependencyHost} from './dependencies/esm_dependency_host';
 import {ModuleResolver} from './dependencies/module_resolver';
 import {UmdDependencyHost} from './dependencies/umd_dependency_host';
-import {FileSystem} from './file_system/file_system';
-import {NodeJSFileSystem} from './file_system/node_js_file_system';
 import {ConsoleLogger, LogLevel} from './logging/console_logger';
 import {Logger} from './logging/logger';
 import {hasBeenProcessed, markAsProcessed} from './packages/build_marker';
+import {NgccConfiguration} from './packages/configuration';
 import {EntryPointFormat, EntryPointJsonProperty, SUPPORTED_FORMAT_PROPERTIES, getEntryPointFormat} from './packages/entry_point';
 import {makeEntryPointBundle} from './packages/entry_point_bundle';
 import {EntryPointFinder} from './packages/entry_point_finder';
@@ -63,6 +61,10 @@ export interface NgccOptions {
    * These are used to resolve paths to locally built Angular libraries.
    */
   pathMappings?: PathMappings;
+  /**
+   * Provide a file-system service that will be used by ngcc for all file interactions.
+   */
+  fileSystem?: FileSystem;
 }
 
 const SUPPORTED_FORMATS: EntryPointFormat[] = ['esm5', 'esm2015', 'umd', 'commonjs'];
@@ -79,33 +81,34 @@ export function mainNgcc(
     {basePath, targetEntryPointPath, propertiesToConsider = SUPPORTED_FORMAT_PROPERTIES,
      compileAllFormats = true, createNewEntryPointFormats = false,
      logger = new ConsoleLogger(LogLevel.info), pathMappings}: NgccOptions): void {
-  const fs = new NodeJSFileSystem();
-  const transformer = new Transformer(fs, logger);
-  const moduleResolver = new ModuleResolver(fs, pathMappings);
-  const esmDependencyHost = new EsmDependencyHost(fs, moduleResolver);
-  const umdDependencyHost = new UmdDependencyHost(fs, moduleResolver);
-  const commonJsDependencyHost = new CommonJsDependencyHost(fs, moduleResolver);
-  const resolver = new DependencyResolver(fs, logger, {
+  const fileSystem = getFileSystem();
+  const transformer = new Transformer(fileSystem, logger);
+  const moduleResolver = new ModuleResolver(fileSystem, pathMappings);
+  const esmDependencyHost = new EsmDependencyHost(fileSystem, moduleResolver);
+  const umdDependencyHost = new UmdDependencyHost(fileSystem, moduleResolver);
+  const commonJsDependencyHost = new CommonJsDependencyHost(fileSystem, moduleResolver);
+  const resolver = new DependencyResolver(fileSystem, logger, {
     esm5: esmDependencyHost,
     esm2015: esmDependencyHost,
     umd: umdDependencyHost,
     commonjs: commonJsDependencyHost
   });
-  const finder = new EntryPointFinder(fs, logger, resolver);
-  const fileWriter = getFileWriter(fs, createNewEntryPointFormats);
+  const config = new NgccConfiguration(fileSystem, dirname(absoluteFrom(basePath)));
+  const finder = new EntryPointFinder(fileSystem, config, logger, resolver);
+  const fileWriter = getFileWriter(fileSystem, createNewEntryPointFormats);
 
   const absoluteTargetEntryPointPath =
-      targetEntryPointPath ? AbsoluteFsPath.resolve(basePath, targetEntryPointPath) : undefined;
+      targetEntryPointPath ? resolve(basePath, targetEntryPointPath) : undefined;
 
   if (absoluteTargetEntryPointPath &&
       hasProcessedTargetEntryPoint(
-          fs, absoluteTargetEntryPointPath, propertiesToConsider, compileAllFormats)) {
+          fileSystem, absoluteTargetEntryPointPath, propertiesToConsider, compileAllFormats)) {
     logger.debug('The target entry-point has already been processed');
     return;
   }
 
-  const {entryPoints, invalidEntryPoints} = finder.findEntryPoints(
-      AbsoluteFsPath.from(basePath), absoluteTargetEntryPointPath, pathMappings);
+  const {entryPoints, invalidEntryPoints} =
+      finder.findEntryPoints(absoluteFrom(basePath), absoluteTargetEntryPointPath, pathMappings);
 
   invalidEntryPoints.forEach(invalidEntryPoint => {
     logger.debug(
@@ -115,25 +118,25 @@ export function mainNgcc(
   });
 
   if (absoluteTargetEntryPointPath && entryPoints.length === 0) {
-    markNonAngularPackageAsProcessed(fs, absoluteTargetEntryPointPath, propertiesToConsider);
+    markNonAngularPackageAsProcessed(
+        fileSystem, absoluteTargetEntryPointPath, propertiesToConsider);
     return;
   }
 
-  entryPoints.forEach(entryPoint => {
+  for (const entryPoint of entryPoints) {
     // Are we compiling the Angular core?
     const isCore = entryPoint.name === '@angular/core';
 
     const compiledFormats = new Set<string>();
     const entryPointPackageJson = entryPoint.packageJson;
-    const entryPointPackageJsonPath =
-        AbsoluteFsPath.fromUnchecked(`${entryPoint.path}/package.json`);
+    const entryPointPackageJsonPath = fileSystem.resolve(entryPoint.path, 'package.json');
 
     const hasProcessedDts = hasBeenProcessed(entryPointPackageJson, 'typings');
 
     for (let i = 0; i < propertiesToConsider.length; i++) {
       const property = propertiesToConsider[i] as EntryPointJsonProperty;
       const formatPath = entryPointPackageJson[property];
-      const format = getEntryPointFormat(fs, entryPoint, property);
+      const format = getEntryPointFormat(fileSystem, entryPoint, property);
 
       // No format then this property is not supposed to be compiled.
       if (!formatPath || !format || SUPPORTED_FORMATS.indexOf(format) === -1) continue;
@@ -151,8 +154,7 @@ export function mainNgcc(
       // the property as processed even if its underlying format has been built already.
       if (!compiledFormats.has(formatPath) && (compileAllFormats || isFirstFormat)) {
         const bundle = makeEntryPointBundle(
-            fs, entryPoint.path, formatPath, entryPoint.typings, isCore, property, format,
-            processDts, pathMappings);
+            fileSystem, entryPoint, formatPath, isCore, property, format, processDts, pathMappings);
         if (bundle) {
           logger.info(`Compiling ${entryPoint.name} : ${property} as ${format}`);
           const transformedFiles = transformer.transform(bundle);
@@ -169,9 +171,9 @@ export function mainNgcc(
       // Either this format was just compiled or its underlying format was compiled because of a
       // previous property.
       if (compiledFormats.has(formatPath)) {
-        markAsProcessed(fs, entryPointPackageJson, entryPointPackageJsonPath, property);
+        markAsProcessed(fileSystem, entryPointPackageJson, entryPointPackageJsonPath, property);
         if (processDts) {
-          markAsProcessed(fs, entryPointPackageJson, entryPointPackageJsonPath, 'typings');
+          markAsProcessed(fileSystem, entryPointPackageJson, entryPointPackageJsonPath, 'typings');
         }
       }
     }
@@ -180,7 +182,7 @@ export function mainNgcc(
       throw new Error(
           `Failed to compile any formats for entry-point at (${entryPoint.path}). Tried ${propertiesToConsider}.`);
     }
-  });
+  }
 }
 
 function getFileWriter(fs: FileSystem, createNewEntryPointFormats: boolean): FileWriter {
@@ -190,7 +192,11 @@ function getFileWriter(fs: FileSystem, createNewEntryPointFormats: boolean): Fil
 function hasProcessedTargetEntryPoint(
     fs: FileSystem, targetPath: AbsoluteFsPath, propertiesToConsider: string[],
     compileAllFormats: boolean) {
-  const packageJsonPath = AbsoluteFsPath.resolve(targetPath, 'package.json');
+  const packageJsonPath = resolve(targetPath, 'package.json');
+  // It might be that this target is configured in which case its package.json might not exist.
+  if (!fs.exists(packageJsonPath)) {
+    return false;
+  }
   const packageJson = JSON.parse(fs.readFile(packageJsonPath));
 
   for (const property of propertiesToConsider) {
@@ -221,7 +227,7 @@ function hasProcessedTargetEntryPoint(
  */
 function markNonAngularPackageAsProcessed(
     fs: FileSystem, path: AbsoluteFsPath, propertiesToConsider: string[]) {
-  const packageJsonPath = AbsoluteFsPath.resolve(path, 'package.json');
+  const packageJsonPath = resolve(path, 'package.json');
   const packageJson = JSON.parse(fs.readFile(packageJsonPath));
   propertiesToConsider.forEach(formatProperty => {
     if (packageJson[formatProperty])
