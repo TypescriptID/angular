@@ -675,10 +675,10 @@
     "name": "executeActionOnContainer"
   },
   {
-    "name": "executeActionOnElementContainer"
+    "name": "executeActionOnElementOrContainer"
   },
   {
-    "name": "executeActionOnElementOrContainer"
+    "name": "executeActionOnElementContainerOrIcuContainer"
   },
   {
     "name": "executeActionOnNode"
@@ -1243,6 +1243,9 @@
   },
   {
     "name": "matchTemplateAttribute"
+  },
+  {
+    "name": "namespaceHTMLInternal"
   },
   {
     "name": "nativeAppendChild"

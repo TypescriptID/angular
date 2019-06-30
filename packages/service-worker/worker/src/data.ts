@@ -354,10 +354,11 @@ export class DataGroup {
 
       // Cache the network response eventually.
       ctx.waitUntil(this.safeCacheResponse(req, networkFetch));
+    } else {
+      // The request completed in time, so cache it inline with the response flow.
+      await this.cacheResponse(req, res, lru);
     }
 
-    // The request completed in time, so cache it inline with the response flow.
-    await this.cacheResponse(req, res, lru);
     return res;
   }
 
@@ -377,7 +378,7 @@ export class DataGroup {
 
     // If the network fetch times out or errors, fall back on the cache.
     if (res === undefined) {
-      ctx.waitUntil(this.safeCacheResponse(req, networkFetch));
+      ctx.waitUntil(this.safeCacheResponse(req, networkFetch, true));
 
       // Ignore the age, the network response will be cached anyway due to the
       // behavior of freshness.
@@ -394,9 +395,7 @@ export class DataGroup {
     }
 
     // No response in the cache. No choice but to fall back on the full network fetch.
-    res = await networkFetch;
-    await this.cacheResponse(req, res, lru, true);
-    return res;
+    return networkFetch;
   }
 
   private networkFetchWithTimeout(req: Request): [Promise<Response|undefined>, Promise<Response>] {
@@ -433,9 +432,10 @@ export class DataGroup {
     }
   }
 
-  private async safeCacheResponse(req: Request, res: Promise<Response>): Promise<void> {
+  private async safeCacheResponse(req: Request, res: Promise<Response>, okToCacheOpaque?: boolean):
+      Promise<void> {
     try {
-      await this.cacheResponse(req, await res, await this.lru());
+      await this.cacheResponse(req, await res, await this.lru(), okToCacheOpaque);
     } catch {
       // TODO: handle this error somehow?
     }
@@ -480,10 +480,10 @@ export class DataGroup {
    * If the request times out on the server, an error will be returned but the real network
    * request will still be running in the background, to be cached when it completes.
    */
-  private async cacheResponse(
-      req: Request, res: Response, lru: LruList, okToCacheOpaque: boolean = false): Promise<void> {
+  private async cacheResponse(req: Request, res: Response, lru: LruList, okToCacheOpaque = false):
+      Promise<void> {
     // Only cache successful responses.
-    if (!res.ok || (okToCacheOpaque && res.type === 'opaque')) {
+    if (!(res.ok || (okToCacheOpaque && res.type === 'opaque'))) {
       return;
     }
 
