@@ -83,6 +83,7 @@ def ts_library(tsconfig = None, testonly = False, deps = [], module_name = None,
         # Match the types[] in //packages:tsconfig-test.json
         deps.append("@npm//@types/jasmine")
         deps.append("@npm//@types/node")
+        deps.append("@npm//@types/events")
     if not tsconfig and testonly:
         tsconfig = _DEFAULT_TSCONFIG_TEST
 
@@ -104,6 +105,7 @@ def ng_module(name, tsconfig = None, entry_point = None, testonly = False, deps 
         # Match the types[] in //packages:tsconfig-test.json
         deps.append("@npm//@types/jasmine")
         deps.append("@npm//@types/node")
+        deps.append("@npm//@types/events")
     if not tsconfig and testonly:
         tsconfig = _DEFAULT_TSCONFIG_TEST
 
@@ -159,7 +161,7 @@ def ts_web_test(bootstrap = [], deps = [], runtime_deps = [], **kwargs):
     if not bootstrap:
         bootstrap = ["//:web_test_bootstrap_scripts"]
     local_deps = [
-        "@npm//node_modules/tslib:tslib.js",
+        "@npm//:node_modules/tslib/tslib.js",
         "//tools/rxjs:rxjs_umd_modules",
     ] + deps
     local_runtime_deps = [
@@ -178,7 +180,7 @@ def ts_web_test_suite(bootstrap = [], deps = [], runtime_deps = [], **kwargs):
     if not bootstrap:
         bootstrap = ["//:web_test_bootstrap_scripts"]
     local_deps = [
-        "@npm//node_modules/tslib:tslib.js",
+        "@npm//:node_modules/tslib/tslib.js",
         "//tools/rxjs:rxjs_umd_modules",
     ] + deps
     local_runtime_deps = [
@@ -209,7 +211,7 @@ def karma_web_test(bootstrap = [], deps = [], data = [], runtime_deps = [], **kw
         bootstrap = ["//:web_test_bootstrap_scripts"]
     local_deps = [
         "@npm//karma-browserstack-launcher",
-        "@npm//node_modules/tslib:tslib.js",
+        "@npm//:node_modules/tslib/tslib.js",
         "//tools/rxjs:rxjs_umd_modules",
     ] + deps
     local_runtime_deps = [
@@ -234,7 +236,7 @@ def karma_web_test_suite(bootstrap = [], deps = [], **kwargs):
     if not bootstrap:
         bootstrap = ["//:web_test_bootstrap_scripts"]
     local_deps = [
-        "@npm//node_modules/tslib:tslib.js",
+        "@npm//:node_modules/tslib/tslib.js",
         "//tools/rxjs:rxjs_umd_modules",
     ] + deps
 

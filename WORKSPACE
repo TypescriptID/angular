@@ -18,8 +18,8 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 # Fetch rules_nodejs so we can install our npm dependencies
 http_archive(
     name = "build_bazel_rules_nodejs",
-    sha256 = "e04a82a72146bfbca2d0575947daa60fda1878c8d3a3afe868a8ec39a6b968bb",
-    urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/0.31.1/rules_nodejs-0.31.1.tar.gz"],
+    sha256 = "6d4edbf28ff6720aedf5f97f9b9a7679401bf7fca9d14a0fff80f644a99992b4",
+    urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/0.32.2/rules_nodejs-0.32.2.tar.gz"],
 )
 
 # Check the bazel version and download npm dependencies
@@ -27,6 +27,7 @@ load("@build_bazel_rules_nodejs//:defs.bzl", "check_bazel_version", "check_rules
 
 # Bazel version must be at least the following version because:
 #   - 0.26.0 managed_directories feature added which is required for nodejs rules 0.30.0
+#   - 0.27.0 has a fix for managed_directories after `rm -rf node_modules`
 check_bazel_version(
     message = """
 You no longer need to install Bazel on your machine.
@@ -35,7 +36,7 @@ Try running `yarn bazel` instead.
     (If you did run that, check that you've got a fresh `yarn install`)
 
 """,
-    minimum_bazel_version = "0.26.0",
+    minimum_bazel_version = "0.27.0",
 )
 
 # The NodeJS rules version must be at least the following version because:
@@ -46,7 +47,10 @@ Try running `yarn bazel` instead.
 #   - 0.27.12 Adds NodeModuleSources provider for transtive npm deps support
 #   - 0.30.0 yarn_install now uses symlinked node_modules with new managed directories Bazel 0.26.0 feature
 #   - 0.31.1 entry_point attribute of nodejs_binary & rollup_bundle is now a label
-check_rules_nodejs_version(minimum_version_string = "0.31.1")
+#   - 0.32.0 yarn_install and npm_install no longer puts build files under symlinked node_modules
+#   - 0.32.1 remove override of @bazel/tsetse & exclude typescript lib declarations in node_module_library transitive_declarations
+#   - 0.32.2 resolves bug in @bazel/hide-bazel-files postinstall step
+check_rules_nodejs_version(minimum_version_string = "0.32.2")
 
 # Setup the Node.js toolchain
 node_repositories(
@@ -70,19 +74,7 @@ node_repositories(
 
 yarn_install(
     name = "npm",
-    data = [
-        "//:tools/npm/@angular_bazel/index.js",
-        "//:tools/npm/@angular_bazel/package.json",
-        "//:tools/postinstall-patches.js",
-        "//:tools/yarn/check-yarn.js",
-    ],
     package_json = "//:package.json",
-    # Don't install devDependencies, they are large and not used under Bazel
-    prod_only = True,
-    # Temporarily disable node_modules symlinking until the fix for
-    # https://github.com/bazelbuild/bazel/issues/8487 makes it into a
-    # future Bazel release
-    symlink_node_modules = False,
     yarn_lock = "//:yarn.lock",
 )
 
