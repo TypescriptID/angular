@@ -165,6 +165,11 @@ export declare abstract class ComponentRef<C> {
     abstract onDestroy(callback: Function): void;
 }
 
+export interface ConstructorProvider extends ConstructorSansProvider {
+    multi?: boolean;
+    provide: Type<any>;
+}
+
 export interface ConstructorSansProvider {
     deps?: any[];
 }
@@ -332,9 +337,18 @@ export interface ExistingProvider extends ExistingSansProvider {
     provide: any;
 }
 
+export interface ExistingSansProvider {
+    useExisting: any;
+}
+
 export interface FactoryProvider extends FactorySansProvider {
     multi?: boolean;
     provide: any;
+}
+
+export interface FactorySansProvider {
+    deps?: any[];
+    useFactory: Function;
 }
 
 export declare function forwardRef(forwardRefFn: ForwardRefFn): Type<any>;
@@ -902,24 +916,6 @@ export interface ɵɵInjectorDef<T> {
     providers: (Type<any> | ValueProvider | ExistingProvider | FactoryProvider | ConstructorProvider | StaticClassProvider | ClassProvider | any[])[];
 }
 
-export declare function ɵɵinterpolation1(prefix: string, v0: any, suffix: string): string | NO_CHANGE;
-
-export declare function ɵɵinterpolation2(prefix: string, v0: any, i0: string, v1: any, suffix: string): string | NO_CHANGE;
-
-export declare function ɵɵinterpolation3(prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, suffix: string): string | NO_CHANGE;
-
-export declare function ɵɵinterpolation4(prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, i2: string, v3: any, suffix: string): string | NO_CHANGE;
-
-export declare function ɵɵinterpolation5(prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, i2: string, v3: any, i3: string, v4: any, suffix: string): string | NO_CHANGE;
-
-export declare function ɵɵinterpolation6(prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, i2: string, v3: any, i3: string, v4: any, i4: string, v5: any, suffix: string): string | NO_CHANGE;
-
-export declare function ɵɵinterpolation7(prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, i2: string, v3: any, i3: string, v4: any, i4: string, v5: any, i5: string, v6: any, suffix: string): string | NO_CHANGE;
-
-export declare function ɵɵinterpolation8(prefix: string, v0: any, i0: string, v1: any, i1: string, v2: any, i2: string, v3: any, i3: string, v4: any, i4: string, v5: any, i5: string, v6: any, i6: string, v7: any, suffix: string): string | NO_CHANGE;
-
-export declare function ɵɵinterpolationV(values: any[]): string | NO_CHANGE;
-
 export declare function ɵɵlistener(eventName: string, listenerFn: (e?: any) => any, useCapture?: boolean, eventTargetResolver?: GlobalTargetResolver): void;
 
 export declare function ɵɵload<T>(index: number): T;
@@ -1361,6 +1357,16 @@ export declare const SkipSelf: SkipSelfDecorator;
 export interface SkipSelfDecorator {
     (): any;
     new (): SkipSelf;
+}
+
+export interface StaticClassProvider extends StaticClassSansProvider {
+    multi?: boolean;
+    provide: any;
+}
+
+export interface StaticClassSansProvider {
+    deps: any[];
+    useClass: Type<any>;
 }
 
 export declare type StaticProvider = ValueProvider | ExistingProvider | StaticClassProvider | ConstructorProvider | FactoryProvider | any[];
