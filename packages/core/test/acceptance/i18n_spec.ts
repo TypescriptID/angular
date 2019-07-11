@@ -8,7 +8,7 @@
 
 import {registerLocaleData} from '@angular/common';
 import localeRo from '@angular/common/locales/ro';
-import {Component, ContentChild, ContentChildren, Directive, HostBinding, Input, LOCALE_ID, QueryList, TemplateRef, Type, ViewChild, ViewContainerRef, ɵi18nConfigureLocalize} from '@angular/core';
+import {Component, ContentChild, ContentChildren, Directive, HostBinding, Input, LOCALE_ID, QueryList, TemplateRef, Type, ViewChild, ViewContainerRef, ɵi18nConfigureLocalize, Pipe, PipeTransform} from '@angular/core';
 import {setDelayProjection} from '@angular/core/src/render3/instructions/projection';
 import {TestBed} from '@angular/core/testing';
 import {By} from '@angular/platform-browser';
@@ -18,7 +18,7 @@ import {onlyInIvy} from '@angular/private/testing';
 
 onlyInIvy('Ivy i18n logic').describe('runtime i18n', () => {
   beforeEach(() => {
-    TestBed.configureTestingModule({declarations: [AppComp, DirectiveWithTplRef]});
+    TestBed.configureTestingModule({declarations: [AppComp, DirectiveWithTplRef, UppercasePipe]});
   });
 
   afterEach(() => { setDelayProjection(false); });
@@ -39,6 +39,26 @@ onlyInIvy('Ivy i18n logic').describe('runtime i18n', () => {
     expect(fixture.nativeElement.innerHTML).toEqual(`<div>Bonjour John!</div>`);
   });
 
+  it('should support named interpolations', () => {
+    ɵi18nConfigureLocalize({
+      translations: {
+        ' Hello {$userName}! Emails: {$amountOfEmailsReceived} ':
+            ' Bonjour {$userName}! Emails: {$amountOfEmailsReceived} '
+      }
+    });
+    const fixture = initWithTemplate(AppComp, `
+      <div i18n>
+        Hello {{ name // i18n(ph="user_name") }}!
+        Emails: {{ count // i18n(ph="amount of emails received") }}
+      </div>
+    `);
+    expect(fixture.nativeElement.innerHTML).toEqual(`<div> Bonjour Angular! Emails: 0 </div>`);
+    fixture.componentRef.instance.name = `John`;
+    fixture.componentRef.instance.count = 5;
+    fixture.detectChanges();
+    expect(fixture.nativeElement.innerHTML).toEqual(`<div> Bonjour John! Emails: 5 </div>`);
+  });
+
   it('should support interpolations with custom interpolation config', () => {
     ɵi18nConfigureLocalize({translations: {'Hello {$interpolation}': 'Bonjour {$interpolation}'}});
     const interpolation = ['{%', '%}'] as[string, string];
@@ -46,6 +66,14 @@ onlyInIvy('Ivy i18n logic').describe('runtime i18n', () => {
     const fixture = initWithTemplate(AppComp, `<div i18n>Hello {% name %}</div>`);
 
     expect(fixture.nativeElement.innerHTML).toBe('<div>Bonjour Angular</div>');
+  });
+
+  it('should support &ngsp; in translatable sections', () => {
+    // note: the `` unicode symbol represents the `&ngsp;` in translations
+    ɵi18nConfigureLocalize({translations: {'text ||': 'texte ||'}});
+    const fixture = initWithTemplate(AppCompWithWhitespaces, `<div i18n>text |&ngsp;|</div>`);
+
+    expect(fixture.nativeElement.innerHTML).toEqual(`<div>texte | |</div>`);
   });
 
   it('should support interpolations with complex expressions', () => {
@@ -315,6 +343,29 @@ onlyInIvy('Ivy i18n logic').describe('runtime i18n', () => {
       }
     });
 
+    it('should be able to act as child elements inside i18n block (text + pipes)', () => {
+      // Note: for some reason keeping this key inline causes clang to reformat the entire file
+      // in a very weird way. Keeping it separated like this seems to make it happy.
+      const key = '{$startTagNgTemplate}Hello {$interpolation}{$closeTagNgTemplate}' +
+          '{$startTagNgContainer}Bye {$interpolation}{$closeTagNgContainer}';
+
+      ɵi18nConfigureLocalize({
+        translations: {
+          [key]:
+              '{$startTagNgTemplate}Hej {$interpolation}{$closeTagNgTemplate}{$startTagNgContainer}Vi ses {$interpolation}{$closeTagNgContainer}'
+        }
+      });
+      const fixture = initWithTemplate(AppComp, `
+        <div i18n>
+          <ng-template tplRef>Hello {{name | uppercase}}</ng-template>
+          <ng-container>Bye {{name | uppercase}}</ng-container>
+        </div>
+      `);
+
+      const element = fixture.nativeElement.firstChild;
+      expect(element.textContent.replace(/\s+/g, ' ').trim()).toBe('Hej ANGULARVi ses ANGULAR');
+    });
+
     it('should be able to handle deep nested levels with templates', () => {
       ɵi18nConfigureLocalize({
         translations: {
@@ -439,8 +490,8 @@ onlyInIvy('Ivy i18n logic').describe('runtime i18n', () => {
     it('multiple', () => {
       ɵi18nConfigureLocalize({
         translations: {
-          '{VAR_PLURAL, plural, =0 {no {$startBoldText}emails{$closeBoldText}!} =1 {one {$startItalicText}email{$closeItalicText}} other {{$interpolation} {$startTagSpan}emails{$closeTagSpan}}}':
-              '{VAR_PLURAL, plural, =0 {aucun {$startBoldText}email{$closeBoldText}!} =1 {un {$startItalicText}email{$closeItalicText}} other {{$interpolation} {$startTagSpan}emails{$closeTagSpan}}}',
+          '{VAR_PLURAL, plural, =0 {no {START_BOLD_TEXT}emails{CLOSE_BOLD_TEXT}!} =1 {one {START_ITALIC_TEXT}email{CLOSE_ITALIC_TEXT}} other {{INTERPOLATION} {START_TAG_SPAN}emails{CLOSE_TAG_SPAN}}}':
+              '{VAR_PLURAL, plural, =0 {aucun {START_BOLD_TEXT}email{CLOSE_BOLD_TEXT}!} =1 {un {START_ITALIC_TEXT}email{CLOSE_ITALIC_TEXT}} other {{INTERPOLATION} {START_TAG_SPAN}emails{CLOSE_TAG_SPAN}}}',
           '{VAR_SELECT, select, other {(name)}}': '{VAR_SELECT, select, other {({$interpolation})}}'
         }
       });
@@ -485,8 +536,8 @@ onlyInIvy('Ivy i18n logic').describe('runtime i18n', () => {
     it('inside HTML elements', () => {
       ɵi18nConfigureLocalize({
         translations: {
-          '{VAR_PLURAL, plural, =0 {no {$startBoldText}emails{$closeBoldText}!} =1 {one {$startItalicText}email{$closeItalicText}} other {{$interpolation} {$startTagSpan}emails{$closeTagSpan}}}':
-              '{VAR_PLURAL, plural, =0 {aucun {$startBoldText}email{$closeBoldText}!} =1 {un {$startItalicText}email{$closeItalicText}} other {{$interpolation} {$startTagSpan}emails{$closeTagSpan}}}',
+          '{VAR_PLURAL, plural, =0 {no {START_BOLD_TEXT}emails{CLOSE_BOLD_TEXT}!} =1 {one {START_ITALIC_TEXT}email{CLOSE_ITALIC_TEXT}} other {{INTERPOLATION} {START_TAG_SPAN}emails{CLOSE_TAG_SPAN}}}':
+              '{VAR_PLURAL, plural, =0 {aucun {START_BOLD_TEXT}email{CLOSE_BOLD_TEXT}!} =1 {un {START_ITALIC_TEXT}email{CLOSE_ITALIC_TEXT}} other {{INTERPOLATION} {START_TAG_SPAN}emails{CLOSE_TAG_SPAN}}}',
           '{VAR_SELECT, select, other {(name)}}': '{VAR_SELECT, select, other {({$interpolation})}}'
         }
       });
@@ -568,8 +619,8 @@ onlyInIvy('Ivy i18n logic').describe('runtime i18n', () => {
     it('nested', () => {
       ɵi18nConfigureLocalize({
         translations: {
-          '{VAR_PLURAL, plural, =0 {zero} other {{$interpolation} {VAR_SELECT, select, cat {cats} dog {dogs} other {animals}}!}}':
-              '{VAR_PLURAL, plural, =0 {zero} other {{$interpolation} {VAR_SELECT, select, cat {chats} dog {chients} other {animaux}}!}}'
+          '{VAR_PLURAL, plural, =0 {zero} other {{INTERPOLATION} {VAR_SELECT, select, cat {cats} dog {dogs} other {animals}}!}}':
+              '{VAR_PLURAL, plural, =0 {zero} other {{INTERPOLATION} {VAR_SELECT, select, cat {chats} dog {chients} other {animaux}}!}}'
         }
       });
       const fixture = initWithTemplate(AppComp, `<div i18n>{count, plural,
@@ -806,6 +857,40 @@ onlyInIvy('Ivy i18n logic').describe('runtime i18n', () => {
       expect(fixture.debugElement.nativeElement.innerHTML).not.toContain('A');
       expect(fixture.debugElement.nativeElement.innerHTML).toContain('C1');
     });
+
+    it('with named interpolations', () => {
+      @Component({
+        selector: 'comp',
+        template: `
+          <ng-container i18n>{
+            type,
+            select,
+              A {A - {{ typeA // i18n(ph="PH_A") }}}
+              B {B - {{ typeB // i18n(ph="PH_B") }}}
+              other {other - {{ typeC // i18n(ph="PH WITH SPACES") }}}
+          }</ng-container>
+        `,
+      })
+      class Comp {
+        type = 'A';
+        typeA = 'Type A';
+        typeB = 'Type B';
+        typeC = 'Type C';
+      }
+
+      TestBed.configureTestingModule({declarations: [Comp]});
+
+      const fixture = TestBed.createComponent(Comp);
+      fixture.detectChanges();
+
+      expect(fixture.debugElement.nativeElement.innerHTML).toContain('A - Type A');
+
+      fixture.componentInstance.type = 'C';  // trigger "other" case
+      fixture.detectChanges();
+
+      expect(fixture.debugElement.nativeElement.innerHTML).not.toContain('A - Type A');
+      expect(fixture.debugElement.nativeElement.innerHTML).toContain('other - Type C');
+    });
   });
 
   describe('should support attributes', () => {
@@ -963,8 +1048,8 @@ onlyInIvy('Ivy i18n logic').describe('runtime i18n', () => {
       translations: {
         'start {$interpolation} middle {$interpolation_1} end':
             'début {$interpolation_1} milieu {$interpolation} fin',
-        '{VAR_PLURAL, plural, =0 {no {$startBoldText}emails{$closeBoldText}!} =1 {one {$startItalicText}email{$closeItalicText}} other {{$interpolation} emails}}':
-            '{VAR_PLURAL, plural, =0 {aucun {$startBoldText}email{$closeBoldText}!} =1 {un {$startItalicText}email{$closeItalicText}} other {{$interpolation} emails}}',
+        '{VAR_PLURAL, plural, =0 {no {START_BOLD_TEXT}emails{CLOSE_BOLD_TEXT}!} =1 {one {START_ITALIC_TEXT}email{CLOSE_ITALIC_TEXT}} other {{INTERPOLATION} emails}}':
+            '{VAR_PLURAL, plural, =0 {aucun {START_BOLD_TEXT}email{CLOSE_BOLD_TEXT}!} =1 {un {START_ITALIC_TEXT}email{CLOSE_ITALIC_TEXT}} other {{INTERPOLATION} emails}}',
         ' trad: {$icu}': ' traduction: {$icu}'
       }
     });
@@ -1440,6 +1525,30 @@ onlyInIvy('Ivy i18n logic').describe('runtime i18n', () => {
           .toEqual(`<div-query>Contenu<!--ng-container--></div-query>`);
     });
   });
+
+  it('should not alloc expando slots when there is no new variable to create', () => {
+    @Component({
+      template: `
+      <div dialog i18n>
+          <div *ngIf="data">
+              Some content
+          </div>
+      </div>
+      <button [close]="true">Button label</button>
+  `
+    })
+    class ContentElementDialog {
+      data = false;
+    }
+
+    TestBed.configureTestingModule({declarations: [DialogDir, CloseBtn, ContentElementDialog]});
+
+    const fixture = TestBed.createComponent(ContentElementDialog);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.innerHTML).toEqual(`<div dialog=""><!--bindings={
+  "ng-reflect-ng-if": "false"
+}--></div><button ng-reflect-dialog-result="true" title="Close dialog">Button label</button>`);
+  });
 });
 
 function initWithTemplate(compType: Type<any>, template: string) {
@@ -1456,10 +1565,33 @@ class AppComp {
   count = 0;
 }
 
+@Component({
+  selector: 'app-comp-with-whitespaces',
+  template: ``,
+  preserveWhitespaces: true,
+})
+class AppCompWithWhitespaces {
+}
+
 @Directive({
   selector: '[tplRef]',
 })
 class DirectiveWithTplRef {
   constructor(public vcRef: ViewContainerRef, public tplRef: TemplateRef<{}>) {}
   ngOnInit() { this.vcRef.createEmbeddedView(this.tplRef, {}); }
+}
+
+@Pipe({name: 'uppercase'})
+class UppercasePipe implements PipeTransform {
+  transform(value: string) { return value.toUpperCase(); }
+}
+
+@Directive({selector: `[dialog]`})
+export class DialogDir {
+}
+
+@Directive({selector: `button[close]`, host: {'[title]': 'name'}})
+export class CloseBtn {
+  @Input('close') dialogResult: any;
+  name: string = 'Close dialog';
 }
