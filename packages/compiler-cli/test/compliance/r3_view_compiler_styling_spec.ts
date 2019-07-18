@@ -348,7 +348,7 @@ describe('compiler compliance: styling', () => {
               $r3$.ɵɵcomponentHostSyntheticListener("@myAnim.start", function MyAnimDir_animation_myAnim_start_HostBindingHandler($event) { return ctx.onStart(); });
               $r3$.ɵɵcomponentHostSyntheticListener("@myAnim.done", function MyAnimDir_animation_myAnim_done_HostBindingHandler($event) { return ctx.onDone(); });
             } if (rf & 2) {
-              $r3$.ɵɵupdateSyntheticHostBinding("@myAnim", ctx.myAnimState, null, true);
+              $r3$.ɵɵupdateSyntheticHostBinding("@myAnim", ctx.myAnimState);
             }
           }
           …
@@ -520,7 +520,7 @@ describe('compiler compliance: styling', () => {
          };
 
          const template = `
-          const $_c0$ = [${AttributeMarker.Styles}, "opacity", "1", ${AttributeMarker.Bindings}, "style"];
+          const $_c0$ = [${AttributeMarker.Styles}, "opacity", "1"];
           const $_c1$ = ["width", "height"];
           …
           MyComponent.ngComponentDef = $r3$.ɵɵdefineComponent({
@@ -741,7 +741,7 @@ describe('compiler compliance: styling', () => {
          };
 
          const template = `
-          const $e0_attrs$ = [${AttributeMarker.Classes}, "grape", ${AttributeMarker.Bindings}, "class"];
+          const $e0_attrs$ = [${AttributeMarker.Classes}, "grape"];
           const $e0_bindings$ = ["apple", "orange"];
           …
           MyComponent.ngComponentDef = $r3$.ɵɵdefineComponent({
@@ -797,7 +797,7 @@ describe('compiler compliance: styling', () => {
          };
 
          const template = `
-          const $e0_attrs$ = [${AttributeMarker.Classes}, "foo", ${AttributeMarker.Styles}, "width", "100px", ${AttributeMarker.Bindings}, "class", "style"];
+          const $e0_attrs$ = [${AttributeMarker.Classes}, "foo", ${AttributeMarker.Styles}, "width", "100px"];
           …
           MyComponent.ngComponentDef = $r3$.ɵɵdefineComponent({
               type: MyComponent,
@@ -1621,7 +1621,7 @@ describe('compiler compliance: styling', () => {
           $r3$.ɵɵstyling(null, null, $r3$.ɵɵdefaultStyleSanitizer);
         }
         if (rf & 2) {
-          $r3$.ɵɵproperty("id", ctx.id, null, true)("title", ctx.title, null, true);
+          $r3$.ɵɵhostProperty("id", ctx.id)("title", ctx.title);
           $r3$.ɵɵstyleMap(ctx.myStyle);
           $r3$.ɵɵclassMap(ctx.myClass);
           $r3$.ɵɵstylingApply();
@@ -1667,7 +1667,7 @@ describe('compiler compliance: styling', () => {
           $r3$.ɵɵstyling($_c0$, $_c1$);
         }
         if (rf & 2) {
-          $r3$.ɵɵproperty("id", ctx.id, null, true)("title", ctx.title, null, true);
+          $r3$.ɵɵhostProperty("id", ctx.id)("title", ctx.title);
           $r3$.ɵɵstyleProp(0, ctx.myWidth);
           $r3$.ɵɵclassProp(0, ctx.myFooClass);
           $r3$.ɵɵstylingApply();
