@@ -5,17 +5,16 @@
 * Use of this source code is governed by an MIT-style license that can be
 * found in the LICENSE file at https://angular.io/license
 */
-import {Sanitizer} from '../../sanitization/security';
 import {StyleSanitizeFn} from '../../sanitization/style_sanitizer';
 import {RElement} from '../interfaces/renderer';
-import {LView, SANITIZER} from '../interfaces/view';
+import {LView} from '../interfaces/view';
+import {getCurrentStyleSanitizer} from '../state';
 import {attachDebugObject} from '../util/debug_utils';
 
 import {applyStyling} from './bindings';
 import {ApplyStylingFn, LStylingData, TStylingContext, TStylingContextIndex} from './interfaces';
-import {activeStylingMapFeature} from './map_based_bindings';
-import {getCurrentStyleSanitizer} from './state';
-import {getCurrentOrLViewSanitizer, getDefaultValue, getGuardMask, getProp, getValuesCount, isContextLocked, isMapBased, isSanitizationRequired} from './util';
+import {activateStylingMapFeature} from './map_based_bindings';
+import {getDefaultValue, getGuardMask, getProp, getValuesCount, isContextLocked, isMapBased, isSanitizationRequired} from './util';
 
 
 
@@ -79,7 +78,7 @@ export interface TStylingTupleSummary {
   /** The property (style or class property) that this tuple represents */
   prop: string;
 
-  /** The total amount of styling entries apart of this tuple */
+  /** The total amount of styling entries a part of this tuple */
   valuesCount: number;
 
   /**
@@ -201,23 +200,21 @@ export class NodeStylingDebug implements DebugStyling {
     return entries;
   }
 
-  private _mapValues(fn: (prop: string, value: any, bindingIndex: number|null) => any) {
+  private _mapValues(fn: (prop: string, value: string|null, bindingIndex: number|null) => any) {
     // there is no need to store/track an element instance. The
     // element is only used when the styling algorithm attempts to
     // style the value (and we mock out the stylingApplyFn anyway).
     const mockElement = {} as any;
     const hasMaps = getValuesCount(this.context, TStylingContextIndex.MapBindingsPosition) > 0;
     if (hasMaps) {
-      activeStylingMapFeature();
+      activateStylingMapFeature();
     }
 
     const mapFn: ApplyStylingFn =
-        (renderer: any, element: RElement, prop: string, value: any, bindingIndex: number) => {
-          fn(prop, value, bindingIndex || null);
-        };
+        (renderer: any, element: RElement, prop: string, value: string | null,
+         bindingIndex?: number | null) => { fn(prop, value, bindingIndex || null); };
 
-    const sanitizer = this._isClassBased ? null : (this._sanitizer ||
-                                                   getCurrentOrLViewSanitizer(this._data as LView));
+    const sanitizer = this._isClassBased ? null : (this._sanitizer || getCurrentStyleSanitizer());
     applyStyling(this.context, null, mockElement, this._data, true, mapFn, sanitizer);
   }
 }

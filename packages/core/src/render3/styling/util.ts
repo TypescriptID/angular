@@ -11,12 +11,13 @@ import {StyleSanitizeFn} from '../../sanitization/style_sanitizer';
 import {getLContext} from '../context_discovery';
 import {LContainer} from '../interfaces/container';
 import {LContext} from '../interfaces/context';
-import {AttributeMarker, TAttributes, TNode, TNodeFlags} from '../interfaces/node';
+import {TNode, TNodeFlags} from '../interfaces/node';
 import {PlayState, Player, PlayerContext, PlayerIndex} from '../interfaces/player';
 import {RElement} from '../interfaces/renderer';
 import {DirectiveRegistryValuesIndex, InitialStylingValues, StylingContext, StylingFlags, StylingIndex} from '../interfaces/styling';
+import {isStylingContext} from '../interfaces/type_checks';
 import {HEADER_OFFSET, HOST, LView, RootContext} from '../interfaces/view';
-import {getTNode, isStylingContext} from '../util/view_utils';
+import {getTNode} from '../util/view_utils';
 
 import {CorePlayerHandler} from './core_player_handler';
 import {DEFAULT_TEMPLATE_DIRECTIVE_INDEX} from './shared';
@@ -155,14 +156,6 @@ export function isAnimationProp(name: string): boolean {
   return name[0] === ANIMATION_PROP_PREFIX;
 }
 
-export function hasClassInput(tNode: TNode) {
-  return (tNode.flags & TNodeFlags.hasClassInput) !== 0;
-}
-
-export function hasStyleInput(tNode: TNode) {
-  return (tNode.flags & TNodeFlags.hasStyleInput) !== 0;
-}
-
 export function forceClassesAsString(classes: string | {[key: string]: any} | null | undefined):
     string {
   if (classes && typeof classes !== 'string') {
@@ -225,7 +218,7 @@ export function getPlayersInternal(playerContext: PlayerContext): Player[] {
   const players: Player[] = [];
   const nonFactoryPlayersStart = playerContext[PlayerIndex.NonBuilderPlayersStart];
 
-  // add all factory-based players (which are apart of [style] and [class] bindings)
+  // add all factory-based players (which are a part of [style] and [class] bindings)
   for (let i = PlayerIndex.PlayerBuildersStartPosition + PlayerIndex.PlayerOffsetPosition;
        i < nonFactoryPlayersStart; i += PlayerIndex.PlayerAndPlayerBuildersTupleSize) {
     const player = playerContext[i] as Player | null;
@@ -234,7 +227,7 @@ export function getPlayersInternal(playerContext: PlayerContext): Player[] {
     }
   }
 
-  // add all custom players (not apart of [style] and [class] bindings)
+  // add all custom players (not a part of [style] and [class] bindings)
   for (let i = nonFactoryPlayersStart; i < playerContext.length; i++) {
     players.push(playerContext[i] as Player);
   }

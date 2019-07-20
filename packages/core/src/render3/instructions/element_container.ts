@@ -10,13 +10,16 @@ import {assertHasParent} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
 import {TAttributes, TNodeType} from '../interfaces/node';
-import {BINDING_INDEX, HEADER_OFFSET, QUERIES, RENDERER, TVIEW, T_HOST} from '../interfaces/view';
+import {isContentQueryHost} from '../interfaces/type_checks';
+import {BINDING_INDEX, HEADER_OFFSET, RENDERER, TVIEW, T_HOST} from '../interfaces/view';
 import {assertNodeType} from '../node_assert';
 import {appendChild} from '../node_manipulation';
 import {applyOnCreateInstructions} from '../node_util';
 import {getIsParent, getLView, getPreviousOrParentTNode, setIsNotParent, setPreviousOrParentTNode} from '../state';
+import {registerInitialStylingOnTNode} from '../styling_next/instructions';
 
-import {createDirectivesAndLocals, executeContentQueries, getOrCreateTNode, setNodeStylingTemplate} from './shared';
+import {createDirectivesAndLocals, executeContentQueries, getOrCreateTNode, resolveDirectives} from './shared';
+
 
 
 /**
@@ -52,21 +55,24 @@ export function ɵɵelementContainerStart(
       tView, lView[T_HOST], index, TNodeType.ElementContainer, tagName, attrs || null);
 
 
-  if (attrs) {
+  if (attrs && tView.firstTemplatePass) {
     // While ng-container doesn't necessarily support styling, we use the style context to identify
     // and execute directives on the ng-container.
-    setNodeStylingTemplate(tView, tNode, attrs, 0);
+    registerInitialStylingOnTNode(tNode, attrs as TAttributes, 0);
   }
 
   appendChild(native, tNode, lView);
-  createDirectivesAndLocals(tView, lView, tNode, localRefs);
-  attachPatchData(native, lView);
 
-  const currentQueries = lView[QUERIES];
-  if (currentQueries) {
-    currentQueries.addNode(tNode);
-    lView[QUERIES] = currentQueries.clone(tNode);
+  if (tView.firstTemplatePass) {
+    ngDevMode && ngDevMode.firstTemplatePass++;
+    resolveDirectives(tView, lView, tNode, localRefs || null);
+    if (tView.queries) {
+      tView.queries.elementStart(tView, tNode);
+    }
   }
+
+  createDirectivesAndLocals(tView, lView, tNode);
+  attachPatchData(native, lView);
   executeContentQueries(tView, tNode, lView);
 }
 
@@ -88,17 +94,17 @@ export function ɵɵelementContainerEnd(): void {
   }
 
   ngDevMode && assertNodeType(previousOrParentTNode, TNodeType.ElementContainer);
-  const currentQueries = lView[QUERIES];
-  // Go back up to parent queries only if queries have been cloned on this element.
-  if (currentQueries && previousOrParentTNode.index === currentQueries.nodeIndex) {
-    lView[QUERIES] = currentQueries.parent;
-  }
 
   // this is required for all host-level styling-related instructions to run
   // in the correct order
   previousOrParentTNode.onElementCreationFns && applyOnCreateInstructions(previousOrParentTNode);
 
   registerPostOrderHooks(tView, previousOrParentTNode);
+
+  if (tView.firstTemplatePass && tView.queries !== null &&
+      isContentQueryHost(previousOrParentTNode)) {
+    tView.queries.elementEnd(previousOrParentTNode);
+  }
 }
 
 /**

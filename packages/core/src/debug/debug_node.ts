@@ -10,16 +10,20 @@ import {Injector} from '../di';
 import {getViewComponent} from '../render3/global_utils_api';
 import {CONTAINER_HEADER_OFFSET, LContainer, NATIVE} from '../render3/interfaces/container';
 import {TElementNode, TNode, TNodeFlags, TNodeType} from '../render3/interfaces/node';
-import {StylingIndex} from '../render3/interfaces/styling';
+import {isComponent, isLContainer} from '../render3/interfaces/type_checks';
 import {LView, PARENT, TData, TVIEW, T_HOST} from '../render3/interfaces/view';
-import {getProp, getValue, isClassBasedValue} from '../render3/styling/class_and_style_bindings';
-import {getStylingContextFromLView} from '../render3/styling/util';
+import {TStylingContext} from '../render3/styling_next/interfaces';
+import {stylingMapToStringMap} from '../render3/styling_next/map_based_bindings';
+import {NodeStylingDebug} from '../render3/styling_next/styling_debug';
+import {isStylingContext} from '../render3/styling_next/util';
 import {getComponent, getContext, getInjectionTokens, getInjector, getListeners, getLocalRefs, isBrowserEvents, loadLContext, loadLContextFromNode} from '../render3/util/discovery_utils';
 import {INTERPOLATION_DELIMITER, isPropMetadataString, renderStringify} from '../render3/util/misc_utils';
 import {findComponentView} from '../render3/util/view_traversal_utils';
-import {getComponentViewByIndex, getNativeByTNode, isComponent, isLContainer} from '../render3/util/view_utils';
+import {getComponentViewByIndex, getNativeByTNodeOrNull} from '../render3/util/view_utils';
 import {assertDomNode} from '../util/assert';
 import {DebugContext} from '../view/index';
+
+
 
 /**
  * @publicApi
@@ -325,63 +329,12 @@ class DebugElement__POST_R3__ extends DebugNode__POST_R3__ implements DebugEleme
     return attributes;
   }
 
-  get classes(): {[key: string]: boolean;} {
-    const classes: {[key: string]: boolean;} = {};
-    const element = this.nativeElement;
-    if (element) {
-      const lContext = loadLContextFromNode(element);
-      const stylingContext = getStylingContextFromLView(lContext.nodeIndex, lContext.lView);
-      if (stylingContext) {
-        for (let i = StylingIndex.SingleStylesStartPosition; i < stylingContext.length;
-             i += StylingIndex.Size) {
-          if (isClassBasedValue(stylingContext, i)) {
-            const className = getProp(stylingContext, i);
-            const value = getValue(stylingContext, i);
-            if (typeof value == 'boolean') {
-              // we want to ignore `null` since those don't overwrite the values.
-              classes[className] = value;
-            }
-          }
-        }
-      } else {
-        // Fallback, just read DOM.
-        const eClasses = element.classList;
-        for (let i = 0; i < eClasses.length; i++) {
-          classes[eClasses[i]] = true;
-        }
-      }
-    }
-    return classes;
+  get styles(): {[key: string]: string | null;} {
+    return _getStylingDebugInfo(this.nativeElement, false);
   }
 
-  get styles(): {[key: string]: string | null;} {
-    const styles: {[key: string]: string | null;} = {};
-    const element = this.nativeElement;
-    if (element) {
-      const lContext = loadLContextFromNode(element);
-      const stylingContext = getStylingContextFromLView(lContext.nodeIndex, lContext.lView);
-      if (stylingContext) {
-        for (let i = StylingIndex.SingleStylesStartPosition; i < stylingContext.length;
-             i += StylingIndex.Size) {
-          if (!isClassBasedValue(stylingContext, i)) {
-            const styleName = getProp(stylingContext, i);
-            const value = getValue(stylingContext, i) as string | null;
-            if (value !== null) {
-              // we want to ignore `null` since those don't overwrite the values.
-              styles[styleName] = value;
-            }
-          }
-        }
-      } else {
-        // Fallback, just read DOM.
-        const eStyles = (element as HTMLElement).style;
-        for (let i = 0; i < eStyles.length; i++) {
-          const name = eStyles.item(i);
-          styles[name] = eStyles.getPropertyValue(name);
-        }
-      }
-    }
-    return styles;
+  get classes(): {[key: string]: boolean;} {
+    return _getStylingDebugInfo(this.nativeElement, true);
   }
 
   get childNodes(): DebugNode[] {
@@ -432,6 +385,25 @@ class DebugElement__POST_R3__ extends DebugNode__POST_R3__ implements DebugEleme
   }
 }
 
+function _getStylingDebugInfo(element: any, isClassBased: boolean) {
+  if (element) {
+    const context = loadLContextFromNode(element);
+    const lView = context.lView;
+    const tData = lView[TVIEW].data;
+    const tNode = tData[context.nodeIndex] as TNode;
+    if (isClassBased) {
+      return isStylingContext(tNode.classes) ?
+          new NodeStylingDebug(tNode.classes as TStylingContext, lView, true).values :
+          stylingMapToStringMap(tNode.classes);
+    } else {
+      return isStylingContext(tNode.styles) ?
+          new NodeStylingDebug(tNode.styles as TStylingContext, lView, false).values :
+          stylingMapToStringMap(tNode.styles);
+    }
+  }
+  return {};
+}
+
 /**
  * Walk the TNode tree to find matches for the predicate.
  *
@@ -441,8 +413,14 @@ class DebugElement__POST_R3__ extends DebugNode__POST_R3__ implements DebugEleme
  * @param elementsOnly whether only elements should be searched
  */
 function _queryAllR3(
+    parentElement: DebugElement, predicate: Predicate<DebugElement>, matches: DebugElement[],
+    elementsOnly: true): void;
+function _queryAllR3(
     parentElement: DebugElement, predicate: Predicate<DebugNode>, matches: DebugNode[],
-    elementsOnly: boolean) {
+    elementsOnly: false): void;
+function _queryAllR3(
+    parentElement: DebugElement, predicate: Predicate<DebugElement>| Predicate<DebugNode>,
+    matches: DebugElement[] | DebugNode[], elementsOnly: boolean) {
   const context = loadLContext(parentElement.nativeNode) !;
   const parentTNode = context.lView[TVIEW].data[context.nodeIndex] as TNode;
   _queryNodeChildrenR3(
@@ -457,12 +435,12 @@ function _queryAllR3(
  * @param predicate the predicate to match
  * @param matches the list of positive matches
  * @param elementsOnly whether only elements should be searched
- * @param rootNativeNode the root native node on which prediccate shouold not be matched
+ * @param rootNativeNode the root native node on which predicate should not be matched
  */
 function _queryNodeChildrenR3(
-    tNode: TNode, lView: LView, predicate: Predicate<DebugNode>, matches: DebugNode[],
-    elementsOnly: boolean, rootNativeNode: any) {
-  const nativeNode = getNativeByTNode(tNode, lView);
+    tNode: TNode, lView: LView, predicate: Predicate<DebugElement>| Predicate<DebugNode>,
+    matches: DebugElement[] | DebugNode[], elementsOnly: boolean, rootNativeNode: any) {
+  const nativeNode = getNativeByTNodeOrNull(tNode, lView);
   // For each type of TNode, specific logic is executed.
   if (tNode.type === TNodeType.Element || tNode.type === TNodeType.ElementContainer) {
     // Case 1: the TNode is an element
@@ -535,11 +513,11 @@ function _queryNodeChildrenR3(
  * @param predicate the predicate to match
  * @param matches the list of positive matches
  * @param elementsOnly whether only elements should be searched
- * @param rootNativeNode the root native node on which prediccate shouold not be matched
+ * @param rootNativeNode the root native node on which predicate should not be matched
  */
 function _queryNodeChildrenInContainerR3(
-    lContainer: LContainer, predicate: Predicate<DebugNode>, matches: DebugNode[],
-    elementsOnly: boolean, rootNativeNode: any) {
+    lContainer: LContainer, predicate: Predicate<DebugElement>| Predicate<DebugNode>,
+    matches: DebugElement[] | DebugNode[], elementsOnly: boolean, rootNativeNode: any) {
   for (let i = CONTAINER_HEADER_OFFSET; i < lContainer.length; i++) {
     const childView = lContainer[i];
     _queryNodeChildrenR3(
@@ -554,16 +532,23 @@ function _queryNodeChildrenInContainerR3(
  * @param predicate the predicate to match
  * @param matches the list of positive matches
  * @param elementsOnly whether only elements should be searched
- * @param rootNativeNode the root native node on which prediccate shouold not be matched
+ * @param rootNativeNode the root native node on which predicate should not be matched
  */
 function _addQueryMatchR3(
-    nativeNode: any, predicate: Predicate<DebugNode>, matches: DebugNode[], elementsOnly: boolean,
-    rootNativeNode: any) {
+    nativeNode: any, predicate: Predicate<DebugElement>| Predicate<DebugNode>,
+    matches: DebugElement[] | DebugNode[], elementsOnly: boolean, rootNativeNode: any) {
   if (rootNativeNode !== nativeNode) {
     const debugNode = getDebugNode(nativeNode);
-    if (debugNode && (elementsOnly ? debugNode instanceof DebugElement__POST_R3__ : true) &&
-        predicate(debugNode)) {
+    if (!debugNode) {
+      return;
+    }
+    // Type of the "predicate and "matches" array are set based on the value of
+    // the "elementsOnly" parameter. TypeScript is not able to properly infer these
+    // types with generics, so we manually cast the parameters accordingly.
+    if (elementsOnly && debugNode instanceof DebugElement__POST_R3__ && predicate(debugNode)) {
       matches.push(debugNode);
+    } else if (!elementsOnly && (predicate as Predicate<DebugNode>)(debugNode)) {
+      (matches as DebugNode[]).push(debugNode);
     }
   }
 }

@@ -33,18 +33,6 @@
     "name": "DECLARATION_VIEW"
   },
   {
-    "name": "DEFAULT_BINDING_VALUE"
-  },
-  {
-    "name": "DEFAULT_GUARD_MASK_VALUE"
-  },
-  {
-    "name": "DEFAULT_SIZE_VALUE"
-  },
-  {
-    "name": "DEFAULT_TEMPLATE_DIRECTIVE_INDEX"
-  },
-  {
     "name": "DepComponent"
   },
   {
@@ -70,9 +58,6 @@
   },
   {
     "name": "INJECTOR_BLOOM_PARENT_SIZE"
-  },
-  {
-    "name": "MAP_BASED_ENTRY_PROP_NAME"
   },
   {
     "name": "MONKEY_PATCH_KEY_NAME"
@@ -124,9 +109,6 @@
   },
   {
     "name": "PREORDER_HOOK_FLAGS"
-  },
-  {
-    "name": "QUERIES"
   },
   {
     "name": "RENDERER"
@@ -186,34 +168,16 @@
     "name": "_selectedIndex"
   },
   {
-    "name": "_stylingMode"
-  },
-  {
-    "name": "addBindingIntoContext"
+    "name": "_stateStorage"
   },
   {
     "name": "addComponentLogic"
   },
   {
-    "name": "addOrUpdateStaticStyle"
+    "name": "addItemToStylingMap"
   },
   {
     "name": "addToViewTree"
-  },
-  {
-    "name": "allocStylingContext"
-  },
-  {
-    "name": "allocTStylingContext"
-  },
-  {
-    "name": "allocateNewContextEntry"
-  },
-  {
-    "name": "allocateOrUpdateDirectiveIntoContext"
-  },
-  {
-    "name": "allowValueChange"
   },
   {
     "name": "appendChild"
@@ -223,9 +187,6 @@
   },
   {
     "name": "attachPatchData"
-  },
-  {
-    "name": "attrsStylingIndexOf"
   },
   {
     "name": "baseResolveDirective"
@@ -252,10 +213,10 @@
     "name": "componentRefresh"
   },
   {
-    "name": "createDirectivesAndLocals"
+    "name": "concatString"
   },
   {
-    "name": "createEmptyStylingContext"
+    "name": "createDirectivesAndLocals"
   },
   {
     "name": "createLView"
@@ -348,9 +309,6 @@
     "name": "getCheckNoChangesMode"
   },
   {
-    "name": "getClassesContext"
-  },
-  {
     "name": "getClosureSafeProperty"
   },
   {
@@ -363,16 +321,10 @@
     "name": "getContainerRenderParent"
   },
   {
-    "name": "getContext"
-  },
-  {
     "name": "getDirectiveDef"
   },
   {
     "name": "getElementDepthCount"
-  },
-  {
-    "name": "getGuardMask"
   },
   {
     "name": "getHighestElementOrICUContainer"
@@ -381,10 +333,7 @@
     "name": "getHostNative"
   },
   {
-    "name": "getInitialClassNameValue"
-  },
-  {
-    "name": "getInitialStyleStringValue"
+    "name": "getInitialStylingValue"
   },
   {
     "name": "getInjectorIndex"
@@ -402,6 +351,12 @@
     "name": "getLViewParent"
   },
   {
+    "name": "getMapProp"
+  },
+  {
+    "name": "getMapValue"
+  },
+  {
     "name": "getNameOnlyMarkerIndex"
   },
   {
@@ -412,6 +367,9 @@
   },
   {
     "name": "getNativeByTNode"
+  },
+  {
+    "name": "getNativeByTNodeOrNull"
   },
   {
     "name": "getNodeInjectable"
@@ -444,15 +402,6 @@
     "name": "getPreviousOrParentTNode"
   },
   {
-    "name": "getProp"
-  },
-  {
-    "name": "getPropConfig"
-  },
-  {
-    "name": "getPropValuesStartPosition"
-  },
-  {
     "name": "getRenderFlags"
   },
   {
@@ -468,16 +417,7 @@
     "name": "getSelectedIndex"
   },
   {
-    "name": "getStylesContext"
-  },
-  {
-    "name": "getStylingContextFromLView"
-  },
-  {
-    "name": "getTNode"
-  },
-  {
-    "name": "getValuesCount"
+    "name": "getStylingMapArray"
   },
   {
     "name": "hasClassInput"
@@ -502,9 +442,6 @@
   },
   {
     "name": "initNodeFlags"
-  },
-  {
-    "name": "initializeStaticContext"
   },
   {
     "name": "initializeTNodeInputs"
@@ -573,6 +510,9 @@
     "name": "isStylingContext"
   },
   {
+    "name": "isStylingValueDefined"
+  },
+  {
     "name": "leaveView"
   },
   {
@@ -603,12 +543,6 @@
     "name": "noSideEffects"
   },
   {
-    "name": "patchContextWithStaticAttrs"
-  },
-  {
-    "name": "patchInitialStylingValue"
-  },
-  {
     "name": "postProcessBaseDirective"
   },
   {
@@ -616,9 +550,6 @@
   },
   {
     "name": "queueComponentIndexForCheck"
-  },
-  {
-    "name": "readClassValueFromTNode"
   },
   {
     "name": "readPatchedData"
@@ -639,10 +570,7 @@
     "name": "refreshDynamicEmbeddedViews"
   },
   {
-    "name": "registerBinding"
-  },
-  {
-    "name": "registerInitialStylingIntoContext"
+    "name": "registerInitialStylingOnTNode"
   },
   {
     "name": "registerPostOrderHooks"
@@ -660,13 +588,16 @@
     "name": "renderEmbeddedTemplate"
   },
   {
-    "name": "renderInitialClasses"
-  },
-  {
-    "name": "renderInitialStyles"
+    "name": "renderInitialStyling"
   },
   {
     "name": "renderStringify"
+  },
+  {
+    "name": "renderStylingMap"
+  },
+  {
+    "name": "resetAllStylingState"
   },
   {
     "name": "resetComponentState"
@@ -675,10 +606,10 @@
     "name": "resetPreOrderHookFlags"
   },
   {
-    "name": "resolveDirectives"
+    "name": "resetStylingState"
   },
   {
-    "name": "runtimeIsNewStylingInUse"
+    "name": "resolveDirectives"
   },
   {
     "name": "saveNameToExportMap"
@@ -696,9 +627,6 @@
     "name": "setBindingRoot"
   },
   {
-    "name": "setCachedStylingContext"
-  },
-  {
     "name": "setClass"
   },
   {
@@ -708,7 +636,10 @@
     "name": "setCurrentQueryIndex"
   },
   {
-    "name": "setGuardMask"
+    "name": "setCurrentStyleSanitizer"
+  },
+  {
+    "name": "setDirectiveStylingInput"
   },
   {
     "name": "setHostBindings"
@@ -729,7 +660,7 @@
     "name": "setIsNotParent"
   },
   {
-    "name": "setNodeStylingTemplate"
+    "name": "setMapValue"
   },
   {
     "name": "setPreviousOrParentTNode"
@@ -748,6 +679,9 @@
   },
   {
     "name": "stringifyForError"
+  },
+  {
+    "name": "stylingMapToString"
   },
   {
     "name": "syncViewWithBlueprint"
