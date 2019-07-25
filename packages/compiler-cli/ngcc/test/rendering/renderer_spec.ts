@@ -12,7 +12,8 @@ import {absoluteFrom, getFileSystem} from '../../../src/ngtsc/file_system';
 import {TestFile, runInEachFileSystem} from '../../../src/ngtsc/file_system/testing';
 import {loadTestFiles} from '../../../test/helpers';
 import {Import, ImportManager} from '../../../src/ngtsc/translator';
-import {CompiledClass, DecorationAnalyzer} from '../../src/analysis/decoration_analyzer';
+import {DecorationAnalyzer} from '../../src/analysis/decoration_analyzer';
+import {CompiledClass} from '../../src/analysis/types';
 import {NgccReferencesRegistry} from '../../src/analysis/ngcc_references_registry';
 import {ModuleWithProvidersInfo} from '../../src/analysis/module_with_providers_analyzer';
 import {PrivateDeclarationsAnalyzer, ExportInfo} from '../../src/analysis/private_declarations_analyzer';
@@ -279,7 +280,7 @@ runInEachFileSystem(() => {
           expect(addDefinitionsSpy.calls.first().args[2])
               .toEqual(
                   `UndecoratedBase.ngBaseDef = ɵngcc0.ɵɵdefineBase({ viewQuery: function (rf, ctx) { if (rf & 1) {
-        ɵngcc0.ɵɵstaticViewQuery(_c0, true, null);
+        ɵngcc0.ɵɵstaticViewQuery(_c0, true);
     } if (rf & 2) {
         var _t;
         ɵngcc0.ɵɵqueryRefresh(_t = ɵngcc0.ɵɵloadViewQuery()) && (ctx.test = _t.first);
