@@ -2979,7 +2979,8 @@ runInEachFileSystem(os => {
                 'entrypoint.');
 
         // Verify that the error is for the correct class.
-        const id = expectTokenAtPosition(errors[0].file !, errors[0].start !, ts.isIdentifier);
+        const error = errors[0] as ts.Diagnostic;
+        const id = expectTokenAtPosition(error.file !, error.start !, ts.isIdentifier);
         expect(id.text).toBe('Dir');
         expect(ts.isClassDeclaration(id.parent)).toBe(true);
       });
@@ -3143,7 +3144,7 @@ runInEachFileSystem(os => {
           const fileoverview = `
         /**
          * @fileoverview added by tsickle
-         * @suppress {checkTypes,extraRequire,missingOverride,missingReturn,unusedPrivateMembers,uselessCode} checked by tsc
+         * @suppress {checkTypes,constantProperty,extraRequire,missingOverride,missingReturn,unusedPrivateMembers,uselessCode} checked by tsc
          */
       `;
           expect(trim(jsContents).startsWith(trim(fileoverview))).toBeTruthy();
@@ -3160,7 +3161,7 @@ runInEachFileSystem(os => {
           const fileoverview = `
         /**
          * @fileoverview added by tsickle
-         * @suppress {checkTypes,extraRequire,missingOverride,missingReturn,unusedPrivateMembers,uselessCode} checked by tsc
+         * @suppress {checkTypes,constantProperty,extraRequire,missingOverride,missingReturn,unusedPrivateMembers,uselessCode} checked by tsc
          */
       `;
           expect(trim(jsContents).startsWith(trim(fileoverview))).toBeTruthy();
@@ -3192,7 +3193,7 @@ runInEachFileSystem(os => {
          * @fileoverview Some Comp overview
          * @modName {some_comp}
          *
-         * @suppress {checkTypes,extraRequire,missingOverride,missingReturn,unusedPrivateMembers,uselessCode} checked by tsc
+         * @suppress {checkTypes,constantProperty,extraRequire,missingOverride,missingReturn,unusedPrivateMembers,uselessCode} checked by tsc
          */
       `;
           expect(trim(jsContents).startsWith(trim(fileoverview))).toBeTruthy();
@@ -3221,7 +3222,7 @@ runInEachFileSystem(os => {
          * @fileoverview Some Comp overview
          * @modName {some_comp}
          *
-         * @suppress {checkTypes,extraRequire,missingOverride,missingReturn,unusedPrivateMembers,uselessCode} checked by tsc
+         * @suppress {checkTypes,constantProperty,extraRequire,missingOverride,missingReturn,unusedPrivateMembers,uselessCode} checked by tsc
          */
       `;
              expect(trim(jsContents).startsWith(trim(fileoverview))).toBeTruthy();

@@ -58,17 +58,7 @@ var_5: &setup_bazel_remote_execution
       # cause decryption failures based on the openssl version. https://stackoverflow.com/a/39641378/4317734
       openssl aes-256-cbc -d -in .circleci/gcp_token -md md5 -k "$CI_REPO_NAME" -out /home/circleci/.gcp_credentials
       echo "export GOOGLE_APPLICATION_CREDENTIALS=/home/circleci/.gcp_credentials" >> $BASH_ENV
-      touch .bazelrc.user
-      sudo bash -c "echo -e 'build --config=remote\n' >> .bazelrc.user"
-      sudo bash -c "echo -e 'build:remote --remote_accept_cached=true\n' >> .bazelrc.user"
-      echo "Reading from remote cache for bazel remote jobs."
-      if [[ "$CI_PULL_REQUEST" == "false" ]]; then
-        sudo bash -c "echo -e 'build:remote --remote_upload_local_results=true\n' >> .bazelrc.user"
-        echo "Uploading local build results to remote cache."
-      else
-        sudo bash -c "echo -e 'build:remote --remote_upload_local_results=false\n' >> .bazelrc.user"
-        echo "Not uploading local build results to remote cache."
-      fi
+      ./.circleci/setup-rbe.sh .bazelrc.user
 
 # Settings common to each job
 var_6: &job_defaults
@@ -150,6 +140,11 @@ var_14: &notify_dev_infra_on_fail
     command: |
       notificationJson="{\"text\":\":x: \`$CIRCLE_JOB\` job for $CIRCLE_BRANCH branch failed on build $CIRCLE_BUILD_NUM: $CIRCLE_BUILD_URL :scream:\"}"
       curl --request POST --header "Content-Type: application/json" --data "$notificationJson" $SLACK_DEV_INFRA_CI_FAILURES_WEBHOOK_URL
+
+# Cache key for the Material unit tests job. **Note** when updating the SHA in the cache keys,
+# also update the SHA for the "MATERIAL_REPO_COMMIT" environment variable.
+var_15: &material_unit_tests_cache_key v4-angular-material-701302dc482d7e4b77990b24e3b5ab330bbf1aa5
+var_16: &material_unit_tests_cache_key_short v4-angular-material
 
 version: 2
 jobs:
@@ -625,40 +620,36 @@ jobs:
     resource_class: xlarge
     docker:
       - image: *browsers_docker_image
-    # The Material unit tests support splitting the browsers across multiple CircleCI
-    # instances. Since by default this job launches two browsers, we run each browser
-    # in its own container instance.
-    # https://github.com/angular/material2/blob/7baeaa797b19da2d2998f0d26f6fede3c8a13714/test/karma.conf.js#L107-L110
-    parallelism: 2
-    environment:
-      # The Material unit tests also support launching the same browser multiple times by
-      # sharding individual specs across the defined multiple instances.
-      # See: https://github.com/angular/material2/blob/7baeaa797b19da2d2998f0d26f6fede3c8a13714/test/karma.conf.js#L113-L116
-      KARMA_PARALLEL_BROWSERS: 3
     steps:
       - *attach_workspace
       - *init_environment
-      - run:
-          name: "Cloning Material repository"
-          command: ./scripts/ci/clone_angular_material_repo.sh
+      # Although RBE is configured below for the Material repo, also setup RBE in the Angular repo
+      # to provision Angular's GCP token into the environment variables.
+      - *setup_bazel_remote_execution
+      # Restore the cache before cloning the repository because the clone script re-uses
+      # the restored repository if present. This reduces the amount of times the components
+      # repository needs to be cloned (this is slow and increases based on commits in the repo).
       - restore_cache:
-          # Material directory must be kept in sync with the `$MATERIAL_REPO_TMP_DIR` env variable.
-          # It needs to be hardcoded here, because env variables interpolation is not supported.
           keys:
-            - v2-angular-material-{{ checksum "/tmp/material2/yarn.lock" }}
-            - v2-angular-material-
+            - *material_unit_tests_cache_key
+            - *material_unit_tests_cache_key_short
       - run:
+          name: "Fetching Material repository"
+          command: ./scripts/ci/clone_angular_material_repo.sh
+      - run:
+          # Run yarn install to fetch the Bazel binaries as used in the Material repo.
           name: Installing Material dependencies.
           command: yarn --cwd ${MATERIAL_REPO_TMP_DIR} install --frozen-lockfile --non-interactive
-      # Save the cache before we run the Material unit tests script. This is necessary
-      # because we don't want to cache the node modules which have been modified to contain
-      # the attached Ivy package output.
       - save_cache:
-          # Material directory must be kept in sync with the `$MATERIAL_REPO_TMP_DIR` env variable.
-          # It needs to be hardcoded here, because env variables interpolation is not supported.
-          key: v2-angular-material-{{ checksum "/tmp/material2/yarn.lock" }}
+          key: *material_unit_tests_cache_key
           paths:
-            - "/tmp/material2/node_modules"
+            # Material directory must be kept in sync with the `$MATERIAL_REPO_TMP_DIR` env variable.
+            # It needs to be hardcoded here, because env variables interpolation is not supported.
+            - "/tmp/material2"
+      - run:
+          name: "Setup Bazel RBE remote execution in Material repo"
+          command: |
+            ./.circleci/setup-rbe.sh "${MATERIAL_REPO_TMP_DIR}/.bazelrc.user"
       - run:
           name: "Running Material unit tests"
           command: ./scripts/ci/run_angular_material_unit_tests.sh
