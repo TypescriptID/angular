@@ -78,6 +78,22 @@ export function convertToDirectTsLibImport(filesystem: TestFile[]) {
   });
 }
 
+export function convertToInlineTsLib(filesystem: TestFile[], suffix: string = '') {
+  return filesystem.map(file => {
+    const contents = file.contents
+                         .replace(`import * as tslib_1 from 'tslib';`, `
+var __decorate${suffix} = null;
+var __metadata${suffix} = null;
+var __read${suffix} = null;
+var __values${suffix} = null;
+var __param${suffix} = null;
+var __extends${suffix} = null;
+var __assign${suffix} = null;
+`).replace(/tslib_1\.([_a-z]+)/gi, '$1' + suffix.replace('$', '$$'));
+    return {...file, contents};
+  });
+}
+
 export function getRootFiles(testFiles: TestFile[]): AbsoluteFsPath[] {
   return testFiles.filter(f => f.isRoot !== false).map(f => absoluteFrom(f.name));
 }
