@@ -63,15 +63,11 @@ export function refreshDescendantViews(lView: LView) {
   const tView = lView[TVIEW];
   const creationMode = isCreationMode(lView);
 
-  // This needs to be set before children are processed to support recursive components
-  tView.firstTemplatePass = false;
-
-  // Resetting the bindingIndex of the current LView as the next steps may trigger change detection.
-  lView[BINDING_INDEX] = tView.bindingStartIndex;
-
-  // If this is a creation pass, we should not call lifecycle hooks or evaluate bindings.
-  // This will be done in the update pass.
   if (!creationMode) {
+    // Resetting the bindingIndex of the current LView as the next steps may trigger change
+    // detection.
+    lView[BINDING_INDEX] = tView.bindingStartIndex;
+
     const checkNoChangesMode = getCheckNoChangesMode();
 
     executePreOrderHooks(lView, tView, checkNoChangesMode, undefined);
@@ -79,7 +75,9 @@ export function refreshDescendantViews(lView: LView) {
     refreshDynamicEmbeddedViews(lView);
 
     // Content query results must be refreshed before content hooks are called.
-    refreshContentQueries(tView, lView);
+    if (tView.contentQueries !== null) {
+      refreshContentQueries(tView, lView);
+    }
 
     resetPreOrderHookFlags(lView);
     executeHooks(
@@ -87,14 +85,22 @@ export function refreshDescendantViews(lView: LView) {
         InitPhaseState.AfterContentInitHooksToBeRun, undefined);
 
     setHostBindings(tView, lView);
+  } else {
+    // This needs to be set before children are processed to support recursive components.
+    // This must be set to false immediately after the first creation run because in an
+    // ngFor loop, all the views will be created together before update mode runs and turns
+    // off firstTemplatePass. If we don't set it here, instances will perform directive
+    // matching, etc again and again.
+    tView.firstTemplatePass = false;
+
+    // We resolve content queries specifically marked as `static` in creation mode. Dynamic
+    // content queries are resolved during change detection (i.e. update mode), after embedded
+    // views are refreshed (see block above).
+    if (tView.staticContentQueries) {
+      refreshContentQueries(tView, lView);
+    }
   }
 
-  // We resolve content queries specifically marked as `static` in creation mode. Dynamic
-  // content queries are resolved during change detection (i.e. update mode), after embedded
-  // views are refreshed (see block above).
-  if (creationMode && tView.staticContentQueries) {
-    refreshContentQueries(tView, lView);
-  }
 
   // We must materialize query results before child components are processed
   // in case a child component has projected a container. The LContainer needs
@@ -103,7 +109,10 @@ export function refreshDescendantViews(lView: LView) {
     executeViewQueryFn(RenderFlags.Update, tView, lView[CONTEXT]);
   }
 
-  refreshChildComponents(lView, tView.components);
+  const components = tView.components;
+  if (components !== null) {
+    refreshChildComponents(lView, components);
+  }
 }
 
 
@@ -111,7 +120,7 @@ export function refreshDescendantViews(lView: LView) {
 export function setHostBindings(tView: TView, viewData: LView): void {
   const selectedIndex = getSelectedIndex();
   try {
-    if (tView.expandoInstructions) {
+    if (tView.expandoInstructions !== null) {
       let bindingRootIndex = viewData[BINDING_INDEX] = tView.expandoStartIndex;
       setBindingRoot(bindingRootIndex);
       let currentDirectiveIndex = -1;
@@ -179,11 +188,9 @@ function refreshContentQueries(tView: TView, lView: LView): void {
 }
 
 /** Refreshes child components in the current view. */
-function refreshChildComponents(hostLView: LView, components: number[] | null): void {
-  if (components != null) {
-    for (let i = 0; i < components.length; i++) {
-      componentRefresh(hostLView, components[i]);
-    }
+function refreshChildComponents(hostLView: LView, components: number[]): void {
+  for (let i = 0; i < components.length; i++) {
+    componentRefresh(hostLView, components[i]);
   }
 }
 
@@ -408,18 +415,9 @@ export function renderEmbeddedTemplate<T>(viewToRender: LView, tView: TView, con
     // Will become true if the `try` block executes with no errors.
     let safeToRunHooks = false;
     try {
-      setPreviousOrParentTNode(null !, true);
-
       oldView = enterView(viewToRender, viewToRender[T_HOST]);
       resetPreOrderHookFlags(viewToRender);
       executeTemplate(viewToRender, tView.template !, getRenderFlags(viewToRender), context);
-
-      // This must be set to false immediately after the first creation run because in an
-      // ngFor loop, all the views will be created together before update mode runs and turns
-      // off firstTemplatePass. If we don't set it here, instances will perform directive
-      // matching, etc again and again.
-      tView.firstTemplatePass = false;
-
       refreshDescendantViews(viewToRender);
       safeToRunHooks = true;
     } finally {
@@ -644,11 +642,14 @@ export function createTView(
 }
 
 function createViewBlueprint(bindingStartIndex: number, initialViewLength: number): LView {
-  const blueprint = new (ngDevMode ? LViewBlueprint ! : Array)(initialViewLength)
-                        .fill(null, 0, bindingStartIndex)
-                        .fill(NO_CHANGE, bindingStartIndex) as LView;
+  const blueprint = ngDevMode ? new LViewBlueprint !() : [];
+
+  for (let i = 0; i < initialViewLength; i++) {
+    blueprint.push(i < bindingStartIndex ? null : NO_CHANGE);
+  }
   blueprint[BINDING_INDEX] = bindingStartIndex;
-  return blueprint;
+
+  return blueprint as LView;
 }
 
 export function createError(text: string, token: any) {
@@ -1494,19 +1495,20 @@ export function createLContainer(
  * by executing an associated template function.
  */
 function refreshDynamicEmbeddedViews(lView: LView) {
-  for (let current = lView[CHILD_HEAD]; current !== null; current = current[NEXT]) {
-    // Note: current can be an LView or an LContainer instance, but here we are only interested
-    // in LContainer. We can tell it's an LContainer because its length is less than the LView
-    // header.
-    if (current[ACTIVE_INDEX] === -1 && isLContainer(current)) {
-      for (let i = CONTAINER_HEADER_OFFSET; i < current.length; i++) {
-        const dynamicViewData = current[i];
+  let viewOrContainer = lView[CHILD_HEAD];
+  while (viewOrContainer !== null) {
+    // Note: viewOrContainer can be an LView or an LContainer instance, but here we are only
+    // interested in LContainer
+    if (isLContainer(viewOrContainer) && viewOrContainer[ACTIVE_INDEX] === -1) {
+      for (let i = CONTAINER_HEADER_OFFSET; i < viewOrContainer.length; i++) {
+        const embeddedLView = viewOrContainer[i];
         // The directives and pipes are not needed here as an existing view is only being
         // refreshed.
-        ngDevMode && assertDefined(dynamicViewData[TVIEW], 'TView must be allocated');
-        renderEmbeddedTemplate(dynamicViewData, dynamicViewData[TVIEW], dynamicViewData[CONTEXT] !);
+        ngDevMode && assertDefined(embeddedLView[TVIEW], 'TView must be allocated');
+        renderEmbeddedTemplate(embeddedLView, embeddedLView[TVIEW], embeddedLView[CONTEXT] !);
       }
     }
+    viewOrContainer = viewOrContainer[NEXT];
   }
 }
 
@@ -1563,7 +1565,7 @@ export function componentRefresh(hostLView: LView, adjustedElementIndex: number)
 function syncViewWithBlueprint(componentView: LView) {
   const componentTView = componentView[TVIEW];
   for (let i = componentView.length; i < componentTView.blueprint.length; i++) {
-    componentView[i] = componentTView.blueprint[i];
+    componentView.push(componentTView.blueprint[i]);
   }
 }
 
