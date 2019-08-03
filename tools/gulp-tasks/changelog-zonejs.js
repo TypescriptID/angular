@@ -7,17 +7,23 @@
  */
 
 module.exports = (gulp) => () => {
-  const tag = process.env.ZONE_TAG;
+  const tag = process.env.TAG;
+  const ptag = process.env.PREVIOUS_ZONE_TAG;
   const conventionalChangelog = require('gulp-conventional-changelog');
+  // the tag of zone.js will start with `zone.js-`, such as `zone.js-0.10.0`
+  // we will remove the first 8 (zone.js-) chars to get the real version.
+  const version = tag.replace(/^zone\.js-/, '');
   return gulp.src('packages/zone.js/CHANGELOG.md')
       .pipe(conventionalChangelog(
-          {preset: 'angular'}, {
-            currentTag: tag,
-          },
           {
+            preset: 'angular',
+          },
+          {linkCompare: true, previousTag: ptag, currentTag: tag, version: version}, {
             // Ignore commits that have a different scope than `zone.js`.
             extendedRegexp: true,
             grep: '^[^(]+\\(zone\\.js\\)',
+            from: ptag,
+            to: tag,
           }))
       .pipe(gulp.dest('./packages/zone.js/'));
 };
