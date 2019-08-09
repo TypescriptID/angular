@@ -14,6 +14,7 @@ import {ModuleResolver} from './dependencies/module_resolver';
 import {UmdDependencyHost} from './dependencies/umd_dependency_host';
 import {DirectoryWalkerEntryPointFinder} from './entry_point_finder/directory_walker_entry_point_finder';
 import {TargetedEntryPointFinder} from './entry_point_finder/targeted_entry_point_finder';
+import {AnalyzeFn, CreateCompileFn, EntryPointProcessingMetadata, ExecuteFn, Task, TaskProcessingOutcome} from './execution/api';
 import {ConsoleLogger, LogLevel} from './logging/console_logger';
 import {Logger} from './logging/logger';
 import {hasBeenProcessed, markAsProcessed} from './packages/build_marker';
@@ -83,83 +84,171 @@ export function mainNgcc(
      compileAllFormats = true, createNewEntryPointFormats = false,
      logger = new ConsoleLogger(LogLevel.info), pathMappings}: NgccOptions): void {
   const fileSystem = getFileSystem();
-  const transformer = new Transformer(fileSystem, logger);
-  const moduleResolver = new ModuleResolver(fileSystem, pathMappings);
-  const esmDependencyHost = new EsmDependencyHost(fileSystem, moduleResolver);
-  const umdDependencyHost = new UmdDependencyHost(fileSystem, moduleResolver);
-  const commonJsDependencyHost = new CommonJsDependencyHost(fileSystem, moduleResolver);
-  const resolver = new DependencyResolver(fileSystem, logger, {
-    esm5: esmDependencyHost,
-    esm2015: esmDependencyHost,
-    umd: umdDependencyHost,
-    commonjs: commonJsDependencyHost
-  });
-  const absBasePath = absoluteFrom(basePath);
-  const config = new NgccConfiguration(fileSystem, dirname(absBasePath));
-  const fileWriter = getFileWriter(fileSystem, createNewEntryPointFormats);
-  const entryPoints = getEntryPoints(
-      fileSystem, config, logger, resolver, absBasePath, targetEntryPointPath, pathMappings,
-      propertiesToConsider, compileAllFormats);
-  for (const entryPoint of entryPoints) {
-    // Are we compiling the Angular core?
-    const isCore = entryPoint.name === '@angular/core';
 
-    const compiledFormats = new Set<string>();
-    const entryPointPackageJson = entryPoint.packageJson;
-    const entryPointPackageJsonPath = fileSystem.resolve(entryPoint.path, 'package.json');
-    const pathToPropsMap = getFormatPathToPropertiesMap(entryPointPackageJson);
+  // The function for performing the analysis.
+  const analyzeFn: AnalyzeFn = () => {
+    const supportedPropertiesToConsider = ensureSupportedProperties(propertiesToConsider);
 
-    let processDts = !hasBeenProcessed(entryPointPackageJson, 'typings');
+    const moduleResolver = new ModuleResolver(fileSystem, pathMappings);
+    const esmDependencyHost = new EsmDependencyHost(fileSystem, moduleResolver);
+    const umdDependencyHost = new UmdDependencyHost(fileSystem, moduleResolver);
+    const commonJsDependencyHost = new CommonJsDependencyHost(fileSystem, moduleResolver);
+    const dependencyResolver = new DependencyResolver(fileSystem, logger, {
+      esm5: esmDependencyHost,
+      esm2015: esmDependencyHost,
+      umd: umdDependencyHost,
+      commonjs: commonJsDependencyHost
+    });
 
-    for (const property of propertiesToConsider as EntryPointJsonProperty[]) {
-      // If we only need one format processed and we already have one, exit the loop.
-      if (!compileAllFormats && (compiledFormats.size > 0)) break;
+    const absBasePath = absoluteFrom(basePath);
+    const config = new NgccConfiguration(fileSystem, dirname(absBasePath));
+    const entryPoints = getEntryPoints(
+        fileSystem, config, logger, dependencyResolver, absBasePath, targetEntryPointPath,
+        pathMappings, supportedPropertiesToConsider, compileAllFormats);
 
-      const formatPath = entryPointPackageJson[property];
-      const format = getEntryPointFormat(fileSystem, entryPoint, property);
+    const processingMetadataPerEntryPoint = new Map<string, EntryPointProcessingMetadata>();
+    const tasks: Task[] = [];
 
-      // No format then this property is not supposed to be compiled.
-      if (!formatPath || !format) continue;
+    for (const entryPoint of entryPoints) {
+      const packageJson = entryPoint.packageJson;
+      const hasProcessedTypings = hasBeenProcessed(packageJson, 'typings');
+      const {propertiesToProcess, propertyToPropertiesToMarkAsProcessed} =
+          getPropertiesToProcessAndMarkAsProcessed(packageJson, supportedPropertiesToConsider);
+      let processDts = !hasProcessedTypings;
 
-      // The `formatPath` which the property maps to is already processed - nothing to do.
-      if (hasBeenProcessed(entryPointPackageJson, property)) {
-        compiledFormats.add(formatPath);
-        logger.debug(`Skipping ${entryPoint.name} : ${property} (already compiled).`);
-        continue;
+      for (const formatProperty of propertiesToProcess) {
+        const formatPropertiesToMarkAsProcessed =
+            propertyToPropertiesToMarkAsProcessed.get(formatProperty) !;
+        tasks.push({entryPoint, formatProperty, formatPropertiesToMarkAsProcessed, processDts});
+
+        // Only process typings for the first property (if not already processed).
+        processDts = false;
       }
 
-
-      if (!compiledFormats.has(formatPath)) {
-        const bundle = makeEntryPointBundle(
-            fileSystem, entryPoint, formatPath, isCore, property, format, processDts, pathMappings,
-            true);
-
-        if (bundle) {
-          logger.info(`Compiling ${entryPoint.name} : ${property} as ${format}`);
-          const transformedFiles = transformer.transform(bundle);
-          fileWriter.writeBundle(entryPoint, bundle, transformedFiles);
-          compiledFormats.add(formatPath);
-
-          const propsToMarkAsProcessed = pathToPropsMap.get(formatPath) !;
-          if (processDts) {
-            propsToMarkAsProcessed.push('typings');
-            processDts = false;
-          }
-
-          markAsProcessed(
-              fileSystem, entryPointPackageJson, entryPointPackageJsonPath, propsToMarkAsProcessed);
-        } else {
-          logger.warn(
-              `Skipping ${entryPoint.name} : ${format} (no valid entry point file for this format).`);
-        }
-      }
+      processingMetadataPerEntryPoint.set(entryPoint.path, {
+        hasProcessedTypings,
+        hasAnyProcessedFormat: false,
+      });
     }
 
-    if (compiledFormats.size === 0) {
+    return {processingMetadataPerEntryPoint, tasks};
+  };
+
+  // The function for creating the `compile()` function.
+  const createCompileFn: CreateCompileFn = onTaskCompleted => {
+    const fileWriter = getFileWriter(fileSystem, createNewEntryPointFormats);
+    const transformer = new Transformer(fileSystem, logger);
+
+    return (task: Task) => {
+      const {entryPoint, formatProperty, formatPropertiesToMarkAsProcessed, processDts} = task;
+
+      const isCore = entryPoint.name === '@angular/core';  // Are we compiling the Angular core?
+      const packageJson = entryPoint.packageJson;
+      const formatPath = packageJson[formatProperty];
+      const format = getEntryPointFormat(fileSystem, entryPoint, formatProperty);
+
+      // All properties listed in `propertiesToProcess` are guaranteed to point to a format-path
+      // (i.e. they exist in `entryPointPackageJson`). Furthermore, they are also guaranteed to be
+      // among `SUPPORTED_FORMAT_PROPERTIES`.
+      // Based on the above, `formatPath` should always be defined and `getEntryPointFormat()`
+      // should always return a format here (and not `undefined`).
+      if (!formatPath || !format) {
+        // This should never happen.
+        throw new Error(
+            `Invariant violated: No format-path or format for ${entryPoint.path} : ` +
+            `${formatProperty} (formatPath: ${formatPath} | format: ${format})`);
+      }
+
+      // The format-path which the property maps to is already processed - nothing to do.
+      if (hasBeenProcessed(packageJson, formatProperty)) {
+        logger.debug(`Skipping ${entryPoint.name} : ${formatProperty} (already compiled).`);
+        onTaskCompleted(task, TaskProcessingOutcome.AlreadyProcessed);
+        return;
+      }
+
+      const bundle = makeEntryPointBundle(
+          fileSystem, entryPoint, formatPath, isCore, format, processDts, pathMappings, true);
+
+      logger.info(`Compiling ${entryPoint.name} : ${formatProperty} as ${format}`);
+
+      const transformedFiles = transformer.transform(bundle);
+      fileWriter.writeBundle(bundle, transformedFiles, formatPropertiesToMarkAsProcessed);
+
+      onTaskCompleted(task, TaskProcessingOutcome.Processed);
+    };
+  };
+
+  // The function for actually planning and getting the work done.
+  const executeFn: ExecuteFn = (analyzeFn: AnalyzeFn, createCompileFn: CreateCompileFn) => {
+    const {processingMetadataPerEntryPoint, tasks} = analyzeFn();
+    const compile = createCompileFn((task, outcome) => {
+      const {entryPoint, formatPropertiesToMarkAsProcessed, processDts} = task;
+      const processingMeta = processingMetadataPerEntryPoint.get(entryPoint.path) !;
+      processingMeta.hasAnyProcessedFormat = true;
+
+      if (outcome === TaskProcessingOutcome.Processed) {
+        const packageJsonPath = fileSystem.resolve(entryPoint.path, 'package.json');
+        const propsToMarkAsProcessed: (EntryPointJsonProperty | 'typings')[] =
+            [...formatPropertiesToMarkAsProcessed];
+
+        if (processDts) {
+          processingMeta.hasProcessedTypings = true;
+          propsToMarkAsProcessed.push('typings');
+        }
+
+        markAsProcessed(
+            fileSystem, entryPoint.packageJson, packageJsonPath, propsToMarkAsProcessed);
+      }
+    });
+
+    // Process all tasks.
+    for (const task of tasks) {
+      const processingMeta = processingMetadataPerEntryPoint.get(task.entryPoint.path) !;
+
+      // If we only need one format processed and we already have one for the corresponding
+      // entry-point, skip the task.
+      if (!compileAllFormats && processingMeta.hasAnyProcessedFormat) continue;
+
+      compile(task);
+    }
+
+    // Check for entry-points for which we could not process any format at all.
+    const unprocessedEntryPointPaths =
+        Array.from(processingMetadataPerEntryPoint.entries())
+            .filter(([, processingMeta]) => !processingMeta.hasAnyProcessedFormat)
+            .map(([entryPointPath]) => `\n  - ${entryPointPath}`)
+            .join('');
+
+    if (unprocessedEntryPointPaths) {
       throw new Error(
-          `Failed to compile any formats for entry-point at (${entryPoint.path}). Tried ${propertiesToConsider}.`);
+          'Failed to compile any formats for the following entry-points (tried ' +
+          `${propertiesToConsider.join(', ')}): ${unprocessedEntryPointPaths}`);
+    }
+  };
+
+  return executeFn(analyzeFn, createCompileFn);
+}
+
+function ensureSupportedProperties(properties: string[]): EntryPointJsonProperty[] {
+  // Short-circuit the case where `properties` has fallen back to the default value:
+  // `SUPPORTED_FORMAT_PROPERTIES`
+  if (properties === SUPPORTED_FORMAT_PROPERTIES) return SUPPORTED_FORMAT_PROPERTIES;
+
+  const supportedProperties: EntryPointJsonProperty[] = [];
+
+  for (const prop of properties as EntryPointJsonProperty[]) {
+    if (SUPPORTED_FORMAT_PROPERTIES.indexOf(prop) !== -1) {
+      supportedProperties.push(prop);
     }
   }
+
+  if (supportedProperties.length === 0) {
+    throw new Error(
+        `No supported format property to consider among [${properties.join(', ')}]. ` +
+        `Supported properties: ${SUPPORTED_FORMAT_PROPERTIES.join(', ')}`);
+  }
+
+  return supportedProperties;
 }
 
 function getFileWriter(fs: FileSystem, createNewEntryPointFormats: boolean): FileWriter {
@@ -268,19 +357,59 @@ function logInvalidEntryPoints(logger: Logger, invalidEntryPoints: InvalidEntryP
   });
 }
 
-function getFormatPathToPropertiesMap(packageJson: EntryPointPackageJson):
-    Map<string, EntryPointJsonProperty[]> {
-  const map = new Map<string, EntryPointJsonProperty[]>();
+/**
+ * This function computes and returns the following:
+ * - `propertiesToProcess`: An (ordered) list of properties that exist and need to be processed,
+ *   based on the specified `propertiesToConsider`, the properties in `package.json` and their
+ *   corresponding format-paths. NOTE: Only one property per format-path needs to be processed.
+ * - `propertyToPropertiesToMarkAsProcessed`: A mapping from each property in `propertiesToProcess`
+ *   to the list of other properties in `package.json` that need to be marked as processed as soon
+ *   as of the former being processed.
+ */
+function getPropertiesToProcessAndMarkAsProcessed(
+    packageJson: EntryPointPackageJson, propertiesToConsider: EntryPointJsonProperty[]): {
+  propertiesToProcess: EntryPointJsonProperty[];
+  propertyToPropertiesToMarkAsProcessed: Map<EntryPointJsonProperty, EntryPointJsonProperty[]>;
+} {
+  const formatPathsToConsider = new Set<string>();
 
-  for (const prop of SUPPORTED_FORMAT_PROPERTIES) {
-    const formatPath = packageJson[prop];
-    if (formatPath) {
-      if (!map.has(formatPath)) {
-        map.set(formatPath, []);
-      }
-      map.get(formatPath) !.push(prop);
-    }
+  const propertiesToProcess: EntryPointJsonProperty[] = [];
+  for (const prop of propertiesToConsider) {
+    // Ignore properties that are not in `package.json`.
+    if (!packageJson.hasOwnProperty(prop)) continue;
+
+    const formatPath = packageJson[prop] !;
+
+    // Ignore properties that map to the same format-path as a preceding property.
+    if (formatPathsToConsider.has(formatPath)) continue;
+
+    // Process this property, because it is the first one to map to this format-path.
+    formatPathsToConsider.add(formatPath);
+    propertiesToProcess.push(prop);
   }
 
-  return map;
+  const formatPathToProperties: {[formatPath: string]: EntryPointJsonProperty[]} = {};
+  for (const prop of SUPPORTED_FORMAT_PROPERTIES) {
+    // Ignore properties that are not in `package.json`.
+    if (!packageJson.hasOwnProperty(prop)) continue;
+
+    const formatPath = packageJson[prop] !;
+
+    // Ignore properties that do not map to a format-path that will be considered.
+    if (!formatPathsToConsider.has(formatPath)) continue;
+
+    // Add this property to the map.
+    const list = formatPathToProperties[formatPath] || (formatPathToProperties[formatPath] = []);
+    list.push(prop);
+  }
+
+  const propertyToPropertiesToMarkAsProcessed =
+      new Map<EntryPointJsonProperty, EntryPointJsonProperty[]>();
+  for (const prop of propertiesToConsider) {
+    const formatPath = packageJson[prop] !;
+    const propertiesToMarkAsProcessed = formatPathToProperties[formatPath];
+    propertyToPropertiesToMarkAsProcessed.set(prop, propertiesToMarkAsProcessed);
+  }
+
+  return {propertiesToProcess, propertyToPropertiesToMarkAsProcessed};
 }

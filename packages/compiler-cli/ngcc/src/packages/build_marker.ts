@@ -23,7 +23,7 @@ export const NGCC_VERSION = '0.0.0-PLACEHOLDER';
  * @throws Error if the entry-point has already been processed with a different ngcc version.
  */
 export function hasBeenProcessed(
-    packageJson: EntryPointPackageJson, format: EntryPointJsonProperty): boolean {
+    packageJson: EntryPointPackageJson, format: EntryPointJsonProperty | 'typings'): boolean {
   if (!packageJson.__processed_by_ivy_ngcc__) {
     return false;
   }
@@ -49,13 +49,24 @@ export function hasBeenProcessed(
  */
 export function markAsProcessed(
     fs: FileSystem, packageJson: EntryPointPackageJson, packageJsonPath: AbsoluteFsPath,
-    properties: EntryPointJsonProperty[]) {
+    properties: (EntryPointJsonProperty | 'typings')[]) {
   const processed =
       packageJson.__processed_by_ivy_ngcc__ || (packageJson.__processed_by_ivy_ngcc__ = {});
 
   for (const prop of properties) {
     processed[prop] = NGCC_VERSION;
   }
+
+  const scripts = packageJson.scripts || (packageJson.scripts = {});
+  scripts.prepublishOnly__ivy_ngcc_bak =
+      scripts.prepublishOnly__ivy_ngcc_bak || scripts.prepublishOnly;
+
+  scripts.prepublishOnly = 'node --eval \"console.error(\'' +
+      'ERROR: Trying to publish a package that has been compiled by NGCC. This is not allowed.\\n' +
+      'Please delete and rebuild the package, without compiling with NGCC, before attempting to publish.\\n' +
+      'Note that NGCC may have been run by importing this package into another project that is being built with Ivy enabled.\\n' +
+      '\')\" ' +
+      '&& exit 1';
 
   // Just in case this package.json was synthesized due to a custom configuration
   // we will ensure that the path to the containing folder exists before we write the file.

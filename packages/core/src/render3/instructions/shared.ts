@@ -28,13 +28,13 @@ import {isComponent, isComponentDef, isContentQueryHost, isLContainer, isRootVie
 import {BINDING_INDEX, CHILD_HEAD, CHILD_TAIL, CLEANUP, CONTEXT, DECLARATION_VIEW, ExpandoInstructions, FLAGS, HEADER_OFFSET, HOST, INJECTOR, InitPhaseState, LView, LViewFlags, NEXT, PARENT, RENDERER, RENDERER_FACTORY, RootContext, RootContextFlags, SANITIZER, TData, TVIEW, TView, T_HOST} from '../interfaces/view';
 import {assertNodeOfPossibleTypes, assertNodeType} from '../node_assert';
 import {isNodeMatchingSelectorList} from '../node_selector_matcher';
-import {enterView, getBindingsEnabled, getCheckNoChangesMode, getIsParent, getLView, getNamespace, getPreviousOrParentTNode, getSelectedIndex, incrementActiveDirectiveId, isCreationMode, leaveView, namespaceHTMLInternal, setActiveHostElement, setBindingRoot, setCheckNoChangesMode, setCurrentDirectiveDef, setCurrentQueryIndex, setPreviousOrParentTNode, setSelectedIndex} from '../state';
+import {enterView, getBindingsEnabled, getCheckNoChangesMode, getIsParent, getLView, getPreviousOrParentTNode, getSelectedIndex, incrementActiveDirectiveId, leaveView, namespaceHTMLInternal, setActiveHostElement, setBindingRoot, setCheckNoChangesMode, setCurrentDirectiveDef, setCurrentQueryIndex, setPreviousOrParentTNode, setSelectedIndex} from '../state';
 import {renderStylingMap} from '../styling_next/bindings';
 import {NO_CHANGE} from '../tokens';
 import {ANIMATION_PROP_PREFIX, isAnimationProp} from '../util/attrs_utils';
 import {INTERPOLATION_DELIMITER, renderStringify, stringifyForError} from '../util/misc_utils';
-import {getLViewParent, getRootContext} from '../util/view_traversal_utils';
-import {getComponentViewByIndex, getNativeByIndex, getNativeByTNode, getTNode, readPatchedLView, resetPreOrderHookFlags, unwrapRNode, viewAttachedToChangeDetector} from '../util/view_utils';
+import {getLViewParent} from '../util/view_traversal_utils';
+import {getComponentViewByIndex, getNativeByIndex, getNativeByTNode, getTNode, isCreationMode, readPatchedLView, resetPreOrderHookFlags, unwrapRNode, viewAttachedToChangeDetector} from '../util/view_utils';
 
 import {LCleanup, LViewBlueprint, MatchesArray, TCleanup, TNodeConstructor, TNodeInitialData, TNodeInitialInputs, TNodeLocalNames, TViewComponents, TViewConstructor, attachLContainerDebug, attachLViewDebug, cloneToLView, cloneToTViewData} from './lview_debug';
 import {selectInternal} from './select';
@@ -197,26 +197,19 @@ function refreshChildComponents(hostLView: LView, components: number[]): void {
 /**
  * Creates a native element from a tag name, using a renderer.
  * @param name the tag name
- * @param overriddenRenderer Optional A renderer to override the default one
+ * @param renderer A renderer to use
  * @returns the element created
  */
-export function elementCreate(name: string, overriddenRenderer?: Renderer3): RElement {
-  let native: RElement;
-  const rendererToUse = overriddenRenderer || getLView()[RENDERER];
-
-  const namespace = getNamespace();
-
-  if (isProceduralRenderer(rendererToUse)) {
-    native = rendererToUse.createElement(name, namespace);
+export function elementCreate(
+    name: string, renderer: Renderer3, namespace: string | null): RElement {
+  if (isProceduralRenderer(renderer)) {
+    return renderer.createElement(name, namespace);
   } else {
-    if (namespace === null) {
-      native = rendererToUse.createElement(name);
-    } else {
-      native = rendererToUse.createElementNS(namespace, name);
-    }
+    return namespace === null ? renderer.createElement(name) :
+                                renderer.createElementNS(namespace, name);
   }
-  return native;
 }
+
 export function createLView<T>(
     parentLView: LView | null, tView: TView, context: T | null, flags: LViewFlags,
     host: RElement | null, tHostNode: TViewNode | TElementNode | null,
@@ -369,16 +362,11 @@ export function allocExpando(view: LView, numSlotsToAlloc: number) {
 //////////////////////////
 
 /**
- * Used for creating the LViewNode of a dynamic embedded view,
- * either through ViewContainerRef.createEmbeddedView() or TemplateRef.createEmbeddedView().
- * Such lViewNode will then be renderer with renderEmbeddedTemplate() (see below).
+ * Used for creating the LView of a dynamic embedded view, either through
+ * ViewContainerRef.createEmbeddedView() or TemplateRef.createEmbeddedView().
  */
 export function createEmbeddedViewAndNode<T>(
     tView: TView, context: T, declarationView: LView, injectorIndex: number): LView {
-  const _isParent = getIsParent();
-  const _previousOrParentTNode = getPreviousOrParentTNode();
-  setPreviousOrParentTNode(null !, true);
-
   const lView = createLView(declarationView, tView, context, LViewFlags.CheckAlways, null, null);
   lView[DECLARATION_VIEW] = declarationView;
 
@@ -388,12 +376,12 @@ export function createEmbeddedViewAndNode<T>(
     tView.node !.injectorIndex = injectorIndex;
   }
 
-  setPreviousOrParentTNode(_previousOrParentTNode, _isParent);
   return lView;
 }
 
 /**
- * Used for rendering embedded views (e.g. dynamically created views)
+ * Used for rendering views in a LContainer (embedded views or root component views for dynamically
+ * created components).
  *
  * Dynamically created views must store/retrieve their TViews differently from component views
  * because their template functions are nested in the template functions of their hosts, creating
@@ -407,22 +395,20 @@ export function renderEmbeddedTemplate<T>(viewToRender: LView, tView: TView, con
   const _isParent = getIsParent();
   const _previousOrParentTNode = getPreviousOrParentTNode();
   let oldView: LView;
-  if (viewToRender[FLAGS] & LViewFlags.IsRoot) {
-    // This is a root view inside the view tree
-    tickRootContext(getRootContext(viewToRender));
-  } else {
-    // Will become true if the `try` block executes with no errors.
-    let safeToRunHooks = false;
-    try {
-      oldView = enterView(viewToRender, viewToRender[T_HOST]);
-      resetPreOrderHookFlags(viewToRender);
-      executeTemplate(viewToRender, tView.template !, getRenderFlags(viewToRender), context);
-      refreshDescendantViews(viewToRender);
-      safeToRunHooks = true;
-    } finally {
-      leaveView(oldView !, safeToRunHooks);
-      setPreviousOrParentTNode(_previousOrParentTNode, _isParent);
+  // Will become true if the `try` block executes with no errors.
+  let safeToRunHooks = false;
+  try {
+    oldView = enterView(viewToRender, viewToRender[T_HOST]);
+    resetPreOrderHookFlags(viewToRender);
+    const templateFn = tView.template;
+    if (templateFn !== null) {
+      executeTemplate(viewToRender, templateFn, getRenderFlags(viewToRender), context);
     }
+    refreshDescendantViews(viewToRender);
+    safeToRunHooks = true;
+  } finally {
+    leaveView(oldView !, safeToRunHooks);
+    setPreviousOrParentTNode(_previousOrParentTNode, _isParent);
   }
 }
 

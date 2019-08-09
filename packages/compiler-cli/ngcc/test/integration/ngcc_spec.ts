@@ -200,6 +200,17 @@ runInEachFileSystem(() => {
 
 
     describe('with propertiesToConsider', () => {
+      it('should complain if none of the properties in the `propertiesToConsider` list is supported',
+         () => {
+           const propertiesToConsider = ['es1337', 'fesm42'];
+           const errorMessage =
+               'No supported format property to consider among [es1337, fesm42]. Supported ' +
+               'properties: fesm2015, fesm5, es2015, esm2015, esm5, main, module';
+
+           expect(() => mainNgcc({basePath: '/node_modules', propertiesToConsider}))
+               .toThrowError(errorMessage);
+         });
+
       it('should only compile the entry-point formats given in the `propertiesToConsider` list',
          () => {
            mainNgcc({
@@ -370,6 +381,28 @@ runInEachFileSystem(() => {
         expect(fs.readFile(_(`/node_modules/@angular/common/common.d.ts`)))
             .toMatch(ANGULAR_CORE_IMPORT_REGEX);
         expect(fs.exists(_(`/node_modules/@angular/common/common.d.ts.__ivy_ngcc_bak`))).toBe(true);
+      });
+
+      it('should update `package.json` for all matching format properties', () => {
+        mainNgcc({
+          basePath: '/node_modules/@angular/core',
+          createNewEntryPointFormats: true,
+          propertiesToConsider: ['fesm2015', 'fesm5'],
+        });
+
+        const pkg: any = loadPackage('@angular/core');
+
+        // `es2015` is an alias of `fesm2015`.
+        expect(pkg.fesm2015).toEqual('./fesm2015/core.js');
+        expect(pkg.es2015).toEqual('./fesm2015/core.js');
+        expect(pkg.fesm2015_ivy_ngcc).toEqual('__ivy_ngcc__/fesm2015/core.js');
+        expect(pkg.es2015_ivy_ngcc).toEqual('__ivy_ngcc__/fesm2015/core.js');
+
+        // `module` is an alias of `fesm5`.
+        expect(pkg.fesm5).toEqual('./fesm5/core.js');
+        expect(pkg.module).toEqual('./fesm5/core.js');
+        expect(pkg.fesm5_ivy_ngcc).toEqual('__ivy_ngcc__/fesm5/core.js');
+        expect(pkg.module_ivy_ngcc).toEqual('__ivy_ngcc__/fesm5/core.js');
       });
     });
 
