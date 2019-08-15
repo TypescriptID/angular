@@ -151,7 +151,7 @@ export class MyComponent {
 
     it('should hot crash with an incomplete class', () => {
       expect(() => {
-        addCode('\nexport class', fileName => { ngHost.updateAnalyzedModules(); });
+        addCode('\nexport class', fileName => { ngHost.getAnalyzedModules(); });
       }).not.toThrow();
     });
 
@@ -180,7 +180,7 @@ export class MyComponent {
         tree: Node;
       }
     `);
-    ngHost.updateAnalyzedModules();
+    ngHost.getAnalyzedModules();
     contains('/app/my.component.ts', 'tree', 'children');
   });
 
@@ -210,7 +210,7 @@ export class MyComponent {
     const originalContent = mockHost.getFileContent(fileName);
     const newContent = originalContent + code;
     mockHost.override(fileName, originalContent + code);
-    ngHost.updateAnalyzedModules();
+    ngHost.getAnalyzedModules();
     try {
       cb(fileName, newContent);
     } finally {
@@ -229,24 +229,23 @@ export class MyComponent {
 
 
 function expectEntries(
-    locationMarker: string, completions: Completion[] | undefined, ...names: string[]) {
+    locationMarker: string, completion: ts.CompletionInfo | undefined, ...names: string[]) {
   let entries: {[name: string]: boolean} = {};
-  if (!completions) {
+  if (!completion) {
     throw new Error(
         `Expected result from ${locationMarker} to include ${names.join(', ')} but no result provided`);
   }
-  if (!completions.length) {
+  if (!completion.entries.length) {
     throw new Error(
         `Expected result from ${locationMarker} to include ${names.join(', ')} an empty result provided`);
-  } else {
-    for (let entry of completions) {
-      entries[entry.name] = true;
-    }
-    let missing = names.filter(name => !entries[name]);
-    if (missing.length) {
-      throw new Error(
-          `Expected result from ${locationMarker} to include at least one of the following, ${missing.join(', ')}, in the list of entries ${completions.map(entry => entry.name).join(', ')}`);
-    }
+  }
+  for (const entry of completion.entries) {
+    entries[entry.name] = true;
+  }
+  let missing = names.filter(name => !entries[name]);
+  if (missing.length) {
+    throw new Error(
+        `Expected result from ${locationMarker} to include at least one of the following, ${missing.join(', ')}, in the list of entries ${completion.entries.map(entry => entry.name).join(', ')}`);
   }
 }
 
