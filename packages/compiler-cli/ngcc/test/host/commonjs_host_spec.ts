@@ -9,7 +9,7 @@ import * as ts from 'typescript';
 
 import {absoluteFrom, getFileSystem, getSourceFileOrError} from '../../../src/ngtsc/file_system';
 import {TestFile, runInEachFileSystem} from '../../../src/ngtsc/file_system/testing';
-import {ClassMemberKind, CtorParameter, Import, isNamedClassDeclaration, isNamedFunctionDeclaration, isNamedVariableDeclaration} from '../../../src/ngtsc/reflection';
+import {ClassMemberKind, CtorParameter, Import, InlineDeclaration, isNamedClassDeclaration, isNamedFunctionDeclaration, isNamedVariableDeclaration} from '../../../src/ngtsc/reflection';
 import {getDeclaration} from '../../../src/ngtsc/testing';
 import {loadFakeCore, loadTestFiles} from '../../../test/helpers';
 import {CommonJsReflectionHost} from '../../src/host/commonjs_host';
@@ -31,6 +31,7 @@ runInEachFileSystem(() => {
     let SIMPLE_ES2015_CLASS_FILE: TestFile;
     let SIMPLE_CLASS_FILE: TestFile;
     let FOO_FUNCTION_FILE: TestFile;
+    let INLINE_EXPORT_FILE: TestFile;
     let INVALID_DECORATORS_FILE: TestFile;
     let INVALID_DECORATOR_ARGS_FILE: TestFile;
     let INVALID_PROP_DECORATORS_FILE: TestFile;
@@ -161,6 +162,18 @@ foo.decorators = [
   { type: core.Directive, args: [{ selector: '[ignored]' },] }
 ];
 exports.foo = foo;
+`,
+      };
+
+      INLINE_EXPORT_FILE = {
+        name: _('/inline_export.js'),
+        contents: `
+var core = require('@angular/core');
+function foo() {}
+foo.decorators = [
+  { type: core.Directive, args: [{ selector: '[ignored]' },] }
+];
+exports.directives = [foo];
 `,
       };
 
@@ -1629,7 +1642,7 @@ exports.ExternalModule = ExternalModule;
           const exportDeclarations = host.getExportsOfModule(file);
           expect(exportDeclarations).not.toBe(null);
           expect(Array.from(exportDeclarations !.entries())
-                     .map(entry => [entry[0], entry[1].node.getText(), entry[1].viaModule]))
+                     .map(entry => [entry[0], entry[1].node !.getText(), entry[1].viaModule]))
               .toEqual([
                 ['Directive', `Directive: FnWithArg<(clazz: any) => any>`, '@angular/core'],
                 ['a', `a = 'a'`, './a_module'],
@@ -1655,7 +1668,7 @@ exports.ExternalModule = ExternalModule;
           const exportDeclarations = host.getExportsOfModule(file);
           expect(exportDeclarations).not.toBe(null);
           expect(Array.from(exportDeclarations !.entries())
-                     .map(entry => [entry[0], entry[1].node.getText(), entry[1].viaModule]))
+                     .map(entry => [entry[0], entry[1].node !.getText(), entry[1].viaModule]))
               .toEqual([
                 ['Directive', `Directive: FnWithArg<(clazz: any) => any>`, _('/b_module')],
                 ['a', `a = 'a'`, _('/b_module')],
@@ -1672,6 +1685,19 @@ exports.ExternalModule = ExternalModule;
                 ['xtra1', `xtra1 = 'xtra1'`, _('/xtra_module')],
                 ['xtra2', `xtra2 = 'xtra2'`, _('/xtra_module')],
               ]);
+        });
+
+        it('should handle inline exports', () => {
+          loadTestFiles([INLINE_EXPORT_FILE]);
+          const {program, host: compilerHost} = makeTestBundleProgram(_('/inline_export.js'));
+          const host = new CommonJsReflectionHost(new MockLogger(), false, program, compilerHost);
+          const file = getSourceFileOrError(program, _('/inline_export.js'));
+          const exportDeclarations = host.getExportsOfModule(file);
+          expect(exportDeclarations).not.toBeNull();
+          const decl = exportDeclarations !.get('directives') as InlineDeclaration;
+          expect(decl).not.toBeUndefined();
+          expect(decl.node).toBeNull();
+          expect(decl.expression).toBeDefined();
         });
       });
 
@@ -1966,7 +1992,7 @@ exports.ExternalModule = ExternalModule;
              loadTestFiles(TYPINGS_SRC_FILES);
              loadTestFiles(TYPINGS_DTS_FILES);
              const {program, host: compilerHost} = makeTestBundleProgram(_('/src/index.js'));
-             const dts = makeTestDtsBundleProgram(_('/typings/index.d.ts'));
+             const dts = makeTestDtsBundleProgram(_('/typings/index.d.ts'), _('/'));
              const class1 =
                  getDeclaration(program, _('/src/class1.js'), 'Class1', ts.isVariableDeclaration);
              const host =
@@ -1980,7 +2006,7 @@ exports.ExternalModule = ExternalModule;
           loadTestFiles(TYPINGS_SRC_FILES);
           loadTestFiles(TYPINGS_DTS_FILES);
           const {program, host: compilerHost} = makeTestBundleProgram(_('/src/index.js'));
-          const dts = makeTestDtsBundleProgram(_('/typings/index.d.ts'));
+          const dts = makeTestDtsBundleProgram(_('/typings/index.d.ts'), _('/'));
           const mooFn =
               getDeclaration(program, _('/src/func1.js'), 'mooFn', ts.isFunctionDeclaration);
           const host =
@@ -1993,7 +2019,7 @@ exports.ExternalModule = ExternalModule;
           loadTestFiles(TYPINGS_SRC_FILES);
           loadTestFiles(TYPINGS_DTS_FILES);
           const {program, host: compilerHost} = makeTestBundleProgram(_('/src/index.js'));
-          const dts = makeTestDtsBundleProgram(_('/typings/index.d.ts'));
+          const dts = makeTestDtsBundleProgram(_('/typings/index.d.ts'), _('/'));
           const missingClass = getDeclaration(
               program, _('/src/class1.js'), 'MissingClass1', ts.isVariableDeclaration);
           const host =
@@ -2006,7 +2032,7 @@ exports.ExternalModule = ExternalModule;
           loadTestFiles(TYPINGS_SRC_FILES);
           loadTestFiles(TYPINGS_DTS_FILES);
           const {program, host: compilerHost} = makeTestBundleProgram(_('/src/index.js'));
-          const dts = makeTestDtsBundleProgram(_('/typings/index.d.ts'));
+          const dts = makeTestDtsBundleProgram(_('/typings/index.d.ts'), _('/'));
           const missingClass = getDeclaration(
               program, _('/src/missing-class.js'), 'MissingClass2', ts.isVariableDeclaration);
           const host =
@@ -2020,7 +2046,7 @@ exports.ExternalModule = ExternalModule;
              loadTestFiles(TYPINGS_SRC_FILES);
              loadTestFiles(TYPINGS_DTS_FILES);
              const {program, host: compilerHost} = makeTestBundleProgram(_('/src/index.js'));
-             const dts = makeTestDtsBundleProgram(_('/typings/index.d.ts'));
+             const dts = makeTestDtsBundleProgram(_('/typings/index.d.ts'), _('/'));
              const class1 = getDeclaration(
                  program, _('/src/flat-file.js'), 'Class1', ts.isVariableDeclaration);
              const host =
@@ -2034,7 +2060,7 @@ exports.ExternalModule = ExternalModule;
           loadTestFiles(TYPINGS_SRC_FILES);
           loadTestFiles(TYPINGS_DTS_FILES);
           const {program, host: compilerHost} = makeTestBundleProgram(_('/src/index.js'));
-          const dts = makeTestDtsBundleProgram(_('/typings/index.d.ts'));
+          const dts = makeTestDtsBundleProgram(_('/typings/index.d.ts'), _('/'));
           const class3 =
               getDeclaration(program, _('/src/flat-file.js'), 'Class3', ts.isVariableDeclaration);
           const host =
@@ -2049,7 +2075,7 @@ exports.ExternalModule = ExternalModule;
              loadTestFiles(TYPINGS_SRC_FILES);
              loadTestFiles(TYPINGS_DTS_FILES);
              const {program, host: compilerHost} = makeTestBundleProgram(_('/src/index.js'));
-             const dts = makeTestDtsBundleProgram(_('/typings/index.d.ts'));
+             const dts = makeTestDtsBundleProgram(_('/typings/index.d.ts'), _('/'));
              const internalClass = getDeclaration(
                  program, _('/src/internal.js'), 'InternalClass', ts.isVariableDeclaration);
              const host =
@@ -2064,7 +2090,7 @@ exports.ExternalModule = ExternalModule;
              loadTestFiles(TYPINGS_SRC_FILES);
              loadTestFiles(TYPINGS_DTS_FILES);
              const {program, host: compilerHost} = makeTestBundleProgram(_('/src/index.js'));
-             const dts = makeTestDtsBundleProgram(_('/typings/index.d.ts'));
+             const dts = makeTestDtsBundleProgram(_('/typings/index.d.ts'), _('/'));
              const class2 =
                  getDeclaration(program, _('/src/class2.js'), 'Class2', ts.isVariableDeclaration);
              const internalClass2 =

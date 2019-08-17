@@ -9,7 +9,7 @@ import {Injector} from '../../di';
 import {ErrorHandler} from '../../error_handler';
 import {CUSTOM_ELEMENTS_SCHEMA, NO_ERRORS_SCHEMA, SchemaMetadata} from '../../metadata/schema';
 import {validateAgainstEventAttributes, validateAgainstEventProperties} from '../../sanitization/sanitization';
-import {Sanitizer} from '../../sanitization/security';
+import {Sanitizer} from '../../sanitization/sanitizer';
 import {assertDataInRange, assertDefined, assertDomNode, assertEqual, assertGreaterThan, assertNotEqual, assertNotSame} from '../../util/assert';
 import {createNamedArrayType} from '../../util/named_array_type';
 import {normalizeDebugBindingName, normalizeDebugBindingValue} from '../../util/ng_reflect';
@@ -303,24 +303,6 @@ export function allocExpando(view: LView, numSlotsToAlloc: number) {
 //////////////////////////
 //// Render
 //////////////////////////
-
-/**
- * Used for creating the LView of a dynamic embedded view, either through
- * ViewContainerRef.createEmbeddedView() or TemplateRef.createEmbeddedView().
- */
-export function createEmbeddedViewAndNode<T>(
-    tView: TView, context: T, declarationView: LView, injectorIndex: number): LView {
-  const lView = createLView(declarationView, tView, context, LViewFlags.CheckAlways, null, null);
-  lView[DECLARATION_VIEW] = declarationView;
-
-  assignTViewNodeToLView(tView, null, -1, lView);
-
-  if (tView.firstTemplatePass) {
-    tView.node !.injectorIndex = injectorIndex;
-  }
-
-  return lView;
-}
 
 /**
  * Processes a view in the creation mode. This includes a number of steps in a specific order:

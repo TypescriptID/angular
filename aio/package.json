@@ -23,7 +23,7 @@
     "build-with-ivy": "yarn ~~build",
     "prebuild-with-ivy-ci": "yarn setup-local --no-build-packages && node scripts/switch-to-ivy",
     "build-with-ivy-ci": "yarn ~~build --progress=false",
-    "extract-cli-command-docs": "node tools/transforms/cli-docs-package/extract-cli-commands.js bb4be27da",
+    "extract-cli-command-docs": "node tools/transforms/cli-docs-package/extract-cli-commands.js fe88669c9",
     "lint": "yarn check-env && yarn docs-lint && ng lint && yarn example-lint && yarn tools-lint",
     "test": "yarn check-env && ng test",
     "pree2e": "yarn check-env && yarn update-webdriver",
@@ -97,7 +97,7 @@
     "@types/lunr": "^2.3.2",
     "@webcomponents/custom-elements": "^1.2.0",
     "rxjs": "^6.5.2",
-    "zone.js": "^0.9.1"
+    "zone.js": "^0.10.2"
   },
   "devDependencies": {
     "@angular-devkit/build-angular": "0.801.0-beta.2",
