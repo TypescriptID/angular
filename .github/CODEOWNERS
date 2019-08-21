@@ -101,7 +101,6 @@
 #
 #   - brandonroberts
 #   - gkalpak
-#   - jenniferfell
 #   - petebacondarwin
 
 
@@ -908,6 +907,14 @@ testing/**                                                      @angular/fw-test
 /tools/yarn/**                                                  @angular/fw-dev-infra
 /tools/*
 *.bzl                                                           @angular/fw-dev-infra
+
+
+
+# ================================================
+#  Material CI
+# ================================================
+
+/tools/material-ci/**                                           @angular/fw-core @angular/framework-global-approvers
 
 
 
