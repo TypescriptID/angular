@@ -633,19 +633,19 @@
     "name": "enterView"
   },
   {
+    "name": "executeCheckHooks"
+  },
+  {
     "name": "executeContentQueries"
   },
   {
-    "name": "executeHooks"
+    "name": "executeInitAndCheckHooks"
   },
   {
     "name": "executeListenerWithErrorHandling"
   },
   {
     "name": "executeOnDestroys"
-  },
-  {
-    "name": "executePreOrderHooks"
   },
   {
     "name": "executeTemplate"
@@ -939,6 +939,9 @@
     "name": "incrementActiveDirectiveId"
   },
   {
+    "name": "incrementInitPhaseFlags"
+  },
+  {
     "name": "initNodeFlags"
   },
   {
@@ -1006,9 +1009,6 @@
   },
   {
     "name": "isDevMode"
-  },
-  {
-    "name": "isDifferent"
   },
   {
     "name": "isFactory"
