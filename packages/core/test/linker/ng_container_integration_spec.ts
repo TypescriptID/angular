@@ -10,6 +10,7 @@
 import {AfterContentInit, AfterViewInit, Component, ContentChildren, Directive, Input, QueryList, ViewChildren, ɵivyEnabled as ivyEnabled} from '@angular/core';
 import {TestBed} from '@angular/core/testing';
 import {getDOM} from '@angular/platform-browser/src/dom/dom_adapter';
+import {isCommentNode} from '@angular/platform-browser/testing/src/browser_util';
 import {expect} from '@angular/platform-browser/testing/src/matchers';
 import {modifiedInIvy} from '@angular/private/testing';
 
@@ -58,8 +59,8 @@ function declareTests(config?: {useJit: boolean}) {
           const el = fixture.nativeElement;
           const children = getDOM().childNodes(el);
           expect(children.length).toBe(2);
-          expect(getDOM().isCommentNode(children[0])).toBe(true);
-          expect(getDOM().tagName(children[1]).toUpperCase()).toEqual('P');
+          expect(isCommentNode(children[0])).toBe(true);
+          expect((children[1] as Element).tagName.toUpperCase()).toEqual('P');
         });
 
     modifiedInIvy('FW-678: ivy generates different DOM structure for <ng-container>')
@@ -74,10 +75,10 @@ function declareTests(config?: {useJit: boolean}) {
           const el = fixture.nativeElement;
           const children = getDOM().childNodes(el);
           expect(children.length).toBe(5);
-          expect(getDOM().isCommentNode(children[0])).toBe(true);
+          expect(isCommentNode(children[0])).toBe(true);
           expect(children[1]).toHaveText('1');
-          expect(getDOM().isCommentNode(children[2])).toBe(true);
-          expect(getDOM().isCommentNode(children[3])).toBe(true);
+          expect(isCommentNode(children[2])).toBe(true);
+          expect(isCommentNode(children[3])).toBe(true);
           expect(children[4]).toHaveText('2');
         });
 
@@ -95,17 +96,17 @@ function declareTests(config?: {useJit: boolean}) {
 
           expect(children.length).toBe(4);
           // ngIf anchor
-          expect(getDOM().isCommentNode(children[0])).toBe(true);
+          expect(isCommentNode(children[0])).toBe(true);
           // ng-container anchor
-          expect(getDOM().isCommentNode(children[1])).toBe(true);
-          expect(getDOM().tagName(children[2]).toUpperCase()).toEqual('P');
-          expect(getDOM().tagName(children[3]).toUpperCase()).toEqual('B');
+          expect(isCommentNode(children[1])).toBe(true);
+          expect((children[2] as Element).tagName.toUpperCase()).toEqual('P');
+          expect((children[3] as Element).tagName.toUpperCase()).toEqual('B');
 
           fixture.componentInstance.ctxBoolProp = false;
           fixture.detectChanges();
 
           expect(children.length).toBe(1);
-          expect(getDOM().isCommentNode(children[0])).toBe(true);
+          expect(isCommentNode(children[0])).toBe(true);
         });
 
     it('should work with static content projection', () => {

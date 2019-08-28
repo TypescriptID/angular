@@ -99,9 +99,6 @@
     "name": "INJECTOR_BLOOM_PARENT_SIZE"
   },
   {
-    "name": "INTERPOLATION_DELIMITER"
-  },
-  {
     "name": "InjectFlags"
   },
   {
@@ -136,6 +133,9 @@
   },
   {
     "name": "NG_ELEMENT_ID"
+  },
+  {
+    "name": "NG_FACTORY_DEF"
   },
   {
     "name": "NG_INJECTABLE_DEF"
@@ -630,9 +630,6 @@
     "name": "elementPropertyInternal"
   },
   {
-    "name": "enterView"
-  },
-  {
     "name": "executeCheckHooks"
   },
   {
@@ -763,6 +760,9 @@
   },
   {
     "name": "getErrorLogger"
+  },
+  {
+    "name": "getFactoryDef"
   },
   {
     "name": "getGuardMask"
@@ -1059,9 +1059,6 @@
     "name": "iterateListLike"
   },
   {
-    "name": "leaveView"
-  },
-  {
     "name": "listenerInternal"
   },
   {
@@ -1242,9 +1239,6 @@
     "name": "saveNameToExportMap"
   },
   {
-    "name": "savePropertyDebugData"
-  },
-  {
     "name": "saveResolvedLocalsInData"
   },
   {
@@ -1255,6 +1249,9 @@
   },
   {
     "name": "selectInternal"
+  },
+  {
+    "name": "selectView"
   },
   {
     "name": "setActiveHostElement"
@@ -1327,9 +1324,6 @@
   },
   {
     "name": "stateIsPersisted"
-  },
-  {
-    "name": "storeBindingMetadata"
   },
   {
     "name": "storeCleanupFn"

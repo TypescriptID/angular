@@ -15,6 +15,7 @@ import {createNamedArrayType} from '../../util/named_array_type';
 import {normalizeDebugBindingName, normalizeDebugBindingValue} from '../../util/ng_reflect';
 import {assertFirstTemplatePass, assertLView} from '../assert';
 import {attachPatchData, getComponentViewByInstance} from '../context_discovery';
+import {getFactoryDef} from '../definition';
 import {diPublicInInjector, getNodeInjectable, getOrCreateNodeInjectorForNode} from '../di';
 import {throwMultipleComponentError} from '../errors';
 import {executeCheckHooks, executeInitAndCheckHooks, incrementInitPhaseFlags, registerPreOrderHooks} from '../hooks';
@@ -28,7 +29,7 @@ import {isComponent, isComponentDef, isContentQueryHost, isLContainer, isRootVie
 import {BINDING_INDEX, CHILD_HEAD, CHILD_TAIL, CLEANUP, CONTEXT, DECLARATION_VIEW, ExpandoInstructions, FLAGS, HEADER_OFFSET, HOST, INJECTOR, InitPhaseState, LView, LViewFlags, NEXT, PARENT, RENDERER, RENDERER_FACTORY, RootContext, RootContextFlags, SANITIZER, TData, TVIEW, TView, T_HOST} from '../interfaces/view';
 import {assertNodeOfPossibleTypes} from '../node_assert';
 import {isNodeMatchingSelectorList} from '../node_selector_matcher';
-import {enterView, getBindingsEnabled, getCheckNoChangesMode, getIsParent, getLView, getPreviousOrParentTNode, getSelectedIndex, incrementActiveDirectiveId, leaveView, namespaceHTMLInternal, setActiveHostElement, setBindingRoot, setCheckNoChangesMode, setCurrentDirectiveDef, setCurrentQueryIndex, setPreviousOrParentTNode, setSelectedIndex} from '../state';
+import {getBindingsEnabled, getCheckNoChangesMode, getIsParent, getLView, getPreviousOrParentTNode, getSelectedIndex, incrementActiveDirectiveId, namespaceHTMLInternal, selectView, setActiveHostElement, setBindingRoot, setCheckNoChangesMode, setCurrentDirectiveDef, setCurrentQueryIndex, setPreviousOrParentTNode, setSelectedIndex} from '../state';
 import {renderStylingMap} from '../styling_next/bindings';
 import {NO_CHANGE} from '../tokens';
 import {ANIMATION_PROP_PREFIX, isAnimationProp} from '../util/attrs_utils';
@@ -312,7 +313,7 @@ export function allocExpando(view: LView, numSlotsToAlloc: number) {
  */
 export function renderView<T>(lView: LView, tView: TView, context: T): void {
   ngDevMode && assertEqual(isCreationMode(lView), true, 'Should be run in creation mode');
-  const oldView = enterView(lView, lView[T_HOST]);
+  const oldView = selectView(lView, lView[T_HOST]);
   try {
     const viewQuery = tView.viewQuery;
     if (viewQuery !== null) {
@@ -357,7 +358,7 @@ export function renderView<T>(lView: LView, tView: TView, context: T): void {
 
   } finally {
     lView[FLAGS] &= ~LViewFlags.CreationMode;
-    leaveView(oldView);
+    selectView(oldView, null);
   }
 }
 
@@ -372,15 +373,12 @@ export function renderView<T>(lView: LView, tView: TView, context: T): void {
 export function refreshView<T>(
     lView: LView, tView: TView, templateFn: ComponentTemplate<{}>| null, context: T) {
   ngDevMode && assertEqual(isCreationMode(lView), false, 'Should be run in update mode');
-  const oldView = enterView(lView, lView[T_HOST]);
+  const oldView = selectView(lView, lView[T_HOST]);
   const flags = lView[FLAGS];
   try {
     resetPreOrderHookFlags(lView);
 
-    // Resetting the bindingIndex of the current LView as the next steps may trigger change
-    // detection.
-    lView[BINDING_INDEX] = tView.bindingStartIndex;
-
+    setBindingRoot(lView[BINDING_INDEX] = tView.bindingStartIndex);
     if (templateFn !== null) {
       executeTemplate(lView, templateFn, RenderFlags.Update, context);
     }
@@ -463,8 +461,7 @@ export function refreshView<T>(
 
   } finally {
     lView[FLAGS] &= ~(LViewFlags.Dirty | LViewFlags.FirstLViewPass);
-    lView[BINDING_INDEX] = tView.bindingStartIndex;
-    leaveView(oldView);
+    selectView(oldView, null);
   }
 }
 
@@ -896,7 +893,7 @@ export function elementPropertyInternal<T>(
       ngDevMode.rendererSetProperty++;
     }
 
-    savePropertyDebugData(tNode, lView, propName, lView[TVIEW].data, nativeOnly);
+    ngDevMode && savePropertyDebugData(tNode, lView, propName, lView[TVIEW].data, nativeOnly);
 
     const renderer = loadRendererFn ? loadRendererFn(tNode, lView) : lView[RENDERER];
     // It is assumed that the sanitizer is only added when the compiler determines that the
@@ -1032,7 +1029,7 @@ export function instantiateRootComponent<T>(
   if (tView.firstTemplatePass) {
     if (def.providersResolver) def.providersResolver(def);
     generateExpandoInstructionBlock(tView, rootTNode, 1);
-    baseResolveDirective(tView, viewData, def, def.factory);
+    baseResolveDirective(tView, viewData, def);
   }
   const directive =
       getNodeInjectable(tView.data, viewData, viewData.length - 1, rootTNode as TElementNode);
@@ -1076,7 +1073,7 @@ export function resolveDirectives(
       const def = directives[i] as DirectiveDef<any>;
 
       const directiveDefIdx = tView.data.length;
-      baseResolveDirective(tView, lView, def, def.factory);
+      baseResolveDirective(tView, lView, def);
 
       saveNameToExportMap(tView.data !.length - 1, def, exportsMap);
 
@@ -1315,9 +1312,9 @@ export function initNodeFlags(tNode: TNode, index: number, numberOfDirectives: n
   tNode.providerIndexes = index;
 }
 
-function baseResolveDirective<T>(
-    tView: TView, viewData: LView, def: DirectiveDef<T>, directiveFactory: FactoryFn<T>) {
+function baseResolveDirective<T>(tView: TView, viewData: LView, def: DirectiveDef<T>) {
   tView.data.push(def);
+  const directiveFactory = def.factory || (def.factory = getFactoryDef(def.type, true));
   const nodeInjectorFactory = new NodeInjectorFactory(directiveFactory, isComponentDef(def), null);
   tView.blueprint.push(nodeInjectorFactory);
   viewData.push(nodeInjectorFactory);

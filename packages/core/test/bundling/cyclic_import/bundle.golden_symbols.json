@@ -81,7 +81,7 @@
     "name": "NG_ELEMENT_ID"
   },
   {
-    "name": "NG_INJECTABLE_DEF"
+    "name": "NG_FACTORY_DEF"
   },
   {
     "name": "NG_PIPE_DEF"
@@ -249,9 +249,6 @@
     "name": "elementCreate"
   },
   {
-    "name": "enterView"
-  },
-  {
     "name": "executeCheckHooks"
   },
   {
@@ -313,6 +310,9 @@
   },
   {
     "name": "getElementDepthCount"
+  },
+  {
+    "name": "getFactoryDef"
   },
   {
     "name": "getHostNative"
@@ -489,9 +489,6 @@
     "name": "isStylingValueDefined"
   },
   {
-    "name": "leaveView"
-  },
-  {
     "name": "locateHostElement"
   },
   {
@@ -597,6 +594,9 @@
     "name": "selectInternal"
   },
   {
+    "name": "selectView"
+  },
+  {
     "name": "setActiveHostElement"
   },
   {
@@ -676,9 +676,6 @@
   },
   {
     "name": "ɵɵdefineComponent"
-  },
-  {
-    "name": "ɵɵdefineInjectable"
   },
   {
     "name": "ɵɵdefineInjector"

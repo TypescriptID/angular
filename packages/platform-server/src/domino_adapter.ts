@@ -58,7 +58,6 @@ export class DominoAdapter extends BrowserDomAdapter {
   logGroupEnd() {}
 
   supportsDOMEvents(): boolean { return false; }
-  supportsNativeShadowDOM(): boolean { return false; }
 
   contains(nodeA: any, nodeB: any): boolean {
     let inner = nodeB;
@@ -80,22 +79,10 @@ export class DominoAdapter extends BrowserDomAdapter {
     return DominoAdapter.defaultDoc;
   }
 
-  createShadowRoot(el: any, doc: Document = document): DocumentFragment {
-    el.shadowRoot = doc.createDocumentFragment();
-    el.shadowRoot.parent = el;
-    return el.shadowRoot;
-  }
-  getShadowRoot(el: any): DocumentFragment { return el.shadowRoot; }
-
-  isTextNode(node: any): boolean { return node.nodeType === DominoAdapter.defaultDoc.TEXT_NODE; }
-  isCommentNode(node: any): boolean {
-    return node.nodeType === DominoAdapter.defaultDoc.COMMENT_NODE;
-  }
   isElementNode(node: any): boolean {
     return node ? node.nodeType === DominoAdapter.defaultDoc.ELEMENT_NODE : false;
   }
-  hasShadowRoot(node: any): boolean { return node.shadowRoot != null; }
-  isShadowRoot(node: any): boolean { return this.getShadowRoot(node) == node; }
+  isShadowRoot(node: any): boolean { return node.shadowRoot == node; }
 
   getProperty(el: Element, name: string): any {
     if (name === 'href') {
@@ -138,7 +125,7 @@ export class DominoAdapter extends BrowserDomAdapter {
     const base = this.querySelector(doc.documentElement !, 'base');
     let href = '';
     if (base) {
-      href = this.getHref(base);
+      href = base.getAttribute('href') !;
     }
     // TODO(alxhub): Need relative path logic from BrowserDomAdapter here?
     return href;
@@ -210,15 +197,10 @@ export class DominoAdapter extends BrowserDomAdapter {
   getLocation(): Location { throw _notImplemented('getLocation'); }
   getUserAgent(): string { return 'Fake user agent'; }
 
-  supportsWebAnimation(): boolean { return false; }
   performanceNow(): number { return Date.now(); }
-  getAnimationPrefix(): string { return ''; }
-  getTransitionEnd(): string { return 'transitionend'; }
-  supportsAnimation(): boolean { return true; }
 
   getDistributedNodes(el: any): Node[] { throw _notImplemented('getDistributedNodes'); }
 
   supportsCookies(): boolean { return false; }
   getCookie(name: string): string { throw _notImplemented('getCookie'); }
-  setCookie(name: string, value: string) { throw _notImplemented('setCookie'); }
 }

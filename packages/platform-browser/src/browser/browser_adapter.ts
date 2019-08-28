@@ -13,12 +13,6 @@ import {setRootDomAdapter} from '../dom/dom_adapter';
 
 import {GenericBrowserDomAdapter} from './generic_browser_adapter';
 
-const _attrToPropMap = {
-  'class': 'className',
-  'innerHtml': 'innerHTML',
-  'readonly': 'readOnly',
-  'tabindex': 'tabIndex',
-};
 
 const DOM_KEY_LOCATION_NUMPAD = 3;
 
@@ -117,8 +111,6 @@ export class BrowserDomAdapter extends GenericBrowserDomAdapter {
     }
   }
 
-  get attrToPropMap(): any { return _attrToPropMap; }
-
   contains(nodeA: any, nodeB: any): boolean { return nodeContains.call(nodeA, nodeB); }
   querySelector(el: HTMLElement, selector: string): any { return el.querySelector(selector); }
   querySelectorAll(el: any, selector: string): any[] { return el.querySelectorAll(selector); }
@@ -147,21 +139,9 @@ export class BrowserDomAdapter extends GenericBrowserDomAdapter {
   isPrevented(evt: Event): boolean {
     return evt.defaultPrevented || evt.returnValue != null && !evt.returnValue;
   }
-  getInnerHTML(el: HTMLElement): string { return el.innerHTML; }
-  getTemplateContent(el: Node): Node|null {
-    return 'content' in el && this.isTemplateElement(el) ? (<any>el).content : null;
-  }
-  getOuterHTML(el: HTMLElement): string { return el.outerHTML; }
   nodeName(node: Node): string { return node.nodeName; }
   nodeValue(node: Node): string|null { return node.nodeValue; }
   type(node: HTMLInputElement): string { return node.type; }
-  content(node: Node): Node {
-    if (this.hasProperty(node, 'content')) {
-      return (<any>node).content;
-    } else {
-      return node;
-    }
-  }
   firstChild(el: Node): Node|null { return el.firstChild; }
   nextSibling(el: Node): Node|null { return el.nextSibling; }
   parentElement(el: Node): Node|null { return el.parentNode; }
@@ -181,7 +161,6 @@ export class BrowserDomAdapter extends GenericBrowserDomAdapter {
   }
   appendChild(el: Node, node: Node) { el.appendChild(node); }
   removeChild(el: Node, node: Node) { el.removeChild(node); }
-  replaceChild(el: Node, newChild: Node, oldChild: Node) { el.replaceChild(newChild, oldChild); }
   remove(node: Node): Node {
     if (node.parentNode) {
       node.parentNode.removeChild(node);
@@ -189,17 +168,11 @@ export class BrowserDomAdapter extends GenericBrowserDomAdapter {
     return node;
   }
   insertBefore(parent: Node, ref: Node, node: Node) { parent.insertBefore(node, ref); }
-  insertAllBefore(parent: Node, ref: Node, nodes: Node[]) {
-    nodes.forEach((n: any) => parent.insertBefore(n, ref));
-  }
-  insertAfter(parent: Node, ref: Node, node: any) { parent.insertBefore(node, ref.nextSibling); }
-  setInnerHTML(el: Element, value: string) { el.innerHTML = value; }
   getText(el: Node): string|null { return el.textContent; }
   setText(el: Node, value: string) { el.textContent = value; }
   getValue(el: any): string { return el.value; }
   setValue(el: any, value: string) { el.value = value; }
   getChecked(el: any): boolean { return el.checked; }
-  setChecked(el: any, value: boolean) { el.checked = value; }
   createComment(text: string): Comment { return this.getDefaultDocument().createComment(text); }
   createTemplate(html: any): HTMLElement {
     const t = this.getDefaultDocument().createElement('template');
@@ -218,25 +191,8 @@ export class BrowserDomAdapter extends GenericBrowserDomAdapter {
     doc = doc || this.getDefaultDocument();
     return doc.createTextNode(text);
   }
-  createScriptTag(attrName: string, attrValue: string, doc?: Document): HTMLScriptElement {
-    doc = doc || this.getDefaultDocument();
-    const el = <HTMLScriptElement>doc.createElement('SCRIPT');
-    el.setAttribute(attrName, attrValue);
-    return el;
-  }
-  createStyleElement(css: string, doc?: Document): HTMLStyleElement {
-    doc = doc || this.getDefaultDocument();
-    const style = <HTMLStyleElement>doc.createElement('style');
-    this.appendChild(style, this.createTextNode(css, doc));
-    return style;
-  }
-  createShadowRoot(el: HTMLElement): DocumentFragment { return (<any>el).createShadowRoot(); }
-  getShadowRoot(el: HTMLElement): DocumentFragment { return (<any>el).shadowRoot; }
   getHost(el: HTMLElement): HTMLElement { return (<any>el).host; }
   clone(node: Node): Node { return node.cloneNode(true); }
-  getElementsByClassName(element: any, name: string): HTMLElement[] {
-    return element.getElementsByClassName(name);
-  }
   getElementsByTagName(element: any, name: string): HTMLElement[] {
     return element.getElementsByTagName(name);
   }
@@ -259,27 +215,9 @@ export class BrowserDomAdapter extends GenericBrowserDomAdapter {
     const value = this.getStyle(element, styleName) || '';
     return styleValue ? value == styleValue : value.length > 0;
   }
-  tagName(element: any): string { return element.tagName; }
-  attributeMap(element: any): Map<string, string> {
-    const res = new Map<string, string>();
-    const elAttrs = element.attributes;
-    for (let i = 0; i < elAttrs.length; i++) {
-      const attrib = elAttrs.item(i);
-      res.set(attrib.name, attrib.value);
-    }
-    return res;
-  }
-  hasAttribute(element: Element, attribute: string): boolean {
-    return element.hasAttribute(attribute);
-  }
-  hasAttributeNS(element: Element, ns: string, attribute: string): boolean {
-    return element.hasAttributeNS(ns, attribute);
-  }
+
   getAttribute(element: Element, attribute: string): string|null {
     return element.getAttribute(attribute);
-  }
-  getAttributeNS(element: Element, ns: string, name: string): string|null {
-    return element.getAttributeNS(ns, name);
   }
   setAttribute(element: Element, name: string, value: string) { element.setAttribute(name, value); }
   setAttributeNS(element: Element, ns: string, name: string, value: string) {
@@ -289,18 +227,11 @@ export class BrowserDomAdapter extends GenericBrowserDomAdapter {
   removeAttributeNS(element: Element, ns: string, name: string) {
     element.removeAttributeNS(ns, name);
   }
-  templateAwareRoot(el: Node): any { return this.isTemplateElement(el) ? this.content(el) : el; }
+
   createHtmlDocument(): HTMLDocument {
     return document.implementation.createHTMLDocument('fakeTitle');
   }
   getDefaultDocument(): Document { return document; }
-  getBoundingClientRect(el: Element): any {
-    try {
-      return el.getBoundingClientRect();
-    } catch {
-      return {top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0};
-    }
-  }
   getTitle(doc: Document): string { return doc.title; }
   setTitle(doc: Document, newTitle: string) { doc.title = newTitle || ''; }
   elementMatches(n: any, selector: string): boolean {
@@ -312,19 +243,10 @@ export class BrowserDomAdapter extends GenericBrowserDomAdapter {
 
     return false;
   }
-  isTemplateElement(el: Node): boolean {
-    return this.isElementNode(el) && el.nodeName === 'TEMPLATE';
-  }
-  isTextNode(node: Node): boolean { return node.nodeType === Node.TEXT_NODE; }
-  isCommentNode(node: Node): boolean { return node.nodeType === Node.COMMENT_NODE; }
+
   isElementNode(node: Node): boolean { return node.nodeType === Node.ELEMENT_NODE; }
-  hasShadowRoot(node: any): boolean {
-    return node.shadowRoot != null && node instanceof HTMLElement;
-  }
+
   isShadowRoot(node: any): boolean { return node instanceof DocumentFragment; }
-  importIntoDoc(node: Node): any { return document.importNode(this.templateAwareRoot(node), true); }
-  adoptNode(node: Node): any { return document.adoptNode(node); }
-  getHref(el: Element): string { return el.getAttribute('href') !; }
 
   getEventKey(event: any): string {
     let key = event.key;
@@ -369,17 +291,6 @@ export class BrowserDomAdapter extends GenericBrowserDomAdapter {
   }
   resetBaseElement(): void { baseElement = null; }
   getUserAgent(): string { return window.navigator.userAgent; }
-  setData(element: Element, name: string, value: string) {
-    this.setAttribute(element, 'data-' + name, value);
-  }
-  getData(element: Element, name: string): string|null {
-    return this.getAttribute(element, 'data-' + name);
-  }
-  getComputedStyle(element: any): any { return getComputedStyle(element); }
-  // TODO(tbosch): move this into a separate environment class once we have it
-  supportsWebAnimation(): boolean {
-    return typeof(<any>Element).prototype['animate'] === 'function';
-  }
   performanceNow(): number {
     // performance.now() is not available in all browsers, see
     // http://caniuse.com/#search=performance.now
@@ -390,12 +301,6 @@ export class BrowserDomAdapter extends GenericBrowserDomAdapter {
   supportsCookies(): boolean { return true; }
 
   getCookie(name: string): string|null { return parseCookieValue(document.cookie, name); }
-
-  setCookie(name: string, value: string) {
-    // document.cookie is magical, assigning into it assigns/overrides one cookie value, but does
-    // not clear other cookies.
-    document.cookie = encodeURIComponent(name) + '=' + encodeURIComponent(value);
-  }
 }
 
 let baseElement: HTMLElement|null = null;

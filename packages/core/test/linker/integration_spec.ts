@@ -19,7 +19,7 @@ import {EmbeddedViewRef} from '@angular/core/src/linker/view_ref';
 import {Attribute, Component, ContentChildren, Directive, HostBinding, HostListener, Input, Output, Pipe} from '@angular/core/src/metadata';
 import {TestBed, async, fakeAsync, getTestBed, tick} from '@angular/core/testing';
 import {getDOM} from '@angular/platform-browser/src/dom/dom_adapter';
-import {dispatchEvent, el} from '@angular/platform-browser/testing/src/browser_util';
+import {dispatchEvent, el, isCommentNode} from '@angular/platform-browser/testing/src/browser_util';
 import {expect} from '@angular/platform-browser/testing/src/matchers';
 import {modifiedInIvy, obsoleteInIvy, onlyInIvy} from '@angular/private/testing';
 
@@ -137,8 +137,7 @@ function declareTests(config?: {useJit: boolean}) {
 
         fixture.componentInstance.ctxProp = null !;
         fixture.detectChanges();
-        expect(getDOM().hasAttribute(fixture.debugElement.children[0].nativeElement, 'foo'))
-            .toBeFalsy();
+        expect(fixture.debugElement.children[0].nativeElement.hasAttribute('foo')).toBeFalsy();
       });
 
       it('should remove style when when style expression evaluates to null', () => {
@@ -199,12 +198,12 @@ function declareTests(config?: {useJit: boolean}) {
 
         fixture.componentInstance.ctxProp = 'Some <span>HTML</span>';
         fixture.detectChanges();
-        expect(getDOM().getInnerHTML(fixture.debugElement.children[0].nativeElement))
+        expect(fixture.debugElement.children[0].nativeElement.innerHTML)
             .toEqual('Some <span>HTML</span>');
 
         fixture.componentInstance.ctxProp = 'Some other <div>HTML</div>';
         fixture.detectChanges();
-        expect(getDOM().getInnerHTML(fixture.debugElement.children[0].nativeElement))
+        expect(fixture.debugElement.children[0].nativeElement.innerHTML)
             .toEqual('Some other <div>HTML</div>');
       });
 
@@ -430,7 +429,7 @@ function declareTests(config?: {useJit: boolean}) {
 
         const childNodesOfWrapper = getDOM().childNodes(fixture.nativeElement);
         expect(childNodesOfWrapper.length).toBe(1);
-        expect(getDOM().isCommentNode(childNodesOfWrapper[0])).toBe(true);
+        expect(isCommentNode(childNodesOfWrapper[0])).toBe(true);
       });
 
       it('should allow to transplant TemplateRefs into other ViewContainers', () => {
@@ -1726,7 +1725,7 @@ function declareTests(config?: {useJit: boolean}) {
         fixture.componentInstance.ctxProp = 'hello';
         fixture.detectChanges();
 
-        const html = getDOM().getInnerHTML(fixture.nativeElement);
+        const html = fixture.nativeElement.innerHTML;
         expect(html).toContain('ng-reflect-dir-prop="hello"');
       });
 
@@ -1737,7 +1736,7 @@ function declareTests(config?: {useJit: boolean}) {
         const fixture = TestBed.createComponent(MyComp);
         fixture.detectChanges();
 
-        const html = getDOM().getInnerHTML(fixture.nativeElement);
+        const html = fixture.nativeElement.innerHTML;
         expect(html).toContain('ng-reflect-dir-prop="hello"');
         expect(html).not.toContain('ng-reflect-title');
       });
@@ -1747,7 +1746,7 @@ function declareTests(config?: {useJit: boolean}) {
         const fixture = TestBed.createComponent(ParentCmp);
         fixture.detectChanges();
 
-        const html = getDOM().getInnerHTML(fixture.nativeElement);
+        const html = fixture.nativeElement.innerHTML;
         expect(html).toContain('ng-reflect-test_="hello"');
       });
 
@@ -1761,7 +1760,7 @@ function declareTests(config?: {useJit: boolean}) {
         fixture.componentInstance.ctxBoolProp = true;
         fixture.detectChanges();
 
-        const html = getDOM().getInnerHTML(fixture.nativeElement);
+        const html = fixture.nativeElement.innerHTML;
         expect(html).toContain('"ng-reflect-ng-if": "true"');
       });
 
@@ -1776,7 +1775,7 @@ function declareTests(config?: {useJit: boolean}) {
         fixture.componentInstance.ctxBoolProp = true;
         fixture.detectChanges();
 
-        const html = getDOM().getInnerHTML(fixture.nativeElement);
+        const html = fixture.nativeElement.innerHTML;
         expect(html).toContain('"ng-reflect-ng-if": "true"');
       });
 
@@ -1790,7 +1789,7 @@ function declareTests(config?: {useJit: boolean}) {
            fixture.componentInstance.ctxProp = 'hello';
            fixture.detectChanges();
 
-           const html = getDOM().getInnerHTML(fixture.nativeElement);
+           const html = fixture.nativeElement.innerHTML;
            expect(html).toContain('ng-reflect-dir-prop="hello"');
            expect(html).toContain('ng-reflect-dir-prop2="hello"');
          });
@@ -1802,7 +1801,7 @@ function declareTests(config?: {useJit: boolean}) {
         const fixture = TestBed.createComponent(MyComp);
 
         fixture.detectChanges();
-        expect(getDOM().getInnerHTML(fixture.nativeElement)).toContain('[ERROR]');
+        expect(fixture.nativeElement.innerHTML).toContain('[ERROR]');
       });
 
       it('should not reflect undefined values', () => {
@@ -1814,13 +1813,12 @@ function declareTests(config?: {useJit: boolean}) {
         fixture.componentInstance.ctxProp = 'hello';
         fixture.detectChanges();
 
-        expect(getDOM().getInnerHTML(fixture.nativeElement))
-            .toContain('ng-reflect-dir-prop="hello"');
+        expect(fixture.nativeElement.innerHTML).toContain('ng-reflect-dir-prop="hello"');
 
         fixture.componentInstance.ctxProp = undefined !;
         fixture.detectChanges();
 
-        expect(getDOM().getInnerHTML(fixture.nativeElement)).not.toContain('ng-reflect-');
+        expect(fixture.nativeElement.innerHTML).not.toContain('ng-reflect-');
       });
 
       it('should not reflect null values', () => {
@@ -1832,13 +1830,12 @@ function declareTests(config?: {useJit: boolean}) {
         fixture.componentInstance.ctxProp = 'hello';
         fixture.detectChanges();
 
-        expect(getDOM().getInnerHTML(fixture.nativeElement))
-            .toContain('ng-reflect-dir-prop="hello"');
+        expect(fixture.nativeElement.innerHTML).toContain('ng-reflect-dir-prop="hello"');
 
         fixture.componentInstance.ctxProp = null !;
         fixture.detectChanges();
 
-        expect(getDOM().getInnerHTML(fixture.nativeElement)).not.toContain('ng-reflect-');
+        expect(fixture.nativeElement.innerHTML).not.toContain('ng-reflect-');
       });
 
       it('should reflect empty strings', () => {
@@ -1850,7 +1847,7 @@ function declareTests(config?: {useJit: boolean}) {
         fixture.componentInstance.ctxProp = '';
         fixture.detectChanges();
 
-        expect(getDOM().getInnerHTML(fixture.nativeElement)).toContain('ng-reflect-dir-prop=""');
+        expect(fixture.nativeElement.innerHTML).toContain('ng-reflect-dir-prop=""');
       });
 
       it('should not reflect in comment nodes when the value changes to undefined', () => {
@@ -1863,14 +1860,14 @@ function declareTests(config?: {useJit: boolean}) {
         fixture.componentInstance.ctxBoolProp = true;
         fixture.detectChanges();
 
-        let html = getDOM().getInnerHTML(fixture.nativeElement);
+        let html = fixture.nativeElement.innerHTML;
         expect(html).toContain('bindings={');
         expect(html).toContain('"ng-reflect-ng-if": "true"');
 
         fixture.componentInstance.ctxBoolProp = undefined !;
         fixture.detectChanges();
 
-        html = getDOM().getInnerHTML(fixture.nativeElement);
+        html = fixture.nativeElement.innerHTML;
         expect(html).toContain('bindings={');
         expect(html).not.toContain('ng-reflect');
       });
@@ -1885,14 +1882,14 @@ function declareTests(config?: {useJit: boolean}) {
         fixture.componentInstance.ctxBoolProp = true;
         fixture.detectChanges();
 
-        let html = getDOM().getInnerHTML(fixture.nativeElement);
+        let html = fixture.nativeElement.innerHTML;
         expect(html).toContain('bindings={');
         expect(html).toContain('"ng-reflect-ng-if": "true"');
 
         fixture.componentInstance.ctxBoolProp = null !;
         fixture.detectChanges();
 
-        html = getDOM().getInnerHTML(fixture.nativeElement);
+        html = fixture.nativeElement.innerHTML;
         expect(html).toContain('bindings={');
         expect(html).toContain('"ng-reflect-ng-if": null');
       });
@@ -1928,8 +1925,7 @@ function declareTests(config?: {useJit: boolean}) {
         dir.myAttr = 'aaa';
 
         fixture.detectChanges();
-        expect(getDOM().getOuterHTML(fixture.debugElement.children[0].nativeElement))
-            .toContain('my-attr="aaa"');
+        expect(fixture.debugElement.children[0].nativeElement.outerHTML).toContain('my-attr="aaa"');
       });
 
       if (getDOM().supportsDOMEvents()) {
@@ -2083,9 +2079,8 @@ function declareTests(config?: {useJit: boolean}) {
           TestBed.overrideComponent(SomeCmp, {set: {template}});
           const fixture = TestBed.createComponent(SomeCmp);
 
-          const useEl = getDOM().firstChild(fixture.nativeElement);
-          expect(getDOM().getAttributeNS(useEl, 'http://www.w3.org/1999/xlink', 'href'))
-              .toEqual('#id');
+          const useEl = getDOM().firstChild(fixture.nativeElement) as Element;
+          expect(useEl.getAttributeNS('http://www.w3.org/1999/xlink', 'href')).toEqual('#id');
         });
 
         it('should support binding to attributes with namespace', () => {
@@ -2095,19 +2090,17 @@ function declareTests(config?: {useJit: boolean}) {
           const fixture = TestBed.createComponent(SomeCmp);
 
           const cmp = fixture.componentInstance;
-          const useEl = getDOM().firstChild(fixture.nativeElement);
+          const useEl = getDOM().firstChild(fixture.nativeElement) as Element;
 
           cmp.value = '#id';
           fixture.detectChanges();
 
-          expect(getDOM().getAttributeNS(useEl, 'http://www.w3.org/1999/xlink', 'href'))
-              .toEqual('#id');
+          expect(useEl.getAttributeNS('http://www.w3.org/1999/xlink', 'href')).toEqual('#id');
 
           cmp.value = null;
           fixture.detectChanges();
 
-          expect(getDOM().hasAttributeNS(useEl, 'http://www.w3.org/1999/xlink', 'href'))
-              .toEqual(false);
+          expect(useEl.hasAttributeNS('http://www.w3.org/1999/xlink', 'href')).toEqual(false);
         });
       });
     }

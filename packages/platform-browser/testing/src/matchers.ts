@@ -10,11 +10,14 @@
 import {Type, ɵglobal as global} from '@angular/core';
 import {ComponentFixture} from '@angular/core/testing';
 import {By, ɵgetDOM as getDOM} from '@angular/platform-browser';
+import {isCommentNode} from './browser_util';
 
 
 
 /**
  * Jasmine matchers that check Angular specific conditions.
+ *
+ * Note: These matchers will only work in a browser environment.
  */
 export interface NgMatchers<T = any> extends jasmine.Matchers<T> {
   /**
@@ -285,16 +288,16 @@ function elementText(n: any): string {
     return n.map(elementText).join('');
   }
 
-  if (getDOM().isCommentNode(n)) {
+  if (isCommentNode(n)) {
     return '';
   }
 
-  if (getDOM().isElementNode(n) && getDOM().tagName(n) == 'CONTENT') {
+  if (getDOM().isElementNode(n) && (n as Element).tagName == 'CONTENT') {
     return elementText(Array.prototype.slice.apply(getDOM().getDistributedNodes(n)));
   }
 
-  if (getDOM().hasShadowRoot(n)) {
-    return elementText(getDOM().childNodesAsList(getDOM().getShadowRoot(n)));
+  if (hasShadowRoot(n)) {
+    return elementText(getDOM().childNodesAsList((<any>n).shadowRoot));
   }
 
   if (hasNodes(n)) {
@@ -302,4 +305,8 @@ function elementText(n: any): string {
   }
 
   return getDOM().getText(n) !;
+}
+
+function hasShadowRoot(node: any): boolean {
+  return node.shadowRoot != null && node instanceof HTMLElement;
 }

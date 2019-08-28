@@ -491,7 +491,7 @@ describe('projection', () => {
     expect(main.nativeElement).toHaveText('TREE(0:TREE2(1:TREE(2:)))');
   });
 
-  if (getDOM().supportsNativeShadowDOM()) {
+  if (supportsNativeShadowDOM()) {
     it('should support native content projection and isolate styles per component', () => {
       TestBed.configureTestingModule({declarations: [SimpleNative1, SimpleNative2]});
       TestBed.overrideComponent(MainComp, {
@@ -522,12 +522,12 @@ describe('projection', () => {
       const main = TestBed.createComponent(MainComp);
 
       const mainEl = main.nativeElement;
-      const div1 = getDOM().firstChild(mainEl);
+      const div1 = getDOM().firstChild(mainEl) as Element;
       const div2 = getDOM().createElement('div');
       getDOM().setAttribute(div2, 'class', 'redStyle');
       getDOM().appendChild(mainEl, div2);
-      expect(getDOM().getComputedStyle(div1).color).toEqual('rgb(255, 0, 0)');
-      expect(getDOM().getComputedStyle(div2).color).toEqual('rgb(255, 0, 0)');
+      expect(getComputedStyle(div1).color).toEqual('rgb(255, 0, 0)');
+      expect(getComputedStyle(div2).color).toEqual('rgb(255, 0, 0)');
     });
 
     it('should support emulated style encapsulation', () => {
@@ -542,11 +542,11 @@ describe('projection', () => {
       const main = TestBed.createComponent(MainComp);
 
       const mainEl = main.nativeElement;
-      const div1 = getDOM().firstChild(mainEl);
+      const div1 = getDOM().firstChild(mainEl) as Element;
       const div2 = getDOM().createElement('div');
       getDOM().appendChild(mainEl, div2);
-      expect(getDOM().getComputedStyle(div1).color).toEqual('rgb(255, 0, 0)');
-      expect(getDOM().getComputedStyle(div2).color).toEqual('rgb(0, 0, 0)');
+      expect(getComputedStyle(div1).color).toEqual('rgb(255, 0, 0)');
+      expect(getComputedStyle(div2).color).toEqual('rgb(0, 0, 0)');
     });
   }
 
@@ -574,7 +574,7 @@ describe('projection', () => {
     const main = TestBed.createComponent(MainComp);
 
     main.detectChanges();
-    expect(getDOM().getInnerHTML(main.nativeElement))
+    expect(main.nativeElement.innerHTML)
         .toEqual(
             '<cmp-a><cmp-b><cmp-d><i>cmp-d</i></cmp-d></cmp-b>' +
             '<cmp-c><b>cmp-c</b></cmp-c></cmp-a>');
@@ -586,7 +586,7 @@ describe('projection', () => {
     const main = TestBed.createComponent(MainComp);
 
     main.detectChanges();
-    expect(getDOM().getInnerHTML(main.nativeElement))
+    expect(main.nativeElement.innerHTML)
         .toEqual(
             '<cmp-a1>a1<cmp-b11>b11</cmp-b11><cmp-b12>b12</cmp-b12></cmp-a1>' +
             '<cmp-a2>a2<cmp-b21>b21</cmp-b21><cmp-b22>b22</cmp-b22></cmp-a2>');
@@ -980,7 +980,7 @@ class Tree {
 class CmpD {
   tagName: string;
   constructor(elementRef: ElementRef) {
-    this.tagName = getDOM().tagName(elementRef.nativeElement).toLowerCase();
+    this.tagName = elementRef.nativeElement.tagName.toLowerCase();
   }
 }
 
@@ -989,7 +989,7 @@ class CmpD {
 class CmpC {
   tagName: string;
   constructor(elementRef: ElementRef) {
-    this.tagName = getDOM().tagName(elementRef.nativeElement).toLowerCase();
+    this.tagName = elementRef.nativeElement.tagName.toLowerCase();
   }
 }
 
@@ -1031,4 +1031,8 @@ class CmpA1 {
   template: `{{'a2'}}<cmp-b21></cmp-b21><cmp-b22></cmp-b22>`,
 })
 class CmpA2 {
+}
+
+function supportsNativeShadowDOM(): boolean {
+  return typeof(<any>document.body).createShadowRoot === 'function';
 }
