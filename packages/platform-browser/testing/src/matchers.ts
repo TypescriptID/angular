@@ -10,7 +10,8 @@
 import {Type, ɵglobal as global} from '@angular/core';
 import {ComponentFixture} from '@angular/core/testing';
 import {By, ɵgetDOM as getDOM} from '@angular/platform-browser';
-import {isCommentNode} from './browser_util';
+
+import {childNodesAsList, hasClass, hasStyle, isCommentNode} from './browser_util';
 
 
 
@@ -186,7 +187,7 @@ _global.beforeEach(function() {
       function buildError(isNot: boolean) {
         return function(actual: any, className: string) {
           return {
-            pass: getDOM().hasClass(actual, className) == !isNot,
+            pass: hasClass(actual, className) == !isNot,
             get message() {
               return `Expected ${actual.outerHTML} ${isNot ? 'not ' : ''}to contain the CSS class "${className}"`;
             }
@@ -200,12 +201,11 @@ _global.beforeEach(function() {
         compare: function(actual: any, styles: {[k: string]: string}|string) {
           let allPassed: boolean;
           if (typeof styles === 'string') {
-            allPassed = getDOM().hasStyle(actual, styles);
+            allPassed = hasStyle(actual, styles);
           } else {
             allPassed = Object.keys(styles).length !== 0;
-            Object.keys(styles).forEach(prop => {
-              allPassed = allPassed && getDOM().hasStyle(actual, prop, styles[prop]);
-            });
+            Object.keys(styles).forEach(
+                prop => { allPassed = allPassed && hasStyle(actual, prop, styles[prop]); });
           }
 
           return {
@@ -280,7 +280,7 @@ _global.beforeEach(function() {
 
 function elementText(n: any): string {
   const hasNodes = (n: any) => {
-    const children = getDOM().childNodes(n);
+    const children = n.childNodes;
     return children && children.length > 0;
   };
 
@@ -293,18 +293,18 @@ function elementText(n: any): string {
   }
 
   if (getDOM().isElementNode(n) && (n as Element).tagName == 'CONTENT') {
-    return elementText(Array.prototype.slice.apply(getDOM().getDistributedNodes(n)));
+    return elementText(Array.prototype.slice.apply((<any>n).getDistributedNodes()));
   }
 
   if (hasShadowRoot(n)) {
-    return elementText(getDOM().childNodesAsList((<any>n).shadowRoot));
+    return elementText(childNodesAsList((<any>n).shadowRoot));
   }
 
   if (hasNodes(n)) {
-    return elementText(getDOM().childNodesAsList(n));
+    return elementText(childNodesAsList(n));
   }
 
-  return getDOM().getText(n) !;
+  return (n as any).textContent;
 }
 
 function hasShadowRoot(node: any): boolean {

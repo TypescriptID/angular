@@ -32,7 +32,7 @@ const removeEventListener = '__zone_symbol__removeEventListener' as 'removeEvent
                             elementDef(0, NodeFlags.None, null, null, 0, 'span')
                           ])).rootNodes;
         expect(rootNodes.length).toBe(1);
-        expect(getDOM().nodeName(rootNodes[0]).toLowerCase()).toBe('span');
+        expect(rootNodes[0].nodeName.toLowerCase()).toBe('span');
       });
 
       it('should create views with multiple root elements', () => {
@@ -49,8 +49,8 @@ const removeEventListener = '__zone_symbol__removeEventListener' as 'removeEvent
                             elementDef(1, NodeFlags.None, null, null, 0, 'span'),
                           ])).rootNodes;
         expect(rootNodes.length).toBe(1);
-        const spanEl = getDOM().childNodes(rootNodes[0])[0];
-        expect(getDOM().nodeName(spanEl).toLowerCase()).toBe('span');
+        const spanEl = rootNodes[0].childNodes[0];
+        expect(spanEl.nodeName.toLowerCase()).toBe('span');
       });
 
       it('should set fixed attributes', () => {
@@ -139,8 +139,8 @@ const removeEventListener = '__zone_symbol__removeEventListener' as 'removeEvent
           Services.checkAndUpdateView(view);
 
           const el = rootNodes[0];
-          expect(getDOM().hasClass(el, 'c1')).toBeTruthy();
-          expect(getDOM().hasClass(el, 'c2')).toBeTruthy();
+          expect(el.classList.contains('c1')).toBeTruthy();
+          expect(el.classList.contains('c2')).toBeTruthy();
         });
       });
     });

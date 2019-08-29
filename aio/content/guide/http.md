@@ -73,8 +73,8 @@ the component **subscribes** to the method's return value.
 The subscription callback copies the data fields into the component's `config` object,
 which is data-bound in the component template for display.
 
-<div class="alert is-helpful">
-**Why write a service?**
+<div class="callout is-helpful">
+ <header>Why write a service?</header>
 
 This example is so simple that it is tempting to write the `Http.get()` inside the
 component itself and skip the service.
@@ -155,7 +155,7 @@ Tell `HttpClient` that you want the full response with the `observe` option:
   region="getConfigResponse">
 </code-example>
 
-Now `HttpClient.get()` returns an `Observable` of typed `HttpResponse` rather than just the JSON data.
+Now `HttpClient.get()` returns an `Observable` of type `HttpResponse` rather than just the JSON data.
 
 The component's `showConfigResponse()` method displays the response headers as well as the configuration:
 

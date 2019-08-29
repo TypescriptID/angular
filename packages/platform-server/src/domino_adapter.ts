@@ -46,8 +46,6 @@ export class DominoAdapter extends BrowserDomAdapter {
 
   private static defaultDoc: Document;
 
-  logError(error: string) { console.error(error); }
-
   log(error: string) {
     // tslint:disable-next-line:no-console
     console.log(error);
@@ -58,15 +56,6 @@ export class DominoAdapter extends BrowserDomAdapter {
   logGroupEnd() {}
 
   supportsDOMEvents(): boolean { return false; }
-
-  contains(nodeA: any, nodeB: any): boolean {
-    let inner = nodeB;
-    while (inner) {
-      if (inner === nodeA) return true;
-      inner = inner.parent;
-    }
-    return false;
-  }
 
   createHtmlDocument(): HTMLDocument {
     return parseDocument('<html><head><title>fakeTitle</title></head><body></body></html>');
@@ -86,7 +75,7 @@ export class DominoAdapter extends BrowserDomAdapter {
 
   getProperty(el: Element, name: string): any {
     if (name === 'href') {
-      // Domino tries tp resolve href-s which we do not want. Just return the
+      // Domino tries to resolve href-s which we do not want. Just return the
       // attribute value.
       return this.getAttribute(el, 'href');
     } else if (name === 'innerText') {
@@ -162,6 +151,7 @@ export class DominoAdapter extends BrowserDomAdapter {
     }
     element.setAttribute('style', styleAttrValue);
   }
+
   setStyle(element: any, styleName: string, styleValue?: string|null) {
     styleName = styleName.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
     const styleMap = this._readStyleAttribute(element);
@@ -173,13 +163,10 @@ export class DominoAdapter extends BrowserDomAdapter {
     // see https://github.com/angular/angular/issues/7916
     this.setStyle(element, styleName, '');
   }
+
   getStyle(element: any, styleName: string): string {
     const styleMap = this._readStyleAttribute(element);
     return styleMap[styleName] || '';
-  }
-  hasStyle(element: any, styleName: string, styleValue?: string): boolean {
-    const value = this.getStyle(element, styleName);
-    return styleValue ? value == styleValue : value.length > 0;
   }
 
   dispatchEvent(el: Node, evt: any) {
@@ -198,8 +185,6 @@ export class DominoAdapter extends BrowserDomAdapter {
   getUserAgent(): string { return 'Fake user agent'; }
 
   performanceNow(): number { return Date.now(); }
-
-  getDistributedNodes(el: any): Node[] { throw _notImplemented('getDistributedNodes'); }
 
   supportsCookies(): boolean { return false; }
   getCookie(name: string): string { throw _notImplemented('getCookie'); }

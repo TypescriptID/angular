@@ -42,8 +42,8 @@ const addEventListener = '__zone_symbol__addEventListener' as 'addEventListener'
       expect(compView.context).toBe(instance);
       expect(compView.component).toBe(instance);
 
-      const compRootEl = getDOM().childNodes(rootNodes[0])[0];
-      expect(getDOM().nodeName(compRootEl).toLowerCase()).toBe('span');
+      const compRootEl = rootNodes[0].childNodes[0];
+      expect(compRootEl.nodeName.toLowerCase()).toBe('span');
     });
 
     if (isBrowser()) {

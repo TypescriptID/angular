@@ -75,23 +75,9 @@ const nodeContains: (this: Node, other: Node) => boolean = (() => {
  */
 /* tslint:disable:requireParameterType no-console */
 export class BrowserDomAdapter extends GenericBrowserDomAdapter {
-  parse(templateHtml: string) { throw new Error('parse not implemented'); }
   static makeCurrent() { setRootDomAdapter(new BrowserDomAdapter()); }
-  hasProperty(element: Node, name: string): boolean { return name in element; }
   setProperty(el: Node, name: string, value: any) { (<any>el)[name] = value; }
   getProperty(el: Node, name: string): any { return (<any>el)[name]; }
-  invoke(el: Node, methodName: string, args: any[]): any { (<any>el)[methodName](...args); }
-
-  // TODO(tbosch): move this into a separate environment class once we have it
-  logError(error: string): void {
-    if (window.console) {
-      if (console.error) {
-        console.error(error);
-      } else {
-        console.log(error);
-      }
-    }
-  }
 
   log(error: string): void {
     if (window.console) {
@@ -111,10 +97,8 @@ export class BrowserDomAdapter extends GenericBrowserDomAdapter {
     }
   }
 
-  contains(nodeA: any, nodeB: any): boolean { return nodeContains.call(nodeA, nodeB); }
   querySelector(el: HTMLElement, selector: string): any { return el.querySelector(selector); }
   querySelectorAll(el: any, selector: string): any[] { return el.querySelectorAll(selector); }
-  on(el: Node, evt: any, listener: any) { el.addEventListener(evt, listener, false); }
   onAndCancel(el: Node, evt: any, listener: any): Function {
     el.addEventListener(evt, listener, false);
     // Needed to follow Dart's subscription semantic, until fix of
@@ -122,38 +106,8 @@ export class BrowserDomAdapter extends GenericBrowserDomAdapter {
     return () => { el.removeEventListener(evt, listener, false); };
   }
   dispatchEvent(el: Node, evt: any) { el.dispatchEvent(evt); }
-  createMouseEvent(eventType: string): MouseEvent {
-    const evt: MouseEvent = this.getDefaultDocument().createEvent('MouseEvent');
-    evt.initEvent(eventType, true, true);
-    return evt;
-  }
-  createEvent(eventType: any): Event {
-    const evt: Event = this.getDefaultDocument().createEvent('Event');
-    evt.initEvent(eventType, true, true);
-    return evt;
-  }
-  preventDefault(evt: Event) {
-    evt.preventDefault();
-    evt.returnValue = false;
-  }
-  isPrevented(evt: Event): boolean {
-    return evt.defaultPrevented || evt.returnValue != null && !evt.returnValue;
-  }
-  nodeName(node: Node): string { return node.nodeName; }
-  nodeValue(node: Node): string|null { return node.nodeValue; }
-  type(node: HTMLInputElement): string { return node.type; }
-  firstChild(el: Node): Node|null { return el.firstChild; }
   nextSibling(el: Node): Node|null { return el.nextSibling; }
   parentElement(el: Node): Node|null { return el.parentNode; }
-  childNodes(el: any): Node[] { return el.childNodes; }
-  childNodesAsList(el: Node): any[] {
-    const childNodes = el.childNodes;
-    const res = [];
-    for (let i = 0; i < childNodes.length; i++) {
-      res[i] = childNodes[i];
-    }
-    return res;
-  }
   clearNodes(el: Node) {
     while (el.firstChild) {
       el.removeChild(el.firstChild);
@@ -168,17 +122,9 @@ export class BrowserDomAdapter extends GenericBrowserDomAdapter {
     return node;
   }
   insertBefore(parent: Node, ref: Node, node: Node) { parent.insertBefore(node, ref); }
-  getText(el: Node): string|null { return el.textContent; }
   setText(el: Node, value: string) { el.textContent = value; }
   getValue(el: any): string { return el.value; }
-  setValue(el: any, value: string) { el.value = value; }
-  getChecked(el: any): boolean { return el.checked; }
   createComment(text: string): Comment { return this.getDefaultDocument().createComment(text); }
-  createTemplate(html: any): HTMLElement {
-    const t = this.getDefaultDocument().createElement('template');
-    t.innerHTML = html;
-    return t;
-  }
   createElement(tagName: string, doc?: Document): HTMLElement {
     doc = doc || this.getDefaultDocument();
     return doc.createElement(tagName);
@@ -192,16 +138,11 @@ export class BrowserDomAdapter extends GenericBrowserDomAdapter {
     return doc.createTextNode(text);
   }
   getHost(el: HTMLElement): HTMLElement { return (<any>el).host; }
-  clone(node: Node): Node { return node.cloneNode(true); }
   getElementsByTagName(element: any, name: string): HTMLElement[] {
     return element.getElementsByTagName(name);
   }
-  classList(element: any): any[] { return Array.prototype.slice.call(element.classList, 0); }
   addClass(element: any, className: string) { element.classList.add(className); }
   removeClass(element: any, className: string) { element.classList.remove(className); }
-  hasClass(element: any, className: string): boolean {
-    return element.classList.contains(className);
-  }
   setStyle(element: any, styleName: string, styleValue: string) {
     element.style[styleName] = styleValue;
   }
@@ -210,11 +151,8 @@ export class BrowserDomAdapter extends GenericBrowserDomAdapter {
     // see https://github.com/angular/angular/issues/7916
     element.style[stylename] = '';
   }
+
   getStyle(element: any, stylename: string): string { return element.style[stylename]; }
-  hasStyle(element: any, styleName: string, styleValue?: string|null): boolean {
-    const value = this.getStyle(element, styleName) || '';
-    return styleValue ? value == styleValue : value.length > 0;
-  }
 
   getAttribute(element: Element, attribute: string): string|null {
     return element.getAttribute(attribute);

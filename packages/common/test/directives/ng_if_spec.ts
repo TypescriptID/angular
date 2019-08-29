@@ -103,8 +103,7 @@ import {expect} from '@angular/platform-browser/testing/src/matchers';
 
          fixture.detectChanges();
          expect(fixture.debugElement.queryAll(By.css('span')).length).toEqual(3);
-         expect(getDOM().getText(fixture.nativeElement))
-             .toEqual('helloNumberhelloStringhelloFunction');
+         expect(fixture.nativeElement.textContent).toEqual('helloNumberhelloStringhelloFunction');
 
          getComponent().numberCondition = 0;
          fixture.detectChanges();
@@ -133,7 +132,7 @@ import {expect} from '@angular/platform-browser/testing/src/matchers';
          fixture.detectChanges();
          els = fixture.debugElement.queryAll(By.css('span'));
          expect(els.length).toEqual(1);
-         expect(getDOM().hasClass(els[0].nativeElement, 'marker')).toBe(true);
+         expect(els[0].nativeElement.classList.contains('marker')).toBe(true);
 
          expect(fixture.nativeElement).toHaveText('hello');
        }));

@@ -212,7 +212,7 @@ export function getOrCreateTNode(
   // Keep this function short, so that the VM will inline it.
   const adjustedIndex = index + HEADER_OFFSET;
   const tNode = tView.data[adjustedIndex] as TNode ||
-      createTNodeAtIndex(tView, tHostNode, adjustedIndex, type, name, attrs, index);
+      createTNodeAtIndex(tView, tHostNode, adjustedIndex, type, name, attrs);
   setPreviousOrParentTNode(tNode, true);
   return tNode as TElementNode & TViewNode & TContainerNode & TElementContainerNode &
       TProjectionNode & TIcuContainerNode;
@@ -220,7 +220,7 @@ export function getOrCreateTNode(
 
 function createTNodeAtIndex(
     tView: TView, tHostNode: TNode | null, adjustedIndex: number, type: TNodeType,
-    name: string | null, attrs: TAttributes | null, index: number) {
+    name: string | null, attrs: TAttributes | null) {
   const previousOrParentTNode = getPreviousOrParentTNode();
   const isParent = getIsParent();
   const parent =
@@ -231,9 +231,10 @@ function createTNodeAtIndex(
   const tParentNode = parentInSameView ? parent as TElementNode | TContainerNode : null;
   const tNode = tView.data[adjustedIndex] =
       createTNode(tView, tParentNode, type, adjustedIndex, name, attrs);
-  // The first node is not always the one at index 0, in case of i18n, index 0 can be the
-  // instruction `i18nStart` and the first node has the index 1 or more
-  if (index === 0 || !tView.firstChild) {
+  // Assign a pointer to the first child node of a given view. The first node is not always the one
+  // at index 0, in case of i18n, index 0 can be the instruction `i18nStart` and the first node has
+  // the index 1 or more, so we can't just check node index.
+  if (tView.firstChild === null) {
     tView.firstChild = tNode;
   }
   if (previousOrParentTNode) {
@@ -812,9 +813,8 @@ export function createTNode(
  * @param direction whether to consider inputs or outputs
  * @returns PropertyAliases|null aggregate of all properties if any, `null` otherwise
  */
-export function generatePropertyAliases(tNode: TNode, direction: BindingDirection): PropertyAliases|
-    null {
-  const tView = getLView()[TVIEW];
+export function generatePropertyAliases(
+    tView: TView, tNode: TNode, direction: BindingDirection): PropertyAliases|null {
   let propStore: PropertyAliases|null = null;
   const start = tNode.directiveStart;
   const end = tNode.directiveEnd;
@@ -864,7 +864,7 @@ export function elementPropertyInternal<T>(
   const tNode = getTNode(index, lView);
   let inputData: PropertyAliases|null|undefined;
   let dataValue: PropertyAliasValue|undefined;
-  if (!nativeOnly && (inputData = initializeTNodeInputs(tNode)) &&
+  if (!nativeOnly && (inputData = initializeTNodeInputs(lView[TVIEW], tNode)) &&
       (dataValue = inputData[propName])) {
     setInputsForProperty(lView, dataValue, value);
     if (isComponent(tNode)) markDirtyIfOnPush(lView, index + HEADER_OFFSET);
@@ -1321,19 +1321,17 @@ function baseResolveDirective<T>(tView: TView, viewData: LView, def: DirectiveDe
 }
 
 function addComponentLogic<T>(lView: LView, hostTNode: TNode, def: ComponentDef<T>): void {
-  const native = getNativeByTNode(hostTNode, lView);
+  const native = getNativeByTNode(hostTNode, lView) as RElement;
   const tView = getOrCreateTView(def);
 
   // Only component views should be added to the view tree directly. Embedded views are
   // accessed through their containers because they may be removed / re-added later.
   const rendererFactory = lView[RENDERER_FACTORY];
   const componentView = addToViewTree(
-      lView, createLView(
-                 lView, tView, null, def.onPush ? LViewFlags.Dirty : LViewFlags.CheckAlways,
-                 lView[hostTNode.index], hostTNode as TElementNode, rendererFactory,
-                 rendererFactory.createRenderer(native as RElement, def)));
-
-  componentView[T_HOST] = hostTNode as TElementNode;
+      lView,
+      createLView(
+          lView, tView, null, def.onPush ? LViewFlags.Dirty : LViewFlags.CheckAlways, native,
+          hostTNode as TElementNode, rendererFactory, rendererFactory.createRenderer(native, def)));
 
   // Component view will always be created before any injected LContainers,
   // so this is a regular element, wrap it with the component view
@@ -1785,12 +1783,12 @@ export function storeBindingMetadata(lView: LView, prefix = '', suffix = ''): st
 
 export const CLEAN_PROMISE = _CLEAN_PROMISE;
 
-export function initializeTNodeInputs(tNode: TNode): PropertyAliases|null {
+export function initializeTNodeInputs(tView: TView, tNode: TNode): PropertyAliases|null {
   // If tNode.inputs is undefined, a listener has created outputs, but inputs haven't
   // yet been checked.
   if (tNode.inputs === undefined) {
     // mark inputs as checked
-    tNode.inputs = generatePropertyAliases(tNode, BindingDirection.Input);
+    tNode.inputs = generatePropertyAliases(tView, tNode, BindingDirection.Input);
   }
   return tNode.inputs;
 }

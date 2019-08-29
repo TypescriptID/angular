@@ -91,11 +91,19 @@ export class BrowserDetection {
 BrowserDetection.setup();
 
 export function dispatchEvent(element: any, eventType: any): void {
-  getDOM().dispatchEvent(element, getDOM().createEvent(eventType));
+  const evt: Event = getDOM().getDefaultDocument().createEvent('Event');
+  evt.initEvent(eventType, true, true);
+  getDOM().dispatchEvent(element, evt);
+}
+
+export function createMouseEvent(eventType: string): MouseEvent {
+  const evt: MouseEvent = getDOM().getDefaultDocument().createEvent('MouseEvent');
+  evt.initEvent(eventType, true, true);
+  return evt;
 }
 
 export function el(html: string): HTMLElement {
-  return <HTMLElement>getDOM().firstChild(getContent(getDOM().createTemplate(html)));
+  return <HTMLElement>getContent(createTemplate(html)).firstChild;
 }
 
 export function normalizeCSS(css: string): string {
@@ -148,7 +156,7 @@ export function stringifyElement(el: any /** TODO #9100 */): string {
 
     // Children
     const childrenRoot = templateAwareRoot(el);
-    const children = childrenRoot ? getDOM().childNodes(childrenRoot) : [];
+    const children = childrenRoot ? childrenRoot.childNodes : [];
     for (let j = 0; j < children.length; j++) {
       result += stringifyElement(children[j]);
     }
@@ -160,7 +168,7 @@ export function stringifyElement(el: any /** TODO #9100 */): string {
   } else if (isCommentNode(el)) {
     result += `<!--${el.nodeValue}-->`;
   } else {
-    result += getDOM().getText(el);
+    result += el.textContent;
   }
 
   return result;
@@ -198,4 +206,32 @@ export function setCookie(name: string, value: string) {
 
 export function supportsWebAnimation(): boolean {
   return typeof(<any>Element).prototype['animate'] === 'function';
+}
+
+export function hasStyle(element: any, styleName: string, styleValue?: string | null): boolean {
+  const value = element.style[styleName] || '';
+  return styleValue ? value == styleValue : value.length > 0;
+}
+
+export function hasClass(element: any, className: string): boolean {
+  return element.classList.contains(className);
+}
+
+export function sortedClassList(element: any): any[] {
+  return Array.prototype.slice.call(element.classList, 0).sort();
+}
+
+export function createTemplate(html: any): HTMLElement {
+  const t = getDOM().getDefaultDocument().createElement('template');
+  t.innerHTML = html;
+  return t;
+}
+
+export function childNodesAsList(el: Node): any[] {
+  const childNodes = el.childNodes;
+  const res = [];
+  for (let i = 0; i < childNodes.length; i++) {
+    res[i] = childNodes[i];
+  }
+  return res;
 }

@@ -19,7 +19,7 @@ import {EmbeddedViewRef} from '@angular/core/src/linker/view_ref';
 import {Attribute, Component, ContentChildren, Directive, HostBinding, HostListener, Input, Output, Pipe} from '@angular/core/src/metadata';
 import {TestBed, async, fakeAsync, getTestBed, tick} from '@angular/core/testing';
 import {getDOM} from '@angular/platform-browser/src/dom/dom_adapter';
-import {dispatchEvent, el, isCommentNode} from '@angular/platform-browser/testing/src/browser_util';
+import {createMouseEvent, dispatchEvent, el, isCommentNode} from '@angular/platform-browser/testing/src/browser_util';
 import {expect} from '@angular/platform-browser/testing/src/matchers';
 import {modifiedInIvy, obsoleteInIvy, onlyInIvy} from '@angular/private/testing';
 
@@ -377,7 +377,7 @@ function declareTests(config?: {useJit: boolean}) {
 
             fixture.detectChanges();
 
-            const childNodesOfWrapper = getDOM().childNodes(fixture.nativeElement);
+            const childNodesOfWrapper = fixture.nativeElement.childNodes;
             // 1 template + 2 copies.
             expect(childNodesOfWrapper.length).toBe(3);
             expect(childNodesOfWrapper[1]).toHaveText('hello');
@@ -427,7 +427,7 @@ function declareTests(config?: {useJit: boolean}) {
                 .overrideComponent(MyComp, {set: {template: '<ng-template></ng-template>'}})
                 .createComponent(MyComp);
 
-        const childNodesOfWrapper = getDOM().childNodes(fixture.nativeElement);
+        const childNodesOfWrapper = fixture.nativeElement.childNodes;
         expect(childNodesOfWrapper.length).toBe(1);
         expect(isCommentNode(childNodesOfWrapper[0])).toBe(true);
       });
@@ -572,7 +572,7 @@ function declareTests(config?: {useJit: boolean}) {
 
               fixture.detectChanges();
               // Get the element at index 2, since index 0 is the <ng-template>.
-              expect(getDOM().childNodes(fixture.nativeElement)[2]).toHaveText('1-hello');
+              expect(fixture.nativeElement.childNodes[2]).toHaveText('1-hello');
             });
       });
 
@@ -1000,14 +1000,14 @@ function declareTests(config?: {useJit: boolean}) {
           TestBed.overrideComponent(MyComp, {set: {template}});
           const fixture = TestBed.createComponent(MyComp);
 
-          const dispatchedEvent = getDOM().createMouseEvent('click');
-          const dispatchedEvent2 = getDOM().createMouseEvent('click');
+          const dispatchedEvent = createMouseEvent('click');
+          const dispatchedEvent2 = createMouseEvent('click');
           getDOM().dispatchEvent(fixture.debugElement.children[0].nativeElement, dispatchedEvent);
           getDOM().dispatchEvent(fixture.debugElement.children[1].nativeElement, dispatchedEvent2);
-          expect(getDOM().isPrevented(dispatchedEvent)).toBe(true);
-          expect(getDOM().isPrevented(dispatchedEvent2)).toBe(false);
-          expect(getDOM().getChecked(fixture.debugElement.children[0].nativeElement)).toBeFalsy();
-          expect(getDOM().getChecked(fixture.debugElement.children[1].nativeElement)).toBeTruthy();
+          expect(isPrevented(dispatchedEvent)).toBe(true);
+          expect(isPrevented(dispatchedEvent2)).toBe(false);
+          expect(fixture.debugElement.children[0].nativeElement.checked).toBeFalsy();
+          expect(fixture.debugElement.children[1].nativeElement.checked).toBeTruthy();
         });
       }
 
@@ -1493,10 +1493,8 @@ function declareTests(config?: {useJit: boolean}) {
 
         expect(noSelectorComponentFactory.selector).toBe('ng-component');
 
-        expect(
-            getDOM()
-                .nodeName(noSelectorComponentFactory.create(Injector.NULL).location.nativeElement)
-                .toLowerCase())
+        expect(noSelectorComponentFactory.create(Injector.NULL)
+                   .location.nativeElement.nodeName.toLowerCase())
             .toEqual('ng-component');
       });
     });
@@ -1534,7 +1532,7 @@ function declareTests(config?: {useJit: boolean}) {
               throw 'Should throw';
             } catch (e) {
               const c = getDebugContext(e);
-              expect(getDOM().nodeName(c.componentRenderElement).toUpperCase()).toEqual('DIV');
+              expect(c.componentRenderElement.nodeName.toUpperCase()).toEqual('DIV');
               expect((<Injector>c.injector).get).toBeTruthy();
             }
           });
@@ -1550,8 +1548,8 @@ function declareTests(config?: {useJit: boolean}) {
               throw 'Should throw';
             } catch (e) {
               const c = getDebugContext(e);
-              expect(getDOM().nodeName(c.renderNode).toUpperCase()).toEqual('INPUT');
-              expect(getDOM().nodeName(c.componentRenderElement).toUpperCase()).toEqual('DIV');
+              expect(c.renderNode.nodeName.toUpperCase()).toEqual('INPUT');
+              expect(c.componentRenderElement.nodeName.toUpperCase()).toEqual('DIV');
               expect((<Injector>c.injector).get).toBeTruthy();
               expect(c.context).toEqual(fixture.componentInstance);
               expect(c.references['local']).toBeDefined();
@@ -1595,8 +1593,8 @@ function declareTests(config?: {useJit: boolean}) {
 
                 expect(err).toBeTruthy();
                 const c = getDebugContext(err);
-                expect(getDOM().nodeName(c.renderNode).toUpperCase()).toEqual('SPAN');
-                expect(getDOM().nodeName(c.componentRenderElement).toUpperCase()).toEqual('DIV');
+                expect(c.renderNode.nodeName.toUpperCase()).toEqual('SPAN');
+                expect(c.componentRenderElement.nodeName.toUpperCase()).toEqual('DIV');
                 expect((<Injector>c.injector).get).toBeTruthy();
                 expect(c.context).toEqual(fixture.componentInstance);
                 expect(c.references['local']).toBeDefined();
@@ -1962,7 +1960,7 @@ function declareTests(config?: {useJit: boolean}) {
           fixture.detectChanges();
           const dir = fixture.debugElement.children[0].injector.get(DirectiveWithPropDecorators);
           const native = fixture.debugElement.children[0].nativeElement;
-          getDOM().dispatchEvent(native, getDOM().createMouseEvent('click'));
+          getDOM().dispatchEvent(native, createMouseEvent('click'));
 
           expect(dir.target).toBe(native);
         });
@@ -2039,8 +2037,8 @@ function declareTests(config?: {useJit: boolean}) {
           const fixture = TestBed.createComponent(MyComp);
 
           const el = fixture.nativeElement;
-          const svg = getDOM().childNodes(el)[0];
-          const use = getDOM().childNodes(svg)[0];
+          const svg = el.childNodes[0];
+          const use = svg.childNodes[0];
           expect(getDOM().getProperty(<Element>svg, 'namespaceURI'))
               .toEqual('http://www.w3.org/2000/svg');
           expect(getDOM().getProperty(<Element>use, 'namespaceURI'))
@@ -2059,9 +2057,9 @@ function declareTests(config?: {useJit: boolean}) {
           const fixture = TestBed.createComponent(MyComp);
 
           const el = fixture.nativeElement;
-          const svg = getDOM().childNodes(el)[0];
-          const foreignObject = getDOM().childNodes(svg)[0];
-          const p = getDOM().childNodes(foreignObject)[0];
+          const svg = el.childNodes[0];
+          const foreignObject = svg.childNodes[0];
+          const p = foreignObject.childNodes[0];
           expect(getDOM().getProperty(<Element>svg, 'namespaceURI'))
               .toEqual('http://www.w3.org/2000/svg');
           expect(getDOM().getProperty(<Element>foreignObject, 'namespaceURI'))
@@ -2079,7 +2077,7 @@ function declareTests(config?: {useJit: boolean}) {
           TestBed.overrideComponent(SomeCmp, {set: {template}});
           const fixture = TestBed.createComponent(SomeCmp);
 
-          const useEl = getDOM().firstChild(fixture.nativeElement) as Element;
+          const useEl = fixture.nativeElement.firstChild;
           expect(useEl.getAttributeNS('http://www.w3.org/1999/xlink', 'href')).toEqual('#id');
         });
 
@@ -2090,7 +2088,7 @@ function declareTests(config?: {useJit: boolean}) {
           const fixture = TestBed.createComponent(SomeCmp);
 
           const cmp = fixture.componentInstance;
-          const useEl = getDOM().firstChild(fixture.nativeElement) as Element;
+          const useEl = fixture.nativeElement.firstChild;
 
           cmp.value = '#id';
           fixture.detectChanges();
@@ -2689,15 +2687,14 @@ class ComponentWithoutView {
 @Directive({selector: '[no-duplicate]'})
 class DuplicateDir {
   constructor(elRef: ElementRef) {
-    getDOM().setText(elRef.nativeElement, getDOM().getText(elRef.nativeElement) + 'noduplicate');
+    getDOM().setText(elRef.nativeElement, elRef.nativeElement.textContent + 'noduplicate');
   }
 }
 
 @Directive({selector: '[no-duplicate]'})
 class OtherDuplicateDir {
   constructor(elRef: ElementRef) {
-    getDOM().setText(
-        elRef.nativeElement, getDOM().getText(elRef.nativeElement) + 'othernoduplicate');
+    getDOM().setText(elRef.nativeElement, elRef.nativeElement.textContent + 'othernoduplicate');
   }
 }
 
@@ -2746,4 +2743,8 @@ export class ParentCmp {
 @Component({selector: 'cmp', template: ''})
 class SomeCmpWithInput {
   @Input() test$: any;
+}
+
+function isPrevented(evt: Event): boolean {
+  return evt.defaultPrevented || evt.returnValue != null && !evt.returnValue;
 }

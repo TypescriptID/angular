@@ -456,7 +456,7 @@ export declare class InjectionToken<T> {
 }
 
 export declare abstract class Injector {
-    abstract get<T>(token: Type<T> | InjectionToken<T>, notFoundValue?: T, flags?: InjectFlags): T;
+    abstract get<T>(token: Type<T> | InjectionToken<T> | AbstractType<T>, notFoundValue?: T, flags?: InjectFlags): T;
     /** @deprecated */ abstract get(token: any, notFoundValue?: any): any;
     static NULL: Injector;
     static THROW_IF_NOT_FOUND: Object;
@@ -1086,9 +1086,7 @@ export declare function ɵɵtemplate(index: number, templateFn: ComponentTemplat
 
 export declare function ɵɵtemplateRefExtractor(tNode: TNode, currentView: LView): ViewEngine_TemplateRef<unknown> | null;
 
-export declare function ɵɵtext(index: number, value?: any): void;
-
-export declare function ɵɵtextBinding<T>(value: T | NO_CHANGE): void;
+export declare function ɵɵtext(index: number, value?: string): void;
 
 export declare function ɵɵtextInterpolate(v0: any): TsickleIssue1009;
 

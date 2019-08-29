@@ -6,7 +6,6 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Type} from '@angular/core';
 
 let _DOM: DomAdapter = null !;
 
@@ -32,67 +31,40 @@ export function setRootDomAdapter(adapter: DomAdapter) {
  * can introduce XSS risks.
  */
 export abstract class DomAdapter {
-  abstract hasProperty(element: any, name: string): boolean;
-  abstract setProperty(el: Element, name: string, value: any): any;
+  // Needs Domino-friendly test utility
   abstract getProperty(el: Element, name: string): any;
-  abstract invoke(el: Element, methodName: string, args: any[]): any;
+  abstract dispatchEvent(el: any, evt: any): any;
 
-  abstract logError(error: any): any;
+  // Used by router
   abstract log(error: any): any;
   abstract logGroup(error: any): any;
   abstract logGroupEnd(): any;
 
-  abstract contains(nodeA: any, nodeB: any): boolean;
-  abstract parse(templateHtml: string): any;
-  abstract querySelector(el: any, selector: string): any;
-  abstract querySelectorAll(el: any, selector: string): any[];
-  abstract on(el: any, evt: any, listener: any): any;
-  abstract onAndCancel(el: any, evt: any, listener: any): Function;
-  abstract dispatchEvent(el: any, evt: any): any;
-  abstract createMouseEvent(eventType: any): any;
-  abstract createEvent(eventType: string): any;
-  abstract preventDefault(evt: any): any;
-  abstract isPrevented(evt: any): boolean;
-  abstract nodeName(node: any): string;
-  abstract nodeValue(node: any): string|null;
-  abstract type(node: any): string;
-  abstract firstChild(el: any): Node|null;
-  abstract nextSibling(el: any): Node|null;
-  abstract parentElement(el: any): Node|null;
-  abstract childNodes(el: any): Node[];
-  abstract childNodesAsList(el: any): Node[];
-  abstract clearNodes(el: any): any;
-  abstract appendChild(el: any, node: any): any;
-  abstract removeChild(el: any, node: any): any;
-  abstract remove(el: any): Node;
-  abstract insertBefore(parent: any, ref: any, node: any): any;
-  abstract getText(el: any): string|null;
-  abstract setText(el: any, value: string): any;
-  abstract getValue(el: any): string;
-  abstract setValue(el: any, value: string): any;
-  abstract getChecked(el: any): boolean;
-  abstract createComment(text: string): any;
-  abstract createTemplate(html: any): HTMLElement;
-  abstract createElement(tagName: any, doc?: any): HTMLElement;
-  abstract createElementNS(ns: string, tagName: string, doc?: any): Element;
-  abstract createTextNode(text: string, doc?: any): Text;
-  abstract getHost(el: any): any;
-  abstract getDistributedNodes(el: any): Node[];
-  abstract clone /*<T extends Node>*/ (node: Node /*T*/): Node /*T*/;
-  abstract getElementsByTagName(element: any, name: string): HTMLElement[];
-  abstract classList(element: any): any[];
-  abstract addClass(element: any, className: string): any;
-  abstract removeClass(element: any, className: string): any;
-  abstract hasClass(element: any, className: string): boolean;
-  abstract setStyle(element: any, styleName: string, styleValue: string): any;
-  abstract removeStyle(element: any, styleName: string): any;
-  abstract getStyle(element: any, styleName: string): string;
-  abstract hasStyle(element: any, styleName: string, styleValue?: string): boolean;
-
   // Used by Meta
+  abstract querySelectorAll(el: any, selector: string): any[];
+  abstract remove(el: any): Node;
   abstract getAttribute(element: any, attribute: string): string|null;
 
   // Used by platform-server
+  abstract setProperty(el: Element, name: string, value: any): any;
+  abstract querySelector(el: any, selector: string): any;
+  abstract nextSibling(el: any): Node|null;
+  abstract parentElement(el: any): Node|null;
+  abstract clearNodes(el: any): any;
+  abstract appendChild(el: any, node: any): any;
+  abstract removeChild(el: any, node: any): any;
+  abstract insertBefore(parent: any, ref: any, node: any): any;
+  abstract setText(el: any, value: string): any;
+  abstract createComment(text: string): any;
+  abstract createElement(tagName: any, doc?: any): HTMLElement;
+  abstract createElementNS(ns: string, tagName: string, doc?: any): Element;
+  abstract createTextNode(text: string, doc?: any): Text;
+  abstract getElementsByTagName(element: any, name: string): HTMLElement[];
+  abstract addClass(element: any, className: string): any;
+  abstract removeClass(element: any, className: string): any;
+  abstract getStyle(element: any, styleName: string): any;
+  abstract setStyle(element: any, styleName: string, styleValue: string): any;
+  abstract removeStyle(element: any, styleName: string): any;
   abstract setAttribute(element: any, name: string, value: string): any;
   abstract setAttributeNS(element: any, ns: string, name: string, value: string): any;
   abstract removeAttribute(element: any, attribute: string): any;
@@ -110,8 +82,10 @@ export abstract class DomAdapter {
 
   // Used by Testability
   abstract isShadowRoot(node: any): boolean;
+  abstract getHost(el: any): any;
 
   // Used by KeyEventsPlugin
+  abstract onAndCancel(el: any, evt: any, listener: any): Function;
   abstract getEventKey(event: any): string;
   abstract supportsDOMEvents(): boolean;
 

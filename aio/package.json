@@ -23,7 +23,7 @@
     "build-with-ivy": "yarn ~~build",
     "prebuild-with-ivy-ci": "yarn setup-local --no-build-packages && node scripts/switch-to-ivy",
     "build-with-ivy-ci": "yarn ~~build --progress=false",
-    "extract-cli-command-docs": "node tools/transforms/cli-docs-package/extract-cli-commands.js 59722208a",
+    "extract-cli-command-docs": "node tools/transforms/cli-docs-package/extract-cli-commands.js 0d56c1f5f",
     "lint": "yarn check-env && yarn docs-lint && ng lint && yarn example-lint && yarn tools-lint",
     "test": "yarn check-env && ng test",
     "pree2e": "yarn check-env && yarn update-webdriver",
@@ -80,7 +80,7 @@
   "//engines-comment": "Keep this in sync with ../package.json",
   "engines": {
     "node": ">=10.9.0 <13.0.0",
-    "yarn": ">=1.12.1 <=1.18.0"
+    "yarn": ">=1.17.3 <=1.18.0"
   },
   "private": true,
   "dependencies": {

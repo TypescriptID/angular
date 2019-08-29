@@ -32,7 +32,6 @@ describe('Undecorated classes with DI migration', () => {
       compilerOptions: {
         lib: ['es2015'],
       },
-      angularCompilerOptions: {enableIvy: false}
     }));
     writeFile('/angular.json', JSON.stringify({
       projects: {t: {architect: {build: {options: {tsConfig: './tsconfig.json'}}}}}
@@ -208,6 +207,39 @@ describe('Undecorated classes with DI migration', () => {
     expect(tree.readContent('/index.ts')).toContain(dedent `
       @Pipe({name: 'test'})
       export class MyPipe extends PipeTransform {}`);
+  });
+
+  it('should not decorate base class if no constructor is inherited', () => {
+    writeFile('/index.ts', dedent `
+      import {Component, NgModule, Directive} from '@angular/core';
+
+      export class BaseClassWithoutCtor {
+        someUnrelatedProp = true;
+      }
+
+      @Directive({selector: 'my-dir'})
+      export class MyDirective extends BaseClassWithoutCtor {}
+
+      @Pipe()
+      export class MyPipe extends BaseClassWithoutCtor {}
+
+      @NgModule({declarations: [MyDirective, MyPipe]})
+      export class AppModule {}
+    `);
+
+    runMigration();
+
+    expect(tree.readContent('/index.ts')).toContain(dedent `
+
+      export class BaseClassWithoutCtor {
+        someUnrelatedProp = true;
+      }
+
+      @Directive({selector: 'my-dir'})
+      export class MyDirective extends BaseClassWithoutCtor {}
+
+      @Pipe()
+      export class MyPipe extends BaseClassWithoutCtor {}`);
   });
 
   it('should not decorate base class if directive/component/provider defines a constructor', () => {
@@ -1028,7 +1060,10 @@ describe('Undecorated classes with DI migration', () => {
                     provide: NG_VALIDATORS,
                     useExisting: BaseComponent,
                     multi: true
-                }]
+                }],
+            host: {
+                "[class.is-enabled]": "isEnabled === true"
+            }
         })
         export class PassThrough extends BaseComponent {}`);
       expect(tree.readContent('/index.ts')).toContain(dedent `
@@ -1041,7 +1076,10 @@ describe('Undecorated classes with DI migration', () => {
                     provide: NG_VALIDATORS,
                     useExisting: BaseComponent,
                     multi: true
-                }]
+                }],
+            host: {
+                "[class.is-enabled]": "isEnabled === true"
+            }
         })
         export class MyComp extends PassThrough {}`);
       expect(tree.readContent('/index.ts')).toContain(dedent `
@@ -1082,7 +1120,10 @@ describe('Undecorated classes with DI migration', () => {
                     provide: NG_VALIDATORS,
                     useExisting: BaseComponent,
                     multi: true
-                }]
+                }],
+            host: {
+                "[class.is-enabled]": "isEnabled === true"
+            }
         })
         export class MyComp extends BaseComponent {}`);
     });
@@ -1239,6 +1280,9 @@ describe('Undecorated classes with DI migration', () => {
                 member: 'None'
               },
               providers: [{__symbolic: 'reference', name: 'testValidators'}],
+              host: {
+                '[class.is-enabled]': 'isEnabled === true',
+              }
             }]
           }],
           members: {}
