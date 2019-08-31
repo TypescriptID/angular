@@ -3,7 +3,7 @@
     "master": {
       "uncompressed": {
         "runtime": 1497,
-        "main": 161490,
+        "main": 158490,
         "polyfills": 45399
       }
     }
@@ -12,7 +12,7 @@
     "master": {
       "uncompressed": {
         "runtime": 1440,
-        "main": 13266,
+        "main": 13264,
         "polyfills": 45340
       }
     }
@@ -21,8 +21,17 @@
     "master": {
       "uncompressed": {
         "runtime": 1440,
-        "main": 128448,
+        "main": 125882,
         "polyfills": 45340
+      }
+    }
+  },
+  "cli-hello-world-ivy-i18n": {
+    "master": {
+      "uncompressed": {
+        "runtime": 1440,
+        "main": 141209,
+        "polyfills": 45949
       }
     }
   },

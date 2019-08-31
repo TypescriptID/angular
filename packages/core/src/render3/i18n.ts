@@ -5,7 +5,6 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-
 import '../util/ng_i18n_closure_mode';
 import {DEFAULT_LOCALE_ID, getPluralCase} from '../i18n/localization';
 import {SRCSET_ATTRS, URI_ATTRS, VALID_ATTRS, VALID_ELEMENTS, getTemplateContent} from '../sanitization/html_sanitizer';
@@ -1315,42 +1314,6 @@ function parseNodes(
 const NGSP_UNICODE_REGEXP = /\uE500/g;
 function replaceNgsp(value: string): string {
   return value.replace(NGSP_UNICODE_REGEXP, ' ');
-}
-
-let TRANSLATIONS: {[key: string]: string} = {};
-export interface I18nLocalizeOptions { translations: {[key: string]: string}; }
-
-/**
- * Set the configuration for `i18nLocalize`.
- *
- * @deprecated this method is temporary & should not be used as it will be removed soon
- */
-export function i18nConfigureLocalize(options: I18nLocalizeOptions = {
-  translations: {}
-}) {
-  TRANSLATIONS = options.translations;
-}
-
-const LOCALIZE_PH_REGEXP = /\{\$(.*?)\}/g;
-
-/**
- * A goog.getMsg-like function for users that do not use Closure.
- *
- * This method is required as a *temporary* measure to prevent i18n tests from being blocked while
- * running outside of Closure Compiler. This method will not be needed once runtime translation
- * service support is introduced.
- *
- * @codeGenApi
- * @deprecated this method is temporary & should not be used as it will be removed soon
- */
-export function ɵɵi18nLocalize(input: string, placeholders?: {[key: string]: string}) {
-  if (typeof TRANSLATIONS[input] !== 'undefined') {  // to account for empty string
-    input = TRANSLATIONS[input];
-  }
-  if (placeholders !== undefined && Object.keys(placeholders).length) {
-    return input.replace(LOCALIZE_PH_REGEXP, (_, key) => placeholders[key] || '');
-  }
-  return input;
 }
 
 /**

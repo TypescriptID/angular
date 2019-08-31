@@ -6,6 +6,4 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-export function supportsState(): boolean {
-  return !!window.history.pushState;
-}
+export {clearTranslations, loadTranslations} from './src/translate';
