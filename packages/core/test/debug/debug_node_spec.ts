@@ -878,12 +878,12 @@ class TestCmptWithPropBindings {
       fixture = TestBed.createComponent(SimpleContentComp);
       fixture.detectChanges();
 
-      const parent = getDOM().parentElement(fixture.nativeElement) !;
+      const parent = fixture.nativeElement.parentElement;
       const content = fixture.componentInstance.content.nativeElement;
 
       // Move the content element outside the component
       // so that it can't be reached via querySelector.
-      getDOM().appendChild(parent, content);
+      parent.appendChild(content);
 
       expect(fixture.debugElement.query(By.css('.content'))).toBeTruthy();
 

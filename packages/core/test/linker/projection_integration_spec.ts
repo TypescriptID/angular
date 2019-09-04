@@ -136,8 +136,9 @@ describe('projection', () => {
         componentFactoryResolver.resolveComponentFactory(MultipleContentTagsComponent);
     expect(componentFactory.ngContentSelectors).toEqual(['h1', '*']);
 
-    const nodeOne = getDOM().createTextNode('one');
-    const nodeTwo = getDOM().createTextNode('two');
+
+    const nodeOne = getDOM().getDefaultDocument().createTextNode('one');
+    const nodeTwo = getDOM().getDefaultDocument().createTextNode('two');
     const component = componentFactory.create(injector, [[nodeOne], [nodeTwo]]);
     expect(component.location.nativeElement).toHaveText('(one, two)');
   });
@@ -175,9 +176,9 @@ describe('projection', () => {
             componentFactoryResolver.resolveComponentFactory(MultipleContentTagsComponent);
         expect(componentFactory.ngContentSelectors).toEqual(['h1', '*', 'h2']);
 
-        const nodeOne = getDOM().createTextNode('one');
-        const nodeTwo = getDOM().createTextNode('two');
-        const nodeThree = getDOM().createTextNode('three');
+        const nodeOne = getDOM().getDefaultDocument().createTextNode('one');
+        const nodeTwo = getDOM().getDefaultDocument().createTextNode('two');
+        const nodeThree = getDOM().getDefaultDocument().createTextNode('three');
         const component = componentFactory.create(injector, [[nodeOne], [nodeTwo], [nodeThree]]);
         component.changeDetectorRef.detectChanges();
         expect(component.location.nativeElement.textContent.trim()).toBe('1one 2two 3three');
@@ -523,8 +524,8 @@ describe('projection', () => {
       const mainEl = main.nativeElement;
       const div1 = mainEl.firstChild;
       const div2 = getDOM().createElement('div');
-      getDOM().setAttribute(div2, 'class', 'redStyle');
-      getDOM().appendChild(mainEl, div2);
+      div2.setAttribute('class', 'redStyle');
+      mainEl.appendChild(div2);
       expect(getComputedStyle(div1).color).toEqual('rgb(255, 0, 0)');
       expect(getComputedStyle(div2).color).toEqual('rgb(255, 0, 0)');
     });
@@ -543,7 +544,7 @@ describe('projection', () => {
       const mainEl = main.nativeElement;
       const div1 = mainEl.firstChild;
       const div2 = getDOM().createElement('div');
-      getDOM().appendChild(mainEl, div2);
+      mainEl.appendChild(div2);
       expect(getComputedStyle(div1).color).toEqual('rgb(255, 0, 0)');
       expect(getComputedStyle(div2).color).toEqual('rgb(0, 0, 0)');
     });

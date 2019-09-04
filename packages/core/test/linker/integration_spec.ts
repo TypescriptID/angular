@@ -114,12 +114,12 @@ function declareTests(config?: {useJit: boolean}) {
 
         fixture.componentInstance.ctxProp = 'Initial aria label';
         fixture.detectChanges();
-        expect(getDOM().getAttribute(fixture.debugElement.children[0].nativeElement, 'aria-label'))
+        expect(fixture.debugElement.children[0].nativeElement.getAttribute('aria-label'))
             .toEqual('Initial aria label');
 
         fixture.componentInstance.ctxProp = 'Changed aria label';
         fixture.detectChanges();
-        expect(getDOM().getAttribute(fixture.debugElement.children[0].nativeElement, 'aria-label'))
+        expect(fixture.debugElement.children[0].nativeElement.getAttribute('aria-label'))
             .toEqual('Changed aria label');
       });
 
@@ -131,8 +131,7 @@ function declareTests(config?: {useJit: boolean}) {
 
         fixture.componentInstance.ctxProp = 'bar';
         fixture.detectChanges();
-        expect(getDOM().getAttribute(fixture.debugElement.children[0].nativeElement, 'foo'))
-            .toEqual('bar');
+        expect(fixture.debugElement.children[0].nativeElement.getAttribute('foo')).toEqual('bar');
 
         fixture.componentInstance.ctxProp = null !;
         fixture.detectChanges();
@@ -147,13 +146,11 @@ function declareTests(config?: {useJit: boolean}) {
 
         fixture.componentInstance.ctxProp = '10';
         fixture.detectChanges();
-        expect(getDOM().getStyle(fixture.debugElement.children[0].nativeElement, 'height'))
-            .toEqual('10px');
+        expect(fixture.debugElement.children[0].nativeElement.style['height']).toEqual('10px');
 
         fixture.componentInstance.ctxProp = null !;
         fixture.detectChanges();
-        expect(getDOM().getStyle(fixture.debugElement.children[0].nativeElement, 'height'))
-            .toEqual('');
+        expect(fixture.debugElement.children[0].nativeElement.style['height']).toEqual('');
       });
 
       it('should consume binding to property names where attr name and property name do not match',
@@ -889,7 +886,7 @@ function declareTests(config?: {useJit: boolean}) {
 
         fixture.detectChanges();
 
-        expect(getDOM().getAttribute(fixture.debugElement.nativeElement, 'role')).toEqual('button');
+        expect(fixture.debugElement.nativeElement.getAttribute('role')).toEqual('button');
       });
 
       it('should support updating host element via hostAttributes on host elements', () => {
@@ -900,7 +897,7 @@ function declareTests(config?: {useJit: boolean}) {
 
         fixture.detectChanges();
 
-        expect(getDOM().getAttribute(fixture.debugElement.children[0].nativeElement, 'role'))
+        expect(fixture.debugElement.children[0].nativeElement.getAttribute('role'))
             .toEqual('button');
       });
 
@@ -1406,7 +1403,7 @@ function declareTests(config?: {useJit: boolean}) {
         TestBed.overrideComponent(MyComp, {set: {template}});
         const fixture = TestBed.createComponent(MyComp);
 
-        expect(getDOM().querySelectorAll(fixture.nativeElement, 'script').length).toEqual(0);
+        expect(fixture.nativeElement.querySelectorAll('script').length).toEqual(0);
       });
 
       it('should throw when using directives without selector in NgModule declarations', () => {
@@ -1694,7 +1691,7 @@ function declareTests(config?: {useJit: boolean}) {
         fixture.componentInstance.ctxProp = 'TITLE';
         fixture.detectChanges();
 
-        const el = getDOM().querySelector(fixture.nativeElement, 'span');
+        const el = fixture.nativeElement.querySelector('span');
         expect(el.title).toBeFalsy();
       });
 
@@ -1707,7 +1704,7 @@ function declareTests(config?: {useJit: boolean}) {
         fixture.componentInstance.ctxProp = 'TITLE';
         fixture.detectChanges();
 
-        const el = getDOM().querySelector(fixture.nativeElement, 'span');
+        const el = fixture.nativeElement.querySelector('span');
         expect(getDOM().getProperty(el, 'title')).toEqual('TITLE');
       });
     });
@@ -2141,7 +2138,7 @@ class SimpleImperativeViewComponent {
 
   constructor(self: ElementRef) {
     const hostElement = self.nativeElement;
-    getDOM().appendChild(hostElement, el('hello imp view'));
+    hostElement.appendChild(el('hello imp view'));
   }
 }
 
@@ -2665,7 +2662,7 @@ class SomeImperativeViewport {
       this.view = this.vc.createEmbeddedView(this.templateRef);
       const nodes = this.view.rootNodes;
       for (let i = 0; i < nodes.length; i++) {
-        getDOM().appendChild(this.anchor, nodes[i]);
+        this.anchor.appendChild(nodes[i]);
       }
     }
   }
@@ -2685,16 +2682,12 @@ class ComponentWithoutView {
 
 @Directive({selector: '[no-duplicate]'})
 class DuplicateDir {
-  constructor(elRef: ElementRef) {
-    getDOM().setText(elRef.nativeElement, elRef.nativeElement.textContent + 'noduplicate');
-  }
+  constructor(elRef: ElementRef) { elRef.nativeElement.textContent += 'noduplicate'; }
 }
 
 @Directive({selector: '[no-duplicate]'})
 class OtherDuplicateDir {
-  constructor(elRef: ElementRef) {
-    getDOM().setText(elRef.nativeElement, elRef.nativeElement.textContent + 'othernoduplicate');
-  }
+  constructor(elRef: ElementRef) { elRef.nativeElement.textContent += 'othernoduplicate'; }
 }
 
 @Directive({selector: 'directive-throwing-error'})

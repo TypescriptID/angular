@@ -11,50 +11,6 @@ import {ɵglobal as global} from '@angular/core';
 
 import {GenericBrowserDomAdapter} from './generic_browser_adapter';
 
-
-const DOM_KEY_LOCATION_NUMPAD = 3;
-
-// Map to convert some key or keyIdentifier values to what will be returned by getEventKey
-const _keyMap: {[k: string]: string} = {
-  // The following values are here for cross-browser compatibility and to match the W3C standard
-  // cf http://www.w3.org/TR/DOM-Level-3-Events-key/
-  '\b': 'Backspace',
-  '\t': 'Tab',
-  '\x7F': 'Delete',
-  '\x1B': 'Escape',
-  'Del': 'Delete',
-  'Esc': 'Escape',
-  'Left': 'ArrowLeft',
-  'Right': 'ArrowRight',
-  'Up': 'ArrowUp',
-  'Down': 'ArrowDown',
-  'Menu': 'ContextMenu',
-  'Scroll': 'ScrollLock',
-  'Win': 'OS'
-};
-
-// There is a bug in Chrome for numeric keypad keys:
-// https://code.google.com/p/chromium/issues/detail?id=155654
-// 1, 2, 3 ... are reported as A, B, C ...
-const _chromeNumKeyPadMap = {
-  'A': '1',
-  'B': '2',
-  'C': '3',
-  'D': '4',
-  'E': '5',
-  'F': '6',
-  'G': '7',
-  'H': '8',
-  'I': '9',
-  'J': '*',
-  'K': '+',
-  'M': '-',
-  'N': '.',
-  'O': '/',
-  '\x60': '0',
-  '\x90': 'NumLock'
-};
-
 const nodeContains: (this: Node, other: Node) => boolean = (() => {
   if (global['Node']) {
     return global['Node'].prototype.contains || function(this: Node, node: any) {
@@ -74,7 +30,6 @@ const nodeContains: (this: Node, other: Node) => boolean = (() => {
 /* tslint:disable:requireParameterType no-console */
 export class BrowserDomAdapter extends GenericBrowserDomAdapter {
   static makeCurrent() { setRootDomAdapter(new BrowserDomAdapter()); }
-  setProperty(el: Node, name: string, value: any) { (<any>el)[name] = value; }
   getProperty(el: Node, name: string): any { return (<any>el)[name]; }
 
   log(error: string): void {
@@ -95,8 +50,6 @@ export class BrowserDomAdapter extends GenericBrowserDomAdapter {
     }
   }
 
-  querySelector(el: HTMLElement, selector: string): any { return el.querySelector(selector); }
-  querySelectorAll(el: any, selector: string): any[] { return el.querySelectorAll(selector); }
   onAndCancel(el: Node, evt: any, listener: any): Function {
     el.addEventListener(evt, listener, false);
     // Needed to follow Dart's subscription semantic, until fix of
@@ -104,109 +57,26 @@ export class BrowserDomAdapter extends GenericBrowserDomAdapter {
     return () => { el.removeEventListener(evt, listener, false); };
   }
   dispatchEvent(el: Node, evt: any) { el.dispatchEvent(evt); }
-  nextSibling(el: Node): Node|null { return el.nextSibling; }
-  parentElement(el: Node): Node|null { return el.parentNode; }
-  clearNodes(el: Node) {
-    while (el.firstChild) {
-      el.removeChild(el.firstChild);
-    }
-  }
-  appendChild(el: Node, node: Node) { el.appendChild(node); }
-  removeChild(el: Node, node: Node) { el.removeChild(node); }
   remove(node: Node): Node {
     if (node.parentNode) {
       node.parentNode.removeChild(node);
     }
     return node;
   }
-  insertBefore(parent: Node, ref: Node, node: Node) { parent.insertBefore(node, ref); }
-  setText(el: Node, value: string) { el.textContent = value; }
   getValue(el: any): string { return el.value; }
-  createComment(text: string): Comment { return this.getDefaultDocument().createComment(text); }
   createElement(tagName: string, doc?: Document): HTMLElement {
     doc = doc || this.getDefaultDocument();
     return doc.createElement(tagName);
   }
-  createElementNS(ns: string, tagName: string, doc?: Document): Element {
-    doc = doc || this.getDefaultDocument();
-    return doc.createElementNS(ns, tagName);
-  }
-  createTextNode(text: string, doc?: Document): Text {
-    doc = doc || this.getDefaultDocument();
-    return doc.createTextNode(text);
-  }
-  getHost(el: HTMLElement): HTMLElement { return (<any>el).host; }
-  getElementsByTagName(element: any, name: string): HTMLElement[] {
-    return element.getElementsByTagName(name);
-  }
-  addClass(element: any, className: string) { element.classList.add(className); }
-  removeClass(element: any, className: string) { element.classList.remove(className); }
-  setStyle(element: any, styleName: string, styleValue: string) {
-    element.style[styleName] = styleValue;
-  }
-  removeStyle(element: any, stylename: string) {
-    // IE requires '' instead of null
-    // see https://github.com/angular/angular/issues/7916
-    element.style[stylename] = '';
-  }
-
-  getStyle(element: any, stylename: string): string { return element.style[stylename]; }
-
-  getAttribute(element: Element, attribute: string): string|null {
-    return element.getAttribute(attribute);
-  }
-  setAttribute(element: Element, name: string, value: string) { element.setAttribute(name, value); }
-  setAttributeNS(element: Element, ns: string, name: string, value: string) {
-    element.setAttributeNS(ns, name, value);
-  }
-  removeAttribute(element: Element, attribute: string) { element.removeAttribute(attribute); }
-  removeAttributeNS(element: Element, ns: string, name: string) {
-    element.removeAttributeNS(ns, name);
-  }
-
   createHtmlDocument(): HTMLDocument {
     return document.implementation.createHTMLDocument('fakeTitle');
   }
   getDefaultDocument(): Document { return document; }
-  getTitle(doc: Document): string { return doc.title; }
-  setTitle(doc: Document, newTitle: string) { doc.title = newTitle || ''; }
-  elementMatches(n: any, selector: string): boolean {
-    if (this.isElementNode(n)) {
-      return n.matches && n.matches(selector) ||
-          n.msMatchesSelector && n.msMatchesSelector(selector) ||
-          n.webkitMatchesSelector && n.webkitMatchesSelector(selector);
-    }
-
-    return false;
-  }
 
   isElementNode(node: Node): boolean { return node.nodeType === Node.ELEMENT_NODE; }
 
   isShadowRoot(node: any): boolean { return node instanceof DocumentFragment; }
 
-  getEventKey(event: any): string {
-    let key = event.key;
-    if (key == null) {
-      key = event.keyIdentifier;
-      // keyIdentifier is defined in the old draft of DOM Level 3 Events implemented by Chrome and
-      // Safari cf
-      // http://www.w3.org/TR/2007/WD-DOM-Level-3-Events-20071221/events.html#Events-KeyboardEvents-Interfaces
-      if (key == null) {
-        return 'Unidentified';
-      }
-      if (key.startsWith('U+')) {
-        key = String.fromCharCode(parseInt(key.substring(2), 16));
-        if (event.location === DOM_KEY_LOCATION_NUMPAD && _chromeNumKeyPadMap.hasOwnProperty(key)) {
-          // There is a bug in Chrome for numeric keypad keys:
-          // https://code.google.com/p/chromium/issues/detail?id=155654
-          // 1, 2, 3 ... are reported as A, B, C ...
-          key = (_chromeNumKeyPadMap as any)[key];
-        }
-      }
-    }
-
-    return _keyMap[key] || key;
-  }
   getGlobalEventTarget(doc: Document, target: string): EventTarget|null {
     if (target === 'window') {
       return window;

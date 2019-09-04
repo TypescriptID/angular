@@ -22,8 +22,8 @@ export function appInitializerFactory(transitionId: string, document: any, injec
     injector.get(ApplicationInitStatus).donePromise.then(() => {
       const dom = getDOM();
       const styles: any[] =
-          Array.prototype.slice.apply(dom.querySelectorAll(document, `style[ng-transition]`));
-      styles.filter(el => dom.getAttribute(el, 'ng-transition') === transitionId)
+          Array.prototype.slice.apply(document.querySelectorAll(`style[ng-transition]`));
+      styles.filter(el => el.getAttribute('ng-transition') === transitionId)
           .forEach(el => dom.remove(el));
     });
   };

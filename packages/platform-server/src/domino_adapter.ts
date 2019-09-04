@@ -78,24 +78,12 @@ export class DominoAdapter extends BrowserDomAdapter {
     if (name === 'href') {
       // Domino tries to resolve href-s which we do not want. Just return the
       // attribute value.
-      return this.getAttribute(el, 'href');
+      return el.getAttribute('href');
     } else if (name === 'innerText') {
       // Domino does not support innerText. Just map it to textContent.
       return el.textContent;
     }
     return (<any>el)[name];
-  }
-
-  setProperty(el: Element, name: string, value: any) {
-    if (name === 'href') {
-      // Even though the server renderer reflects any properties to attributes
-      // map 'href' to attribute just to handle when setProperty is directly called.
-      this.setAttribute(el, 'href', value);
-    } else if (name === 'innerText') {
-      // Domino does not support innerText. Just map it to textContent.
-      el.textContent = value;
-    }
-    (<any>el)[name] = value;
   }
 
   getGlobalEventTarget(doc: Document, target: string): EventTarget|null {
@@ -112,62 +100,13 @@ export class DominoAdapter extends BrowserDomAdapter {
   }
 
   getBaseHref(doc: Document): string {
-    const base = this.querySelector(doc.documentElement !, 'base');
+    const base = doc.documentElement !.querySelector('base');
     let href = '';
     if (base) {
       href = base.getAttribute('href') !;
     }
     // TODO(alxhub): Need relative path logic from BrowserDomAdapter here?
     return href;
-  }
-
-  /** @internal */
-  _readStyleAttribute(element: any): {[name: string]: string} {
-    const styleMap: {[name: string]: string} = {};
-    const styleAttribute = element.getAttribute('style');
-    if (styleAttribute) {
-      const styleList = styleAttribute.split(/;+/g);
-      for (let i = 0; i < styleList.length; i++) {
-        const style = styleList[i].trim();
-        if (style.length > 0) {
-          const colonIndex = style.indexOf(':');
-          if (colonIndex === -1) {
-            throw new Error(`Invalid CSS style: ${style}`);
-          }
-          const name = style.substr(0, colonIndex).trim();
-          styleMap[name] = style.substr(colonIndex + 1).trim();
-        }
-      }
-    }
-    return styleMap;
-  }
-  /** @internal */
-  _writeStyleAttribute(element: any, styleMap: {[name: string]: string}) {
-    let styleAttrValue = '';
-    for (const key in styleMap) {
-      const newValue = styleMap[key];
-      if (newValue) {
-        styleAttrValue += key + ':' + styleMap[key] + ';';
-      }
-    }
-    element.setAttribute('style', styleAttrValue);
-  }
-
-  setStyle(element: any, styleName: string, styleValue?: string|null) {
-    styleName = styleName.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
-    const styleMap = this._readStyleAttribute(element);
-    styleMap[styleName] = styleValue || '';
-    this._writeStyleAttribute(element, styleMap);
-  }
-  removeStyle(element: any, styleName: string) {
-    // IE requires '' instead of null
-    // see https://github.com/angular/angular/issues/7916
-    this.setStyle(element, styleName, '');
-  }
-
-  getStyle(element: any, styleName: string): string {
-    const styleMap = this._readStyleAttribute(element);
-    return styleMap[styleName] || '';
   }
 
   dispatchEvent(el: Node, evt: any) {

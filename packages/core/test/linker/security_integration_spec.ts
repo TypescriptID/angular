@@ -177,13 +177,12 @@ function declareTests(config?: {useJit: boolean}) {
         fixture.detectChanges();
         // In the browser, reading href returns an absolute URL. On the server side,
         // it just echoes back the property.
-        let value =
-            isAttribute ? getDOM().getAttribute(e, 'href') : getDOM().getProperty(e, 'href');
+        let value = isAttribute ? e.getAttribute('href') : getDOM().getProperty(e, 'href');
         expect(value).toMatch(/.*\/?hello$/);
 
         ci.ctxProp = 'javascript:alert(1)';
         fixture.detectChanges();
-        value = isAttribute ? getDOM().getAttribute(e, 'href') : getDOM().getProperty(e, 'href');
+        value = isAttribute ? e.getAttribute('href') : getDOM().getProperty(e, 'href');
         expect(value).toEqual('unsafe:javascript:alert(1)');
       }
 
@@ -247,12 +246,12 @@ function declareTests(config?: {useJit: boolean}) {
         fixture.detectChanges();
         // In some browsers, this will contain the full background specification, not just
         // the color.
-        expect(getDOM().getStyle(e, 'background')).toMatch(/red.*/);
+        expect(e.style['background']).toMatch(/red.*/);
 
         ci.ctxProp = 'url(javascript:evil())';
         fixture.detectChanges();
         // Updated value gets rejected, no value change.
-        expect(getDOM().getStyle(e, 'background')).not.toContain('javascript');
+        expect(e.style['background']).not.toContain('javascript');
       });
 
       modifiedInIvy('Unknown property error thrown during update mode, not creation mode')
