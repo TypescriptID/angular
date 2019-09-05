@@ -17,10 +17,13 @@ export function createLocalizeStatements(
     params: {[name: string]: o.Expression}): o.Statement[] {
   const statements = [];
 
-  const jsdocComment = i18nMetaToDocStmt(metaFromI18nMessage(message));
-  if (jsdocComment !== null) {
-    statements.push(jsdocComment);
-  }
+  // TODO: re-enable these comments when we have a plan on how to make them work so that Closure
+  // compiler doesn't complain about the JSDOC comments.
+
+  // const jsdocComment = i18nMetaToDocStmt(metaFromI18nMessage(message));
+  // if (jsdocComment !== null) {
+  //   statements.push(jsdocComment);
+  // }
 
   const {messageParts, placeHolders} = serializeI18nMessageForLocalize(message);
   statements.push(new o.ExpressionStatement(variable.set(
@@ -44,7 +47,12 @@ class PlaceholderPiece extends MessagePiece {
  */
 class LocalizeSerializerVisitor implements i18n.Visitor {
   visitText(text: i18n.Text, context: MessagePiece[]): any {
-    context.push(new LiteralPiece(text.value));
+    if (context[context.length - 1] instanceof LiteralPiece) {
+      // Two literal pieces in a row means that there was some comment node in-between.
+      context[context.length - 1].text += text.value;
+    } else {
+      context.push(new LiteralPiece(text.value));
+    }
   }
 
   visitContainer(container: i18n.Container, context: MessagePiece[]): any {
