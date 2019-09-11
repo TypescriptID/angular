@@ -37,8 +37,8 @@ import {INTERPOLATION_DELIMITER, renderStringify, stringifyForError} from '../ut
 import {getLViewParent} from '../util/view_traversal_utils';
 import {getComponentViewByIndex, getNativeByIndex, getNativeByTNode, getTNode, isCreationMode, readPatchedLView, resetPreOrderHookFlags, unwrapRNode, viewAttachedToChangeDetector} from '../util/view_utils';
 
+import {selectIndexInternal} from './advance';
 import {LCleanup, LViewBlueprint, MatchesArray, TCleanup, TNodeConstructor, TNodeInitialData, TNodeInitialInputs, TNodeLocalNames, TViewComponents, TViewConstructor, attachLContainerDebug, attachLViewDebug, cloneToLView, cloneToTViewData} from './lview_debug';
-import {selectInternal} from './select';
 
 
 
@@ -471,6 +471,8 @@ export function renderComponentOrTemplate<T>(
   const rendererFactory = hostView[RENDERER_FACTORY];
   const normalExecutionPath = !getCheckNoChangesMode();
   const creationModeIsActive = isCreationMode(hostView);
+  const previousOrParentTNode = getPreviousOrParentTNode();
+  const isParent = getIsParent();
   try {
     if (normalExecutionPath && !creationModeIsActive && rendererFactory.begin) {
       rendererFactory.begin();
@@ -484,6 +486,7 @@ export function renderComponentOrTemplate<T>(
     if (normalExecutionPath && !creationModeIsActive && rendererFactory.end) {
       rendererFactory.end();
     }
+    setPreviousOrParentTNode(previousOrParentTNode, isParent);
   }
 }
 
@@ -494,9 +497,9 @@ function executeTemplate<T>(
   try {
     setActiveHostElement(null);
     if (rf & RenderFlags.Update && lView.length > HEADER_OFFSET) {
-      // When we're updating, have an inherent ɵɵselect(0) so we don't have to generate that
-      // instruction for most update blocks
-      selectInternal(lView, 0, getCheckNoChangesMode());
+      // When we're updating, inherently select 0 so we don't
+      // have to generate that instruction for most update blocks.
+      selectIndexInternal(lView, 0, getCheckNoChangesMode());
     }
     templateFn(rf, context);
   } finally {
@@ -1642,6 +1645,8 @@ export function tickRootContext(rootContext: RootContext) {
 
 export function detectChangesInternal<T>(view: LView, context: T) {
   const rendererFactory = view[RENDERER_FACTORY];
+  const previousOrParentTNode = getPreviousOrParentTNode();
+  const isParent = getIsParent();
 
   if (rendererFactory.begin) rendererFactory.begin();
   try {
@@ -1652,6 +1657,7 @@ export function detectChangesInternal<T>(view: LView, context: T) {
     throw error;
   } finally {
     if (rendererFactory.end) rendererFactory.end();
+    setPreviousOrParentTNode(previousOrParentTNode, isParent);
   }
 }
 
