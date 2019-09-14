@@ -84,6 +84,7 @@
 #  (secret team to avoid review requests, it also doesn't inherit from @angular/framework because nested teams can't be secret)
 #
 #   - IgorMinar
+#   - josephperrott
 #   - kara
 #   - mhevery
 
@@ -841,7 +842,8 @@ testing/**                                                      @angular/fw-test
 /aio/content/guide/updating.md                                  @angular/fw-docs-packaging @angular/framework-global-approvers @angular/framework-global-approvers-for-docs-only-changes
 /aio/content/guide/workspace-config.md                          @angular/fw-docs-packaging @angular/framework-global-approvers @angular/framework-global-approvers-for-docs-only-changes
 /aio/content/guide/deprecations.md                              @angular/fw-docs-packaging @angular/framework-global-approvers @angular/framework-global-approvers-for-docs-only-changes
-
+/aio/content/guide/migration-renderer.md                        @angular/fw-docs-packaging @angular/framework-global-approvers @angular/framework-global-approvers-for-docs-only-changes
+/aio/content/guide/migration-undecorated-classes.md             @angular/fw-docs-packaging @angular/framework-global-approvers @angular/framework-global-approvers-for-docs-only-changes
 
 
 # ================================================
@@ -901,6 +903,7 @@ testing/**                                                      @angular/fw-test
 /tools/npm_workspace/**                                         @angular/dev-infra-framework
 /tools/public_api_guard/**                                      @angular/dev-infra-framework
 /tools/rxjs/**                                                  @angular/dev-infra-framework
+/tools/size-tracking/**                                         @angular/dev-infra-framework
 /tools/source-map-test/**                                       @angular/dev-infra-framework
 /tools/symbol-extractor/**                                      @angular/dev-infra-framework
 /tools/testing/**                                               @angular/dev-infra-framework

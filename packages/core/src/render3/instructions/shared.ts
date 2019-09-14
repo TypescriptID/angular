@@ -21,7 +21,7 @@ import {diPublicInInjector, getNodeInjectable, getOrCreateNodeInjectorForNode} f
 import {throwMultipleComponentError} from '../errors';
 import {executeCheckHooks, executeInitAndCheckHooks, incrementInitPhaseFlags, registerPreOrderHooks} from '../hooks';
 import {ACTIVE_INDEX, CONTAINER_HEADER_OFFSET, LContainer} from '../interfaces/container';
-import {ComponentDef, ComponentTemplate, DirectiveDef, DirectiveDefListOrFactory, FactoryFn, PipeDefListOrFactory, RenderFlags, ViewQueriesFunction} from '../interfaces/definition';
+import {ComponentDef, ComponentTemplate, DirectiveDef, DirectiveDefListOrFactory, PipeDefListOrFactory, RenderFlags, ViewQueriesFunction} from '../interfaces/definition';
 import {INJECTOR_BLOOM_PARENT_SIZE, NodeInjectorFactory} from '../interfaces/injector';
 import {AttributeMarker, InitialInputData, InitialInputs, LocalRefExtractor, PropertyAliasValue, PropertyAliases, TAttributes, TContainerNode, TElementContainerNode, TElementNode, TIcuContainerNode, TNode, TNodeFlags, TNodeProviderIndexes, TNodeType, TProjectionNode, TViewNode} from '../interfaces/node';
 import {RComment, RElement, RText, Renderer3, RendererFactory3, isProceduralRenderer} from '../interfaces/renderer';
@@ -48,11 +48,6 @@ import {LCleanup, LViewBlueprint, MatchesArray, TCleanup, TNodeConstructor, TNod
  * clean.
  */
 const _CLEAN_PROMISE = (() => Promise.resolve(null))();
-
-export const enum BindingDirection {
-  Input,
-  Output,
-}
 
 /** Sets the host bindings for the current view. */
 export function setHostBindings(tView: TView, viewData: LView): void {
@@ -803,35 +798,18 @@ export function createTNode(
 }
 
 
-/**
- * Consolidates all inputs or outputs of all directives on this logical node.
- *
- * @param tNode
- * @param direction whether to consider inputs or outputs
- * @returns PropertyAliases|null aggregate of all properties if any, `null` otherwise
- */
-export function generatePropertyAliases(
-    tView: TView, tNode: TNode, direction: BindingDirection): PropertyAliases|null {
-  let propStore: PropertyAliases|null = null;
-  const start = tNode.directiveStart;
-  const end = tNode.directiveEnd;
+function generatePropertyAliases(
+    inputAliasMap: {[publicName: string]: string}, directiveDefIdx: number,
+    propStore: PropertyAliases | null): PropertyAliases|null {
+  for (let publicName in inputAliasMap) {
+    if (inputAliasMap.hasOwnProperty(publicName)) {
+      propStore = propStore === null ? {} : propStore;
+      const internalName = inputAliasMap[publicName];
 
-  if (end > start) {
-    const isInput = direction === BindingDirection.Input;
-    const defs = tView.data;
-
-    for (let i = start; i < end; i++) {
-      const directiveDef = defs[i] as DirectiveDef<any>;
-      const propertyAliasMap: {[publicName: string]: string} =
-          isInput ? directiveDef.inputs : directiveDef.outputs;
-      for (let publicName in propertyAliasMap) {
-        if (propertyAliasMap.hasOwnProperty(publicName)) {
-          propStore = propStore || {};
-          const internalName = propertyAliasMap[publicName];
-          const hasProperty = propStore.hasOwnProperty(publicName);
-          hasProperty ? propStore[publicName].push(i, publicName, internalName) :
-                        (propStore[publicName] = [i, publicName, internalName]);
-        }
+      if (propStore.hasOwnProperty(publicName)) {
+        propStore[publicName].push(directiveDefIdx, publicName, internalName);
+      } else {
+        (propStore[publicName] = [directiveDefIdx, publicName, internalName]);
       }
     }
   }
@@ -839,31 +817,58 @@ export function generatePropertyAliases(
 }
 
 /**
+ * Initializes data structures required to work with directive outputs and outputs.
+ * Initialization is done for all directives matched on a given TNode.
+ */
+function initializeInputAndOutputAliases(tView: TView, tNode: TNode): void {
+  ngDevMode && assertFirstTemplatePass(tView);
+
+  const start = tNode.directiveStart;
+  const end = tNode.directiveEnd;
+  const defs = tView.data;
+
+  let inputsStore: PropertyAliases|null = null;
+  let outputsStore: PropertyAliases|null = null;
+  for (let i = start; i < end; i++) {
+    const directiveDef = defs[i] as DirectiveDef<any>;
+    inputsStore = generatePropertyAliases(directiveDef.inputs, i, inputsStore);
+    outputsStore = generatePropertyAliases(directiveDef.outputs, i, outputsStore);
+  }
+
+  tNode.inputs = inputsStore;
+  tNode.outputs = outputsStore;
+}
+
+/**
  * Mapping between attributes names that don't correspond to their element property names.
+ *
+ * Performance note: this function is written as a series of if checks (instead of, say, a property
+ * object lookup) for performance reasons - the series of `if` checks seems to be the fastest way of
+ * mapping property names. Do NOT change without benchmarking.
+ *
  * Note: this mapping has to be kept in sync with the equally named mapping in the template
  * type-checking machinery of ngtsc.
  */
-const ATTR_TO_PROP: {[name: string]: string} = {
-  'class': 'className',
-  'for': 'htmlFor',
-  'formaction': 'formAction',
-  'innerHtml': 'innerHTML',
-  'readonly': 'readOnly',
-  'tabindex': 'tabIndex',
-};
+function mapPropName(name: string): string {
+  if (name === 'class') return 'className';
+  if (name === 'for') return 'htmlFor';
+  if (name === 'formaction') return 'formAction';
+  if (name === 'innerHtml') return 'innerHTML';
+  if (name === 'readonly') return 'readOnly';
+  if (name === 'tabindex') return 'tabIndex';
+  return name;
+}
 
 export function elementPropertyInternal<T>(
     index: number, propName: string, value: T, sanitizer?: SanitizerFn | null, nativeOnly?: boolean,
     loadRendererFn?: ((tNode: TNode, lView: LView) => Renderer3) | null): void {
   ngDevMode && assertNotSame(value, NO_CHANGE as any, 'Incoming value should never be NO_CHANGE.');
   const lView = getLView();
-  const tView = lView[TVIEW];
   const element = getNativeByIndex(index, lView) as RElement | RComment;
   const tNode = getTNode(index, lView);
-  let inputData: PropertyAliases|null|undefined;
+  let inputData = tNode.inputs;
   let dataValue: PropertyAliasValue|undefined;
-  if (!nativeOnly && (inputData = initializeTNodeInputs(tView, tNode)) &&
-      (dataValue = inputData[propName])) {
+  if (!nativeOnly && inputData != null && (dataValue = inputData[propName])) {
     setInputsForProperty(lView, dataValue, value);
     if (isComponentHost(tNode)) markDirtyIfOnPush(lView, index + HEADER_OFFSET);
     if (ngDevMode) {
@@ -883,7 +888,7 @@ export function elementPropertyInternal<T>(
       }
     }
   } else if (tNode.type === TNodeType.Element) {
-    propName = ATTR_TO_PROP[propName] || propName;
+    propName = mapPropName(propName);
 
     if (ngDevMode) {
       validateAgainstEventProperties(propName);
@@ -1049,6 +1054,8 @@ export function resolveDirectives(
           directiveDefIdx, def, tView, nodeIndex, initialPreOrderHooksLength,
           initialPreOrderCheckHooksLength);
     }
+
+    initializeInputAndOutputAliases(tView, tNode);
   }
   if (exportsMap) cacheMatchingLocalNames(tNode, localRefs, exportsMap);
 }
@@ -1766,16 +1773,6 @@ export function storePropertyBindingMetadata(
 }
 
 export const CLEAN_PROMISE = _CLEAN_PROMISE;
-
-export function initializeTNodeInputs(tView: TView, tNode: TNode): PropertyAliases|null {
-  // If tNode.inputs is undefined, a listener has created outputs, but inputs haven't
-  // yet been checked.
-  if (tNode.inputs === undefined) {
-    // mark inputs as checked
-    tNode.inputs = generatePropertyAliases(tView, tNode, BindingDirection.Input);
-  }
-  return tNode.inputs;
-}
 
 export function getCleanup(view: LView): any[] {
   // top level variables should not be exported for performance reasons (PERF_NOTES.md)

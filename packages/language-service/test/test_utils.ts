@@ -6,6 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {CompileNgModuleMetadata, NgAnalyzedModules} from '@angular/compiler';
 import {setup} from '@angular/compiler-cli/test/test_support';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -65,8 +66,7 @@ missingCache.set('/node_modules/@angular/forms/src/directives/form_interface.met
 
 export class MockTypescriptHost implements ts.LanguageServiceHost {
   private angularPath: string|undefined;
-  // TODO(issue/24571): remove '!'.
-  private nodeModulesPath !: string;
+  private nodeModulesPath: string;
   private scriptVersion = new Map<string, number>();
   private overrides = new Map<string, string>();
   private projectVersion = 0;
@@ -402,4 +402,19 @@ function getReferenceMarkers(value: string): ReferenceResult {
 
 function removeReferenceMarkers(value: string): string {
   return value.replace(referenceMarker, (match, text) => text.replace(/ᐱ/g, ''));
+}
+
+/**
+ * Find the StaticSymbol that has the specified `directiveName` and return its
+ * Angular metadata, if any.
+ * @param ngModules analyzed modules
+ * @param directiveName
+ */
+export function findDirectiveMetadataByName(
+    ngModules: NgAnalyzedModules, directiveName: string): CompileNgModuleMetadata|undefined {
+  for (const [key, value] of ngModules.ngModuleByPipeOrDirective) {
+    if (key.name === directiveName) {
+      return value;
+    }
+  }
 }

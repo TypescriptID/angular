@@ -12,11 +12,12 @@ import {isObservable} from '../../util/lang';
 import {EMPTY_OBJ} from '../empty';
 import {PropertyAliasValue, TNode, TNodeFlags, TNodeType} from '../interfaces/node';
 import {GlobalTargetResolver, RElement, Renderer3, isProceduralRenderer} from '../interfaces/renderer';
+import {isDirectiveHost} from '../interfaces/type_checks';
 import {CLEANUP, FLAGS, LView, LViewFlags, RENDERER, TVIEW} from '../interfaces/view';
 import {assertNodeOfPossibleTypes} from '../node_assert';
 import {getLView, getPreviousOrParentTNode} from '../state';
-import {getComponentViewByIndex, getNativeByTNode, hasDirectives, unwrapRNode} from '../util/view_utils';
-import {BindingDirection, generatePropertyAliases, getCleanup, handleError, loadComponentRenderer, markViewDirty} from './shared';
+import {getComponentViewByIndex, getNativeByTNode, unwrapRNode} from '../util/view_utils';
+import {getCleanup, handleError, loadComponentRenderer, markViewDirty} from './shared';
 
 /**
  * Adds an event listener to the current node.
@@ -35,7 +36,10 @@ import {BindingDirection, generatePropertyAliases, getCleanup, handleError, load
 export function ɵɵlistener(
     eventName: string, listenerFn: (e?: any) => any, useCapture = false,
     eventTargetResolver?: GlobalTargetResolver): void {
-  listenerInternal(eventName, listenerFn, useCapture, eventTargetResolver);
+  const lView = getLView();
+  const tNode = getPreviousOrParentTNode();
+  listenerInternal(
+      lView, lView[RENDERER], tNode, eventName, listenerFn, useCapture, eventTargetResolver);
 }
 
 /**
@@ -62,7 +66,10 @@ export function ɵɵlistener(
 export function ɵɵcomponentHostSyntheticListener(
     eventName: string, listenerFn: (e?: any) => any, useCapture = false,
     eventTargetResolver?: GlobalTargetResolver): void {
-  listenerInternal(eventName, listenerFn, useCapture, eventTargetResolver, loadComponentRenderer);
+  const lView = getLView();
+  const tNode = getPreviousOrParentTNode();
+  const renderer = loadComponentRenderer(tNode, lView);
+  listenerInternal(lView, renderer, tNode, eventName, listenerFn, useCapture, eventTargetResolver);
 }
 
 /**
@@ -99,12 +106,11 @@ function findExistingListener(
 }
 
 function listenerInternal(
-    eventName: string, listenerFn: (e?: any) => any, useCapture = false,
-    eventTargetResolver?: GlobalTargetResolver,
-    loadRendererFn?: ((tNode: TNode, lView: LView) => Renderer3) | null): void {
-  const lView = getLView();
-  const tNode = getPreviousOrParentTNode();
+    lView: LView, renderer: Renderer3, tNode: TNode, eventName: string,
+    listenerFn: (e?: any) => any, useCapture = false,
+    eventTargetResolver?: GlobalTargetResolver): void {
   const tView = lView[TVIEW];
+  const isTNodeDirectiveHost = isDirectiveHost(tNode);
   const firstTemplatePass = tView.firstTemplatePass;
   const tCleanup: false|any[] = firstTemplatePass && (tView.cleanup || (tView.cleanup = []));
 
@@ -118,7 +124,6 @@ function listenerInternal(
     const native = getNativeByTNode(tNode, lView) as RElement;
     const resolved = eventTargetResolver ? eventTargetResolver(native) : EMPTY_OBJ as any;
     const target = resolved.target || native;
-    const renderer = loadRendererFn ? loadRendererFn(tNode, lView) : lView[RENDERER];
     const lCleanup = getCleanup(lView);
     const lCleanupIndex = lCleanup.length;
     const idxOrTargetGetter = eventTargetResolver ?
@@ -145,7 +150,7 @@ function listenerInternal(
       // Also, we don't have to search for existing listeners is there are no directives
       // matching on a given node as we can't register multiple event handlers for the same event in
       // a template (this would mean having duplicate attributes).
-      if (!eventTargetResolver && hasDirectives(tNode)) {
+      if (!eventTargetResolver && isTNodeDirectiveHost) {
         existingListener = findExistingListener(lView, eventName, tNode.index);
       }
       if (existingListener !== null) {
@@ -180,15 +185,9 @@ function listenerInternal(
   }
 
   // subscribe to directive outputs
-  if (tNode.outputs === undefined) {
-    // if we create TNode here, inputs must be undefined so we know they still need to be
-    // checked
-    tNode.outputs = generatePropertyAliases(tView, tNode, BindingDirection.Output);
-  }
-
   const outputs = tNode.outputs;
   let props: PropertyAliasValue|undefined;
-  if (processOutputs && outputs && (props = outputs[eventName])) {
+  if (processOutputs && outputs != null && (props = outputs[eventName])) {
     const propsLength = props.length;
     if (propsLength) {
       const lCleanup = getCleanup(lView);

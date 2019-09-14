@@ -5,13 +5,15 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-import '@angular/localize';
+// Make the `$localize()` global function available to the compiled templates, and the direct calls
+// below. This would normally be done inside the application `polyfills.ts` file.
+import '@angular/localize/init';
 import {registerLocaleData} from '@angular/common';
 import localeRo from '@angular/common/locales/ro';
 import {Component, ContentChild, ContentChildren, Directive, HostBinding, Input, LOCALE_ID, QueryList, TemplateRef, Type, ViewChild, ViewContainerRef, Pipe, PipeTransform} from '@angular/core';
 import {setDelayProjection} from '@angular/core/src/render3/instructions/projection';
 import {TestBed} from '@angular/core/testing';
-import {loadTranslations} from '@angular/localize/run_time';
+import {loadTranslations} from '@angular/localize';
 import {By} from '@angular/platform-browser';
 import {expect} from '@angular/platform-browser/testing/src/matchers';
 import {onlyInIvy} from '@angular/private/testing';
@@ -294,6 +296,17 @@ onlyInIvy('Ivy i18n logic')
               loadTranslations({'Hello {$INTERPOLATION}': 'Bonjour {$INTERPOLATION}'});
               const fixture = initWithTemplate(
                   AppComp, `<ng-template i18n tplRef>Hello {{ name }}</ng-template>`);
+
+              const element = fixture.nativeElement;
+              expect(element).toHaveText('Bonjour Angular');
+            });
+
+            // Note: applying structural directives to <ng-template> is typically user error, but it
+            // is technically allowed, so we need to support it.
+            it('should handle structural directives on ng-template', () => {
+              loadTranslations({'Hello {$INTERPOLATION}': 'Bonjour {$INTERPOLATION}'});
+              const fixture = initWithTemplate(
+                  AppComp, `<ng-template *ngIf="name" i18n tplRef>Hello {{ name }}</ng-template>`);
 
               const element = fixture.nativeElement;
               expect(element).toHaveText('Bonjour Angular');

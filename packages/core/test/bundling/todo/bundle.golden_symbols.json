@@ -6,9 +6,6 @@
     "name": "ANIMATION_PROP_PREFIX"
   },
   {
-    "name": "ATTR_TO_PROP"
-  },
-  {
     "name": "BINDING_INDEX"
   },
   {
@@ -912,9 +909,6 @@
     "name": "hasClassInput"
   },
   {
-    "name": "hasDirectives"
-  },
-  {
     "name": "hasParentInjector"
   },
   {
@@ -942,7 +936,7 @@
     "name": "initNodeFlags"
   },
   {
-    "name": "initializeTNodeInputs"
+    "name": "initializeInputAndOutputAliases"
   },
   {
     "name": "injectElementRef"
@@ -1084,6 +1078,9 @@
   },
   {
     "name": "makeParamDecorator"
+  },
+  {
+    "name": "mapPropName"
   },
   {
     "name": "markAsComponentHost"

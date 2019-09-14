@@ -9,11 +9,10 @@ import * as ts from 'typescript';
 
 import {absoluteFrom, getFileSystem, getSourceFileOrError} from '../../../src/ngtsc/file_system';
 import {TestFile, runInEachFileSystem} from '../../../src/ngtsc/file_system/testing';
-import {ClassMemberKind, CtorParameter, Import, InlineDeclaration, isNamedClassDeclaration, isNamedFunctionDeclaration, isNamedVariableDeclaration} from '../../../src/ngtsc/reflection';
+import {ClassMemberKind, CtorParameter, InlineDeclaration, isNamedClassDeclaration, isNamedFunctionDeclaration, isNamedVariableDeclaration} from '../../../src/ngtsc/reflection';
 import {getDeclaration} from '../../../src/ngtsc/testing';
 import {loadFakeCore, loadTestFiles} from '../../../test/helpers';
 import {CommonJsReflectionHost} from '../../src/host/commonjs_host';
-import {Esm2015ReflectionHost} from '../../src/host/esm2015_host';
 import {getIifeBody} from '../../src/host/esm5_host';
 import {MockLogger} from '../helpers/mock_logger';
 import {getRootFiles, makeTestBundleProgram, makeTestDtsBundleProgram} from '../helpers/utils';
@@ -1559,6 +1558,30 @@ exports.ExternalModule = ExternalModule;
           expect(importOfIdent).toEqual({name: 'a', from: './file_a'});
         });
 
+        it('should find the import of an identifier in a declaration file', () => {
+          loadTestFiles([
+            {
+              name: _('/index.d.ts'),
+              contents: `
+                import {MyClass} from './myclass.d.ts';
+                export declare const a: MyClass;`
+            },
+            {
+              name: _('/myclass.d.ts'),
+              contents: `export declare class MyClass {}`,
+            }
+          ]);
+          const {program, host: compilerHost} = makeTestBundleProgram(_('/index.d.ts'));
+          const host = new CommonJsReflectionHost(new MockLogger(), false, program, compilerHost);
+          const variableNode =
+              getDeclaration(program, _('/index.d.ts'), 'a', isNamedVariableDeclaration);
+          const identifier =
+              ((variableNode.type as ts.TypeReferenceNode).typeName as ts.Identifier);
+
+          const importOfIdent = host.getImportOfIdentifier(identifier !);
+          expect(importOfIdent).toEqual({name: 'MyClass', from: './myclass.d.ts'});
+        });
+
         it('should return null if the identifier was not imported', () => {
           loadTestFiles(IMPORTS_FILES);
           const {program, host: compilerHost} = makeTestBundleProgram(_('/index.js'));
@@ -1712,19 +1735,22 @@ exports.ExternalModule = ExternalModule;
           const classSymbol = host.getClassSymbol(node);
 
           expect(classSymbol).toBeDefined();
-          expect(classSymbol !.valueDeclaration).toBe(node);
+          expect(classSymbol !.declaration.valueDeclaration).toBe(node);
+          expect(classSymbol !.implementation.valueDeclaration).toBe(node);
         });
 
         it('should return the class symbol for an ES5 class (outer variable declaration)', () => {
           loadTestFiles([SIMPLE_CLASS_FILE]);
           const {program, host: compilerHost} = makeTestBundleProgram(SIMPLE_CLASS_FILE.name);
           const host = new CommonJsReflectionHost(new MockLogger(), false, program, compilerHost);
-          const node = getDeclaration(
+          const outerNode = getDeclaration(
               program, SIMPLE_CLASS_FILE.name, 'EmptyClass', isNamedVariableDeclaration);
-          const classSymbol = host.getClassSymbol(node);
+          const innerNode = getIifeBody(outerNode) !.statements.find(isNamedFunctionDeclaration) !;
+          const classSymbol = host.getClassSymbol(outerNode);
 
           expect(classSymbol).toBeDefined();
-          expect(classSymbol !.valueDeclaration).toBe(node);
+          expect(classSymbol !.declaration.valueDeclaration).toBe(outerNode);
+          expect(classSymbol !.implementation.valueDeclaration).toBe(innerNode);
         });
 
         it('should return the class symbol for an ES5 class (inner function declaration)', () => {
@@ -1737,7 +1763,8 @@ exports.ExternalModule = ExternalModule;
           const classSymbol = host.getClassSymbol(innerNode);
 
           expect(classSymbol).toBeDefined();
-          expect(classSymbol !.valueDeclaration).toBe(outerNode);
+          expect(classSymbol !.declaration.valueDeclaration).toBe(outerNode);
+          expect(classSymbol !.implementation.valueDeclaration).toBe(innerNode);
         });
 
         it('should return the same class symbol (of the outer declaration) for outer and inner declarations',
@@ -1751,7 +1778,10 @@ exports.ExternalModule = ExternalModule;
              const innerNode =
                  getIifeBody(outerNode) !.statements.find(isNamedFunctionDeclaration) !;
 
-             expect(host.getClassSymbol(innerNode)).toBe(host.getClassSymbol(outerNode));
+             const innerSymbol = host.getClassSymbol(innerNode) !;
+             const outerSymbol = host.getClassSymbol(outerNode) !;
+             expect(innerSymbol.declaration).toBe(outerSymbol.declaration);
+             expect(innerSymbol.implementation).toBe(outerSymbol.implementation);
            });
 
         it('should return undefined if node is not an ES5 class', () => {
@@ -1764,46 +1794,67 @@ exports.ExternalModule = ExternalModule;
 
           expect(classSymbol).toBeUndefined();
         });
+
+        it('should return undefined if variable declaration is not initialized using an IIFE',
+           () => {
+             const testFile = {
+               name: _('/test.js'),
+               contents: `var MyClass = null;`,
+             };
+             loadTestFiles([testFile]);
+             const {program, host: compilerHost} = makeTestBundleProgram(testFile.name);
+             const host =
+                 new CommonJsReflectionHost(new MockLogger(), false, program, compilerHost);
+             const node =
+                 getDeclaration(program, testFile.name, 'MyClass', isNamedVariableDeclaration);
+             const classSymbol = host.getClassSymbol(node);
+
+             expect(classSymbol).toBeUndefined();
+           });
       });
 
       describe('isClass()', () => {
-        let host: CommonJsReflectionHost;
-        let mockNode: ts.Node;
-        let getClassDeclarationSpy: jasmine.Spy;
-        let superGetClassDeclarationSpy: jasmine.Spy;
-
-        beforeEach(() => {
-          loadTestFiles([SIMPLE_CLASS_FILE]);
-          const {program, host: compilerHost} = makeTestBundleProgram(SIMPLE_CLASS_FILE.name);
-          host = new CommonJsReflectionHost(new MockLogger(), false, program, compilerHost);
-          mockNode = {} as any;
-
-          getClassDeclarationSpy = spyOn(CommonJsReflectionHost.prototype, 'getClassDeclaration');
-          superGetClassDeclarationSpy =
-              spyOn(Esm2015ReflectionHost.prototype, 'getClassDeclaration');
+        it('should return true if a given node is a TS class declaration', () => {
+          loadTestFiles([SIMPLE_ES2015_CLASS_FILE]);
+          const {program, host: compilerHost} =
+              makeTestBundleProgram(SIMPLE_ES2015_CLASS_FILE.name);
+          const host = new CommonJsReflectionHost(new MockLogger(), false, program, compilerHost);
+          const node = getDeclaration(
+              program, SIMPLE_ES2015_CLASS_FILE.name, 'EmptyClass', isNamedClassDeclaration);
+          expect(host.isClass(node)).toBe(true);
         });
 
-        it('should return true if superclass returns true', () => {
-          superGetClassDeclarationSpy.and.returnValue(true);
-          getClassDeclarationSpy.and.callThrough();
+        it('should return true if a given node is the outer variable declaration of a class',
+           () => {
+             loadTestFiles([SIMPLE_CLASS_FILE]);
+             const {program, host: compilerHost} = makeTestBundleProgram(SIMPLE_CLASS_FILE.name);
+             const host =
+                 new CommonJsReflectionHost(new MockLogger(), false, program, compilerHost);
+             const node = getDeclaration(
+                 program, SIMPLE_CLASS_FILE.name, 'EmptyClass', ts.isVariableDeclaration);
+             expect(host.isClass(node)).toBe(true);
+           });
 
-          expect(host.isClass(mockNode)).toBe(true);
-          expect(getClassDeclarationSpy).toHaveBeenCalledWith(mockNode);
-          expect(superGetClassDeclarationSpy).toHaveBeenCalledWith(mockNode);
-        });
+        it('should return true if a given node is the inner variable declaration of a class',
+           () => {
+             loadTestFiles([SIMPLE_CLASS_FILE]);
+             const {program, host: compilerHost} = makeTestBundleProgram(SIMPLE_CLASS_FILE.name);
+             const host =
+                 new CommonJsReflectionHost(new MockLogger(), false, program, compilerHost);
+             const outerNode = getDeclaration(
+                 program, SIMPLE_CLASS_FILE.name, 'EmptyClass', ts.isVariableDeclaration);
+             const innerNode =
+                 getIifeBody(outerNode) !.statements.find(isNamedFunctionDeclaration) !;
+             expect(host.isClass(innerNode)).toBe(true);
+           });
 
-        it('should return true if it can find a declaration for the class', () => {
-          getClassDeclarationSpy.and.returnValue(true);
-
-          expect(host.isClass(mockNode)).toBe(true);
-          expect(getClassDeclarationSpy).toHaveBeenCalledWith(mockNode);
-        });
-
-        it('should return false if it cannot find a declaration for the class', () => {
-          getClassDeclarationSpy.and.returnValue(false);
-
-          expect(host.isClass(mockNode)).toBe(false);
-          expect(getClassDeclarationSpy).toHaveBeenCalledWith(mockNode);
+        it('should return false if a given node is a function declaration', () => {
+          loadTestFiles([FOO_FUNCTION_FILE]);
+          const {program, host: compilerHost} = makeTestBundleProgram(FOO_FUNCTION_FILE.name);
+          const host = new CommonJsReflectionHost(new MockLogger(), false, program, compilerHost);
+          const node =
+              getDeclaration(program, FOO_FUNCTION_FILE.name, 'foo', isNamedFunctionDeclaration);
+          expect(host.isClass(node)).toBe(false);
         });
       });
 
