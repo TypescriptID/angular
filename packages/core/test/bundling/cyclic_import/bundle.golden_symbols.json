@@ -156,6 +156,9 @@
     "name": "_currentNamespace"
   },
   {
+    "name": "_elementExitFn"
+  },
+  {
     "name": "_global"
   },
   {
@@ -165,9 +168,6 @@
     "name": "_selectedIndex"
   },
   {
-    "name": "_stateStorage"
-  },
-  {
     "name": "addComponentLogic"
   },
   {
@@ -175,6 +175,9 @@
   },
   {
     "name": "addToViewTree"
+  },
+  {
+    "name": "allocStylingMapArray"
   },
   {
     "name": "appendChild"
@@ -253,6 +256,9 @@
   },
   {
     "name": "executeContentQueries"
+  },
+  {
+    "name": "executeElementExitFn"
   },
   {
     "name": "executeInitAndCheckHooks"
@@ -394,6 +400,9 @@
   },
   {
     "name": "getStylingMapArray"
+  },
+  {
+    "name": "hasActiveElementFlag"
   },
   {
     "name": "hasClassInput"
@@ -573,16 +582,10 @@
     "name": "renderView"
   },
   {
-    "name": "resetAllStylingState"
-  },
-  {
     "name": "resetComponentState"
   },
   {
     "name": "resetPreOrderHookFlags"
-  },
-  {
-    "name": "resetStylingState"
   },
   {
     "name": "resolveDirectives"

@@ -30,7 +30,7 @@ import {isComponentDef, isComponentHost, isContentQueryHost, isLContainer, isRoo
 import {BINDING_INDEX, CHILD_HEAD, CHILD_TAIL, CLEANUP, CONTEXT, DECLARATION_VIEW, ExpandoInstructions, FLAGS, HEADER_OFFSET, HOST, INJECTOR, InitPhaseState, LView, LViewFlags, NEXT, PARENT, RENDERER, RENDERER_FACTORY, RootContext, RootContextFlags, SANITIZER, TData, TVIEW, TView, T_HOST} from '../interfaces/view';
 import {assertNodeOfPossibleTypes} from '../node_assert';
 import {isNodeMatchingSelectorList} from '../node_selector_matcher';
-import {getBindingsEnabled, getCheckNoChangesMode, getIsParent, getLView, getPreviousOrParentTNode, getSelectedIndex, incrementActiveDirectiveId, namespaceHTMLInternal, selectView, setActiveHostElement, setBindingRoot, setCheckNoChangesMode, setCurrentDirectiveDef, setCurrentQueryIndex, setPreviousOrParentTNode, setSelectedIndex} from '../state';
+import {ActiveElementFlags, executeElementExitFn, getBindingsEnabled, getCheckNoChangesMode, getIsParent, getPreviousOrParentTNode, getSelectedIndex, hasActiveElementFlag, incrementActiveDirectiveId, namespaceHTMLInternal, selectView, setActiveHostElement, setBindingRoot, setCheckNoChangesMode, setCurrentDirectiveDef, setCurrentQueryIndex, setPreviousOrParentTNode, setSelectedIndex} from '../state';
 import {renderStylingMap} from '../styling_next/bindings';
 import {NO_CHANGE} from '../tokens';
 import {ANIMATION_PROP_PREFIX, isAnimationProp} from '../util/attrs_utils';
@@ -82,16 +82,18 @@ export function setHostBindings(tView: TView, viewData: LView): void {
         } else {
           // If it's not a number, it's a host binding function that needs to be executed.
           if (instruction !== null) {
-            viewData[BINDING_INDEX] = bindingRootIndex;
-            const hostCtx = unwrapRNode(viewData[currentDirectiveIndex]);
-            instruction(RenderFlags.Update, hostCtx, currentElementIndex);
-
             // Each directive gets a uniqueId value that is the same for both
             // create and update calls when the hostBindings function is called. The
             // directive uniqueId is not set anywhere--it is just incremented between
             // each hostBindings call and is useful for helping instruction code
             // uniquely determine which directive is currently active when executed.
+            // It is important that this be called first before the actual instructions
+            // are run because this way the first directive ID value is not zero.
             incrementActiveDirectiveId();
+
+            viewData[BINDING_INDEX] = bindingRootIndex;
+            const hostCtx = unwrapRNode(viewData[currentDirectiveIndex]);
+            instruction(RenderFlags.Update, hostCtx, currentElementIndex);
           }
           currentDirectiveIndex++;
         }
@@ -499,6 +501,9 @@ function executeTemplate<T>(
     }
     templateFn(rf, context);
   } finally {
+    if (hasActiveElementFlag(ActiveElementFlags.RunExitFn)) {
+      executeElementExitFn();
+    }
     setSelectedIndex(prevSelectedIndex);
   }
 }
@@ -860,10 +865,10 @@ function mapPropName(name: string): string {
 }
 
 export function elementPropertyInternal<T>(
-    index: number, propName: string, value: T, sanitizer?: SanitizerFn | null, nativeOnly?: boolean,
+    lView: LView, index: number, propName: string, value: T, sanitizer?: SanitizerFn | null,
+    nativeOnly?: boolean,
     loadRendererFn?: ((tNode: TNode, lView: LView) => Renderer3) | null): void {
   ngDevMode && assertNotSame(value, NO_CHANGE as any, 'Incoming value should never be NO_CHANGE.');
-  const lView = getLView();
   const element = getNativeByIndex(index, lView) as RElement | RComment;
   const tNode = getTNode(index, lView);
   let inputData = tNode.inputs;
@@ -1094,14 +1099,10 @@ function invokeDirectivesHostBindings(tView: TView, viewData: LView, tNode: TNod
       const def = tView.data[i] as DirectiveDef<any>;
       const directive = viewData[i];
       if (def.hostBindings) {
-        invokeHostBindingsInCreationMode(def, expando, directive, tNode, firstTemplatePass);
-
-        // Each directive gets a uniqueId value that is the same for both
-        // create and update calls when the hostBindings function is called. The
-        // directive uniqueId is not set anywhere--it is just incremented between
-        // each hostBindings call and is useful for helping instruction code
-        // uniquely determine which directive is currently active when executed.
+        // It is important that this be called first before the actual instructions
+        // are run because this way the first directive ID value is not zero.
         incrementActiveDirectiveId();
+        invokeHostBindingsInCreationMode(def, expando, directive, tNode, firstTemplatePass);
       } else if (firstTemplatePass) {
         expando.push(null);
       }
@@ -1155,7 +1156,7 @@ function postProcessDirective<T>(
     directiveDefIdx: number): void {
   postProcessBaseDirective(lView, hostTNode, directive);
   if (hostTNode.attrs !== null) {
-    setInputsFromAttrs(directiveDefIdx, directive, def, hostTNode);
+    setInputsFromAttrs(lView, directiveDefIdx, directive, def, hostTNode);
   }
 
   if (isComponentDef(def)) {
@@ -1337,13 +1338,14 @@ export function elementAttributeInternal(
 /**
  * Sets initial input properties on directive instances from attribute data
  *
+ * @param lView Current LView that is being processed.
  * @param directiveIndex Index of the directive in directives array
  * @param instance Instance of the directive on which to set the initial inputs
  * @param def The directive def that contains the list of inputs
  * @param tNode The static data for this node
  */
 function setInputsFromAttrs<T>(
-    directiveIndex: number, instance: T, def: DirectiveDef<T>, tNode: TNode): void {
+    lView: LView, directiveIndex: number, instance: T, def: DirectiveDef<T>, tNode: TNode): void {
   let initialInputData = tNode.initialInputs as InitialInputData | undefined;
   if (initialInputData === undefined || directiveIndex >= initialInputData.length) {
     initialInputData = generateInitialInputs(directiveIndex, def.inputs, tNode);
@@ -1362,7 +1364,6 @@ function setInputsFromAttrs<T>(
         (instance as any)[privateName] = value;
       }
       if (ngDevMode) {
-        const lView = getLView();
         const nativeElement = getNativeByTNode(tNode, lView) as RElement;
         setNgReflectProperty(lView, nativeElement, tNode.type, privateName, value);
       }
