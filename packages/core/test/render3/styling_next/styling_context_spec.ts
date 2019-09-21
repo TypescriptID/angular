@@ -5,11 +5,10 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-import {registerBinding} from '@angular/core/src/render3/styling_next/bindings';
-import {attachStylingDebugObject} from '@angular/core/src/render3/styling_next/styling_debug';
-import {DEFAULT_GUARD_MASK_VALUE} from '@angular/core/src/render3/styling_next/util';
+import {registerBinding} from '@angular/core/src/render3/styling/bindings';
+import {attachStylingDebugObject} from '@angular/core/src/render3/styling/styling_debug';
 
-import {allocTStylingContext} from '../../../src/render3/styling_next/util';
+import {DEFAULT_GUARD_MASK_VALUE, allocTStylingContext} from '../../../src/render3/util/styling_utils';
 
 describe('styling context', () => {
   it('should register a series of entries into the context', () => {

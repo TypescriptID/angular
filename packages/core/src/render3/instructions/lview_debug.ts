@@ -18,11 +18,11 @@ import {PropertyAliases, TContainerNode, TElementNode, TNode as ITNode, TNode, T
 import {SelectorFlags} from '../interfaces/projection';
 import {TQueries} from '../interfaces/query';
 import {RComment, RElement, RNode} from '../interfaces/renderer';
+import {TStylingContext} from '../interfaces/styling';
 import {BINDING_INDEX, CHILD_HEAD, CHILD_TAIL, CLEANUP, CONTEXT, DECLARATION_VIEW, ExpandoInstructions, FLAGS, HEADER_OFFSET, HOST, HookData, INJECTOR, LView, LViewFlags, NEXT, PARENT, QUERIES, RENDERER, RENDERER_FACTORY, SANITIZER, TData, TVIEW, TView as ITView, TView, T_HOST} from '../interfaces/view';
-import {TStylingContext} from '../styling_next/interfaces';
-import {DebugStyling as DebugNewStyling, NodeStylingDebug} from '../styling_next/styling_debug';
-import {isStylingContext} from '../styling_next/util';
+import {DebugStyling as DebugNewStyling, NodeStylingDebug} from '../styling/styling_debug';
 import {attachDebugObject} from '../util/debug_utils';
+import {isStylingContext} from '../util/styling_utils';
 import {getTNode, unwrapRNode} from '../util/view_utils';
 
 const NG_DEV_MODE = ((typeof ngDevMode === 'undefined' || !!ngDevMode) && initNgDevMode());
@@ -358,27 +358,31 @@ export function toDebugNodes(tNode: TNode | null, lView: LView): DebugNode[]|nul
     const debugNodes: DebugNode[] = [];
     let tNodeCursor: TNode|null = tNode;
     while (tNodeCursor) {
-      const rawValue = lView[tNode.index];
-      const native = unwrapRNode(rawValue);
-      const componentLViewDebug = toDebug(readLViewValue(rawValue));
-      const styles = isStylingContext(tNode.styles) ?
-          new NodeStylingDebug(tNode.styles as any as TStylingContext, lView) :
-          null;
-      const classes = isStylingContext(tNode.classes) ?
-          new NodeStylingDebug(tNode.classes as any as TStylingContext, lView, true) :
-          null;
-      debugNodes.push({
-        html: toHtml(native),
-        native: native as any, styles, classes,
-        nodes: toDebugNodes(tNode.child, lView),
-        component: componentLViewDebug,
-      });
+      debugNodes.push(buildDebugNode(tNodeCursor, lView));
       tNodeCursor = tNodeCursor.next;
     }
     return debugNodes;
   } else {
     return null;
   }
+}
+
+export function buildDebugNode(tNode: TNode, lView: LView): DebugNode {
+  const rawValue = lView[tNode.index];
+  const native = unwrapRNode(rawValue);
+  const componentLViewDebug = toDebug(readLViewValue(rawValue));
+  const styles = isStylingContext(tNode.styles) ?
+      new NodeStylingDebug(tNode.styles as any as TStylingContext, lView) :
+      null;
+  const classes = isStylingContext(tNode.classes) ?
+      new NodeStylingDebug(tNode.classes as any as TStylingContext, lView, true) :
+      null;
+  return {
+    html: toHtml(native),
+    native: native as any, styles, classes,
+    nodes: toDebugNodes(tNode.child, lView),
+    component: componentLViewDebug,
+  };
 }
 
 export class LContainerDebug {

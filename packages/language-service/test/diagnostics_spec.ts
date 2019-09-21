@@ -10,7 +10,6 @@ import * as ts from 'typescript';
 import {createLanguageService} from '../src/language_service';
 import * as ng from '../src/types';
 import {TypeScriptServiceHost} from '../src/typescript_host';
-import {toh} from './test_data';
 import {MockTypescriptHost} from './test_utils';
 
 /**
@@ -32,7 +31,7 @@ describe('diagnostics', () => {
   let ngLS: ng.LanguageService;
 
   beforeEach(() => {
-    mockHost = new MockTypescriptHost(['/app/main.ts', '/app/parsing-cases.ts'], toh);
+    mockHost = new MockTypescriptHost(['/app/main.ts', '/app/parsing-cases.ts']);
     tsLS = ts.createLanguageService(mockHost);
     ngHost = new TypeScriptServiceHost(mockHost, tsLS);
     ngLS = createLanguageService(ngHost);
@@ -475,7 +474,7 @@ describe('diagnostics', () => {
             `Module '"../node_modules/@angular/core/core"' has no exported member 'OpaqueToken'.`);
   });
 
-  describe('URL diagnostics', () => {
+  describe('templates', () => {
     it('should report errors for invalid templateUrls', () => {
       const fileName = mockHost.addCode(`
 	@Component({
@@ -506,6 +505,76 @@ describe('diagnostics', () => {
       const urlDiagnostic =
           diagnostics.find(d => d.messageText === 'URL does not point to a valid file');
       expect(urlDiagnostic).toBeUndefined();
+    });
+
+    it('should report diagnostic for missing template or templateUrl', () => {
+      const fileName = '/app/app.component.ts';
+      const content = mockHost.override(fileName, `
+        import {Component} from '@angular/core';
+
+        @Component({
+          selector: 'app-example',
+        })
+        export class AppComponent {}`);
+      const diags = ngLS.getDiagnostics(fileName);
+      expect(diags.length).toBe(1);
+      const {file, messageText, start, length} = diags[0];
+      expect(file !.fileName).toBe(fileName);
+      expect(messageText).toBe(`Component 'AppComponent' must have a template or templateUrl`);
+      expect(start).toBe(content.indexOf(`@Component`) + 1);
+      expect(length).toBe('Component'.length);
+    });
+
+    it('should report diagnostic for both template and templateUrl', () => {
+      const fileName = '/app/app.component.ts';
+      const content = mockHost.override(fileName, `
+        import {Component} from '@angular/core';
+
+        @Component({
+          selector: 'app-example',
+          template: '<div></div>',
+          templateUrl: './test.ng',
+        })
+        export class AppComponent {}`);
+      const diags = ngLS.getDiagnostics(fileName);
+      expect(diags.length).toBe(1);
+      const {file, messageText, start, length} = diags[0];
+      expect(file !.fileName).toBe(fileName);
+      expect(messageText)
+          .toBe(`Component 'AppComponent' must not have both template and templateUrl`);
+      expect(start).toBe(content.indexOf(`@Component`) + 1);
+      expect(length).toBe('Component'.length);
+    });
+
+    it('should report errors for invalid styleUrls', () => {
+      const fileName = mockHost.addCode(`
+        @Component({
+          styleUrls: ['«notAFile»'],
+        })
+        export class MyComponent {}`);
+
+      const marker = mockHost.getReferenceMarkerFor(fileName, 'notAFile');
+
+      const diagnostics = ngLS.getDiagnostics(fileName) !;
+      const urlDiagnostic =
+          diagnostics.find(d => d.messageText === 'URL does not point to a valid file');
+      expect(urlDiagnostic).toBeDefined();
+
+      const {start, length} = urlDiagnostic !;
+      expect(start).toBe(marker.start);
+      expect(length).toBe(marker.length);
+    });
+
+    it('should not report errors for valid styleUrls', () => {
+      const fileName = '/app/app.component.ts';
+      mockHost.override(fileName, `
+        @Component({
+          styleUrls: ['./test.css', './test.css'],
+        })
+        export class MyComponent {}`);
+
+      const diagnostics = ngLS.getDiagnostics(fileName) !;
+      expect(diagnostics.length).toBe(0);
     });
   });
 

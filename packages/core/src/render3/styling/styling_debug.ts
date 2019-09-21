@@ -7,13 +7,13 @@
 */
 import {StyleSanitizeFn} from '../../sanitization/style_sanitizer';
 import {RElement} from '../interfaces/renderer';
+import {ApplyStylingFn, LStylingData, TStylingConfig, TStylingContext, TStylingContextIndex} from '../interfaces/styling';
 import {getCurrentStyleSanitizer} from '../state';
 import {attachDebugObject} from '../util/debug_utils';
+import {allowDirectStyling as _allowDirectStyling, getDefaultValue, getGuardMask, getProp, getPropValuesStartPosition, getValuesCount, hasConfig, isContextLocked, isMapBased, isSanitizationRequired} from '../util/styling_utils';
 
 import {applyStylingViaContext} from './bindings';
-import {ApplyStylingFn, LStylingData, TStylingConfig, TStylingContext, TStylingContextIndex} from './interfaces';
 import {activateStylingMapFeature} from './map_based_bindings';
-import {allowDirectStyling as _allowDirectStyling, getDefaultValue, getGuardMask, getProp, getPropValuesStartPosition, getValuesCount, hasConfig, isContextLocked, isMapBased, isSanitizationRequired} from './util';
 
 
 
