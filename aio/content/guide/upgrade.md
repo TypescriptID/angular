@@ -1622,7 +1622,7 @@ There are several notable changes here:
 * You're using the property binding syntax around `ng-class`. Though Angular
   does have [a very similar `ngClass`](guide/template-syntax#directives)
   as AngularJS does, its value is not magically evaluated as an expression.
-  In Angular, you always specify  in the template when an attribute's value is
+  In Angular, you always specify in the template when an attribute's value is
   a property expression, as opposed to a literal string.
 
 * You've replaced `ng-repeat`s with `*ngFor`s.
@@ -1709,7 +1709,7 @@ Create a new `app.component.ts` file with the following `AppComponent` class:
 <code-example path="upgrade-phonecat-3-final/app/app.component.ts" header="app/app.component.ts">
 </code-example>
 
-It has a simple template that only includes the `<router-outlet>.
+It has a simple template that only includes the `<router-outlet>`.
 This component just renders the contents of the active route and nothing else.
 
 The selector tells Angular to plug this root component into the `<phonecat-app>`
