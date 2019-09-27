@@ -635,7 +635,7 @@ which is the attribute, spelled with a lowercase `s`.
 
 <code-example path="property-binding/src/app/app.component.html" region="colSpan" header="src/app/app.component.html"></code-example>
 
-For more details, see the [MDN HTMLTableCellElment](https://developer.mozilla.org/en-US/docs/Web/API/HTMLTableCellElement) documentation.
+For more details, see the [MDN HTMLTableCellElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLTableCellElement) documentation.
 
 <!-- Add link when Attribute Binding updates are merged:
 For more about `colSpan` and `colspan`, see (Attribute Binding)[guide/template-syntax]. -->
@@ -1610,8 +1610,8 @@ by HTML.
 
 The reference value of itemForm, without the ngForm attribute value, would be
 the [HTMLFormElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLFormElement).
-There is, however, a difference between a Component and a Directive in that a `Component
-`will be referenced without specifying the attribute value, and a `Directive` will not
+There is, however, a difference between a Component and a Directive in that a `Component`
+will be referenced without specifying the attribute value, and a `Directive` will not
 change the implicit reference (that is, the element).
 
 
