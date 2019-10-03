@@ -6,7 +6,8 @@
  * found in the LICENSE file at https://angular.io/license
  */
 import {BLOCK_MARKER} from './constants';
-import {MessageId, TargetMessage, parseMessage} from './messages';
+import {MessageId, ParsedMessage, TargetMessage, parseMessage} from './messages';
+
 
 /**
  * A translation message that has been processed to extract the message parts and placeholders.
@@ -33,7 +34,9 @@ export type ParsedTranslations = Record<MessageId, ParsedTranslation>;
  * `substitutions`.
  * The translation may reorder (or remove) substitutions as appropriate.
  *
- * If no translation matches then an error is thrown.
+ * If there is no translation with a matching message id then an error is thrown.
+ * If a translation contains a placeholder that is not found in the message being translated then an
+ * error is thrown.
  */
 export function translate(
     translations: Record<string, ParsedTranslation>, messageParts: TemplateStringsArray,
@@ -42,12 +45,17 @@ export function translate(
   const translation = translations[message.messageId];
   if (translation !== undefined) {
     return [
-      translation.messageParts,
-      translation.placeholderNames.map(placeholder => message.substitutions[placeholder])
+      translation.messageParts, translation.placeholderNames.map(placeholder => {
+        if (message.substitutions.hasOwnProperty(placeholder)) {
+          return message.substitutions[placeholder];
+        } else {
+          throw new Error(
+              `No placeholder found with name ${placeholder} in message ${describeMessage(message)}.`);
+        }
+      })
     ];
   } else {
-    throw new Error(
-        `No translation found for "${message.messageId}" ("${message.messageString}").`);
+    throw new Error(`No translation found for ${describeMessage(message)}.`);
   }
 }
 
@@ -81,4 +89,10 @@ export function parseTranslation(message: TargetMessage): ParsedTranslation {
 export function makeTemplateObject(cooked: string[], raw: string[]): TemplateStringsArray {
   Object.defineProperty(cooked, 'raw', {value: raw});
   return cooked as any;
+}
+
+
+function describeMessage(message: ParsedMessage): string {
+  const meaningString = message.meaning && ` - "${message.meaning}"`;
+  return `"${message.messageId}" ("${message.messageString}"${meaningString})`;
 }
