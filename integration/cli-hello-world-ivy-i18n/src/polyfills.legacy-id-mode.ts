@@ -63,9 +63,11 @@
  *
  * The following flags will work for all browsers.
  *
- * (window as any).__Zone_disable_requestAnimationFrame = true; // disable patch requestAnimationFrame
+ * (window as any).__Zone_disable_requestAnimationFrame = true; // disable patch
+ * requestAnimationFrame
  * (window as any).__Zone_disable_on_property = true; // disable patch onProperty such as onclick
- * (window as any).__zone_symbol__UNPATCHED_EVENTS = ['scroll', 'mousemove']; // disable patch specified eventNames
+ * (window as any).__zone_symbol__BLACK_LISTED_EVENTS = ['scroll', 'mousemove']; // disable patch
+ * specified eventNames
  *
  *  in IE/Edge developer tools, the addEventListener will also be wrapped by zone.js
  *  with the following flag, it will bypass `zone.js` patch for IE/Edge
@@ -77,8 +79,25 @@
 /***************************************************************************************************
  * Zone JS is required by default for Angular itself.
  */
-import 'zone.js/dist/zone';  // Included with Angular CLI.
+import 'zone.js/dist/zone'; // Included with Angular CLI.
 
+/***************************************************************************************************
+ * Load `$localize` onto the global scope - used if i18n tags appear in Angular templates.
+ */
+import '@angular/localize/init';
+
+// Note that `computeMsgId` is a private API at this stage. It will probably be exported directly
+// from `@angular/localize` at some point.
+import {computeMsgId} from '@angular/compiler';
+import {loadTranslations} from '@angular/localize';
+
+// Load some runtime translations
+loadTranslations({
+  // This message is in a template so it uses the legacy message id
+  ['2f8d6ae7ef7b0a53392bc23d0968d074ae02a318']: 'Bonjour {$INTERPOLATION}!',
+  // This message is in application code so it uses the normal message id
+  [computeMsgId('Welcome to the i18n app.')]: 'Bienvenue sur l\'application i18n.',
+});
 
 /***************************************************************************************************
  * APPLICATION IMPORTS

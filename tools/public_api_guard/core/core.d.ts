@@ -177,13 +177,13 @@ export interface ConstructorSansProvider {
 export declare type ContentChild = Query;
 
 export interface ContentChildDecorator {
-    (selector: Type<any> | Function | string, opts: {
+    (selector: Type<any> | Function | string, opts?: {
         read?: any;
-        static: boolean;
+        static?: boolean;
     }): any;
-    new (selector: Type<any> | Function | string, opts: {
+    new (selector: Type<any> | Function | string, opts?: {
         read?: any;
-        static: boolean;
+        static?: boolean;
     }): ContentChild;
 }
 
@@ -326,7 +326,6 @@ export declare class ErrorHandler {
 }
 
 export declare class EventEmitter<T extends any> extends Subject<T> {
-    __isAsync: boolean;
     constructor(isAsync?: boolean);
     emit(value?: T): void;
     subscribe(generatorOrNext?: any, error?: any, complete?: any): Subscription;
@@ -1151,7 +1150,7 @@ export interface Query {
     isViewQuery: boolean;
     read: any;
     selector: any;
-    static: boolean;
+    static?: boolean;
 }
 
 export declare abstract class Query {
@@ -1445,13 +1444,13 @@ export declare const VERSION: Version;
 export declare type ViewChild = Query;
 
 export interface ViewChildDecorator {
-    (selector: Type<any> | Function | string, opts: {
+    (selector: Type<any> | Function | string, opts?: {
         read?: any;
-        static: boolean;
+        static?: boolean;
     }): any;
-    new (selector: Type<any> | Function | string, opts: {
+    new (selector: Type<any> | Function | string, opts?: {
         read?: any;
-        static: boolean;
+        static?: boolean;
     }): ViewChild;
 }
 

@@ -6,12 +6,11 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {decimalDigest} from '../../../i18n/digest';
+import {computeDecimalDigest, computeDigest, decimalDigest} from '../../../i18n/digest';
 import * as i18n from '../../../i18n/i18n_ast';
 import {createI18nMessageFactory} from '../../../i18n/i18n_parser';
 import * as html from '../../../ml_parser/ast';
 import {DEFAULT_INTERPOLATION_CONFIG, InterpolationConfig} from '../../../ml_parser/interpolation_config';
-import {ParseTreeResult} from '../../../ml_parser/parser';
 import * as o from '../../../output/output_ast';
 
 import {I18N_ATTR, I18N_ATTR_PREFIX, hasI18nAttrs, icuFromI18nMessage} from './util';
@@ -19,6 +18,7 @@ import {I18N_ATTR, I18N_ATTR_PREFIX, hasI18nAttrs, icuFromI18nMessage} from './u
 export type I18nMeta = {
   id?: string,
   customId?: string,
+  legacyId?: string,
   description?: string,
   meaning?: string
 };
@@ -33,14 +33,12 @@ function setI18nRefs(html: html.Node & {i18n?: i18n.AST}, i18n: i18n.Node) {
  * stored with other element's and attribute's information.
  */
 export class I18nMetaVisitor implements html.Visitor {
-  private _createI18nMessage: any;
+  // i18n message generation factory
+  private _createI18nMessage = createI18nMessageFactory(this.interpolationConfig);
 
   constructor(
       private interpolationConfig: InterpolationConfig = DEFAULT_INTERPOLATION_CONFIG,
-      private keepI18nAttrs: boolean = false) {
-    // i18n message generation factory
-    this._createI18nMessage = createI18nMessageFactory(interpolationConfig);
-  }
+      private keepI18nAttrs: boolean = false, private i18nLegacyMessageIdFormat: string = '') {}
 
   private _generateI18nMessage(
       nodes: html.Node[], meta: string|i18n.AST = '',
@@ -53,6 +51,19 @@ export class I18nMetaVisitor implements html.Visitor {
       // generate (or restore) message id if not specified in template
       message.id = typeof meta !== 'string' && (meta as i18n.Message).id || decimalDigest(message);
     }
+
+    if (this.i18nLegacyMessageIdFormat === 'xlf') {
+      message.legacyId = computeDigest(message);
+    } else if (
+        this.i18nLegacyMessageIdFormat === 'xlf2' || this.i18nLegacyMessageIdFormat === 'xmb') {
+      message.legacyId = computeDecimalDigest(message);
+    } else if (typeof meta !== 'string') {
+      // This occurs if we are doing the 2nd pass after whitespace removal
+      // In that case we want to reuse the legacy message generated in the 1st pass
+      // See `parseTemplate()` in `packages/compiler/src/render3/view/template.ts`
+      message.legacyId = (meta as i18n.Message).legacyId;
+    }
+
     return message;
   }
 
@@ -128,20 +139,11 @@ export class I18nMetaVisitor implements html.Visitor {
   visitExpansionCase(expansionCase: html.ExpansionCase, context: any): any { return expansionCase; }
 }
 
-export function processI18nMeta(
-    htmlAstWithErrors: ParseTreeResult,
-    interpolationConfig: InterpolationConfig = DEFAULT_INTERPOLATION_CONFIG): ParseTreeResult {
-  return new ParseTreeResult(
-      html.visitAll(
-          new I18nMetaVisitor(interpolationConfig, /* keepI18nAttrs */ false),
-          htmlAstWithErrors.rootNodes),
-      htmlAstWithErrors.errors);
-}
-
 export function metaFromI18nMessage(message: i18n.Message, id: string | null = null): I18nMeta {
   return {
     id: typeof id === 'string' ? id : message.id || '',
     customId: message.customId,
+    legacyId: message.legacyId,
     meaning: message.meaning || '',
     description: message.description || ''
   };
@@ -192,8 +194,8 @@ export function serializeI18nHead(meta: I18nMeta, messagePart: string): string {
   if (meta.meaning) {
     metaBlock = `${meta.meaning}|${metaBlock}`;
   }
-  if (meta.customId) {
-    metaBlock = `${metaBlock}@@${meta.customId}`;
+  if (meta.customId || meta.legacyId) {
+    metaBlock = `${metaBlock}@@${meta.customId || meta.legacyId}`;
   }
   if (metaBlock === '') {
     // There is no metaBlock, so we must ensure that any starting colon is escaped.
