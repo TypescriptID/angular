@@ -843,6 +843,15 @@ function initializeInputAndOutputAliases(tView: TView, tNode: TNode): void {
     outputsStore = generatePropertyAliases(directiveDef.outputs, i, outputsStore);
   }
 
+  if (inputsStore !== null) {
+    if (inputsStore.hasOwnProperty('class')) {
+      tNode.flags |= TNodeFlags.hasClassInput;
+    }
+    if (inputsStore.hasOwnProperty('style')) {
+      tNode.flags |= TNodeFlags.hasStyleInput;
+    }
+  }
+
   tNode.inputs = inputsStore;
   tNode.outputs = outputsStore;
 }
@@ -1223,7 +1232,7 @@ function findDirectiveMatches(
 */
 export function markAsComponentHost(tView: TView, hostTNode: TNode): void {
   ngDevMode && assertFirstTemplatePass(tView);
-  hostTNode.flags = TNodeFlags.isComponentHost;
+  hostTNode.flags |= TNodeFlags.isComponentHost;
   (tView.components || (tView.components = ngDevMode ? new TViewComponents() : [
    ])).push(hostTNode.index);
 }
@@ -1270,16 +1279,11 @@ function saveNameToExportMap(
  * @param index the initial index
  */
 export function initNodeFlags(tNode: TNode, index: number, numberOfDirectives: number) {
-  const flags = tNode.flags;
-  ngDevMode && assertEqual(
-                   flags === 0 || flags === TNodeFlags.isComponentHost, true,
-                   'expected node flags to not be initialized');
-
   ngDevMode && assertNotEqual(
                    numberOfDirectives, tNode.directiveEnd - tNode.directiveStart,
                    'Reached the max number of directives');
+  tNode.flags |= TNodeFlags.isDirectiveHost;
   // When the first directive is created on a node, save the index
-  tNode.flags = (flags & TNodeFlags.isComponentHost) | TNodeFlags.isDirectiveHost;
   tNode.directiveStart = index;
   tNode.directiveEnd = index + numberOfDirectives;
   tNode.providerIndexes = index;

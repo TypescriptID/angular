@@ -64,7 +64,9 @@ export function ɵɵelementStart(
     }
   }
 
-  renderInitialStyling(renderer, native, tNode);
+  if ((tNode.flags & TNodeFlags.hasInitialStyling) === TNodeFlags.hasInitialStyling) {
+    renderInitialStyling(renderer, native, tNode);
+  }
 
   appendChild(native, tNode, lView);
 
@@ -83,16 +85,6 @@ export function ɵɵelementStart(
   if (tView.firstTemplatePass) {
     ngDevMode && ngDevMode.firstTemplatePass++;
     resolveDirectives(tView, lView, tNode, localRefs || null);
-
-    const inputData = tNode.inputs;
-    if (inputData != null) {
-      if (inputData.hasOwnProperty('class')) {
-        tNode.flags |= TNodeFlags.hasClassInput;
-      }
-      if (inputData.hasOwnProperty('style')) {
-        tNode.flags |= TNodeFlags.hasStyleInput;
-      }
-    }
 
     if (tView.queries !== null) {
       tView.queries.elementStart(tView, tNode);
