@@ -33,7 +33,7 @@ import {isNodeMatchingSelectorList} from '../node_selector_matcher';
 import {ActiveElementFlags, executeElementExitFn, getBindingsEnabled, getCheckNoChangesMode, getIsParent, getPreviousOrParentTNode, getSelectedIndex, hasActiveElementFlag, incrementActiveDirectiveId, namespaceHTMLInternal, selectView, setActiveHostElement, setBindingRoot, setCheckNoChangesMode, setCurrentDirectiveDef, setCurrentQueryIndex, setPreviousOrParentTNode, setSelectedIndex} from '../state';
 import {renderStylingMap} from '../styling/bindings';
 import {NO_CHANGE} from '../tokens';
-import {ANIMATION_PROP_PREFIX, isAnimationProp} from '../util/attrs_utils';
+import {isAnimationProp} from '../util/attrs_utils';
 import {INTERPOLATION_DELIMITER, renderStringify, stringifyForError} from '../util/misc_utils';
 import {getLViewParent} from '../util/view_traversal_utils';
 import {getComponentViewByIndex, getNativeByIndex, getNativeByTNode, getTNode, isCreationMode, readPatchedLView, resetPreOrderHookFlags, unwrapRNode, viewAttachedToChangeDetector} from '../util/view_utils';
@@ -889,20 +889,7 @@ export function elementPropertyInternal<T>(
     setInputsForProperty(lView, dataValue, value);
     if (isComponentHost(tNode)) markDirtyIfOnPush(lView, index + HEADER_OFFSET);
     if (ngDevMode) {
-      if (tNode.type === TNodeType.Element || tNode.type === TNodeType.Container) {
-        /**
-         * dataValue is an array containing runtime input or output names for the directives:
-         * i+0: directive instance index
-         * i+1: publicName
-         * i+2: privateName
-         *
-         * e.g. [0, 'change', 'change-minified']
-         * we want to set the reflected property with the privateName: dataValue[i+2]
-         */
-        for (let i = 0; i < dataValue.length; i += 3) {
-          setNgReflectProperty(lView, element, tNode.type, dataValue[i + 2] as string, value);
-        }
-      }
+      setNgReflectProperties(lView, element, tNode.type, dataValue, value);
     }
   } else if (tNode.type === TNodeType.Element) {
     propName = mapPropName(propName);
@@ -945,7 +932,7 @@ function markDirtyIfOnPush(lView: LView, viewIndex: number): void {
   }
 }
 
-export function setNgReflectProperty(
+function setNgReflectProperty(
     lView: LView, element: RElement | RComment, type: TNodeType, attrName: string, value: any) {
   const renderer = lView[RENDERER];
   attrName = normalizeDebugBindingName(attrName);
@@ -969,13 +956,31 @@ export function setNgReflectProperty(
   }
 }
 
+export function setNgReflectProperties(
+    lView: LView, element: RElement | RComment, type: TNodeType, dataValue: PropertyAliasValue,
+    value: any) {
+  if (type === TNodeType.Element || type === TNodeType.Container) {
+    /**
+     * dataValue is an array containing runtime input or output names for the directives:
+     * i+0: directive instance index
+     * i+1: publicName
+     * i+2: privateName
+     *
+     * e.g. [0, 'change', 'change-minified']
+     * we want to set the reflected property with the privateName: dataValue[i+2]
+     */
+    for (let i = 0; i < dataValue.length; i += 3) {
+      setNgReflectProperty(lView, element, type, dataValue[i + 2] as string, value);
+    }
+  }
+}
+
 function validateProperty(
     hostView: LView, element: RElement | RComment, propName: string, tNode: TNode): boolean {
   // The property is considered valid if the element matches the schema, it exists on the element
   // or it is synthetic, and we are in a browser context (web worker nodes should be skipped).
   return matchingSchemas(hostView, tNode.tagName) || propName in element ||
-      propName[0] === ANIMATION_PROP_PREFIX || typeof Node !== 'function' ||
-      !(element instanceof Node);
+      isAnimationProp(propName) || typeof Node !== 'function' || !(element instanceof Node);
 }
 
 function matchingSchemas(hostView: LView, tagName: string | null): boolean {
