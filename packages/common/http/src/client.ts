@@ -457,7 +457,7 @@ export class HttpClient {
     if (first instanceof HttpRequest) {
       // It is. The other arguments must be undefined (per the signatures) and can be
       // ignored.
-      req = first as HttpRequest<any>;
+      req = first;
     } else {
       // It's a string, so it represents a URL. Construct a request based on it,
       // and incorporate the remaining arguments (assuming `GET` unless a method is
@@ -1798,7 +1798,7 @@ export class HttpClient {
   }): Observable<Blob>;
 
   /**
-   * Constructs a `PATCH` request that interprets the body as as a text string and
+   * Constructs a `PATCH` request that interprets the body as a text string and
    * returns the response as a string value.
    *
    * @param url The endpoint URL.

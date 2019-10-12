@@ -20,7 +20,7 @@ import {TQueries} from '../interfaces/query';
 import {RComment, RElement, RNode} from '../interfaces/renderer';
 import {TStylingContext} from '../interfaces/styling';
 import {BINDING_INDEX, CHILD_HEAD, CHILD_TAIL, CLEANUP, CONTEXT, DECLARATION_VIEW, ExpandoInstructions, FLAGS, HEADER_OFFSET, HOST, HookData, INJECTOR, LView, LViewFlags, NEXT, PARENT, QUERIES, RENDERER, RENDERER_FACTORY, SANITIZER, TData, TVIEW, TView as ITView, TView, T_HOST} from '../interfaces/view';
-import {DebugStyling as DebugNewStyling, NodeStylingDebug} from '../styling/styling_debug';
+import {DebugNodeStyling, NodeStylingDebug} from '../styling/styling_debug';
 import {attachDebugObject} from '../util/debug_utils';
 import {isStylingContext} from '../util/styling_utils';
 import {getTNode, unwrapRNode} from '../util/view_utils';
@@ -164,6 +164,7 @@ export const TNodeConstructor = class TNode implements ITNode {
     if (this.flags & TNodeFlags.hasContentQuery) flags.push('TNodeFlags.hasContentQuery');
     if (this.flags & TNodeFlags.hasStyleInput) flags.push('TNodeFlags.hasStyleInput');
     if (this.flags & TNodeFlags.hasInitialStyling) flags.push('TNodeFlags.hasInitialStyling');
+    if (this.flags & TNodeFlags.hasHostBindings) flags.push('TNodeFlags.hasHostBindings');
     if (this.flags & TNodeFlags.isComponentHost) flags.push('TNodeFlags.isComponentHost');
     if (this.flags & TNodeFlags.isDirectiveHost) flags.push('TNodeFlags.isDirectiveHost');
     if (this.flags & TNodeFlags.isDetached) flags.push('TNodeFlags.isDetached');
@@ -343,8 +344,8 @@ export class LViewDebug {
 export interface DebugNode {
   html: string|null;
   native: Node;
-  styles: DebugNewStyling|null;
-  classes: DebugNewStyling|null;
+  styles: DebugNodeStyling|null;
+  classes: DebugNodeStyling|null;
   nodes: DebugNode[]|null;
   component: LViewDebug|null;
 }
