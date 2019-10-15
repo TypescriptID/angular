@@ -21,12 +21,12 @@
 const R3_DEF_NAME_PATTERN = [
   'ngBaseDef',
   'ɵcmp',
-  'ngDirectiveDef',
+  'ɵdir',
   'ngInjectableDef',
   'ngInjectorDef',
-  'ngModuleDef',
-  'ngPipeDef',
-  'ngFactoryDef',
+  'ɵmod',
+  'ɵpipe',
+  'ɵfac',
 ].join('|');
 
 // Pattern matching `Identifier.property` where property is a Render3 property.

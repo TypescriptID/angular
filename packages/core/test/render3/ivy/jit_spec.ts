@@ -34,7 +34,7 @@ ivyEnabled && describe('render3 jit', () => {
     const SomeCmpAny = SomeCmp as any;
 
     expect(SomeCmpAny.ɵcmp).toBeDefined();
-    expect(SomeCmpAny.ngFactoryDef() instanceof SomeCmp).toBe(true);
+    expect(SomeCmpAny.ɵfac() instanceof SomeCmp).toBe(true);
   });
 
   it('compiles an injectable with a type provider', () => {
@@ -156,7 +156,7 @@ ivyEnabled && describe('render3 jit', () => {
     class Module {
     }
 
-    const moduleDef: NgModuleDef<Module> = (Module as any).ngModuleDef;
+    const moduleDef: NgModuleDef<Module> = (Module as any).ɵmod;
     expect(moduleDef).toBeDefined();
     if (!Array.isArray(moduleDef.declarations)) {
       return fail('Expected an array');
@@ -208,7 +208,7 @@ ivyEnabled && describe('render3 jit', () => {
     class Module {
     }
 
-    const moduleDef: NgModuleDef<Module> = (Module as any).ngModuleDef;
+    const moduleDef: NgModuleDef<Module> = (Module as any).ɵmod;
     // directive defs are still null, since no directives were in that component
     expect(cmpDef.directiveDefs).toBeNull();
   });
@@ -241,8 +241,8 @@ ivyEnabled && describe('render3 jit', () => {
     class P {
     }
 
-    const pipeDef = (P as any).ngPipeDef as PipeDef<P>;
-    const pipeFactory = (P as any).ngFactoryDef as FactoryFn<P>;
+    const pipeDef = (P as any).ɵpipe as PipeDef<P>;
+    const pipeFactory = (P as any).ɵfac as FactoryFn<P>;
     expect(pipeDef.name).toBe('test-pipe');
     expect(pipeDef.pure).toBe(false, 'pipe should not be pure');
     expect(pipeFactory() instanceof P)
@@ -254,7 +254,7 @@ ivyEnabled && describe('render3 jit', () => {
     class P {
     }
 
-    const pipeDef = (P as any).ngPipeDef as PipeDef<P>;
+    const pipeDef = (P as any).ɵpipe as PipeDef<P>;
     expect(pipeDef.pure).toBe(true, 'pipe should be pure');
   });
 
@@ -281,8 +281,8 @@ ivyEnabled && describe('render3 jit', () => {
     }
 
     const InputDirAny = InputDir as any;
-    expect(InputDirAny.ngDirectiveDef.inputs).toEqual({publicName: 'privateName'});
-    expect(InputDirAny.ngDirectiveDef.declaredInputs).toEqual({publicName: 'privateName'});
+    expect(InputDirAny.ɵdir.inputs).toEqual({publicName: 'privateName'});
+    expect(InputDirAny.ɵdir.declaredInputs).toEqual({publicName: 'privateName'});
   });
 
   it('should compile ContentChildren query with string predicate on a directive', () => {
@@ -291,7 +291,7 @@ ivyEnabled && describe('render3 jit', () => {
       @ContentChildren('foo') foos: QueryList<ElementRef>|undefined;
     }
 
-    expect((TestDirective as any).ngDirectiveDef.contentQueries).not.toBeNull();
+    expect((TestDirective as any).ɵdir.contentQueries).not.toBeNull();
   });
 
   it('should compile ContentChild query with string predicate on a directive', () => {
@@ -300,7 +300,7 @@ ivyEnabled && describe('render3 jit', () => {
       @ContentChild('foo', {static: false}) foo: ElementRef|undefined;
     }
 
-    expect((TestDirective as any).ngDirectiveDef.contentQueries).not.toBeNull();
+    expect((TestDirective as any).ɵdir.contentQueries).not.toBeNull();
   });
 
   it('should compile ContentChildren query with type predicate on a directive', () => {
@@ -311,7 +311,7 @@ ivyEnabled && describe('render3 jit', () => {
       @ContentChildren(SomeDir) dirs: QueryList<SomeDir>|undefined;
     }
 
-    expect((TestDirective as any).ngDirectiveDef.contentQueries).not.toBeNull();
+    expect((TestDirective as any).ɵdir.contentQueries).not.toBeNull();
   });
 
   it('should compile ContentChild query with type predicate on a directive', () => {
@@ -322,7 +322,7 @@ ivyEnabled && describe('render3 jit', () => {
       @ContentChild(SomeDir, {static: false}) dir: SomeDir|undefined;
     }
 
-    expect((TestDirective as any).ngDirectiveDef.contentQueries).not.toBeNull();
+    expect((TestDirective as any).ɵdir.contentQueries).not.toBeNull();
   });
 
   it('should compile ViewChild query on a component', () => {

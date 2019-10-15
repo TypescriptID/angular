@@ -35,6 +35,17 @@ describe('type check blocks', () => {
     expect(tcb(TEMPLATE)).toContain('((ctx).a)[(ctx).b];');
   });
 
+  it('should handle attribute values for directive inputs', () => {
+    const TEMPLATE = `<div dir inputA="value"></div>`;
+    const DIRECTIVES: TestDeclaration[] = [{
+      type: 'directive',
+      name: 'DirA',
+      selector: '[dir]',
+      inputs: {inputA: 'inputA'},
+    }];
+    expect(tcb(TEMPLATE, DIRECTIVES)).toContain('inputA: ("value")');
+  });
+
   it('should handle empty bindings', () => {
     const TEMPLATE = `<div dir-a [inputA]=""></div>`;
     const DIRECTIVES: TestDeclaration[] = [{
@@ -65,6 +76,21 @@ describe('type check blocks', () => {
   it('should handle implicit vars when using microsyntax', () => {
     const TEMPLATE = `<div *ngFor="let user of users"></div>`;
     expect(tcb(TEMPLATE)).toContain('var _t2 = _t1.$implicit;');
+  });
+
+  it('should handle missing property bindings', () => {
+    const TEMPLATE = `<div dir [inputA]="foo"></div>`;
+    const DIRECTIVES: TestDeclaration[] = [{
+      type: 'directive',
+      name: 'Dir',
+      selector: '[dir]',
+      inputs: {
+        fieldA: 'inputA',
+        fieldB: 'inputB',
+      },
+    }];
+    expect(tcb(TEMPLATE, DIRECTIVES))
+        .toContain('var _t2 = Dir.ngTypeCtor({ fieldA: ((ctx).foo), fieldB: (null as any) });');
   });
 
   it('should generate a forward element reference correctly', () => {
@@ -207,6 +233,7 @@ describe('type check blocks', () => {
       checkQueries: false,
       checkTemplateBodies: true,
       checkTypeOfInputBindings: true,
+      strictNullInputBindings: true,
       checkTypeOfDomBindings: false,
       checkTypeOfPipes: true,
       strictSafeNavigationTypes: true,
@@ -242,20 +269,37 @@ describe('type check blocks', () => {
       });
     });
 
+    describe('config.strictNullInputBindings', () => {
+      const TEMPLATE = `<div dir [dirInput]="a" [nonDirInput]="b"></div>`;
+
+      it('should include null and undefined when enabled', () => {
+        const block = tcb(TEMPLATE, DIRECTIVES);
+        expect(block).toContain('Dir.ngTypeCtor({ dirInput: ((ctx).a) })');
+        expect(block).toContain('(ctx).b;');
+      });
+      it('should use the non-null assertion operator when disabled', () => {
+        const DISABLED_CONFIG:
+            TypeCheckingConfig = {...BASE_CONFIG, strictNullInputBindings: false};
+        const block = tcb(TEMPLATE, DIRECTIVES, DISABLED_CONFIG);
+        expect(block).toContain('Dir.ngTypeCtor({ dirInput: ((ctx).a!) })');
+        expect(block).toContain('(ctx).b!;');
+      });
+    });
+
     describe('config.checkTypeOfBindings', () => {
-      const TEMPLATE = `<div dir [dirInput]="a" [nonDirInput]="a"></div>`;
+      const TEMPLATE = `<div dir [dirInput]="a" [nonDirInput]="b"></div>`;
 
       it('should check types of bindings when enabled', () => {
         const block = tcb(TEMPLATE, DIRECTIVES);
         expect(block).toContain('Dir.ngTypeCtor({ dirInput: ((ctx).a) })');
-        expect(block).toContain('(ctx).a;');
+        expect(block).toContain('(ctx).b;');
       });
       it('should not check types of bindings when disabled', () => {
         const DISABLED_CONFIG:
             TypeCheckingConfig = {...BASE_CONFIG, checkTypeOfInputBindings: false};
         const block = tcb(TEMPLATE, DIRECTIVES, DISABLED_CONFIG);
         expect(block).toContain('Dir.ngTypeCtor({ dirInput: (((ctx).a as any)) })');
-        expect(block).toContain('((ctx).a as any);');
+        expect(block).toContain('((ctx).b as any);');
       });
     });
 

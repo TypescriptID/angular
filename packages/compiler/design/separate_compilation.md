@@ -39,8 +39,8 @@ The mental model of Ivy is that the decorator is the compiler. That is
 the decorator can be thought of as parameters to a class transformer that
 transforms the class by generating definitions based on the decorator
 parameters. An `@Component` decorator transforms the class by adding
-a `ɵcmp` static property, `@Directive` adds `ngDirectiveDef`,
-`@Pipe` adds `ngPipeDef`, etc. In most cases values supplied to the
+a `ɵcmp` static property, `@Directive` adds `ɵdir`,
+`@Pipe` adds `ɵpipe`, etc. In most cases values supplied to the
 decorator is sufficient to generate the definition. However, in the case of
 interpreting the template, the compiler needs to know the selector defined for
 each component, directive and pipe that are in scope of the template. The
@@ -65,29 +65,29 @@ class:
 | field               | destination           |
 |---------------------|-----------------------|
 | `type`              | implicit              |
-| `isComponent`       | `ɵcmp`      |
+| `isComponent`       | `ɵcmp`                |
 | `selector`          | `ngModuleScope`       |
-| `exportAs`          | `ngDirectiveDef`      |
-| `inputs`            | `ngDirectiveDef`      |
-| `outputs`           | `ngDirectiveDef`      |
-| `hostListeners`     | `ngDirectiveDef`      |
-| `hostProperties`    | `ngDirectiveDef`      |
-| `hostAttributes`    | `ngDirectiveDef`      |
+| `exportAs`          | `ɵdir`                |
+| `inputs`            | `ɵdir`                |
+| `outputs`           | `ɵdir`                |
+| `hostListeners`     | `ɵdir`                |
+| `hostProperties`    | `ɵdir`                |
+| `hostAttributes`    | `ɵdir`                |
 | `providers`         | `ngInjectorDef`       |
-| `viewProviders`     | `ɵcmp`      |
-| `queries`           | `ngDirectiveDef`      |
+| `viewProviders`     | `ɵcmp`                |
+| `queries`           | `ɵdir`                |
 | `guards`            | not used              |
-| `viewQueries`       | `ɵcmp`      |
+| `viewQueries`       | `ɵcmp`                |
 | `entryComponents`   | not used              |
-| `changeDetection`   | `ɵcmp`      |
-| `template`          | `ɵcmp`      |
+| `changeDetection`   | `ɵcmp`                |
+| `template`          | `ɵcmp`                |
 | `componentViewType` | not used              |
 | `renderType`        | not used              |
 | `componentFactory`  | not used              |
 
 Only one definition is generated per class. All components are directives so a
-`ɵcmp` contains all the `ngDirectiveDef` information. All directives
-are injectable so `ɵcmp` and `ngDirectiveDef` contain `ngInjectableDef`
+`ɵcmp` contains all the `ɵdir` information. All directives
+are injectable so `ɵcmp` and `ɵdir` contain `ngInjectableDef`
 information.
 
 For `CompilePipeSummary` the table looks like:
@@ -98,7 +98,7 @@ For `CompilePipeSummary` the table looks like:
 |---------------------|-----------------------|
 | `type`              | implicit              |
 | `name`              | `ngModuleScope`       |
-| `pure`              | `ngPipeDef`           |
+| `pure`              | `ɵpipe`               |
 
 The only pieces of information that are not generated into the definition are
 the directive selector and the pipe name as they go into the module scope.
@@ -193,7 +193,7 @@ manually.
 The metadata for a directive is transformed by:
 
 1. Removing the `@Directive` directive.
-2. Add  `"ngDirectiveDef": {}` static field.
+2. Add  `"ɵdir": {}` static field.
 3. Add `"ngSelector": <selector-value>` static field.
 
 ##### example
@@ -213,7 +213,7 @@ export class MyDirective {
   constructor() {
     this.dirId = 'some id';
   }
-  static ngDirectiveDef = ɵɵdefineDirective({...});
+  static ɵdir = ɵɵdefineDirective({...});
 }
 ```
 
@@ -226,7 +226,7 @@ export class MyDirective {
     "MyDirective": {
       "__symbolic": "class",
       "statics": {
-        "ngDirectiveDef": {},
+        "ɵdir": {},
         "ngSelector": "[my-dir]"
       }
     }
@@ -239,7 +239,7 @@ export class MyDirective {
 The metadata for a pipe is transformed by:
 
 1. Removing the `@Pipe` directive.
-2. Add  `"ngPipeDef": {}` static field.
+2. Add  `"ɵpipe": {}` static field.
 3. Add `"ngSelector": <name-value>` static field.
 
 ##### example
@@ -256,7 +256,7 @@ export class MyPipe implements PipeTransform {
 ```js
 export class MyPipe {
   transform(...) ...
-  static ngPipeDef = ɵɵdefinePipe({...});
+  static ɵpipe = ɵɵdefinePipe({...});
 }
 ```
 
@@ -269,7 +269,7 @@ export class MyPipe {
     "MyPipe": {
       "__symbolic": "class",
       "statics": {
-        "ngPipeDef": {},
+        "ɵpipe": {},
         "ngSelector": "myPipe"
       }
     }

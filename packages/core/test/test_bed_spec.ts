@@ -505,7 +505,7 @@ describe('TestBed', () => {
          */
         const getAOTCompiledComponent = () => {
           class ComponentClass {
-            static ngFactoryDef = () => new ComponentClass();
+            static ɵfac = () => new ComponentClass();
             static ɵcmp = defineComponent({
               type: ComponentClass,
               selectors: [['comp']],
@@ -553,7 +553,7 @@ describe('TestBed', () => {
 
           // This is an AOT compiled module which declares (but does not export) SomeComponent.
           class ModuleClass {
-            static ngModuleDef = defineNgModule({
+            static ɵmod = defineNgModule({
               type: ModuleClass,
               declarations: [SomeComponent],
             });
@@ -657,23 +657,23 @@ describe('TestBed', () => {
              expect(ComponentWithNoAnnotations.hasOwnProperty('ɵcmp')).toBeTruthy();
              expect(SomeComponent.hasOwnProperty('ɵcmp')).toBeTruthy();
 
-             expect(DirectiveWithNoAnnotations.hasOwnProperty('ngDirectiveDef')).toBeTruthy();
-             expect(SomeDirective.hasOwnProperty('ngDirectiveDef')).toBeTruthy();
+             expect(DirectiveWithNoAnnotations.hasOwnProperty('ɵdir')).toBeTruthy();
+             expect(SomeDirective.hasOwnProperty('ɵdir')).toBeTruthy();
 
-             expect(PipeWithNoAnnotations.hasOwnProperty('ngPipeDef')).toBeTruthy();
-             expect(SomePipe.hasOwnProperty('ngPipeDef')).toBeTruthy();
+             expect(PipeWithNoAnnotations.hasOwnProperty('ɵpipe')).toBeTruthy();
+             expect(SomePipe.hasOwnProperty('ɵpipe')).toBeTruthy();
 
              TestBed.resetTestingModule();
 
              // ng defs should be removed from classes with no annotations
              expect(ComponentWithNoAnnotations.hasOwnProperty('ɵcmp')).toBeFalsy();
-             expect(DirectiveWithNoAnnotations.hasOwnProperty('ngDirectiveDef')).toBeFalsy();
-             expect(PipeWithNoAnnotations.hasOwnProperty('ngPipeDef')).toBeFalsy();
+             expect(DirectiveWithNoAnnotations.hasOwnProperty('ɵdir')).toBeFalsy();
+             expect(PipeWithNoAnnotations.hasOwnProperty('ɵpipe')).toBeFalsy();
 
              // ng defs should be preserved on super types
              expect(SomeComponent.hasOwnProperty('ɵcmp')).toBeTruthy();
-             expect(SomeDirective.hasOwnProperty('ngDirectiveDef')).toBeTruthy();
-             expect(SomePipe.hasOwnProperty('ngPipeDef')).toBeTruthy();
+             expect(SomeDirective.hasOwnProperty('ɵdir')).toBeTruthy();
+             expect(SomePipe.hasOwnProperty('ɵpipe')).toBeTruthy();
            });
 
         it('should clean up overridden providers for modules that are imported more than once',

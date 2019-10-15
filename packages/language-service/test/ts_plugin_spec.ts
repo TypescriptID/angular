@@ -139,51 +139,6 @@ describe('plugin', () => {
   });
 
   describe('for semantic errors', () => {
-    it('should report access to an unknown field', () => {
-      expectSemanticError(
-          '/app/expression-cases.ts', 'foo',
-          'Identifier \'foo\' is not defined. The component declaration, template variable declarations, and element references do not contain such a member');
-    });
-    it('should report access to an unknown sub-field', () => {
-      expectSemanticError(
-          '/app/expression-cases.ts', 'nam',
-          'Identifier \'nam\' is not defined. \'Person\' does not contain such a member');
-    });
-    it('should report access to a private member', () => {
-      expectSemanticError(
-          '/app/expression-cases.ts', 'myField',
-          'Identifier \'myField\' refers to a private member of the component');
-    });
-    it('should report numeric operator errors', () => {
-      expectSemanticError('/app/expression-cases.ts', 'mod', 'Expected a numeric type');
-    });
-    describe('in ngFor', () => {
-      function expectError(locationMarker: string, message: string) {
-        expectSemanticError('/app/ng-for-cases.ts', locationMarker, message);
-      }
-      it('should report an unknown field', () => {
-        expectError(
-            'people_1',
-            'Identifier \'people_1\' is not defined. The component declaration, template variable declarations, and element references do not contain such a member');
-      });
-      it('should report an unknown context reference', () => {
-        expectError('even_1', 'The template context does not define a member called \'even_1\'');
-      });
-      it('should report an unknown value in a key expression', () => {
-        expectError(
-            'trackBy_1',
-            'Identifier \'trackBy_1\' is not defined. The component declaration, template variable declarations, and element references do not contain such a member');
-      });
-    });
-    describe('in ngIf', () => {
-      function expectError(locationMarker: string, message: string) {
-        expectSemanticError('/app/ng-if-cases.ts', locationMarker, message);
-      }
-      it('should report an implicit context reference', () => {
-        expectError('implicit', 'The template context does not define a member called \'unknown\'');
-      });
-    });
-
     describe(`with config 'angularOnly = true`, () => {
       const ngLS = createPlugin(service, mockHost, {angularOnly: true});
       it('should not report template errors on TOH', () => {
@@ -199,11 +154,10 @@ describe('plugin', () => {
 
       it('should be able to get entity completions', () => {
         const fileName = '/app/app.component.ts';
-        const marker = 'entity-amp';
-        const position = getMarkerLocation(fileName, marker);
-        const results = ngLS.getCompletionsAtPosition(fileName, position, {} /* options */);
+        const marker = mockHost.getLocationMarkerFor(fileName, 'entity-amp');
+        const results = ngLS.getCompletionsAtPosition(fileName, marker.start, {} /* options */);
         expect(results).toBeTruthy();
-        expectEntries(marker, results !, ...['&amp;', '&gt;', '&lt;', '&iota;']);
+        expectEntries('entity-amp', results !, ...['&amp;', '&gt;', '&lt;', '&iota;']);
       });
 
       it('should report template diagnostics', () => {
@@ -231,33 +185,11 @@ describe('plugin', () => {
     });
   }
 
-  function getMarkerLocation(fileName: string, locationMarker: string): number {
-    const location = mockHost.getMarkerLocations(fileName) ![locationMarker];
-    if (location == null) {
-      throw new Error(`No marker ${locationMarker} found.`);
-    }
-    return location;
-  }
   function contains(fileName: string, locationMarker: string, ...names: string[]) {
-    const location = getMarkerLocation(fileName, locationMarker);
+    const marker = mockHost.getLocationMarkerFor(fileName, locationMarker);
     expectEntries(
-        locationMarker, plugin.getCompletionsAtPosition(fileName, location, undefined) !, ...names);
-  }
-
-  function expectSemanticError(fileName: string, locationMarker: string, message: string) {
-    const start = getMarkerLocation(fileName, locationMarker);
-    const end = getMarkerLocation(fileName, locationMarker + '-end');
-    const errors = plugin.getSemanticDiagnostics(fileName);
-    for (const error of errors) {
-      if (error.messageText.toString().indexOf(message) >= 0) {
-        expect(error.start).toEqual(start);
-        expect(error.length).toEqual(end - start);
-        return;
-      }
-    }
-    throw new Error(`Expected error messages to contain ${message}, in messages:\n  ${errors
-                        .map(e => e.messageText.toString())
-                        .join(',\n  ')}`);
+        locationMarker, plugin.getCompletionsAtPosition(fileName, marker.start, undefined) !,
+        ...names);
   }
 });
 

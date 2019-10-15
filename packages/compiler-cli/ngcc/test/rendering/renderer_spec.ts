@@ -188,7 +188,7 @@ runInEachFileSystem(() => {
             decorationAnalyses, switchMarkerAnalyses, privateDeclarationsAnalyses);
         const addDefinitionsSpy = testFormatter.addDefinitions as jasmine.Spy;
         expect(addDefinitionsSpy.calls.first().args[2])
-            .toEqual(`A.ngFactoryDef = function A_Factory(t) { return new (t || A)(); };
+            .toEqual(`A.ɵfac = function A_Factory(t) { return new (t || A)(); };
 A.ɵcmp = ɵngcc0.ɵɵdefineComponent({ type: A, selectors: [["a"]], decls: 1, vars: 1, template: function A_Template(rf, ctx) { if (rf & 1) {
         ɵngcc0.ɵɵtext(0);
     } if (rf & 2) {
@@ -229,8 +229,8 @@ A.ɵcmp = ɵngcc0.ɵɵdefineComponent({ type: A, selectors: [["a"]], decls: 1, v
              }));
 
              expect(addDefinitionsSpy.calls.first().args[2])
-                 .toEqual(`A.ngFactoryDef = function A_Factory(t) { return new (t || A)(); };
-A.ngDirectiveDef = ɵngcc0.ɵɵdefineDirective({ type: A, selectors: [["", "a", ""]] });
+                 .toEqual(`A.ɵfac = function A_Factory(t) { return new (t || A)(); };
+A.ɵdir = ɵngcc0.ɵɵdefineDirective({ type: A, selectors: [["", "a", ""]] });
 /*@__PURE__*/ ɵngcc0.ɵsetClassMetadata(A, [{
         type: Directive,
         args: [{ selector: '[a]' }]
@@ -268,14 +268,14 @@ A.ngDirectiveDef = ɵngcc0.ɵɵdefineDirective({ type: A, selectors: [["", "a", 
               decorationAnalyses, switchMarkerAnalyses, privateDeclarationsAnalyses);
           const addDefinitionsSpy = testFormatter.addDefinitions as jasmine.Spy;
           const definitions: string = addDefinitionsSpy.calls.first().args[2];
-          const ngModuleDef = definitions.indexOf('ngModuleDef');
-          expect(ngModuleDef).not.toEqual(-1, 'ngModuleDef should exist');
+          const ngModuleDef = definitions.indexOf('ɵmod');
+          expect(ngModuleDef).not.toEqual(-1, 'ɵmod should exist');
           const ngInjectorDef = definitions.indexOf('ngInjectorDef');
           expect(ngInjectorDef).not.toEqual(-1, 'ngInjectorDef should exist');
           const setClassMetadata = definitions.indexOf('setClassMetadata');
           expect(setClassMetadata).not.toEqual(-1, 'setClassMetadata call should exist');
           expect(setClassMetadata)
-              .toBeGreaterThan(ngModuleDef, 'setClassMetadata should follow ngModuleDef');
+              .toBeGreaterThan(ngModuleDef, 'setClassMetadata should follow ɵmod');
           expect(setClassMetadata)
               .toBeGreaterThan(ngInjectorDef, 'setClassMetadata should follow ngInjectorDef');
         });

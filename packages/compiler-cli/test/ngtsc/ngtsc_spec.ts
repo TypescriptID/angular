@@ -67,8 +67,8 @@ runInEachFileSystem(os => {
       const dtsContents = env.getContents('test.d.ts');
       expect(dtsContents).toContain('static ngInjectableDef: i0.ɵɵInjectableDef<Dep>;');
       expect(dtsContents).toContain('static ngInjectableDef: i0.ɵɵInjectableDef<Service>;');
-      expect(dtsContents).toContain('static ngFactoryDef: i0.ɵɵFactoryDef<Dep>;');
-      expect(dtsContents).toContain('static ngFactoryDef: i0.ɵɵFactoryDef<Service>;');
+      expect(dtsContents).toContain('static ɵfac: i0.ɵɵFactoryDef<Dep>;');
+      expect(dtsContents).toContain('static ɵfac: i0.ɵɵFactoryDef<Service>;');
     });
 
     it('should compile Injectables with a generic service', () => {
@@ -85,7 +85,7 @@ runInEachFileSystem(os => {
       const jsContents = env.getContents('test.js');
       expect(jsContents).toContain('Store.ngInjectableDef =');
       const dtsContents = env.getContents('test.d.ts');
-      expect(dtsContents).toContain('static ngFactoryDef: i0.ɵɵFactoryDef<Store<any>>;');
+      expect(dtsContents).toContain('static ɵfac: i0.ɵɵFactoryDef<Store<any>>;');
       expect(dtsContents).toContain('static ngInjectableDef: i0.ɵɵInjectableDef<Store<any>>;');
     });
 
@@ -110,14 +110,14 @@ runInEachFileSystem(os => {
       expect(jsContents).toContain('Service.ngInjectableDef =');
       expect(jsContents)
           .toContain(
-              'Service.ngFactoryDef = function Service_Factory(t) { return new (t || Service)(i0.ɵɵinject(Dep)); };');
+              'Service.ɵfac = function Service_Factory(t) { return new (t || Service)(i0.ɵɵinject(Dep)); };');
       expect(jsContents).toContain('providedIn: \'root\' })');
       expect(jsContents).not.toContain('__decorate');
       const dtsContents = env.getContents('test.d.ts');
       expect(dtsContents).toContain('static ngInjectableDef: i0.ɵɵInjectableDef<Dep>;');
       expect(dtsContents).toContain('static ngInjectableDef: i0.ɵɵInjectableDef<Service>;');
-      expect(dtsContents).toContain('static ngFactoryDef: i0.ɵɵFactoryDef<Dep>;');
-      expect(dtsContents).toContain('static ngFactoryDef: i0.ɵɵFactoryDef<Service>;');
+      expect(dtsContents).toContain('static ɵfac: i0.ɵɵFactoryDef<Dep>;');
+      expect(dtsContents).toContain('static ɵfac: i0.ɵɵFactoryDef<Service>;');
     });
 
     it('should compile Injectables with providedIn and factory without errors', () => {
@@ -142,7 +142,7 @@ runInEachFileSystem(os => {
       expect(jsContents).not.toContain('__decorate');
       const dtsContents = env.getContents('test.d.ts');
       expect(dtsContents).toContain('static ngInjectableDef: i0.ɵɵInjectableDef<Service>;');
-      expect(dtsContents).toContain('static ngFactoryDef: i0.ɵɵFactoryDef<Service>;');
+      expect(dtsContents).toContain('static ɵfac: i0.ɵɵFactoryDef<Service>;');
     });
 
     it('should compile Injectables with providedIn and factory with deps without errors', () => {
@@ -171,7 +171,7 @@ runInEachFileSystem(os => {
       expect(jsContents).not.toContain('__decorate');
       const dtsContents = env.getContents('test.d.ts');
       expect(dtsContents).toContain('static ngInjectableDef: i0.ɵɵInjectableDef<Service>;');
-      expect(dtsContents).toContain('static ngFactoryDef: i0.ɵɵFactoryDef<Service>;');
+      expect(dtsContents).toContain('static ɵfac: i0.ɵɵFactoryDef<Service>;');
     });
 
     it('should compile @Injectable with an @Optional dependency', () => {
@@ -206,14 +206,14 @@ runInEachFileSystem(os => {
 
       const jsContents = env.getContents('test.js');
       expect(jsContents).toContain('TestCmp.ɵcmp = i0.ɵɵdefineComponent');
-      expect(jsContents).toContain('TestCmp.ngFactoryDef = function');
+      expect(jsContents).toContain('TestCmp.ɵfac = function');
       expect(jsContents).not.toContain('__decorate');
 
       const dtsContents = env.getContents('test.d.ts');
       expect(dtsContents)
           .toContain(
               'static ɵcmp: i0.ɵɵComponentDefWithMeta<TestCmp, "test-cmp", never, {}, {}, never>');
-      expect(dtsContents).toContain('static ngFactoryDef: i0.ɵɵFactoryDef<TestCmp>');
+      expect(dtsContents).toContain('static ɵfac: i0.ɵɵFactoryDef<TestCmp>');
     });
 
     it('should compile Components (dynamic inline template) without errors', () => {
@@ -231,7 +231,7 @@ runInEachFileSystem(os => {
 
       const jsContents = env.getContents('test.js');
       expect(jsContents).toContain('TestCmp.ɵcmp = i0.ɵɵdefineComponent');
-      expect(jsContents).toContain('TestCmp.ngFactoryDef = function');
+      expect(jsContents).toContain('TestCmp.ɵfac = function');
       expect(jsContents).not.toContain('__decorate');
 
       const dtsContents = env.getContents('test.d.ts');
@@ -239,7 +239,7 @@ runInEachFileSystem(os => {
       expect(dtsContents)
           .toContain(
               'static ɵcmp: i0.ɵɵComponentDefWithMeta<TestCmp, "test-cmp", never, {}, {}, never>');
-      expect(dtsContents).toContain('static ngFactoryDef: i0.ɵɵFactoryDef<TestCmp>');
+      expect(dtsContents).toContain('static ɵfac: i0.ɵɵFactoryDef<TestCmp>');
     });
 
     it('should compile Components (function call inline template) without errors', () => {
@@ -260,14 +260,14 @@ runInEachFileSystem(os => {
 
       const jsContents = env.getContents('test.js');
       expect(jsContents).toContain('TestCmp.ɵcmp = i0.ɵɵdefineComponent');
-      expect(jsContents).toContain('TestCmp.ngFactoryDef = function');
+      expect(jsContents).toContain('TestCmp.ɵfac = function');
       expect(jsContents).not.toContain('__decorate');
 
       const dtsContents = env.getContents('test.d.ts');
       expect(dtsContents)
           .toContain(
               'static ɵcmp: i0.ɵɵComponentDefWithMeta<TestCmp, "test-cmp", never, {}, {}, never>');
-      expect(dtsContents).toContain('static ngFactoryDef: i0.ɵɵFactoryDef<TestCmp>');
+      expect(dtsContents).toContain('static ɵfac: i0.ɵɵFactoryDef<TestCmp>');
     });
 
     it('should compile Components (external template) without errors', () => {
@@ -373,10 +373,10 @@ runInEachFileSystem(os => {
       const jsContents = env.getContents('test.js');
       expect(jsContents).toContain('TestBase.ngBaseDef = i0.ɵɵdefineBase');
       expect(jsContents).toContain('TestComponent.ɵcmp = i0.ɵɵdefineComponent');
-      expect(jsContents).toContain('TestDirective.ngDirectiveDef = i0.ɵɵdefineDirective');
-      expect(jsContents).toContain('TestPipe.ngPipeDef = i0.ɵɵdefinePipe');
+      expect(jsContents).toContain('TestDirective.ɵdir = i0.ɵɵdefineDirective');
+      expect(jsContents).toContain('TestPipe.ɵpipe = i0.ɵɵdefinePipe');
       expect(jsContents).toContain('TestInjectable.ngInjectableDef = i0.ɵɵdefineInjectable');
-      expect(jsContents).toContain('MyModule.ngModuleDef = i0.ɵɵdefineNgModule');
+      expect(jsContents).toContain('MyModule.ɵmod = i0.ɵɵdefineNgModule');
       expect(jsContents).toContain('MyModule.ngInjectorDef = i0.ɵɵdefineInjector');
       expect(jsContents).toContain('inputs: { input: "input" }');
       expect(jsContents).toContain('outputs: { output: "output" }');
@@ -512,7 +512,7 @@ runInEachFileSystem(os => {
               'static ɵcmp: i0.ɵɵComponentDefWithMeta<TestCmp, "test-cmp", never, {}, {}, never>');
       expect(dtsContents)
           .toContain(
-              'static ngModuleDef: i0.ɵɵNgModuleDefWithMeta<TestModule, [typeof TestCmp], never, never>');
+              'static ɵmod: i0.ɵɵNgModuleDefWithMeta<TestModule, [typeof TestCmp], never, never>');
       expect(dtsContents).not.toContain('__decorate');
     });
 
@@ -607,7 +607,7 @@ runInEachFileSystem(os => {
 
       declare class RouterModule {
         static forRoot(): ModuleWithProviders<RouterModule>;
-        static ngModuleDef: ɵɵNgModuleDefWithMeta<RouterModule, [typeof RouterComp], never, [typeof RouterComp]>;
+        static ɵmod: ɵɵNgModuleDefWithMeta<RouterModule, [typeof RouterComp], never, [typeof RouterComp]>;
       }
     `);
 
@@ -657,7 +657,7 @@ runInEachFileSystem(os => {
       const dtsContents = env.getContents('test.d.ts');
       expect(dtsContents)
           .toContain(
-              'static ngModuleDef: i0.ɵɵNgModuleDefWithMeta<TestModule, [typeof TestCmp], [typeof OtherModule], never>');
+              'static ɵmod: i0.ɵɵNgModuleDefWithMeta<TestModule, [typeof TestCmp], [typeof OtherModule], never>');
       expect(dtsContents).toContain('static ngInjectorDef: i0.ɵɵInjectorDef');
     });
 
@@ -697,7 +697,7 @@ runInEachFileSystem(os => {
       const dtsContents = env.getContents('test.d.ts');
       expect(dtsContents)
           .toContain(
-              'static ngModuleDef: i0.ɵɵNgModuleDefWithMeta<TestModule, [typeof TestCmp], [typeof OtherModule], never>');
+              'static ɵmod: i0.ɵɵNgModuleDefWithMeta<TestModule, [typeof TestCmp], [typeof OtherModule], never>');
       expect(dtsContents).toContain('static ngInjectorDef: i0.ɵɵInjectorDef');
     });
 
@@ -741,7 +741,7 @@ runInEachFileSystem(os => {
       const dtsContents = env.getContents('test.d.ts');
       expect(dtsContents)
           .toContain(
-              'static ngModuleDef: i0.ɵɵNgModuleDefWithMeta<TestModule, [typeof TestCmp], [typeof OtherModule], never>');
+              'static ɵmod: i0.ɵɵNgModuleDefWithMeta<TestModule, [typeof TestCmp], [typeof OtherModule], never>');
       expect(dtsContents).toContain('static ngInjectorDef: i0.ɵɵInjectorDef');
     });
 
@@ -896,13 +896,12 @@ runInEachFileSystem(os => {
 
       expect(jsContents)
           .toContain(
-              'TestPipe.ngPipeDef = i0.ɵɵdefinePipe({ name: "test-pipe", type: TestPipe, pure: false })');
+              'TestPipe.ɵpipe = i0.ɵɵdefinePipe({ name: "test-pipe", type: TestPipe, pure: false })');
       expect(jsContents)
           .toContain(
-              'TestPipe.ngFactoryDef = function TestPipe_Factory(t) { return new (t || TestPipe)(); }');
-      expect(dtsContents)
-          .toContain('static ngPipeDef: i0.ɵɵPipeDefWithMeta<TestPipe, "test-pipe">;');
-      expect(dtsContents).toContain('static ngFactoryDef: i0.ɵɵFactoryDef<TestPipe>;');
+              'TestPipe.ɵfac = function TestPipe_Factory(t) { return new (t || TestPipe)(); }');
+      expect(dtsContents).toContain('static ɵpipe: i0.ɵɵPipeDefWithMeta<TestPipe, "test-pipe">;');
+      expect(dtsContents).toContain('static ɵfac: i0.ɵɵFactoryDef<TestPipe>;');
     });
 
     it('should compile pure Pipes without errors', () => {
@@ -922,13 +921,12 @@ runInEachFileSystem(os => {
 
       expect(jsContents)
           .toContain(
-              'TestPipe.ngPipeDef = i0.ɵɵdefinePipe({ name: "test-pipe", type: TestPipe, pure: true })');
+              'TestPipe.ɵpipe = i0.ɵɵdefinePipe({ name: "test-pipe", type: TestPipe, pure: true })');
       expect(jsContents)
           .toContain(
-              'TestPipe.ngFactoryDef = function TestPipe_Factory(t) { return new (t || TestPipe)(); }');
-      expect(dtsContents)
-          .toContain('static ngPipeDef: i0.ɵɵPipeDefWithMeta<TestPipe, "test-pipe">;');
-      expect(dtsContents).toContain('static ngFactoryDef: i0.ɵɵFactoryDef<TestPipe>;');
+              'TestPipe.ɵfac = function TestPipe_Factory(t) { return new (t || TestPipe)(); }');
+      expect(dtsContents).toContain('static ɵpipe: i0.ɵɵPipeDefWithMeta<TestPipe, "test-pipe">;');
+      expect(dtsContents).toContain('static ɵfac: i0.ɵɵFactoryDef<TestPipe>;');
     });
 
     it('should compile Pipes with dependencies', () => {
@@ -965,11 +963,11 @@ runInEachFileSystem(os => {
       env.driveMain();
 
       const jsContents = env.getContents('test.js');
-      expect(jsContents).toContain('TestPipe.ngPipeDef =');
+      expect(jsContents).toContain('TestPipe.ɵpipe =');
       const dtsContents = env.getContents('test.d.ts');
       expect(dtsContents)
-          .toContain('static ngPipeDef: i0.ɵɵPipeDefWithMeta<TestPipe<any>, "test-pipe">;');
-      expect(dtsContents).toContain('static ngFactoryDef: i0.ɵɵFactoryDef<TestPipe<any>>;');
+          .toContain('static ɵpipe: i0.ɵɵPipeDefWithMeta<TestPipe<any>, "test-pipe">;');
+      expect(dtsContents).toContain('static ɵfac: i0.ɵɵFactoryDef<TestPipe<any>>;');
     });
 
     it('should include @Pipes in @NgModule scopes', () => {
@@ -1180,9 +1178,9 @@ runInEachFileSystem(os => {
 
         // Validate that each class has the primary definition.
         expect(jsContents).toContain('TestCmp.ɵcmp =');
-        expect(jsContents).toContain('TestDir.ngDirectiveDef =');
-        expect(jsContents).toContain('TestPipe.ngPipeDef =');
-        expect(jsContents).toContain('TestNgModule.ngModuleDef =');
+        expect(jsContents).toContain('TestDir.ɵdir =');
+        expect(jsContents).toContain('TestPipe.ɵpipe =');
+        expect(jsContents).toContain('TestNgModule.ɵmod =');
 
         // Validate that each class also has an injectable definition.
         expect(jsContents).toContain('TestCmp.ngInjectableDef =');
@@ -1309,8 +1307,7 @@ runInEachFileSystem(os => {
 
           env.driveMain();
           const jsContents = env.getContents('test.js');
-          expect(jsContents)
-              .toContain('Test.ngFactoryDef = function Test_Factory(t) { throw new Error(');
+          expect(jsContents).toContain('Test.ɵfac = function Test_Factory(t) { throw new Error(');
         });
 
         it('should compile an @Injectable provided in the root on a class with a non-injectable constructor',
@@ -1327,7 +1324,7 @@ runInEachFileSystem(os => {
              env.driveMain();
              const jsContents = env.getContents('test.js');
              expect(jsContents)
-                 .toContain('Test.ngFactoryDef = function Test_Factory(t) { throw new Error(');
+                 .toContain('Test.ɵfac = function Test_Factory(t) { throw new Error(');
            });
 
       });
@@ -1456,7 +1453,7 @@ runInEachFileSystem(os => {
 
         declare class RouterModule {
           static forRoot(): ModuleWithProviders<RouterModule>;
-          static ngModuleDef: ɵɵNgModuleDefWithMeta<RouterModule, never, never, never>;
+          static ɵmod: ɵɵNgModuleDefWithMeta<RouterModule, never, never, never>;
         }
     `);
 
@@ -1495,7 +1492,7 @@ runInEachFileSystem(os => {
         env.write('node_modules/router/internal.d.ts', `
         import {ɵɵNgModuleDefWithMeta} from '@angular/core';
         export declare class InternalRouterModule {
-          static ngModuleDef: ɵɵNgModuleDefWithMeta<InternalRouterModule, never, never, never>;
+          static ɵmod: ɵɵNgModuleDefWithMeta<InternalRouterModule, never, never, never>;
         }
     `);
 
@@ -1511,14 +1508,14 @@ runInEachFileSystem(os => {
                 'i0.ɵɵNgModuleDefWithMeta<TestModule, never, [typeof i1.InternalRouterModule], never>');
       });
 
-      it('should not reference a constant with a ModuleWithProviders value in ngModuleDef imports',
+      it('should not reference a constant with a ModuleWithProviders value in module def imports',
          () => {
            env.write('dep.d.ts', `
           import {ModuleWithProviders, ɵɵNgModuleDefWithMeta as ɵɵNgModuleDefWithMeta} from '@angular/core';
 
           export declare class DepModule {
             static forRoot(arg1: any, arg2: any): ModuleWithProviders<DepModule>;
-            static ngModuleDef: ɵɵNgModuleDefWithMeta<DepModule, never, never, never>;
+            static ɵmod: ɵɵNgModuleDefWithMeta<DepModule, never, never, never>;
           }
         `);
            env.write('test.ts', `
@@ -1558,7 +1555,7 @@ runInEachFileSystem(os => {
 
       declare class RouterModule {
         static forRoot(): (MyType)&{ngModule:RouterModule};
-        static ngModuleDef: ɵɵNgModuleDefWithMeta<RouterModule, never, never, never>;
+        static ɵmod: ɵɵNgModuleDefWithMeta<RouterModule, never, never, never>;
       }
   `);
 
@@ -1590,7 +1587,7 @@ runInEachFileSystem(os => {
 
         declare class RouterModule {
           static forRoot(): core.ModuleWithProviders<RouterModule>;
-          static ngModuleDef: ɵɵNgModuleDefWithMeta<RouterModule, never, never, never>;
+          static ɵmod: ɵɵNgModuleDefWithMeta<RouterModule, never, never, never>;
         }
     `);
 
@@ -1640,7 +1637,7 @@ runInEachFileSystem(os => {
       const jsContents = env.getContents('test.js');
       expect(jsContents)
           .toContain(
-              `FooCmp.ngFactoryDef = function FooCmp_Factory(t) { return new (t || FooCmp)(i0.ɵɵinjectAttribute("test"), i0.ɵɵdirectiveInject(i0.ChangeDetectorRef), i0.ɵɵdirectiveInject(i0.ElementRef), i0.ɵɵdirectiveInject(i0.Injector), i0.ɵɵdirectiveInject(i0.Renderer2), i0.ɵɵdirectiveInject(i0.TemplateRef), i0.ɵɵdirectiveInject(i0.ViewContainerRef)); }`);
+              `FooCmp.ɵfac = function FooCmp_Factory(t) { return new (t || FooCmp)(i0.ɵɵinjectAttribute("test"), i0.ɵɵdirectiveInject(i0.ChangeDetectorRef), i0.ɵɵdirectiveInject(i0.ElementRef), i0.ɵɵdirectiveInject(i0.Injector), i0.ɵɵdirectiveInject(i0.Renderer2), i0.ɵɵdirectiveInject(i0.TemplateRef), i0.ɵɵdirectiveInject(i0.ViewContainerRef)); }`);
     });
 
     it('should generate queries for components', () => {
@@ -2946,11 +2943,11 @@ runInEachFileSystem(os => {
         import {ɵɵDirectiveDefWithMeta, ɵɵNgModuleDefWithMeta} from '@angular/core';
 
         export declare class ExternalDir {
-          static ngDirectiveDef: ɵɵDirectiveDefWithMeta<ExternalDir, '[test]', never, never, never, never>;
+          static ɵdir: ɵɵDirectiveDefWithMeta<ExternalDir, '[test]', never, never, never, never>;
         }
 
         export declare class ExternalModule {
-          static ngModuleDef: ɵɵNgModuleDefWithMeta<ExternalModule, [typeof ExternalDir], never, [typeof ExternalDir]>;
+          static ɵmod: ɵɵNgModuleDefWithMeta<ExternalModule, [typeof ExternalDir], never, [typeof ExternalDir]>;
         }
       `);
         env.write('test.ts', `
@@ -2984,13 +2981,13 @@ runInEachFileSystem(os => {
         export {InternalDir as ExternalDir} from './internal';
 
         export declare class ExternalModule {
-          static ngModuleDef: ɵɵNgModuleDefWithMeta<ExternalModule, [typeof InternalDir], never, [typeof InternalDir]>;
+          static ɵmod: ɵɵNgModuleDefWithMeta<ExternalModule, [typeof InternalDir], never, [typeof InternalDir]>;
         }
       `);
         env.write('node_modules/external/internal.d.ts', `
 
         export declare class InternalDir {
-          static ngDirectiveDef: ɵɵDirectiveDefWithMeta<InternalDir, '[test]', never, never, never, never>;
+          static ɵdir: ɵɵDirectiveDefWithMeta<InternalDir, '[test]', never, never, never, never>;
         }
       `);
         env.write('test.ts', `
@@ -3233,11 +3230,11 @@ runInEachFileSystem(os => {
         import {ɵɵDirectiveDefWithMeta, ɵɵNgModuleDefWithMeta} from '@angular/core';
 
         export declare class ExternalDir {
-          static ngDirectiveDef: ɵɵDirectiveDefWithMeta<ExternalDir, '[test]', never, never, never, never>;
+          static ɵdir: ɵɵDirectiveDefWithMeta<ExternalDir, '[test]', never, never, never, never>;
         }
 
         export declare class ExternalModule {
-          static ngModuleDef: ɵɵNgModuleDefWithMeta<ExternalModule, [typeof ExternalDir], never, [typeof ExternalDir]>;
+          static ɵmod: ɵɵNgModuleDefWithMeta<ExternalModule, [typeof ExternalDir], never, [typeof ExternalDir]>;
         }
       `);
 
@@ -3546,7 +3543,7 @@ runInEachFileSystem(os => {
         export declare class RouterModule {
           static forRoot(arg1: any, arg2: any): ModuleWithProviders<RouterModule>;
           static forChild(arg1: any): ModuleWithProviders<RouterModule>;
-          static ngModuleDef: ɵɵNgModuleDefWithMeta<RouterModule, never, never, never>;
+          static ɵmod: ɵɵNgModuleDefWithMeta<RouterModule, never, never, never>;
         }
       `);
       });
@@ -4179,11 +4176,11 @@ export const Foo = Foo__PRE_R3__;
         import {ɵɵDirectiveDefWithMeta, ɵɵNgModuleDefWithMeta} from '@angular/core';
 
         export declare class ExternalDir {
-          static ngDirectiveDef: ɵɵDirectiveDefWithMeta<ExternalDir, '[test]', never, never, never, never>;
+          static ɵdir: ɵɵDirectiveDefWithMeta<ExternalDir, '[test]', never, never, never, never>;
         }
 
         export declare class AlphaModule {
-          static ngModuleDef: ɵɵNgModuleDefWithMeta<AlphaModule, [typeof ExternalDir], never, [typeof ExternalDir]>;
+          static ɵmod: ɵɵNgModuleDefWithMeta<AlphaModule, [typeof ExternalDir], never, [typeof ExternalDir]>;
         }
       `);
 
@@ -4193,7 +4190,7 @@ export const Foo = Foo__PRE_R3__;
         import {AlphaModule} from './alpha';
 
         export declare class BetaModule {
-          static ngModuleDef: ɵɵNgModuleDefWithMeta<AlphaModule, never, never, [typeof AlphaModule]>;
+          static ɵmod: ɵɵNgModuleDefWithMeta<AlphaModule, never, never, [typeof AlphaModule]>;
         }
       `);
 
@@ -4230,22 +4227,22 @@ export const Foo = Foo__PRE_R3__;
         import {LibModule} from './lib';
 
         export declare class ExternalDir {
-          static ngDirectiveDef: ɵɵDirectiveDefWithMeta<ExternalDir, '[test]', never, never, never, never>;
+          static ɵdir: ɵɵDirectiveDefWithMeta<ExternalDir, '[test]', never, never, never, never>;
         }
 
         export declare class ExternalModule {
-          static ngModuleDef: ɵɵNgModuleDefWithMeta<ExternalModule, [typeof ExternalDir], never, [typeof ExternalDir, typeof LibModule]>;
+          static ɵmod: ɵɵNgModuleDefWithMeta<ExternalModule, [typeof ExternalDir], never, [typeof ExternalDir, typeof LibModule]>;
         }
       `);
         env.write('lib.d.ts', `
         import {ɵɵDirectiveDefWithMeta, ɵɵNgModuleDefWithMeta} from '@angular/core';
 
         export declare class LibDir {
-          static ngDirectiveDef: ɵɵDirectiveDefWithMeta<LibDir, '[lib]', never, never, never, never>;
+          static ɵdir: ɵɵDirectiveDefWithMeta<LibDir, '[lib]', never, never, never, never>;
         }
 
         export declare class LibModule {
-          static ngModuleDef: ɵɵNgModuleDefWithMeta<LibModule, [typeof LibDir], never, [typeof LibDir]>;
+          static ɵmod: ɵɵNgModuleDefWithMeta<LibModule, [typeof LibDir], never, [typeof LibDir]>;
         }
       `);
         env.write('foo.ts', `

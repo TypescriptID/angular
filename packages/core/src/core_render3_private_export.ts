@@ -222,9 +222,9 @@ export {
 export {
   NG_ELEMENT_ID as ɵNG_ELEMENT_ID,
   NG_COMP_DEF as ɵNG_COMP_DEF,
-  NG_DIRECTIVE_DEF as ɵNG_DIRECTIVE_DEF,
+  NG_DIR_DEF as ɵNG_DIR_DEF,
   NG_PIPE_DEF as ɵNG_PIPE_DEF,
-  NG_MODULE_DEF as ɵNG_MODULE_DEF,
+  NG_MOD_DEF as ɵNG_MOD_DEF,
   NG_BASE_DEF as ɵNG_BASE_DEF
 } from './render3/fields';
 
