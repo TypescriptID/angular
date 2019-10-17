@@ -43,8 +43,8 @@ ivyEnabled && describe('render3 jit', () => {
     }
     const ServiceAny = Service as any;
 
-    expect(ServiceAny.ngInjectableDef).toBeDefined();
-    expect(ServiceAny.ngInjectableDef.providedIn).toBe('root');
+    expect(ServiceAny.ɵprov).toBeDefined();
+    expect(ServiceAny.ɵprov.providedIn).toBe('root');
     expect(ɵɵinject(Service) instanceof Service).toBe(true);
   });
 
@@ -165,9 +165,9 @@ ivyEnabled && describe('render3 jit', () => {
     expect(moduleDef.declarations[0]).toBe(Cmp);
   });
 
-  it('compiles a module to an ngInjectorDef with the providers', () => {
+  it('compiles a module to an ɵinj with the providers', () => {
     class Token {
-      static ngInjectableDef = ɵɵdefineInjectable({
+      static ɵprov = ɵɵdefineInjectable({
         token: Token,
         providedIn: 'root',
         factory: () => 'default',
@@ -181,7 +181,7 @@ ivyEnabled && describe('render3 jit', () => {
       constructor(public token: Token) {}
     }
 
-    const injectorDef: ɵɵInjectorDef<Module> = (Module as any).ngInjectorDef;
+    const injectorDef: ɵɵInjectorDef<Module> = (Module as any).ɵinj;
     const instance = injectorDef.factory();
 
     // Since the instance was created outside of an injector using the module, the

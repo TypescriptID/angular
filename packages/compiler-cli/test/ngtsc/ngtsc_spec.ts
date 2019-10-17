@@ -61,12 +61,12 @@ runInEachFileSystem(os => {
 
 
       const jsContents = env.getContents('test.js');
-      expect(jsContents).toContain('Dep.ngInjectableDef =');
-      expect(jsContents).toContain('Service.ngInjectableDef =');
+      expect(jsContents).toContain('Dep.ɵprov =');
+      expect(jsContents).toContain('Service.ɵprov =');
       expect(jsContents).not.toContain('__decorate');
       const dtsContents = env.getContents('test.d.ts');
-      expect(dtsContents).toContain('static ngInjectableDef: i0.ɵɵInjectableDef<Dep>;');
-      expect(dtsContents).toContain('static ngInjectableDef: i0.ɵɵInjectableDef<Service>;');
+      expect(dtsContents).toContain('static ɵprov: i0.ɵɵInjectableDef<Dep>;');
+      expect(dtsContents).toContain('static ɵprov: i0.ɵɵInjectableDef<Service>;');
       expect(dtsContents).toContain('static ɵfac: i0.ɵɵFactoryDef<Dep>;');
       expect(dtsContents).toContain('static ɵfac: i0.ɵɵFactoryDef<Service>;');
     });
@@ -83,10 +83,10 @@ runInEachFileSystem(os => {
 
 
       const jsContents = env.getContents('test.js');
-      expect(jsContents).toContain('Store.ngInjectableDef =');
+      expect(jsContents).toContain('Store.ɵprov =');
       const dtsContents = env.getContents('test.d.ts');
       expect(dtsContents).toContain('static ɵfac: i0.ɵɵFactoryDef<Store<any>>;');
-      expect(dtsContents).toContain('static ngInjectableDef: i0.ɵɵInjectableDef<Store<any>>;');
+      expect(dtsContents).toContain('static ɵprov: i0.ɵɵInjectableDef<Store<any>>;');
     });
 
     it('should compile Injectables with providedIn without errors', () => {
@@ -106,16 +106,16 @@ runInEachFileSystem(os => {
 
 
       const jsContents = env.getContents('test.js');
-      expect(jsContents).toContain('Dep.ngInjectableDef =');
-      expect(jsContents).toContain('Service.ngInjectableDef =');
+      expect(jsContents).toContain('Dep.ɵprov =');
+      expect(jsContents).toContain('Service.ɵprov =');
       expect(jsContents)
           .toContain(
               'Service.ɵfac = function Service_Factory(t) { return new (t || Service)(i0.ɵɵinject(Dep)); };');
       expect(jsContents).toContain('providedIn: \'root\' })');
       expect(jsContents).not.toContain('__decorate');
       const dtsContents = env.getContents('test.d.ts');
-      expect(dtsContents).toContain('static ngInjectableDef: i0.ɵɵInjectableDef<Dep>;');
-      expect(dtsContents).toContain('static ngInjectableDef: i0.ɵɵInjectableDef<Service>;');
+      expect(dtsContents).toContain('static ɵprov: i0.ɵɵInjectableDef<Dep>;');
+      expect(dtsContents).toContain('static ɵprov: i0.ɵɵInjectableDef<Service>;');
       expect(dtsContents).toContain('static ɵfac: i0.ɵɵFactoryDef<Dep>;');
       expect(dtsContents).toContain('static ɵfac: i0.ɵɵFactoryDef<Service>;');
     });
@@ -134,14 +134,14 @@ runInEachFileSystem(os => {
 
 
       const jsContents = env.getContents('test.js');
-      expect(jsContents).toContain('Service.ngInjectableDef =');
+      expect(jsContents).toContain('Service.ɵprov =');
       expect(jsContents)
           .toContain('factory: function () { return (function () { return new Service(); })(); }');
       expect(jsContents).toContain('Service_Factory(t) { return new (t || Service)(); }');
       expect(jsContents).toContain(', providedIn: \'root\' });');
       expect(jsContents).not.toContain('__decorate');
       const dtsContents = env.getContents('test.d.ts');
-      expect(dtsContents).toContain('static ngInjectableDef: i0.ɵɵInjectableDef<Service>;');
+      expect(dtsContents).toContain('static ɵprov: i0.ɵɵInjectableDef<Service>;');
       expect(dtsContents).toContain('static ɵfac: i0.ɵɵFactoryDef<Service>;');
     });
 
@@ -162,7 +162,7 @@ runInEachFileSystem(os => {
 
 
       const jsContents = env.getContents('test.js');
-      expect(jsContents).toContain('Service.ngInjectableDef =');
+      expect(jsContents).toContain('Service.ɵprov =');
       expect(jsContents).toContain('factory: function Service_Factory(t) { var r = null; if (t) {');
       expect(jsContents).toContain('return new (t || Service)(i0.ɵɵinject(Dep));');
       expect(jsContents)
@@ -170,7 +170,7 @@ runInEachFileSystem(os => {
       expect(jsContents).toContain('return r; }, providedIn: \'root\' });');
       expect(jsContents).not.toContain('__decorate');
       const dtsContents = env.getContents('test.d.ts');
-      expect(dtsContents).toContain('static ngInjectableDef: i0.ɵɵInjectableDef<Service>;');
+      expect(dtsContents).toContain('static ɵprov: i0.ɵɵInjectableDef<Service>;');
       expect(dtsContents).toContain('static ɵfac: i0.ɵɵFactoryDef<Service>;');
     });
 
@@ -375,9 +375,9 @@ runInEachFileSystem(os => {
       expect(jsContents).toContain('TestComponent.ɵcmp = i0.ɵɵdefineComponent');
       expect(jsContents).toContain('TestDirective.ɵdir = i0.ɵɵdefineDirective');
       expect(jsContents).toContain('TestPipe.ɵpipe = i0.ɵɵdefinePipe');
-      expect(jsContents).toContain('TestInjectable.ngInjectableDef = i0.ɵɵdefineInjectable');
+      expect(jsContents).toContain('TestInjectable.ɵprov = i0.ɵɵdefineInjectable');
       expect(jsContents).toContain('MyModule.ɵmod = i0.ɵɵdefineNgModule');
-      expect(jsContents).toContain('MyModule.ngInjectorDef = i0.ɵɵdefineInjector');
+      expect(jsContents).toContain('MyModule.ɵinj = i0.ɵɵdefineInjector');
       expect(jsContents).toContain('inputs: { input: "input" }');
       expect(jsContents).toContain('outputs: { output: "output" }');
     });
@@ -650,7 +650,7 @@ runInEachFileSystem(os => {
       expect(jsContents).toContain('i0.ɵɵdefineNgModule({ type: TestModule });');
       expect(jsContents)
           .toContain(
-              `TestModule.ngInjectorDef = i0.ɵɵdefineInjector({ factory: ` +
+              `TestModule.ɵinj = i0.ɵɵdefineInjector({ factory: ` +
               `function TestModule_Factory(t) { return new (t || TestModule)(); }, providers: [{ provide: ` +
               `Token, useValue: 'test' }], imports: [[OtherModule]] });`);
 
@@ -658,7 +658,7 @@ runInEachFileSystem(os => {
       expect(dtsContents)
           .toContain(
               'static ɵmod: i0.ɵɵNgModuleDefWithMeta<TestModule, [typeof TestCmp], [typeof OtherModule], never>');
-      expect(dtsContents).toContain('static ngInjectorDef: i0.ɵɵInjectorDef');
+      expect(dtsContents).toContain('static ɵinj: i0.ɵɵInjectorDef');
     });
 
     it('should compile NgModules with factory providers without errors', () => {
@@ -690,7 +690,7 @@ runInEachFileSystem(os => {
       expect(jsContents).toContain('i0.ɵɵdefineNgModule({ type: TestModule });');
       expect(jsContents)
           .toContain(
-              `TestModule.ngInjectorDef = i0.ɵɵdefineInjector({ factory: ` +
+              `TestModule.ɵinj = i0.ɵɵdefineInjector({ factory: ` +
               `function TestModule_Factory(t) { return new (t || TestModule)(); }, providers: [{ provide: ` +
               `Token, useFactory: function () { return new Token(); } }], imports: [[OtherModule]] });`);
 
@@ -698,7 +698,7 @@ runInEachFileSystem(os => {
       expect(dtsContents)
           .toContain(
               'static ɵmod: i0.ɵɵNgModuleDefWithMeta<TestModule, [typeof TestCmp], [typeof OtherModule], never>');
-      expect(dtsContents).toContain('static ngInjectorDef: i0.ɵɵInjectorDef');
+      expect(dtsContents).toContain('static ɵinj: i0.ɵɵInjectorDef');
     });
 
     it('should compile NgModules with factory providers and deps without errors', () => {
@@ -734,7 +734,7 @@ runInEachFileSystem(os => {
       expect(jsContents).toContain('i0.ɵɵdefineNgModule({ type: TestModule });');
       expect(jsContents)
           .toContain(
-              `TestModule.ngInjectorDef = i0.ɵɵdefineInjector({ factory: ` +
+              `TestModule.ɵinj = i0.ɵɵdefineInjector({ factory: ` +
               `function TestModule_Factory(t) { return new (t || TestModule)(); }, providers: [{ provide: ` +
               `Token, useFactory: function (dep) { return new Token(dep); }, deps: [Dep] }], imports: [[OtherModule]] });`);
 
@@ -742,7 +742,7 @@ runInEachFileSystem(os => {
       expect(dtsContents)
           .toContain(
               'static ɵmod: i0.ɵɵNgModuleDefWithMeta<TestModule, [typeof TestCmp], [typeof OtherModule], never>');
-      expect(dtsContents).toContain('static ngInjectorDef: i0.ɵɵInjectorDef');
+      expect(dtsContents).toContain('static ɵinj: i0.ɵɵInjectorDef');
     });
 
     it('should compile NgModules with references to local components', () => {
@@ -1183,10 +1183,10 @@ runInEachFileSystem(os => {
         expect(jsContents).toContain('TestNgModule.ɵmod =');
 
         // Validate that each class also has an injectable definition.
-        expect(jsContents).toContain('TestCmp.ngInjectableDef =');
-        expect(jsContents).toContain('TestDir.ngInjectableDef =');
-        expect(jsContents).toContain('TestPipe.ngInjectableDef =');
-        expect(jsContents).toContain('TestNgModule.ngInjectableDef =');
+        expect(jsContents).toContain('TestCmp.ɵprov =');
+        expect(jsContents).toContain('TestDir.ɵprov =');
+        expect(jsContents).toContain('TestPipe.ɵprov =');
+        expect(jsContents).toContain('TestNgModule.ɵprov =');
 
         // Validate that each class's .d.ts declaration has the primary definition.
         expect(dtsContents).toContain('ComponentDefWithMeta<TestCmp');
@@ -2064,9 +2064,39 @@ runInEachFileSystem(os => {
          expect(jsContents).toContain(':@@5dbba0a3da8dff890e20cf76eb075d58900fbcd3:Some text');
        });
 
+    it('should render legacy id when `enableI18nLegacyMessageIdFormat` is not false and `i18nInFormat` is set to "xliff"',
+       () => {
+         env.tsconfig({i18nInFormat: 'xliff'});
+         env.write(`test.ts`, `
+        import {Component} from '@angular/core';
+        @Component({
+          selector: 'test',
+          template: '<div i18n>Some text</div>'
+        })
+        class FooCmp {}`);
+         env.driveMain();
+         const jsContents = env.getContents('test.js');
+         expect(jsContents).toContain(':@@5dbba0a3da8dff890e20cf76eb075d58900fbcd3:Some text');
+       });
+
     it('should render legacy id when `enableI18nLegacyMessageIdFormat` is not false and `i18nInFormat` is set to "xlf2"',
        () => {
          env.tsconfig({i18nInFormat: 'xlf2'});
+         env.write(`test.ts`, `
+        import {Component} from '@angular/core';
+        @Component({
+          selector: 'test',
+          template: '<div i18n>Some text</div>'
+        })
+        class FooCmp {}`);
+         env.driveMain();
+         const jsContents = env.getContents('test.js');
+         expect(jsContents).toContain(':@@8321000940098097247:Some text');
+       });
+
+    it('should render legacy id when `enableI18nLegacyMessageIdFormat` is not false and `i18nInFormat` is set to "xliff2"',
+       () => {
+         env.tsconfig({i18nInFormat: 'xliff2'});
          env.write(`test.ts`, `
         import {Component} from '@angular/core';
         @Component({
