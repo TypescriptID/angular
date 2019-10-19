@@ -1094,7 +1094,7 @@ runInEachFileSystem(os => {
           template: '<ng-content></ng-content>'
         })
         export class TestCmp {
-          @Input() @ContentChild('foo', {static: false}) foo: any;
+          @Input() @ContentChild('foo') foo: any;
         }
       `);
 
@@ -1116,7 +1116,7 @@ runInEachFileSystem(os => {
         })
         export class TestCmp {
           @ContentChild('bar', {static: true})
-          @ContentChild('foo', {static: false})
+          @ContentChild('foo')
           foo: any;
         }
       `);
@@ -1138,7 +1138,7 @@ runInEachFileSystem(os => {
           template: '...'
         })
         export class TestCmp {
-          @ContentChild('foo', {static: false})
+          @ContentChild('foo')
           private someFn() {}
         }
       `);
@@ -1469,6 +1469,31 @@ runInEachFileSystem(os => {
                 'i0.ɵɵNgModuleDefWithMeta<TestModule, never, [typeof i1.RouterModule], never>');
       });
 
+      it('should throw if ModuleWithProviders is missing its generic type argument', () => {
+        env.write(`test.ts`, `
+          import {NgModule} from '@angular/core';
+          import {RouterModule} from 'router';
+
+          @NgModule({imports: [RouterModule.forRoot()]})
+          export class TestModule {}
+        `);
+
+        env.write('node_modules/router/index.d.ts', `
+          import {ModuleWithProviders, ɵɵNgModuleDefWithMeta} from '@angular/core';
+
+          declare class RouterModule {
+            static forRoot(): ModuleWithProviders;
+            static ɵmod: ɵɵNgModuleDefWithMeta<RouterModule, never, never, never>;
+          }
+        `);
+        const errors = env.driveDiagnostics();
+        expect(trim(errors[0].messageText as string))
+            .toContain(
+                `RouterModule.forRoot returns a ModuleWithProviders type without a generic type argument. ` +
+                `Please add a generic type argument to the ModuleWithProviders type. If this ` +
+                `occurrence is in library code you don't control, please contact the library authors.`);
+      });
+
       it('should extract the generic type if it is provided as qualified type name', () => {
         env.write(`test.ts`, `
         import {NgModule} from '@angular/core';
@@ -1653,10 +1678,10 @@ runInEachFileSystem(os => {
           }
         })
         class FooCmp {
-          @ContentChild('bar', {read: TemplateRef, static: false}) child: any;
+          @ContentChild('bar', {read: TemplateRef}) child: any;
           @ContentChildren(TemplateRef) children: any;
           get aview(): any { return null; }
-          @ViewChild('accessor', {static: false}) set aview(value: any) {}
+          @ViewChild('accessor') set aview(value: any) {}
         }
     `);
 
@@ -1684,7 +1709,7 @@ runInEachFileSystem(os => {
           }
         })
         class FooCmp {
-          @ContentChild('bar', {read: TemplateRef, static: false}) child: any;
+          @ContentChild('bar', {read: TemplateRef}) child: any;
           @ContentChildren(TemplateRef) children: any;
           get aview(): any { return null; }
           @ViewChild('accessor') set aview(value: any) {}
@@ -1715,11 +1740,11 @@ runInEachFileSystem(os => {
           template: '<div #foo></div>',
         })
         class FooCmp {
-          @ContentChild(forwardRef(() => TemplateRef), {static: false}) child: any;
+          @ContentChild(forwardRef(() => TemplateRef)) child: any;
 
-          @ContentChild(forwardRef(function() { return ViewContainerRef; }), {static: false}) child2: any;
+          @ContentChild(forwardRef(function() { return ViewContainerRef; })) child2: any;
 
-          @ContentChild((forwardRef((function() { return 'parens'; }) as any)), {static: false}) childInParens: any;
+          @ContentChild((forwardRef((function() { return 'parens'; }) as any))) childInParens: any;
         }
     `);
 
