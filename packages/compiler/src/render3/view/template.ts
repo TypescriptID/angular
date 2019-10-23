@@ -188,7 +188,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
 
   buildTemplateFunction(
       nodes: t.Node[], variables: t.Variable[], ngContentSelectorsOffset: number = 0,
-      i18n?: i18n.AST): o.FunctionExpr {
+      i18n?: i18n.I18nMeta): o.FunctionExpr {
     this._ngContentSelectorsOffset = ngContentSelectorsOffset;
 
     if (this._namespace !== R3.namespaceHTML) {
@@ -415,7 +415,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     }
   }
 
-  private i18nStart(span: ParseSourceSpan|null = null, meta: i18n.AST, selfClosing?: boolean):
+  private i18nStart(span: ParseSourceSpan|null = null, meta: i18n.I18nMeta, selfClosing?: boolean):
       void {
     const index = this.allocateDataSlot();
     if (this.i18nContext) {
@@ -1965,19 +1965,21 @@ export function parseTemplate(
   // before we run whitespace removal process, because existing i18n
   // extraction process (ng xi18n) relies on a raw content to generate
   // message ids
-  rootNodes = html.visitAll(
-      new I18nMetaVisitor(interpolationConfig, !preserveWhitespaces, i18nLegacyMessageIdFormat),
-      rootNodes);
+  const i18nMetaVisitor = new I18nMetaVisitor(
+      interpolationConfig, /* keepI18nAttrs */ !preserveWhitespaces, i18nLegacyMessageIdFormat);
+  rootNodes = html.visitAll(i18nMetaVisitor, rootNodes);
 
   if (!preserveWhitespaces) {
     rootNodes = html.visitAll(new WhitespaceVisitor(), rootNodes);
 
-    // run i18n meta visitor again in case we remove whitespaces, because
-    // that might affect generated i18n message content. During this pass
-    // i18n IDs generated at the first pass will be preserved, so we can mimic
-    // existing extraction process (ng xi18n)
-    rootNodes = html.visitAll(
-        new I18nMetaVisitor(interpolationConfig, /* keepI18nAttrs */ false), rootNodes);
+    // run i18n meta visitor again in case whitespaces are removed (because that might affect
+    // generated i18n message content) and first pass indicated that i18n content is present in a
+    // template. During this pass i18n IDs generated at the first pass will be preserved, so we can
+    // mimic existing extraction process (ng xi18n)
+    if (i18nMetaVisitor.hasI18nMeta) {
+      rootNodes = html.visitAll(
+          new I18nMetaVisitor(interpolationConfig, /* keepI18nAttrs */ false), rootNodes);
+    }
   }
 
   const {nodes, errors, styleUrls, styles} = htmlAstToRender3Ast(rootNodes, bindingParser);

@@ -109,7 +109,7 @@ class HtmlAstToIvyAst implements html.Visitor {
     const variables: t.Variable[] = [];
     const references: t.Reference[] = [];
     const attributes: t.TextAttribute[] = [];
-    const i18nAttrsMeta: {[key: string]: i18n.AST} = {};
+    const i18nAttrsMeta: {[key: string]: i18n.I18nMeta} = {};
 
     const templateParsedProperties: ParsedProperty[] = [];
     const templateVariables: t.Variable[] = [];
@@ -231,19 +231,23 @@ class HtmlAstToIvyAst implements html.Visitor {
   }
 
   visitExpansion(expansion: html.Expansion): t.Icu|null {
-    const meta = expansion.i18n as i18n.Message;
-    // do not generate Icu in case it was created
-    // outside of i18n block in a template
-    if (!meta) {
+    if (!expansion.i18n) {
+      // do not generate Icu in case it was created
+      // outside of i18n block in a template
       return null;
     }
+    if (!isI18nRootNode(expansion.i18n)) {
+      throw new Error(
+          `Invalid type "${expansion.i18n.constructor}" for "i18n" property of ${expansion.sourceSpan.toString()}. Expected a "Message"`);
+    }
+    const message = expansion.i18n;
     const vars: {[name: string]: t.BoundText} = {};
     const placeholders: {[name: string]: t.Text | t.BoundText} = {};
     // extract VARs from ICUs - we process them separately while
     // assembling resulting message via goog.getMsg function, since
     // we need to pass them to top-level goog.getMsg call
-    Object.keys(meta.placeholders).forEach(key => {
-      const value = meta.placeholders[key];
+    Object.keys(message.placeholders).forEach(key => {
+      const value = message.placeholders[key];
       if (key.startsWith(I18N_ICU_VAR_PREFIX)) {
         const config = this.bindingParser.interpolationConfig;
         // ICU expression is a plain string, not wrapped into start
@@ -254,7 +258,7 @@ class HtmlAstToIvyAst implements html.Visitor {
         placeholders[key] = this._visitTextWithInterpolation(value, expansion.sourceSpan);
       }
     });
-    return new t.Icu(vars, placeholders, expansion.sourceSpan, meta);
+    return new t.Icu(vars, placeholders, expansion.sourceSpan, message);
   }
 
   visitExpansionCase(expansionCase: html.ExpansionCase): null { return null; }
@@ -263,7 +267,8 @@ class HtmlAstToIvyAst implements html.Visitor {
 
   // convert view engine `ParsedProperty` to a format suitable for IVY
   private extractAttributes(
-      elementName: string, properties: ParsedProperty[], i18nPropsMeta: {[key: string]: i18n.AST}):
+      elementName: string, properties: ParsedProperty[],
+      i18nPropsMeta: {[key: string]: i18n.I18nMeta}):
       {bound: t.BoundAttribute[], literal: t.TextAttribute[]} {
     const bound: t.BoundAttribute[] = [];
     const literal: t.TextAttribute[] = [];
@@ -364,8 +369,8 @@ class HtmlAstToIvyAst implements html.Visitor {
     return hasBinding;
   }
 
-  private _visitTextWithInterpolation(value: string, sourceSpan: ParseSourceSpan, i18n?: i18n.AST):
-      t.Text|t.BoundText {
+  private _visitTextWithInterpolation(
+      value: string, sourceSpan: ParseSourceSpan, i18n?: i18n.I18nMeta): t.Text|t.BoundText {
     const valueNoNgsp = replaceNgsp(value);
     const expr = this.bindingParser.parseInterpolation(valueNoNgsp, sourceSpan);
     return expr ? new t.BoundText(expr, sourceSpan, i18n) : new t.Text(valueNoNgsp, sourceSpan);

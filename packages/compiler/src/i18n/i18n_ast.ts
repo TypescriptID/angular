@@ -93,12 +93,20 @@ export class Placeholder implements Node {
 }
 
 export class IcuPlaceholder implements Node {
+  /** Used to capture a message computed from a previous processing pass (see `setI18nRefs()`). */
+  previousMessage?: Message;
   constructor(public value: Icu, public name: string, public sourceSpan: ParseSourceSpan) {}
 
   visit(visitor: Visitor, context?: any): any { return visitor.visitIcuPlaceholder(this, context); }
 }
 
-export type AST = Message | Node;
+/**
+ * Each HTML node that is affect by an i18n tag will also have an `i18n` property that is of type
+ * `I18nMeta`.
+ * This information is either a `Message`, which indicates it is the root of an i18n message, or a
+ * `Node`, which indicates is it part of a containing `Message`.
+ */
+export type I18nMeta = Message | Node;
 
 export interface Visitor {
   visitText(text: Text, context?: any): any;
