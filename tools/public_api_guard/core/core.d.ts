@@ -701,21 +701,6 @@ export declare function ɵɵattributeInterpolate8(attrName: string, prefix: stri
 
 export declare function ɵɵattributeInterpolateV(attrName: string, values: any[], sanitizer?: SanitizerFn, namespace?: string): TsickleIssue1009;
 
-export interface ɵɵBaseDef<T> {
-    contentQueries: ContentQueriesFunction<T> | null;
-    /** @deprecated */ readonly declaredInputs: {
-        [P in keyof T]: string;
-    };
-    hostBindings: HostBindingsFunction<T> | null;
-    readonly inputs: {
-        [P in keyof T]: string;
-    };
-    readonly outputs: {
-        [P in keyof T]: string;
-    };
-    viewQuery: ViewQueriesFunction<T> | null;
-}
-
 export declare function ɵɵclassMap(classes: {
     [className: string]: any;
 } | NO_CHANGE | string | null): void;
@@ -756,19 +741,9 @@ export declare function ɵɵcontainerRefreshStart(index: number): void;
 
 export declare function ɵɵcontentQuery<T>(directiveIndex: number, predicate: Type<any> | string[], descend: boolean, read?: any): void;
 
-export declare const ɵɵdefaultStyleSanitizer: StyleSanitizeFn;
+export declare function ɵɵCopyDefinitionFeature(definition: DirectiveDef<any> | ComponentDef<any>): void;
 
-export declare function ɵɵdefineBase<T>(baseDefinition: {
-    inputs?: {
-        [P in keyof T]?: string | [string, string];
-    };
-    outputs?: {
-        [P in keyof T]?: string;
-    };
-    contentQueries?: ContentQueriesFunction<T> | null;
-    viewQuery?: ViewQueriesFunction<T> | null;
-    hostBindings?: HostBindingsFunction<T>;
-}): ɵɵBaseDef<T>;
+export declare const ɵɵdefaultStyleSanitizer: StyleSanitizeFn;
 
 export declare function ɵɵdefineComponent<T>(componentDefinition: {
     type: Type<T>;
@@ -918,6 +893,8 @@ export interface ɵɵInjectorDef<T> {
 }
 
 export declare function ɵɵinjectPipeChangeDetectorRef(flags?: InjectFlags): ChangeDetectorRef | null;
+
+export declare function ɵɵinvalidFactory(): never;
 
 export declare function ɵɵlistener(eventName: string, listenerFn: (e?: any) => any, useCapture?: boolean, eventTargetResolver?: GlobalTargetResolver): void;
 

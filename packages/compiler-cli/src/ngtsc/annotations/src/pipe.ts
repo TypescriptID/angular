@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Identifiers, R3PipeMetadata, Statement, WrappedNodeExpr, compilePipeFromMetadata} from '@angular/compiler';
+import {Identifiers, R3FactoryTarget, R3PipeMetadata, Statement, WrappedNodeExpr, compilePipeFromMetadata} from '@angular/compiler';
 import * as ts from 'typescript';
 
 import {ErrorCode, FatalDiagnosticError} from '../../diagnostics';
@@ -53,11 +53,13 @@ export class PipeDecoratorHandler implements DecoratorHandler<PipeHandlerData, D
     const type = new WrappedNodeExpr(clazz.name);
     if (decorator.args === null) {
       throw new FatalDiagnosticError(
-          ErrorCode.DECORATOR_NOT_CALLED, decorator.node, `@Pipe must be called`);
+          ErrorCode.DECORATOR_NOT_CALLED, Decorator.nodeForError(decorator),
+          `@Pipe must be called`);
     }
     if (decorator.args.length !== 1) {
       throw new FatalDiagnosticError(
-          ErrorCode.DECORATOR_ARITY_WRONG, decorator.node, '@Pipe must have exactly one argument');
+          ErrorCode.DECORATOR_ARITY_WRONG, Decorator.nodeForError(decorator),
+          '@Pipe must have exactly one argument');
     }
     const meta = unwrapExpression(decorator.args[0]);
     if (!ts.isObjectLiteralExpression(meta)) {
@@ -112,7 +114,7 @@ export class PipeDecoratorHandler implements DecoratorHandler<PipeHandlerData, D
     const factoryRes = compileNgFactoryDefField({
       ...meta,
       injectFn: Identifiers.directiveInject,
-      isPipe: true,
+      target: R3FactoryTarget.Pipe,
     });
     if (analysis.metadataStmt !== null) {
       factoryRes.statements.push(analysis.metadataStmt);

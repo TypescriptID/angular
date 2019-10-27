@@ -11,9 +11,9 @@ import * as ts from 'typescript';
 
 import * as api from '../transformers/api';
 import {nocollapseHack} from '../transformers/nocollapse_hack';
+import {verifySupportedTypeScriptVersion} from '../typescript_support';
 
 import {ComponentDecoratorHandler, DirectiveDecoratorHandler, InjectableDecoratorHandler, NgModuleDecoratorHandler, NoopReferencesRegistry, PipeDecoratorHandler, ReferencesRegistry} from './annotations';
-import {BaseDefDecoratorHandler} from './annotations/src/base_def';
 import {CycleAnalyzer, ImportGraph} from './cycles';
 import {ErrorCode, ngErrorCode} from './diagnostics';
 import {FlatIndexGenerator, ReferenceGraph, checkForPrivateExports, findFlatIndexEntryPoint} from './entry_point';
@@ -74,6 +74,10 @@ export class NgtscProgram implements api.Program {
   constructor(
       rootNames: ReadonlyArray<string>, private options: api.CompilerOptions,
       private host: api.CompilerHost, oldProgram?: NgtscProgram) {
+    if (!options.disableTypeScriptVersionCheck) {
+      verifySupportedTypeScriptVersion();
+    }
+
     if (shouldEnablePerfTracing(options)) {
       this.perfTracker = PerfTracker.zeroedToNow();
       this.perfRecorder = this.perfTracker;
@@ -420,23 +424,29 @@ export class NgtscProgram implements api.Program {
     // requested.
     let typeCheckingConfig: TypeCheckingConfig;
     if (this.options.fullTemplateTypeCheck) {
+      const strictTemplates = !!this.options.strictTemplates;
       typeCheckingConfig = {
         applyTemplateContextGuards: true,
         checkQueries: false,
         checkTemplateBodies: true,
-        checkTypeOfInputBindings: true,
-        strictNullInputBindings: true,
+        checkTypeOfInputBindings: strictTemplates,
+        strictNullInputBindings: strictTemplates,
+        checkTypeOfAttributes: strictTemplates,
         // Even in full template type-checking mode, DOM binding checks are not quite ready yet.
         checkTypeOfDomBindings: false,
-        checkTypeOfOutputEvents: true,
-        checkTypeOfAnimationEvents: true,
+        checkTypeOfOutputEvents: strictTemplates,
+        checkTypeOfAnimationEvents: strictTemplates,
         // Checking of DOM events currently has an adverse effect on developer experience,
         // e.g. for `<input (blur)="update($event.target.value)">` enabling this check results in:
         // - error TS2531: Object is possibly 'null'.
         // - error TS2339: Property 'value' does not exist on type 'EventTarget'.
-        checkTypeOfDomEvents: false,
+        checkTypeOfDomEvents: strictTemplates,
+        checkTypeOfDomReferences: strictTemplates,
+        // Non-DOM references have the correct type in View Engine so there is no strictness flag.
+        checkTypeOfNonDomReferences: true,
+        // Pipes are checked in View Engine so there is no strictness flag.
         checkTypeOfPipes: true,
-        strictSafeNavigationTypes: true,
+        strictSafeNavigationTypes: strictTemplates,
       };
     } else {
       typeCheckingConfig = {
@@ -445,13 +455,41 @@ export class NgtscProgram implements api.Program {
         checkTemplateBodies: false,
         checkTypeOfInputBindings: false,
         strictNullInputBindings: false,
+        checkTypeOfAttributes: false,
         checkTypeOfDomBindings: false,
         checkTypeOfOutputEvents: false,
         checkTypeOfAnimationEvents: false,
         checkTypeOfDomEvents: false,
+        checkTypeOfDomReferences: false,
+        checkTypeOfNonDomReferences: false,
         checkTypeOfPipes: false,
         strictSafeNavigationTypes: false,
       };
+    }
+
+    // Apply explicitly configured strictness flags on top of the default configuration
+    // based on "fullTemplateTypeCheck".
+    if (this.options.strictInputTypes !== undefined) {
+      typeCheckingConfig.checkTypeOfInputBindings = this.options.strictInputTypes;
+    }
+    if (this.options.strictNullInputTypes !== undefined) {
+      typeCheckingConfig.strictNullInputBindings = this.options.strictNullInputTypes;
+    }
+    if (this.options.strictOutputEventTypes !== undefined) {
+      typeCheckingConfig.checkTypeOfOutputEvents = this.options.strictOutputEventTypes;
+      typeCheckingConfig.checkTypeOfAnimationEvents = this.options.strictOutputEventTypes;
+    }
+    if (this.options.strictDomEventTypes !== undefined) {
+      typeCheckingConfig.checkTypeOfDomEvents = this.options.strictDomEventTypes;
+    }
+    if (this.options.strictSafeNavigationTypes !== undefined) {
+      typeCheckingConfig.strictSafeNavigationTypes = this.options.strictSafeNavigationTypes;
+    }
+    if (this.options.strictDomLocalRefTypes !== undefined) {
+      typeCheckingConfig.checkTypeOfDomReferences = this.options.strictDomLocalRefTypes;
+    }
+    if (this.options.strictAttributeTypes !== undefined) {
+      typeCheckingConfig.checkTypeOfAttributes = this.options.strictAttributeTypes;
     }
 
     // Execute the typeCheck phase of each decorator in the program.
@@ -548,7 +586,6 @@ export class NgtscProgram implements api.Program {
 
     // Set up the IvyCompilation, which manages state for the Ivy transformer.
     const handlers = [
-      new BaseDefDecoratorHandler(this.reflector, evaluator, this.isCore),
       new ComponentDecoratorHandler(
           this.reflector, evaluator, metaRegistry, this.metaReader !, scopeReader, scopeRegistry,
           this.isCore, this.resourceManager, this.rootDirs,

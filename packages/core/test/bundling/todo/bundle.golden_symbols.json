@@ -363,6 +363,9 @@
     "name": "addToViewTree"
   },
   {
+    "name": "allocLFrame"
+  },
+  {
     "name": "allocStylingMapArray"
   },
   {
@@ -462,6 +465,9 @@
     "name": "createLContext"
   },
   {
+    "name": "createLFrame"
+  },
+  {
     "name": "createLView"
   },
   {
@@ -528,6 +534,12 @@
     "name": "elementPropertyInternal"
   },
   {
+    "name": "enterDI"
+  },
+  {
+    "name": "enterView"
+  },
+  {
     "name": "executeCheckHooks"
   },
   {
@@ -582,6 +594,9 @@
     "name": "flushStyling"
   },
   {
+    "name": "forceStylesAsString"
+  },
+  {
     "name": "forwardRef"
   },
   {
@@ -595,6 +610,9 @@
   },
   {
     "name": "getActiveDirectiveId"
+  },
+  {
+    "name": "getAndIncrementBindingIndex"
   },
   {
     "name": "getBeforeNodeForView"
@@ -837,6 +855,9 @@
     "name": "hasValueChanged"
   },
   {
+    "name": "hyphenate"
+  },
+  {
     "name": "includeViewProviders"
   },
   {
@@ -978,6 +999,15 @@
     "name": "iterateListLike"
   },
   {
+    "name": "leaveDI"
+  },
+  {
+    "name": "leaveView"
+  },
+  {
+    "name": "leaveViewProcessExit"
+  },
+  {
     "name": "listenerInternal"
   },
   {
@@ -1023,9 +1053,6 @@
     "name": "matchTemplateAttribute"
   },
   {
-    "name": "namespaceHTMLInternal"
-  },
-  {
     "name": "nativeAppendChild"
   },
   {
@@ -1057,6 +1084,9 @@
   },
   {
     "name": "normalizeBitMaskValue"
+  },
+  {
+    "name": "objectToClassName"
   },
   {
     "name": "patchConfig"
@@ -1140,9 +1170,6 @@
     "name": "renderView"
   },
   {
-    "name": "resetComponentState"
-  },
-  {
     "name": "resetCurrentStyleSanitizer"
   },
   {
@@ -1176,9 +1203,6 @@
     "name": "selectIndexInternal"
   },
   {
-    "name": "selectView"
-  },
-  {
     "name": "setActiveElementFlag"
   },
   {
@@ -1192,6 +1216,9 @@
   },
   {
     "name": "setClass"
+  },
+  {
+    "name": "setClassName"
   },
   {
     "name": "setCurrentDirectiveDef"
@@ -1248,7 +1275,7 @@
     "name": "setStyle"
   },
   {
-    "name": "setTNodeAndViewData"
+    "name": "setStyleAttr"
   },
   {
     "name": "setUpAttributes"
@@ -1327,6 +1354,9 @@
   },
   {
     "name": "wrapListener"
+  },
+  {
+    "name": "writeStylingValueDirectly"
   },
   {
     "name": "ɵɵadvance"

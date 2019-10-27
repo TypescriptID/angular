@@ -6,6 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {forwardRefResolver} from '@angular/compiler-cli/src/ngtsc/annotations/src/util';
 import {Reference} from '@angular/compiler-cli/src/ngtsc/imports';
 import {DynamicValue, PartialEvaluator, ResolvedValue} from '@angular/compiler-cli/src/ngtsc/partial_evaluator';
 import {TypeScriptReflectionHost} from '@angular/compiler-cli/src/ngtsc/reflection';
@@ -67,7 +68,7 @@ export class MissingInjectableTransform {
       return [];
     }
 
-    const evaluatedExpr = this.partialEvaluator.evaluate(module.providersExpr);
+    const evaluatedExpr = this._evaluateExpression(module.providersExpr);
 
     if (!Array.isArray(evaluatedExpr)) {
       return [{
@@ -89,7 +90,7 @@ export class MissingInjectableTransform {
 
     // Migrate "providers" on directives and components if defined.
     if (directive.providersExpr) {
-      const evaluatedExpr = this.partialEvaluator.evaluate(directive.providersExpr);
+      const evaluatedExpr = this._evaluateExpression(directive.providersExpr);
       if (!Array.isArray(evaluatedExpr)) {
         return [
           {node: directive.providersExpr, message: `Providers are not statically analyzable.`}
@@ -100,7 +101,7 @@ export class MissingInjectableTransform {
 
     // Migrate "viewProviders" on components if defined.
     if (directive.viewProvidersExpr) {
-      const evaluatedExpr = this.partialEvaluator.evaluate(directive.viewProvidersExpr);
+      const evaluatedExpr = this._evaluateExpression(directive.viewProvidersExpr);
       if (!Array.isArray(evaluatedExpr)) {
         return [
           {node: directive.viewProvidersExpr, message: `Providers are not statically analyzable.`}
@@ -122,6 +123,14 @@ export class MissingInjectableTransform {
     this.visitedProviderClasses.add(node);
 
     const sourceFile = node.getSourceFile();
+
+    // We cannot migrate provider classes outside of source files. This is because the
+    // migration for third-party library files should happen in "ngcc", and in general
+    // would also involve metadata parsing.
+    if (sourceFile.isDeclarationFile) {
+      return;
+    }
+
     const ngDecorators =
         node.decorators ? getAngularDecorators(this.typeChecker, node.decorators) : null;
 
@@ -151,6 +160,14 @@ export class MissingInjectableTransform {
   }
 
   /**
+   * Evaluates the given TypeScript expression using the partial evaluator with
+   * the foreign function resolver for handling "forwardRef" calls.
+   */
+  private _evaluateExpression(expr: ts.Expression): ResolvedValue {
+    return this.partialEvaluator.evaluate(expr, forwardRefResolver);
+  }
+
+  /**
    * Visits the given resolved value of a provider. Providers can be nested in
    * arrays and we need to recursively walk through the providers to be able to
    * migrate all referenced provider classes. e.g. "providers: [[A, [B]]]".
@@ -160,12 +177,11 @@ export class MissingInjectableTransform {
     if (value instanceof Reference && ts.isClassDeclaration(value.node)) {
       this.migrateProviderClass(value.node, module);
     } else if (value instanceof Map) {
-      if (!value.has('provide') || value.has('useValue') || value.has('useFactory')) {
+      if (!value.has('provide') || value.has('useValue') || value.has('useFactory') ||
+          value.has('useExisting')) {
         return [];
       }
-      if (value.has('useExisting')) {
-        return this._visitProviderResolvedValue(value.get('useExisting') !, module);
-      } else if (value.has('useClass')) {
+      if (value.has('useClass')) {
         return this._visitProviderResolvedValue(value.get('useClass') !, module);
       } else {
         return this._visitProviderResolvedValue(value.get('provide') !, module);

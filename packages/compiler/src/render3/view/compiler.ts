@@ -12,17 +12,17 @@ import {CompileReflector} from '../../compile_reflector';
 import {BindingForm, convertPropertyBinding} from '../../compiler_util/expression_converter';
 import {ConstantPool, DefinitionKind} from '../../constant_pool';
 import * as core from '../../core';
-import {AST, Interpolation, ParsedEvent, ParsedEventType, ParsedProperty} from '../../expression_parser/ast';
+import {AST, ParsedEvent, ParsedEventType, ParsedProperty} from '../../expression_parser/ast';
 import {DEFAULT_INTERPOLATION_CONFIG} from '../../ml_parser/interpolation_config';
 import * as o from '../../output/output_ast';
-import {ParseError, ParseSourceSpan, typeSourceSpan} from '../../parse_util';
+import {ParseError, ParseSourceSpan} from '../../parse_util';
 import {CssSelector, SelectorMatcher} from '../../selector';
 import {ShadowCss} from '../../shadow_css';
 import {CONTENT_ATTR, HOST_ATTR} from '../../style_compiler';
 import {BindingParser} from '../../template_parser/binding_parser';
 import {OutputContext, error} from '../../util';
 import {BoundEvent} from '../r3_ast';
-import {compileFactoryFromMetadata, compileFactoryFunction, dependenciesFromGlobalMetadata} from '../r3_factory';
+import {R3FactoryTarget, compileFactoryFunction} from '../r3_factory';
 import {Identifiers as R3} from '../r3_identifiers';
 import {Render3ParseResult} from '../r3_template_transform';
 import {prepareSyntheticListenerFunctionName, prepareSyntheticPropertyName, typeWithParameters} from '../util';
@@ -104,6 +104,9 @@ function addFeatures(
   if (meta.usesInheritance) {
     features.push(o.importExpr(R3.InheritDefinitionFeature));
   }
+  if (meta.fullInheritance) {
+    features.push(o.importExpr(R3.CopyDefinitionFeature));
+  }
   if (meta.lifecycle.usesOnChanges) {
     features.push(o.importExpr(R3.NgOnChangesFeature).callFn(EMPTY_ARRAY));
   }
@@ -123,61 +126,6 @@ export function compileDirectiveFromMetadata(
   const expression = o.importExpr(R3.defineDirective).callFn([definitionMap.toLiteralMap()]);
 
   const type = createTypeForDef(meta, R3.DirectiveDefWithMeta);
-  return {expression, type};
-}
-
-export interface R3BaseRefMetaData {
-  name: string;
-  type: o.Expression;
-  typeSourceSpan: ParseSourceSpan;
-  inputs?: {[key: string]: string | [string, string]};
-  outputs?: {[key: string]: string};
-  viewQueries?: R3QueryMetadata[];
-  queries?: R3QueryMetadata[];
-  host?: R3HostMetadata;
-}
-
-/**
- * Compile a base definition for the render3 runtime as defined by {@link R3BaseRefMetadata}
- * @param meta the metadata used for compilation.
- */
-export function compileBaseDefFromMetadata(
-    meta: R3BaseRefMetaData, constantPool: ConstantPool, bindingParser: BindingParser) {
-  const definitionMap = new DefinitionMap();
-  if (meta.inputs) {
-    const inputs = meta.inputs;
-    const inputsMap = Object.keys(inputs).map(key => {
-      const v = inputs[key];
-      const value = Array.isArray(v) ? o.literalArr(v.map(vx => o.literal(vx))) : o.literal(v);
-      return {key, value, quoted: false};
-    });
-    definitionMap.set('inputs', o.literalMap(inputsMap));
-  }
-  if (meta.outputs) {
-    const outputs = meta.outputs;
-    const outputsMap = Object.keys(outputs).map(key => {
-      const value = o.literal(outputs[key]);
-      return {key, value, quoted: false};
-    });
-    definitionMap.set('outputs', o.literalMap(outputsMap));
-  }
-  if (meta.viewQueries && meta.viewQueries.length > 0) {
-    definitionMap.set('viewQuery', createViewQueriesFunction(meta.viewQueries, constantPool));
-  }
-  if (meta.queries && meta.queries.length > 0) {
-    definitionMap.set('contentQueries', createContentQueriesFunction(meta.queries, constantPool));
-  }
-  if (meta.host) {
-    definitionMap.set(
-        'hostBindings',
-        createHostBindingsFunction(
-            meta.host, meta.typeSourceSpan, bindingParser, constantPool, meta.name));
-  }
-
-  const expression = o.importExpr(R3.defineBase).callFn([definitionMap.toLiteralMap()]);
-  const type = new o.ExpressionType(
-      o.importExpr(R3.BaseDef), /* modifiers */ null, [o.expressionType(meta.type)]);
-
   return {expression, type};
 }
 
@@ -304,10 +252,6 @@ export function compileComponentFromMetadata(
     definitionMap.set('changeDetection', o.literal(changeDetection));
   }
 
-  // On the type side, remove newlines from the selector as it will need to fit into a TypeScript
-  // string literal, which must be on one line.
-  const selectorForType = (meta.selector || '').replace(/\n/g, '');
-
   const expression = o.importExpr(R3.defineComponent).callFn([definitionMap.toLiteralMap()]);
   const type = createTypeForDef(meta, R3.ComponentDefWithMeta);
 
@@ -331,7 +275,8 @@ export function compileDirectiveFromRender2(
 
   const meta = directiveMetadataFromGlobalMetadata(directive, outputCtx, reflector);
   const res = compileDirectiveFromMetadata(meta, outputCtx.constantPool, bindingParser);
-  const factoryRes = compileFactoryFromMetadata({...meta, injectFn: R3.directiveInject});
+  const factoryRes = compileFactoryFunction(
+      {...meta, injectFn: R3.directiveInject, target: R3FactoryTarget.Directive});
   const ngFactoryDefStatement = new o.ClassStmt(
       name, null,
       [new o.ClassField('ɵfac', o.INFERRED_TYPE, [o.StmtModifier.Static], factoryRes.factory)], [],
@@ -383,7 +328,8 @@ export function compileComponentFromRender2(
     i18nUseExternalIds: true,
   };
   const res = compileComponentFromMetadata(meta, outputCtx.constantPool, bindingParser);
-  const factoryRes = compileFactoryFromMetadata({...meta, injectFn: R3.directiveInject});
+  const factoryRes = compileFactoryFunction(
+      {...meta, injectFn: R3.directiveInject, target: R3FactoryTarget.Directive});
   const ngFactoryDefStatement = new o.ClassStmt(
       name, null,
       [new o.ClassField('ɵfac', o.INFERRED_TYPE, [o.StmtModifier.Static], factoryRes.factory)], [],
@@ -538,11 +484,11 @@ function stringArrayAsType(arr: string[]): o.Type {
 function createTypeForDef(meta: R3DirectiveMetadata, typeBase: o.ExternalReference): o.Type {
   // On the type side, remove newlines from the selector as it will need to fit into a TypeScript
   // string literal, which must be on one line.
-  const selectorForType = (meta.selector || '').replace(/\n/g, '');
+  const selectorForType = meta.selector !== null ? meta.selector.replace(/\n/g, '') : null;
 
   return o.expressionType(o.importExpr(typeBase, [
     typeWithParameters(meta.type, meta.typeArgumentCount),
-    stringAsType(selectorForType),
+    selectorForType !== null ? stringAsType(selectorForType) : o.NONE_TYPE,
     meta.exportAs !== null ? stringArrayAsType(meta.exportAs) : o.NONE_TYPE,
     stringMapAsType(meta.inputs),
     stringMapAsType(meta.outputs),

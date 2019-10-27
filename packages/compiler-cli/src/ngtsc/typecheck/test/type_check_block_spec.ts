@@ -73,6 +73,12 @@ describe('type check blocks', () => {
     expect(tcb(TEMPLATE)).toContain('var _t2 = _t1.$implicit;');
   });
 
+  it('should handle method calls of template variables', () => {
+    const TEMPLATE = `<ng-template let-a>{{a(1)}}</ng-template>`;
+    expect(tcb(TEMPLATE)).toContain('var _t2 = _t1.$implicit;');
+    expect(tcb(TEMPLATE)).toContain('(_t2).a(1);');
+  });
+
   it('should handle implicit vars when using microsyntax', () => {
     const TEMPLATE = `<div *ngFor="let user of users"></div>`;
     expect(tcb(TEMPLATE)).toContain('var _t2 = _t1.$implicit;');
@@ -287,10 +293,13 @@ describe('type check blocks', () => {
       checkTemplateBodies: true,
       checkTypeOfInputBindings: true,
       strictNullInputBindings: true,
+      checkTypeOfAttributes: true,
       checkTypeOfDomBindings: false,
       checkTypeOfOutputEvents: true,
       checkTypeOfAnimationEvents: true,
       checkTypeOfDomEvents: true,
+      checkTypeOfDomReferences: true,
+      checkTypeOfNonDomReferences: true,
       checkTypeOfPipes: true,
       strictSafeNavigationTypes: true,
     };
@@ -416,6 +425,77 @@ describe('type check blocks', () => {
       });
     });
 
+    describe('config.checkTypeOfDomReferences', () => {
+      const TEMPLATE = `<input #ref>{{ref.value}}`;
+
+      it('should trace references when enabled', () => {
+        const block = tcb(TEMPLATE);
+        expect(block).toContain('(_t1).value');
+      });
+
+      it('should use any for reference types when disabled', () => {
+        const DISABLED_CONFIG:
+            TypeCheckingConfig = {...BASE_CONFIG, checkTypeOfDomReferences: false};
+        const block = tcb(TEMPLATE, [], DISABLED_CONFIG);
+        expect(block).toContain('(null as any).value');
+      });
+    });
+
+    describe('config.checkTypeOfNonDomReferences', () => {
+      const DIRECTIVES: TestDeclaration[] = [{
+        type: 'directive',
+        name: 'Dir',
+        selector: '[dir]',
+        exportAs: ['dir'],
+        inputs: {'dirInput': 'dirInput'},
+        outputs: {'outputField': 'dirOutput'},
+        hasNgTemplateContextGuard: true,
+      }];
+      const TEMPLATE =
+          `<div dir #ref="dir">{{ref.value}}</div><ng-template #ref2></ng-template>{{ref2.value2}}`;
+
+      it('should trace references to a directive when enabled', () => {
+        const block = tcb(TEMPLATE, DIRECTIVES);
+        expect(block).toContain('(_t2).value');
+      });
+
+      it('should trace references to an <ng-template> when enabled', () => {
+        const block = tcb(TEMPLATE, DIRECTIVES);
+        expect(block).toContain('((null as any as core.TemplateRef<any>)).value2');
+      });
+
+      it('should use any for reference types when disabled', () => {
+        const DISABLED_CONFIG:
+            TypeCheckingConfig = {...BASE_CONFIG, checkTypeOfNonDomReferences: false};
+        const block = tcb(TEMPLATE, DIRECTIVES, DISABLED_CONFIG);
+        expect(block).toContain('(null as any).value');
+      });
+    });
+
+    describe('config.checkTypeOfAttributes', () => {
+      const TEMPLATE = `<textarea dir disabled cols="3" [rows]="2">{{ref.value}}</textarea>`;
+      const DIRECTIVES: TestDeclaration[] = [{
+        type: 'directive',
+        name: 'Dir',
+        selector: '[dir]',
+        inputs: {'disabled': 'disabled', 'cols': 'cols', 'rows': 'rows'},
+      }];
+
+      it('should assign string value to the input when enabled', () => {
+        const block = tcb(TEMPLATE, DIRECTIVES);
+        expect(block).toContain('disabled: ("")');
+        expect(block).toContain('cols: ("3")');
+        expect(block).toContain('rows: (2)');
+      });
+
+      it('should use any for attributes but still check bound attributes when disabled', () => {
+        const DISABLED_CONFIG: TypeCheckingConfig = {...BASE_CONFIG, checkTypeOfAttributes: false};
+        const block = tcb(TEMPLATE, DIRECTIVES, DISABLED_CONFIG);
+        expect(block).toContain('disabled: (null as any)');
+        expect(block).toContain('cols: (null as any)');
+        expect(block).toContain('rows: (2)');
+      });
+    });
 
     describe('config.checkTypeOfPipes', () => {
       const TEMPLATE = `{{a | test:b:c}}`;

@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Expression, Identifiers, LiteralExpr, R3DependencyMetadata, R3InjectableMetadata, R3ResolvedDependencyType, Statement, WrappedNodeExpr, compileInjectable as compileIvyInjectable} from '@angular/compiler';
+import {Expression, Identifiers, LiteralExpr, R3DependencyMetadata, R3FactoryTarget, R3InjectableMetadata, R3ResolvedDependencyType, Statement, WrappedNodeExpr, compileInjectable as compileIvyInjectable} from '@angular/compiler';
 import * as ts from 'typescript';
 
 import {ErrorCode, FatalDiagnosticError} from '../../diagnostics';
@@ -16,7 +16,7 @@ import {AnalysisOutput, CompileResult, DecoratorHandler, DetectResult, HandlerPr
 
 import {compileNgFactoryDefField} from './factory';
 import {generateSetClassMetadataCall} from './metadata';
-import {findAngularDecorator, getConstructorDependencies, getValidConstructorDependencies, isAngularCore, unwrapForwardRef, validateConstructorDependencies} from './util';
+import {findAngularDecorator, getConstructorDependencies, getValidConstructorDependencies, isAngularCore, unwrapConstructorDependencies, unwrapForwardRef, validateConstructorDependencies} from './util';
 
 export interface InjectableHandlerData {
   meta: R3InjectableMetadata;
@@ -83,7 +83,8 @@ export class InjectableDecoratorHandler implements
         type: meta.type,
         typeArgumentCount: meta.typeArgumentCount,
         deps: analysis.ctorDeps,
-        injectFn: Identifiers.inject
+        injectFn: Identifiers.inject,
+        target: R3FactoryTarget.Injectable,
       });
       if (analysis.metadataStmt !== null) {
         factoryRes.statements.push(analysis.metadataStmt);
@@ -116,7 +117,8 @@ function extractInjectableMetadata(
   const typeArgumentCount = reflector.getGenericArityOfClass(clazz) || 0;
   if (decorator.args === null) {
     throw new FatalDiagnosticError(
-        ErrorCode.DECORATOR_NOT_CALLED, decorator.node, '@Injectable must be called');
+        ErrorCode.DECORATOR_NOT_CALLED, Decorator.nodeForError(decorator),
+        '@Injectable must be called');
   }
   if (decorator.args.length === 0) {
     return {
@@ -202,7 +204,8 @@ function extractInjectableCtorDeps(
     strictCtorDeps: boolean) {
   if (decorator.args === null) {
     throw new FatalDiagnosticError(
-        ErrorCode.DECORATOR_NOT_CALLED, decorator.node, '@Injectable must be called');
+        ErrorCode.DECORATOR_NOT_CALLED, Decorator.nodeForError(decorator),
+        '@Injectable must be called');
   }
 
   let ctorDeps: R3DependencyMetadata[]|'invalid'|null = null;
@@ -214,45 +217,25 @@ function extractInjectableCtorDeps(
     // Angular's DI.
     //
     // To deal with this, @Injectable() without an argument is more lenient, and if the
-    // constructor signature does not work for DI then a provider def (ɵprov) that throws.
+    // constructor signature does not work for DI then a factory definition (ɵfac) that throws is
+    // generated.
     if (strictCtorDeps) {
       ctorDeps = getValidConstructorDependencies(clazz, reflector, defaultImportRecorder, isCore);
     } else {
-      const possibleCtorDeps =
-          getConstructorDependencies(clazz, reflector, defaultImportRecorder, isCore);
-      if (possibleCtorDeps !== null) {
-        if (possibleCtorDeps.deps !== null) {
-          // This use of @Injectable has valid constructor dependencies.
-          ctorDeps = possibleCtorDeps.deps;
-        } else {
-          // This use of @Injectable is technically invalid. Generate a factory function which
-          // throws
-          // an error.
-          // TODO(alxhub): log warnings for the bad use of @Injectable.
-          ctorDeps = 'invalid';
-        }
-      }
+      ctorDeps = unwrapConstructorDependencies(
+          getConstructorDependencies(clazz, reflector, defaultImportRecorder, isCore));
     }
 
     return ctorDeps;
   } else if (decorator.args.length === 1) {
     const rawCtorDeps = getConstructorDependencies(clazz, reflector, defaultImportRecorder, isCore);
 
-    // rawCtorDeps will be null if the class has no constructor.
-    if (rawCtorDeps !== null) {
-      if (rawCtorDeps.deps !== null) {
-        // A constructor existed and had valid dependencies.
-        ctorDeps = rawCtorDeps.deps;
-      } else {
-        // A constructor existed but had invalid dependencies.
-        ctorDeps = 'invalid';
-      }
-    }
-
-    if (strictCtorDeps && !meta.useValue && !meta.useExisting && !meta.useClass &&
-        !meta.useFactory) {
+    if (strictCtorDeps && meta.useValue === undefined && meta.useExisting === undefined &&
+        meta.useClass === undefined && meta.useFactory === undefined) {
       // Since use* was not provided, validate the deps according to strictCtorDeps.
-      validateConstructorDependencies(clazz, rawCtorDeps);
+      ctorDeps = validateConstructorDependencies(clazz, rawCtorDeps);
+    } else {
+      ctorDeps = unwrapConstructorDependencies(rawCtorDeps);
     }
   }
 

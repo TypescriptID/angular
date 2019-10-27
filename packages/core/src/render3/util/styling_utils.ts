@@ -247,7 +247,7 @@ export function isStylingContext(value: any): boolean {
       typeof value[1] !== 'string';
 }
 
-export function isStylingMapArray(value: TStylingContext | StylingMapArray | null): boolean {
+export function isStylingMapArray(value: any): boolean {
   // the StylingMapArray is in the format of [initial, prop, string, prop, string]
   // and this is the defining value to distinguish between arrays
   return Array.isArray(value) &&
@@ -295,13 +295,19 @@ export function forceClassesAsString(classes: string | {[key: string]: any} | nu
   return (classes as string) || '';
 }
 
-export function forceStylesAsString(styles: {[key: string]: any} | null | undefined): string {
+export function forceStylesAsString(
+    styles: {[key: string]: any} | string | null | undefined, hyphenateProps: boolean): string {
+  if (typeof styles == 'string') return styles;
   let str = '';
   if (styles) {
     const props = Object.keys(styles);
     for (let i = 0; i < props.length; i++) {
       const prop = props[i];
-      str = concatString(str, `${prop}:${styles[prop]}`, ';');
+      const propLabel = hyphenateProps ? hyphenate(prop) : prop;
+      const value = styles[prop];
+      if (value !== null) {
+        str = concatString(str, `${propLabel}:${value}`, ';');
+      }
     }
   }
   return str;
@@ -414,10 +420,8 @@ export function normalizeIntoStylingMap(
   let map: {[key: string]: any}|undefined|null;
   let allValuesTrue = false;
   if (typeof newValues === 'string') {  // [class] bindings allow string values
-    if (newValues.length) {
-      props = newValues.split(/\s+/);
-      allValuesTrue = true;
-    }
+    props = splitOnWhitespace(newValues);
+    allValuesTrue = props !== null;
   } else {
     props = newValues ? Object.keys(newValues) : null;
     map = newValues;
@@ -433,6 +437,32 @@ export function normalizeIntoStylingMap(
   }
 
   return stylingMapArr;
+}
+
+export function splitOnWhitespace(text: string): string[]|null {
+  let array: string[]|null = null;
+  let length = text.length;
+  let start = 0;
+  let foundChar = false;
+  for (let i = 0; i < length; i++) {
+    const char = text.charCodeAt(i);
+    if (char <= 32 /*' '*/) {
+      if (foundChar) {
+        if (array === null) array = [];
+        array.push(text.substring(start, i));
+        foundChar = false;
+      }
+      start = i + 1;
+    } else {
+      foundChar = true;
+    }
+  }
+  if (foundChar) {
+    if (array === null) array = [];
+    array.push(text.substring(start, length));
+    foundChar = false;
+  }
+  return array;
 }
 
 // TODO (matsko|AndrewKushnir): refactor this once we figure out how to generate separate

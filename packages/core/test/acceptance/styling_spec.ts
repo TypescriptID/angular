@@ -2105,7 +2105,7 @@ describe('styling', () => {
        expect(readyChild).toBeTruthy();
      });
 
-  onlyInIvy('only ivy allows for multiple styles/classes to be balanaced across directives')
+  onlyInIvy('only ivy allows for multiple styles/classes to be balanced across directives')
       .it('should allow various duplicate properties to be defined in various styling maps within the template and directive styling bindings',
           () => {
             @Component({
@@ -2309,6 +2309,34 @@ describe('styling', () => {
     expect(fixture.debugElement.nativeElement.innerHTML).toContain('two');
     expect(fixture.debugElement.nativeElement.innerHTML).toContain('three');
   });
+
+  onlyInIvy('only ivy treats [class] in concert with other class bindings')
+      .it('should retain classes added externally', () => {
+        @Component({template: `<div [class]="exp"></div>`})
+        class MyComp {
+          exp = '';
+        }
+
+        const fixture =
+            TestBed.configureTestingModule({declarations: [MyComp]}).createComponent(MyComp);
+        fixture.detectChanges();
+
+        const div = fixture.nativeElement.querySelector('div') !;
+        div.className += ' abc';
+        expect(splitSortJoin(div.className)).toEqual('abc');
+
+        fixture.componentInstance.exp = '1 2 3';
+        fixture.detectChanges();
+
+        expect(splitSortJoin(div.className)).toEqual('1 2 3 abc');
+
+        fixture.componentInstance.exp = '4 5 6 7';
+        fixture.detectChanges();
+
+        expect(splitSortJoin(div.className)).toEqual('4 5 6 7 abc');
+
+        function splitSortJoin(s: string) { return s.split(/\s+/).sort().join(' ').trim(); }
+      });
 });
 
 function assertStyleCounters(countForSet: number, countForRemove: number) {

@@ -38,21 +38,26 @@ var_6: &material_unit_tests_cache_key_fallback v4-angular-material-
 # https://circleci.com/blog/deep-diving-into-circleci-workspaces/
 var_7: &workspace_location ~/
 
-# Branch filter that can be specified for jobs that should only run on publish branches
-# (e.g. master or the patch branch)
-var_8: &publish_branches_filter
-  branches:
-    only:
-      - master
-      # e.g. 7.0.x, 7.1.x, etc.
-      - /\d+\.\d+\.x/
+# Filter to run a job on builds for pull requests only.
+var_8: &only_on_pull_requests
+  filters:
+    branches:
+      only:
+        - /pull\/\d+/
 
-# Filter to ignore pull requests on a given job.
-var_9: &ignore_pull_requests
+# Filter to skip a job on builds for pull requests.
+var_9: &skip_on_pull_requests
   filters:
     branches:
       ignore:
-        - /pull\/.*/
+        - /pull\/\d+/
+
+# Filter to run a job on builds for the master branch only.
+var_10: &only_on_master
+  filters:
+    branches:
+      only:
+        - master
 
 # Executor Definitions
 # https://circleci.com/docs/2.0/reusing-config/#authoring-reusable-executors
@@ -554,6 +559,26 @@ jobs:
       # amount of container nodes for this job is controlled by the "parallelism" option.
       - run: ./integration/run_tests.sh ${CIRCLE_NODE_INDEX} ${CIRCLE_NODE_TOTAL}
 
+  # This job creates compressed tarballs (`.tgz` files) for all Angular packages and stores them as
+  # build artifacts. This makes it easy to try out changes from a PR build for testing purposes.
+  # More info CircleCI build artifacts: https://circleci.com/docs/2.0/artifacts
+  #
+  # NOTE: Currently, this job only runs for PR builds. See `publish_snapshot` for non-PR builds.
+  publish_packages_as_artifacts:
+    executor: default-executor
+    environment:
+      NG_PACKAGES_DIR: &ng_packages_dir 'dist/packages-dist'
+      NG_PACKAGES_ARCHIVES_DIR: &ng_packages_archives_dir 'dist/packages-dist-archives'
+    steps:
+      - custom_attach_workspace
+      - init_environment
+      - run:
+          name: Create artifacts
+          command: ./scripts/ci/create-package-archives.sh $CI_PULL_REQUEST $CI_COMMIT $NG_PACKAGES_DIR $NG_PACKAGES_ARCHIVES_DIR
+      - store_artifacts:
+          path: *ng_packages_archives_dir
+          destination: angular
+
   # This job updates the content of repos like github.com/angular/core-builds
   # for every green build on angular/angular.
   publish_snapshot:
@@ -775,15 +800,13 @@ workflows:
           requires:
             - setup
       - test_saucelabs_bazel:
-          requires:
-            - setup
           # This job is currently a PoC and a subset of `legacy-unit-tests-saucelabs`. Running on
           # master only to avoid wasting resources.
           #
           # TODO: Run this job on all branches (including PRs) as soon as it is not a PoC.
-          filters:
-            branches:
-              only: master
+          <<: *only_on_master
+          requires:
+            - setup
       - test_aio:
           requires:
             - setup
@@ -810,16 +833,19 @@ workflows:
           requires:
             - build-ivy-npm-packages
       - aio_preview:
+          # Only run on PR builds. (There can be no previews for non-PR builds.)
+          <<: *only_on_pull_requests
           requires:
             - setup
-          # Only run on PR builds. (There can be no previews for non-PR builds.)
-          filters:
-            branches:
-              only: /pull\/\d+/
       - test_aio_preview:
           requires:
             - aio_preview
       - integration_test:
+          requires:
+            - build-npm-packages
+      - publish_packages_as_artifacts:
+          # Only run on PR builds. (For non-PR builds, the `publish_snapshot` job.)
+          <<: *only_on_pull_requests
           requires:
             - build-npm-packages
       - publish_snapshot:
@@ -857,11 +883,11 @@ workflows:
       # This isn't strictly necessary as there is no artifact dependency, but helps economize
       # CI resources by not attempting to build when we know should fail.
       - test_win:
-          <<: *ignore_pull_requests
+          <<: *skip_on_pull_requests
           requires:
             - test
       - test_ivy_aot_win:
-          <<: *ignore_pull_requests
+          <<: *skip_on_pull_requests
           requires:
             - test_ivy_aot
 
@@ -876,9 +902,6 @@ workflows:
             - setup
     triggers:
       - schedule:
+          <<: *only_on_master
           # Runs AIO monitoring jobs at 10:00AM every day.
           cron: "0 10 * * *"
-          filters:
-            branches:
-              only:
-                - master

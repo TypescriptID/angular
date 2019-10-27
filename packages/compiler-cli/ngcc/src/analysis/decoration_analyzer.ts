@@ -7,7 +7,7 @@
  */
 import {ConstantPool} from '@angular/compiler';
 import * as ts from 'typescript';
-import {BaseDefDecoratorHandler, ComponentDecoratorHandler, DirectiveDecoratorHandler, InjectableDecoratorHandler, NgModuleDecoratorHandler, PipeDecoratorHandler, ReferencesRegistry, ResourceLoader} from '../../../src/ngtsc/annotations';
+import {ComponentDecoratorHandler, DirectiveDecoratorHandler, InjectableDecoratorHandler, NgModuleDecoratorHandler, PipeDecoratorHandler, ReferencesRegistry, ResourceLoader} from '../../../src/ngtsc/annotations';
 import {CycleAnalyzer, ImportGraph} from '../../../src/ngtsc/cycles';
 import {isFatalDiagnosticError} from '../../../src/ngtsc/diagnostics';
 import {FileSystem, LogicalFileSystem, absoluteFrom, dirname, resolve} from '../../../src/ngtsc/file_system';
@@ -18,12 +18,17 @@ import {ClassDeclaration} from '../../../src/ngtsc/reflection';
 import {LocalModuleScopeRegistry, MetadataDtsModuleScopeResolver} from '../../../src/ngtsc/scope';
 import {CompileResult, DecoratorHandler, DetectResult, HandlerPrecedence} from '../../../src/ngtsc/transform';
 import {NgccClassSymbol, NgccReflectionHost} from '../host/ngcc_host';
-import {Migration, MigrationHost} from '../migrations/migration';
+import {Migration} from '../migrations/migration';
+import {MissingInjectableMigration} from '../migrations/missing_injectable_migration';
+import {UndecoratedChildMigration} from '../migrations/undecorated_child_migration';
+import {UndecoratedParentMigration} from '../migrations/undecorated_parent_migration';
 import {EntryPointBundle} from '../packages/entry_point_bundle';
 import {isDefined} from '../utils';
+
 import {DefaultMigrationHost} from './migration_host';
 import {AnalyzedClass, AnalyzedFile, CompiledClass, CompiledFile, DecorationAnalyses} from './types';
 import {analyzeDecorators, isWithinPackage} from './util';
+
 
 /**
  * Simple class that resolves and loads files directly from the filesystem.
@@ -79,7 +84,6 @@ export class DecorationAnalyzer {
   importGraph = new ImportGraph(this.moduleResolver);
   cycleAnalyzer = new CycleAnalyzer(this.importGraph);
   handlers: DecoratorHandler<any, any>[] = [
-    new BaseDefDecoratorHandler(this.reflectionHost, this.evaluator, this.isCore),
     new ComponentDecoratorHandler(
         this.reflectionHost, this.evaluator, this.fullRegistry, this.fullMetaReader,
         this.scopeRegistry, this.scopeRegistry, this.isCore, this.resourceManager, this.rootDirs,
@@ -100,7 +104,11 @@ export class DecorationAnalyzer {
         this.reflectionHost, this.evaluator, this.metaRegistry, NOOP_DEFAULT_IMPORT_RECORDER,
         this.isCore),
   ];
-  migrations: Migration[] = [];
+  migrations: Migration[] = [
+    new UndecoratedParentMigration(),
+    new UndecoratedChildMigration(),
+    new MissingInjectableMigration(),
+  ];
 
   constructor(
       private fs: FileSystem, private bundle: EntryPointBundle,
@@ -118,9 +126,9 @@ export class DecorationAnalyzer {
                               .filter(sourceFile => isWithinPackage(this.packagePath, sourceFile))
                               .map(sourceFile => this.analyzeFile(sourceFile))
                               .filter(isDefined);
-    const migrationHost = new DefaultMigrationHost(
-        this.reflectionHost, this.fullMetaReader, this.evaluator, this.handlers, analyzedFiles);
-    analyzedFiles.forEach(analyzedFile => this.migrateFile(migrationHost, analyzedFile));
+
+    this.applyMigrations(analyzedFiles);
+
     analyzedFiles.forEach(analyzedFile => this.resolveFile(analyzedFile));
     const compiledFiles = analyzedFiles.map(analyzedFile => this.compileFile(analyzedFile));
     compiledFiles.forEach(
@@ -146,21 +154,27 @@ export class DecorationAnalyzer {
     return analyzedClass;
   }
 
-  protected migrateFile(migrationHost: MigrationHost, analyzedFile: AnalyzedFile): void {
-    analyzedFile.analyzedClasses.forEach(({declaration}) => {
-      this.migrations.forEach(migration => {
-        try {
-          const result = migration.apply(declaration, migrationHost);
-          if (result !== null) {
-            this.diagnosticHandler(result);
+  protected applyMigrations(analyzedFiles: AnalyzedFile[]): void {
+    const migrationHost = new DefaultMigrationHost(
+        this.reflectionHost, this.fullMetaReader, this.evaluator, this.handlers,
+        this.bundle.entryPoint.path, analyzedFiles);
+
+    this.migrations.forEach(migration => {
+      analyzedFiles.forEach(analyzedFile => {
+        analyzedFile.analyzedClasses.forEach(({declaration}) => {
+          try {
+            const result = migration.apply(declaration, migrationHost);
+            if (result !== null) {
+              this.diagnosticHandler(result);
+            }
+          } catch (e) {
+            if (isFatalDiagnosticError(e)) {
+              this.diagnosticHandler(e.toDiagnostic());
+            } else {
+              throw e;
+            }
           }
-        } catch (e) {
-          if (isFatalDiagnosticError(e)) {
-            this.diagnosticHandler(e.toDiagnostic());
-          } else {
-            throw e;
-          }
-        }
+        });
       });
     });
   }

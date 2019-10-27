@@ -149,20 +149,29 @@ export const ALL_ENABLED_CONFIG: TypeCheckingConfig = {
   checkTemplateBodies: true,
   checkTypeOfInputBindings: true,
   strictNullInputBindings: true,
+  checkTypeOfAttributes: true,
   // Feature is still in development.
   // TODO(alxhub): enable when DOM checking via lib.dom.d.ts is further along.
   checkTypeOfDomBindings: false,
   checkTypeOfOutputEvents: true,
   checkTypeOfAnimationEvents: true,
   checkTypeOfDomEvents: true,
+  checkTypeOfDomReferences: true,
+  checkTypeOfNonDomReferences: true,
   checkTypeOfPipes: true,
   strictSafeNavigationTypes: true,
 };
 
 // Remove 'ref' from TypeCheckableDirectiveMeta and add a 'selector' instead.
 export type TestDirective =
-    Partial<Pick<TypeCheckableDirectiveMeta, Exclude<keyof TypeCheckableDirectiveMeta, 'ref'>>>&
-    {selector: string, name: string, file?: AbsoluteFsPath, type: 'directive'};
+    Partial<Pick<
+        TypeCheckableDirectiveMeta,
+        Exclude<keyof TypeCheckableDirectiveMeta, 'ref'|'coercedInputFields'>>>&
+    {
+      selector: string,
+      name: string, file?: AbsoluteFsPath,
+      type: 'directive', coercedInputFields?: string[],
+    };
 export type TestPipe = {
   name: string,
   file?: AbsoluteFsPath,
@@ -194,10 +203,13 @@ export function tcb(
     checkQueries: false,
     checkTypeOfInputBindings: true,
     strictNullInputBindings: true,
+    checkTypeOfAttributes: true,
     checkTypeOfDomBindings: false,
     checkTypeOfOutputEvents: true,
     checkTypeOfAnimationEvents: true,
     checkTypeOfDomEvents: true,
+    checkTypeOfDomReferences: true,
+    checkTypeOfNonDomReferences: true,
     checkTypeOfPipes: true,
     checkTemplateBodies: true,
     strictSafeNavigationTypes: true,
@@ -295,6 +307,7 @@ function prepareDeclarations(
       inputs: decl.inputs || {},
       isComponent: decl.isComponent || false,
       ngTemplateGuards: decl.ngTemplateGuards || [],
+      coercedInputFields: new Set<string>(decl.coercedInputFields || []),
       outputs: decl.outputs || {},
       queries: decl.queries || [],
     };

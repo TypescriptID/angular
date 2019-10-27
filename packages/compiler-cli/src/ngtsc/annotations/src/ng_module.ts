@@ -67,7 +67,7 @@ export class NgModuleDecoratorHandler implements DecoratorHandler<NgModuleAnalys
     const name = node.name.text;
     if (decorator.args === null || decorator.args.length > 1) {
       throw new FatalDiagnosticError(
-          ErrorCode.DECORATOR_ARITY_WRONG, decorator.node,
+          ErrorCode.DECORATOR_ARITY_WRONG, Decorator.nodeForError(decorator),
           `Incorrect number of arguments to @NgModule decorator`);
     }
 
@@ -262,7 +262,9 @@ export class NgModuleDecoratorHandler implements DecoratorHandler<NgModuleAnalys
       }
 
       for (const decl of analysis.declarations) {
-        if (this.metaReader.isAbstractDirective(decl)) {
+        const metadata = this.metaReader.getDirectiveMetadata(decl);
+
+        if (metadata !== null && metadata.selector === null) {
           throw new FatalDiagnosticError(
               ErrorCode.DIRECTIVE_MISSING_SELECTOR, decl.node,
               `Directive ${decl.node.name.text} has no selector, please add it!`);

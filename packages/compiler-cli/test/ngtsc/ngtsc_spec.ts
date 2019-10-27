@@ -13,6 +13,7 @@ import {ErrorCode, ngErrorCode} from '../../src/ngtsc/diagnostics';
 import {absoluteFrom} from '../../src/ngtsc/file_system';
 import {runInEachFileSystem} from '../../src/ngtsc/file_system/testing';
 import {LazyRoute} from '../../src/ngtsc/routing';
+import {restoreTypeScriptVersionForTesting, setTypeScriptVersionForTesting} from '../../src/typescript_support';
 import {loadStandardTestFiles} from '../helpers/src/mock_file_loading';
 
 import {NgtscTestEnvironment} from './env';
@@ -189,6 +190,50 @@ runInEachFileSystem(os => {
       env.driveMain();
       const jsContents = env.getContents('test.js');
       expect(jsContents).toContain('inject(Dep, 8)');
+    });
+
+    it('should compile Directives without errors', () => {
+      env.write('test.ts', `
+        import {Directive} from '@angular/core';
+
+        @Directive({selector: '[dir]'})
+        export class TestDir {}
+      `);
+
+      env.driveMain();
+
+      const jsContents = env.getContents('test.js');
+      expect(jsContents).toContain('TestDir.ɵdir = i0.ɵɵdefineDirective');
+      expect(jsContents).toContain('TestDir.ɵfac = function');
+      expect(jsContents).not.toContain('__decorate');
+
+      const dtsContents = env.getContents('test.d.ts');
+      expect(dtsContents)
+          .toContain(
+              'static ɵdir: i0.ɵɵDirectiveDefWithMeta<TestDir, "[dir]", never, {}, {}, never>');
+      expect(dtsContents).toContain('static ɵfac: i0.ɵɵFactoryDef<TestDir>');
+    });
+
+    it('should compile abstract Directives without errors', () => {
+      env.write('test.ts', `
+        import {Directive} from '@angular/core';
+
+        @Directive()
+        export class TestDir {}
+      `);
+
+      env.driveMain();
+
+      const jsContents = env.getContents('test.js');
+      expect(jsContents).toContain('TestDir.ɵdir = i0.ɵɵdefineDirective');
+      expect(jsContents).toContain('TestDir.ɵfac = function');
+      expect(jsContents).not.toContain('__decorate');
+
+      const dtsContents = env.getContents('test.d.ts');
+      expect(dtsContents)
+          .toContain(
+              'static ɵdir: i0.ɵɵDirectiveDefWithMeta<TestDir, never, never, {}, {}, never>');
+      expect(dtsContents).toContain('static ɵfac: i0.ɵɵFactoryDef<TestDir>');
     });
 
     it('should compile Components (inline template) without errors', () => {
@@ -371,7 +416,7 @@ runInEachFileSystem(os => {
       env.driveMain();
 
       const jsContents = env.getContents('test.js');
-      expect(jsContents).toContain('TestBase.ngBaseDef = i0.ɵɵdefineBase');
+      expect(jsContents).toContain('TestBase.ɵdir = i0.ɵɵdefineDirective');
       expect(jsContents).toContain('TestComponent.ɵcmp = i0.ɵɵdefineComponent');
       expect(jsContents).toContain('TestDirective.ɵdir = i0.ɵɵdefineDirective');
       expect(jsContents).toContain('TestPipe.ɵpipe = i0.ɵɵdefinePipe');
@@ -458,7 +503,7 @@ runInEachFileSystem(os => {
       expect(jsContents).toContain('background-color: blue');
     });
 
-    it('should include generic type for ngBaseDef declarations', () => {
+    it('should include generic type for undecorated class declarations', () => {
       env.write('test.ts', `
         import {Component, Input, NgModule} from '@angular/core';
 
@@ -470,10 +515,14 @@ runInEachFileSystem(os => {
       env.driveMain();
 
       const jsContents = env.getContents('test.js');
-      expect(jsContents).toContain('i0.ɵɵdefineBase({ inputs: { input: "input" } });');
+      expect(jsContents)
+          .toContain(
+              'i0.ɵɵdefineDirective({ type: TestBase, selectors: [], inputs: { input: "input" } });');
 
       const dtsContents = env.getContents('test.d.ts');
-      expect(dtsContents).toContain('static ngBaseDef: i0.ɵɵBaseDef<TestBase>');
+      expect(dtsContents)
+          .toContain(
+              `static ɵdir: i0.ɵɵDirectiveDefWithMeta<TestBase, never, never, { 'input': "input" }, {}, never>;`);
     });
 
     it('should compile NgModules without errors', () => {
@@ -1051,6 +1100,36 @@ runInEachFileSystem(os => {
         expect(errors.length).toBe(0);
       });
 
+      it('should be able to use abstract directive in other compilation units', () => {
+        env.write('tsconfig.json', JSON.stringify({
+          extends: './tsconfig-base.json',
+          angularCompilerOptions: {enableIvy: true},
+          compilerOptions: {rootDir: '.', outDir: '../node_modules/lib1_built'},
+        }));
+        env.write('index.ts', `
+          import {Directive} from '@angular/core';
+
+          @Directive()
+          export class BaseClass {}
+        `);
+
+        expect(env.driveDiagnostics().length).toBe(0);
+
+        env.tsconfig();
+        env.write('index.ts', `
+          import {NgModule, Directive} from '@angular/core';
+          import {BaseClass} from 'lib1_built';
+
+          @Directive({selector: 'my-dir'})
+          export class MyDirective extends BaseClass {}
+
+          @NgModule({declarations: [MyDirective]})
+          export class AppModule {}
+        `);
+
+        expect(env.driveDiagnostics().length).toBe(0);
+      });
+
       it('should not allow directives with no selector that are in NgModules', () => {
         env.write('main.ts', `
           import {Directive, NgModule} from '@angular/core';
@@ -1261,7 +1340,7 @@ runInEachFileSystem(os => {
              env.write('test.ts', `
             import {Injectable} from '@angular/core';
 
-            @Injectable()
+            @Injectable({providedIn: 'root'})
             export class Test {
               constructor(private notInjectable: string) {}
             }
@@ -1289,7 +1368,75 @@ runInEachFileSystem(os => {
 
              env.driveMain();
              const jsContents = env.getContents('test.js');
-             expect(jsContents).toMatch(/function Test_Factory\(t\) { throw new Error\(/ms);
+             expect(jsContents)
+                 .toMatch(/function Test_Factory\(t\) { i0\.ɵɵinvalidFactory\(\)/ms);
+           });
+
+        it('should not give a compile-time error if an invalid @Injectable is used with useFactory',
+           () => {
+             env.tsconfig({strictInjectionParameters: true});
+             env.write('test.ts', `
+               import {Injectable} from '@angular/core';
+
+               @Injectable({
+                 providedIn: 'root',
+                 useFactory: () => '42',
+               })
+               export class Test {
+                 constructor(private notInjectable: string) {}
+               }
+             `);
+
+             env.driveMain();
+             const jsContents = env.getContents('test.js');
+             expect(jsContents)
+                 .toMatch(/function Test_Factory\(t\) { i0\.ɵɵinvalidFactory\(\)/ms);
+           });
+
+        it('should not give a compile-time error if an invalid @Injectable is used with useExisting',
+           () => {
+             env.tsconfig({strictInjectionParameters: true});
+             env.write('test.ts', `
+               import {Injectable} from '@angular/core';
+
+               export class MyService {}
+
+               @Injectable({
+                 providedIn: 'root',
+                 useExisting: MyService,
+               })
+               export class Test {
+                 constructor(private notInjectable: string) {}
+               }
+             `);
+
+             env.driveMain();
+             const jsContents = env.getContents('test.js');
+             expect(jsContents)
+                 .toMatch(/function Test_Factory\(t\) { i0\.ɵɵinvalidFactory\(\)/ms);
+           });
+
+        it('should not give a compile-time error if an invalid @Injectable is used with useClass',
+           () => {
+             env.tsconfig({strictInjectionParameters: true});
+             env.write('test.ts', `
+               import {Injectable} from '@angular/core';
+
+               export class MyService {}
+
+               @Injectable({
+                 providedIn: 'root',
+                 useClass: MyService,
+               })
+               export class Test {
+                 constructor(private notInjectable: string) {}
+               }
+             `);
+
+             env.driveMain();
+             const jsContents = env.getContents('test.js');
+             expect(jsContents)
+                 .toMatch(/function Test_Factory\(t\) { i0\.ɵɵinvalidFactory\(\)/ms);
            });
       });
 
@@ -1307,7 +1454,8 @@ runInEachFileSystem(os => {
 
           env.driveMain();
           const jsContents = env.getContents('test.js');
-          expect(jsContents).toContain('Test.ɵfac = function Test_Factory(t) { throw new Error(');
+          expect(jsContents)
+              .toContain('Test.ɵfac = function Test_Factory(t) { i0.ɵɵinvalidFactory()');
         });
 
         it('should compile an @Injectable provided in the root on a class with a non-injectable constructor',
@@ -1324,10 +1472,67 @@ runInEachFileSystem(os => {
              env.driveMain();
              const jsContents = env.getContents('test.js');
              expect(jsContents)
-                 .toContain('Test.ɵfac = function Test_Factory(t) { throw new Error(');
+                 .toContain('Test.ɵfac = function Test_Factory(t) { i0.ɵɵinvalidFactory()');
            });
 
       });
+    });
+
+    describe('compiling invalid @Directives', () => {
+      describe('directives with a selector', () => {
+        it('should give a compile-time error if an invalid constructor is used', () => {
+          env.tsconfig({strictInjectionParameters: true});
+          env.write('test.ts', `
+            import {Directive} from '@angular/core';
+
+            @Directive({selector: 'app-test'})
+            export class Test {
+              constructor(private notInjectable: string) {}
+            }
+          `);
+
+          const errors = env.driveDiagnostics();
+          expect(errors.length).toBe(1);
+          expect(errors[0].messageText).toContain('No suitable injection token for parameter');
+        });
+      });
+
+      describe('abstract directives', () => {
+        it('should generate a factory function that throws', () => {
+          env.tsconfig({strictInjectionParameters: false});
+          env.write('test.ts', `
+          import {Directive} from '@angular/core';
+
+          @Directive()
+          export class Test {
+            constructor(private notInjectable: string) {}
+          }
+        `);
+
+          env.driveMain();
+          const jsContents = env.getContents('test.js');
+          expect(jsContents)
+              .toContain('Test.ɵfac = function Test_Factory(t) { i0.ɵɵinvalidFactory()');
+        });
+      });
+
+      it('should generate a factory function that throws, even under strictInjectionParameters',
+         () => {
+           env.tsconfig({strictInjectionParameters: true});
+           env.write('test.ts', `
+        import {Directive} from '@angular/core';
+
+        @Directive()
+        export class Test {
+          constructor(private notInjectable: string) {}
+        }
+      `);
+
+           env.driveMain();
+           const jsContents = env.getContents('test.js');
+           expect(jsContents)
+               .toContain('Test.ɵfac = function Test_Factory(t) { i0.ɵɵinvalidFactory()');
+         });
     });
 
     describe('templateUrl and styleUrls processing', () => {
@@ -2414,7 +2619,7 @@ runInEachFileSystem(os => {
 
         env.write('test.ts', `/** I am a top-level comment. */
           import {NgModule} from '@angular/core';
-  
+
           @NgModule({})
           export class TestModule {}
       `);
@@ -2433,7 +2638,7 @@ runInEachFileSystem(os => {
 
         env.write('my-module.ts', `
           import {NgModule} from '@angular/core';
-  
+
           @NgModule({})
           export class MyModule {}
       `);
@@ -2446,7 +2651,7 @@ runInEachFileSystem(os => {
 
         env.write('test.ts', `
           import {NgModule} from '@angular/core';
-  
+
           @NgModule({})
           export class TestModule {}
       `);
@@ -2472,9 +2677,9 @@ runInEachFileSystem(os => {
       it('should generate a summary stub for decorated classes in the input file only', () => {
         env.write('test.ts', `
           import {Injectable, NgModule} from '@angular/core';
-  
+
           export class NotAModule {}
-  
+
           @NgModule({})
           export class TestModule {}
       `);
@@ -2488,10 +2693,10 @@ runInEachFileSystem(os => {
       it('should generate a summary stub for classes exported via exports', () => {
         env.write('test.ts', `
           import {Injectable, NgModule} from '@angular/core';
-  
+
           @NgModule({})
           class NotDirectlyExported {}
-  
+
           export {NotDirectlyExported};
       `);
 
@@ -3396,7 +3601,7 @@ runInEachFileSystem(os => {
       it('should not re-export a directive that\'s not exported from the NgModule', () => {
         env.write('dir.ts', `
              import {Directive} from '@angular/core';
-   
+
              @Directive({
                selector: 'dir',
              })
@@ -3405,7 +3610,7 @@ runInEachFileSystem(os => {
         env.write('module.ts', `
              import {NgModule} from '@angular/core';
              import {Dir} from './dir';
-   
+
              @NgModule({
                declarations: [Dir],
                exports: [],
@@ -3454,11 +3659,11 @@ runInEachFileSystem(os => {
       it('should not re-export a directive from an exported, external NgModule', () => {
         env.write(`node_modules/external/index.d.ts`, `
           import {ɵɵDirectiveDefWithMeta, ɵɵNgModuleDefWithMeta} from '@angular/core';
-  
+
           export declare class ExternalDir {
             static ɵdir: ɵɵDirectiveDefWithMeta<ExternalDir, '[test]', never, never, never, never>;
           }
-  
+
           export declare class ExternalModule {
             static ɵmod: ɵɵNgModuleDefWithMeta<ExternalModule, [typeof ExternalDir], never, [typeof ExternalDir]>;
           }
@@ -3518,7 +3723,7 @@ runInEachFileSystem(os => {
          () => {
            env.write('dir.ts', `
              import {Directive} from '@angular/core';
-   
+
              @Directive({
                selector: 'dir',
              })
@@ -3526,7 +3731,7 @@ runInEachFileSystem(os => {
            `);
            env.write('dir2.ts', `
              import {Directive} from '@angular/core';
-   
+
              @Directive({
                selector: 'dir',
              })
@@ -3536,7 +3741,7 @@ runInEachFileSystem(os => {
              import {NgModule} from '@angular/core';
              import {Dir} from './dir';
              import {Dir as Dir2} from './dir2';
-   
+
              @NgModule({
                declarations: [Dir, Dir2],
                exports: [Dir, Dir2],
@@ -3554,7 +3759,7 @@ runInEachFileSystem(os => {
       it('should choose a re-exported symbol if one is present', () => {
         env.write(`node_modules/external/dir.d.ts`, `
           import {ɵɵDirectiveDefWithMeta} from '@angular/core';
-  
+
           export declare class ExternalDir {
             static ɵdir: ɵɵDirectiveDefWithMeta<ExternalDir, '[test]', never, never, never, never>;
           }
@@ -3562,23 +3767,23 @@ runInEachFileSystem(os => {
         env.write('node_modules/external/module.d.ts', `
           import {ɵɵNgModuleDefWithMeta} from '@angular/core';
           import {ExternalDir} from './dir';
-  
+
           export declare class ExternalModule {
             static ɵmod: ɵɵNgModuleDefWithMeta<ExternalModule, [typeof ExternalDir], never, [typeof ExternalDir]>;
           }
-  
+
           export {ExternalDir as ɵngExportɵExternalModuleɵExternalDir};
         `);
         env.write('test.ts', `
           import {Component, Directive, NgModule} from '@angular/core';
           import {ExternalModule} from 'external/module';
-  
+
           @Component({
             selector: 'test-cmp',
             template: '<div test></div>',
           })
           class Cmp {}
-  
+
           @NgModule({
             declarations: [Cmp],
             imports: [ExternalModule],
@@ -4689,6 +4894,48 @@ export const Foo = Foo__PRE_R3__;
         expect(jsContents)
             .toContain(
                 'export { TestDir as \u0275ng$root$other___test$$TestDir } from "root/other._$test";');
+      });
+    });
+
+    describe('disableTypeScriptVersionCheck', () => {
+      afterEach(() => restoreTypeScriptVersionForTesting());
+
+      it('produces an error when not supported and version check is enabled', () => {
+        setTypeScriptVersionForTesting('3.4.0');
+        env.tsconfig({disableTypeScriptVersionCheck: false});
+        env.write('empty.ts', '');
+
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toBe(1);
+        expect(diags[0].messageText).toContain('but 3.4.0 was found instead');
+      });
+
+      it('does not produce an error when supported and version check is enabled', () => {
+        env.tsconfig({disableTypeScriptVersionCheck: false});
+        env.write('empty.ts', '');
+
+        // The TypeScript version is not overwritten, so the version
+        // that is actually used should be supported
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toBe(0);
+      });
+
+      it('does not produce an error when not supported but version check is disabled', () => {
+        setTypeScriptVersionForTesting('3.4.0');
+        env.tsconfig({disableTypeScriptVersionCheck: true});
+        env.write('empty.ts', '');
+
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toBe(0);
+      });
+
+      it('produces an error when not supported using default configuration', () => {
+        setTypeScriptVersionForTesting('3.4.0');
+        env.write('empty.ts', '');
+
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toBe(1);
+        expect(diags[0].messageText).toContain('but 3.4.0 was found instead');
       });
     });
 

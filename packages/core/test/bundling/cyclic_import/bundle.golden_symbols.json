@@ -156,6 +156,9 @@
     "name": "addToViewTree"
   },
   {
+    "name": "allocLFrame"
+  },
+  {
     "name": "allocStylingMapArray"
   },
   {
@@ -184,6 +187,9 @@
   },
   {
     "name": "createDirectivesInstances"
+  },
+  {
+    "name": "createLFrame"
   },
   {
     "name": "createLView"
@@ -228,6 +234,12 @@
     "name": "elementCreate"
   },
   {
+    "name": "enterDI"
+  },
+  {
+    "name": "enterView"
+  },
+  {
     "name": "executeCheckHooks"
   },
   {
@@ -256,6 +268,9 @@
   },
   {
     "name": "findDirectiveMatches"
+  },
+  {
+    "name": "forceStylesAsString"
   },
   {
     "name": "generateExpandoInstructionBlock"
@@ -393,6 +408,9 @@
     "name": "hasTagAndTypeMatch"
   },
   {
+    "name": "hyphenate"
+  },
+  {
     "name": "includeViewProviders"
   },
   {
@@ -480,6 +498,15 @@
     "name": "isStylingValueDefined"
   },
   {
+    "name": "leaveDI"
+  },
+  {
+    "name": "leaveView"
+  },
+  {
+    "name": "leaveViewProcessExit"
+  },
+  {
     "name": "locateHostElement"
   },
   {
@@ -487,9 +514,6 @@
   },
   {
     "name": "matchTemplateAttribute"
-  },
-  {
-    "name": "namespaceHTMLInternal"
   },
   {
     "name": "nativeAppendChild"
@@ -508,6 +532,9 @@
   },
   {
     "name": "noSideEffects"
+  },
+  {
+    "name": "objectToClassName"
   },
   {
     "name": "postProcessBaseDirective"
@@ -561,9 +588,6 @@
     "name": "renderView"
   },
   {
-    "name": "resetComponentState"
-  },
-  {
     "name": "resetPreOrderHookFlags"
   },
   {
@@ -582,9 +606,6 @@
     "name": "selectIndexInternal"
   },
   {
-    "name": "selectView"
-  },
-  {
     "name": "setActiveHostElement"
   },
   {
@@ -594,13 +615,13 @@
     "name": "setClass"
   },
   {
+    "name": "setClassName"
+  },
+  {
     "name": "setCurrentDirectiveDef"
   },
   {
     "name": "setCurrentQueryIndex"
-  },
-  {
-    "name": "setCurrentStyleSanitizer"
   },
   {
     "name": "setDirectiveStylingInput"
@@ -636,7 +657,7 @@
     "name": "setStyle"
   },
   {
-    "name": "setTNodeAndViewData"
+    "name": "setStyleAttr"
   },
   {
     "name": "setUpAttributes"
@@ -661,6 +682,9 @@
   },
   {
     "name": "viewAttachedToChangeDetector"
+  },
+  {
+    "name": "writeStylingValueDirectly"
   },
   {
     "name": "ɵɵdefineComponent"
