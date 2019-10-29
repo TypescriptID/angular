@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 import {ɵcomputeMsgId, ɵmakeParsedTranslation} from '@angular/localize';
-import {Xliff2TranslationParser} from '../../../../../src/translate/translation_files/translation_parsers/xliff2/xliff2_translation_parser';
+import {Xliff2TranslationParser} from '../../../../src/translate/translation_files/translation_parsers/xliff2_translation_parser';
 
 describe('Xliff2TranslationParser', () => {
   describe('canParse()', () => {
@@ -37,6 +37,17 @@ describe('Xliff2TranslationParser', () => {
       const parser = new Xliff2TranslationParser();
       const result = parser.parse('/some/file.xlf', XLIFF);
       expect(result.locale).toEqual('fr');
+    });
+
+    it('should return undefined locale if there is no locale in the file', () => {
+      const XLIFF = `
+      <xliff version="2.0" xmlns="urn:oasis:names:tc:xliff:document:2.0" srcLang="en">
+        <file original="ng.template" id="ngi18n">
+        </file>
+      </xliff>`;
+      const parser = new Xliff2TranslationParser();
+      const result = parser.parse('/some/file.xlf', XLIFF);
+      expect(result.locale).toBeUndefined();
     });
 
     it('should extract basic messages', () => {

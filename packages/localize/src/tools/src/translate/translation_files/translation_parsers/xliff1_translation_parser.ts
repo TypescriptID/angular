@@ -8,13 +8,14 @@
 import {Element, Node, XmlParser, visitAll} from '@angular/compiler';
 import {ɵMessageId, ɵParsedTranslation} from '@angular/localize';
 import {extname} from 'path';
-import {TargetMessageRenderer} from '../../../message_renderers/target_message_renderer';
-import {TranslationBundle} from '../../../translator';
+
 import {BaseVisitor} from '../base_visitor';
-import {TranslationParseError} from '../translation_parse_error';
-import {TranslationParser} from '../translation_parser';
-import {getAttrOrThrow, parseInnerRange} from '../translation_utils';
-import {Xliff1MessageSerializer} from './xliff1_message_serializer';
+import {MessageSerializer} from '../message_serialization/message_serializer';
+import {TargetMessageRenderer} from '../message_serialization/target_message_renderer';
+
+import {TranslationParseError} from './translation_parse_error';
+import {ParsedTranslationBundle, TranslationParser} from './translation_parser';
+import {getAttrOrThrow, getAttribute, parseInnerRange} from './translation_utils';
 
 const XLIFF_1_2_NS_REGEX = /xmlns="urn:oasis:names:tc:xliff:document:1.2"/;
 
@@ -30,7 +31,7 @@ export class Xliff1TranslationParser implements TranslationParser {
     return (extname(filePath) === '.xlf') && XLIFF_1_2_NS_REGEX.test(contents);
   }
 
-  parse(filePath: string, contents: string): TranslationBundle {
+  parse(filePath: string, contents: string): ParsedTranslationBundle {
     const xmlParser = new XmlParser();
     const xml = xmlParser.parse(contents, filePath);
     const bundle = XliffFileElementVisitor.extractBundle(xml.rootNodes);
@@ -42,9 +43,9 @@ export class Xliff1TranslationParser implements TranslationParser {
 }
 
 class XliffFileElementVisitor extends BaseVisitor {
-  private bundle: TranslationBundle|undefined;
+  private bundle: ParsedTranslationBundle|undefined;
 
-  static extractBundle(xliff: Node[]): TranslationBundle|undefined {
+  static extractBundle(xliff: Node[]): ParsedTranslationBundle|undefined {
     const visitor = new this();
     visitAll(visitor, xliff);
     return visitor.bundle;
@@ -53,7 +54,7 @@ class XliffFileElementVisitor extends BaseVisitor {
   visitElement(element: Element): any {
     if (element.name === 'file') {
       this.bundle = {
-        locale: getAttrOrThrow(element, 'target-language'),
+        locale: getAttribute(element, 'target-language'),
         translations: XliffTranslationVisitor.extractTranslations(element)
       };
     } else {
@@ -91,7 +92,10 @@ class XliffTranslationVisitor extends BaseVisitor {
 }
 
 function serializeTargetMessage(source: Element): ɵParsedTranslation {
-  const serializer = new Xliff1MessageSerializer(new TargetMessageRenderer());
+  const serializer = new MessageSerializer(new TargetMessageRenderer(), {
+    inlineElements: ['g', 'bx', 'ex', 'bpt', 'ept', 'ph', 'it', 'mrk'],
+    placeholder: {elementName: 'x', nameAttribute: 'id'}
+  });
   return serializer.serialize(parseInnerRange(source));
 }
 
