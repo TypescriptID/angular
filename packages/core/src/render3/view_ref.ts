@@ -12,11 +12,14 @@ import {ViewContainerRef as viewEngine_ViewContainerRef} from '../linker/view_co
 import {EmbeddedViewRef as viewEngine_EmbeddedViewRef, InternalViewRef as viewEngine_InternalViewRef} from '../linker/view_ref';
 
 import {checkNoChangesInRootView, checkNoChangesInternal, detectChangesInRootView, detectChangesInternal, markViewDirty, storeCleanupFn} from './instructions/shared';
+import {CONTAINER_HEADER_OFFSET} from './interfaces/container';
 import {TElementNode, TNode, TNodeType, TViewNode} from './interfaces/node';
-import {CONTEXT, FLAGS, HOST, LView, LViewFlags, T_HOST} from './interfaces/view';
+import {isLContainer} from './interfaces/type_checks';
+import {CONTEXT, FLAGS, HOST, LView, LViewFlags, TVIEW, T_HOST} from './interfaces/view';
+import {assertNodeOfPossibleTypes} from './node_assert';
 import {destroyLView, renderDetachView} from './node_manipulation';
 import {findComponentView, getLViewParent} from './util/view_traversal_utils';
-import {getNativeByTNode, getNativeByTNodeOrNull} from './util/view_utils';
+import {getNativeByTNode, unwrapRNode} from './util/view_utils';
 
 
 
@@ -38,7 +41,7 @@ export class ViewRef<T> implements viewEngine_EmbeddedViewRef<T>, viewEngine_Int
   get rootNodes(): any[] {
     if (this._lView[HOST] == null) {
       const tView = this._lView[T_HOST] as TViewNode;
-      return collectNativeNodes(this._lView, tView, []);
+      return collectNativeNodes(this._lView, tView.child, []);
     }
     return [];
   }
@@ -299,27 +302,46 @@ export class RootViewRef<T> extends ViewRef<T> {
   get context(): T { return null !; }
 }
 
-function collectNativeNodes(lView: LView, parentTNode: TNode, result: any[]): any[] {
-  let tNodeChild = parentTNode.child;
+function collectNativeNodes(lView: LView, tNode: TNode | null, result: any[]): any[] {
+  while (tNode !== null) {
+    ngDevMode && assertNodeOfPossibleTypes(
+                     tNode, TNodeType.Element, TNodeType.Container, TNodeType.Projection,
+                     TNodeType.ElementContainer, TNodeType.IcuContainer);
 
-  while (tNodeChild) {
-    const nativeNode = getNativeByTNodeOrNull(tNodeChild, lView);
-    nativeNode && result.push(nativeNode);
-    if (tNodeChild.type === TNodeType.ElementContainer) {
-      collectNativeNodes(lView, tNodeChild, result);
-    } else if (tNodeChild.type === TNodeType.Projection) {
+    const lNode = lView[tNode.index];
+    if (lNode !== null) {
+      result.push(unwrapRNode(lNode));
+    }
+
+    // A given lNode can represent either a native node or a LContainer (when it is a host of a
+    // ViewContainerRef). When we find a LContainer we need to descend into it to collect root nodes
+    // from the views in this container.
+    if (isLContainer(lNode)) {
+      for (let i = CONTAINER_HEADER_OFFSET; i < lNode.length; i++) {
+        const lViewInAContainer = lNode[i];
+        const lViewFirstChildTNode = lViewInAContainer[TVIEW].firstChild;
+        if (lViewFirstChildTNode !== null) {
+          collectNativeNodes(lViewInAContainer, lViewFirstChildTNode, result);
+        }
+      }
+    }
+
+    const tNodeType = tNode.type;
+    if (tNodeType === TNodeType.ElementContainer || tNodeType === TNodeType.IcuContainer) {
+      collectNativeNodes(lView, tNode.child, result);
+    } else if (tNodeType === TNodeType.Projection) {
       const componentView = findComponentView(lView);
       const componentHost = componentView[T_HOST] as TElementNode;
       const parentView = getLViewParent(componentView);
       let currentProjectedNode: TNode|null =
-          (componentHost.projection as(TNode | null)[])[tNodeChild.projection as number];
+          (componentHost.projection as(TNode | null)[])[tNode.projection as number];
 
-      while (currentProjectedNode && parentView) {
+      while (currentProjectedNode !== null && parentView !== null) {
         result.push(getNativeByTNode(currentProjectedNode, parentView));
         currentProjectedNode = currentProjectedNode.next;
       }
     }
-    tNodeChild = tNodeChild.next;
+    tNode = tNode.next;
   }
 
   return result;

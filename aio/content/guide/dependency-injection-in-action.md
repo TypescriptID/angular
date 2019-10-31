@@ -574,7 +574,7 @@ as the token for a provider of `LoggerService`.
 
 An abstract class is usually a base class that you can extend.
 In this app, however there is no class that inherits from `MinimalLogger`.
-The `LoggerService` and the `DateLoggerService`could have inherited from `MinimalLogger`,
+The `LoggerService` and the `DateLoggerService` could have inherited from `MinimalLogger`,
 or they could have implemented it instead, in the manner of an interface.
 But they did neither.
 `MinimalLogger` is used only as a dependency injection token.
@@ -586,7 +586,7 @@ an interface is not a valid DI token because it is a TypeScript artifact that do
 Use this abstract class interface to get the strong typing of an interface,
 and also use it as a provider token in the way you would a normal class.
 
-A  class interface should define *only* the members that its consumers are allowed to call.
+A class interface should define *only* the members that its consumers are allowed to call.
 Such a narrowing interface helps decouple the concrete class from its consumers.
 
 

@@ -1,6 +1,6 @@
 {
   "name": "angular-srcs",
-  "version": "9.0.0-next.14",
+  "version": "9.0.0-next.15",
   "private": true,
   "description": "Angular - a web framework for modern web apps",
   "homepage": "https://github.com/angular/angular",
@@ -9,7 +9,7 @@
   "//engines-comment": "Keep this in sync with aio/package.json",
   "engines": {
     "node": ">=10.9.0 <13.0.0",
-    "yarn": ">=1.17.3 <=1.18.0"
+    "yarn": ">=1.17.3 <=1.19.1"
   },
   "repository": {
     "type": "git",
@@ -41,10 +41,10 @@
     "@angular-devkit/schematics": "^9.0.0-next.15",
     "@angular/bazel": "file:./tools/npm/@angular_bazel",
     "@babel/core": "^7.6.4",
-    "@bazel/jasmine": "0.39.0",
-    "@bazel/karma": "0.39.0",
-    "@bazel/protractor": "0.39.0",
-    "@bazel/typescript": "0.39.0",
+    "@bazel/jasmine": "0.39.1",
+    "@bazel/karma": "0.39.1",
+    "@bazel/protractor": "0.39.1",
+    "@bazel/typescript": "0.39.1",
     "@microsoft/api-extractor": "^7.3.9",
     "@schematics/angular": "^8.0.0-beta.15",
     "@types/angular": "^1.6.47",
@@ -129,7 +129,7 @@
   "// 3": "when updating @bazel/bazel version you also need to update the RBE settings in .bazelrc (see https://github.com/angular/angular/pull/27935)",
   "devDependencies": {
     "@angular/cli": "^9.0.0-next.15",
-    "@bazel/bazel": "0.28.1",
+    "@bazel/bazel": "1.0.0",
     "@bazel/buildifier": "^0.26.0",
     "@bazel/ibazel": "^0.10.3",
     "@types/minimist": "^1.2.0",

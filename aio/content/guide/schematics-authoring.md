@@ -30,7 +30,7 @@ The context also defines a *merge strategy* that determines how changes are merg
 ### Defining rules and actions
 
 When you create a new blank schematic with the [Schematics CLI](#cli), the generated entry function is a *rule factory*.
-A `RuleFactory`object defines a higher-order function that creates a `Rule`.
+A `RuleFactory` object defines a higher-order function that creates a `Rule`.
 
 <code-example language="TypeScript" header="index.ts">
 import { Rule, SchematicContext, Tree } from '@angular-devkit/schematics';
@@ -349,7 +349,7 @@ Each schematic is created with a name, description, and factory function.
 * The `factory` property points to the generated entry function. In this example, you invoke the `hello-world` schematic by calling the `helloWorld()` factory function.
 * The optional  `schema` property points to a JSON schema file that defines the command-line options available to the schematic.
 * The optional `aliases` array specifies one or more strings that can be used to invoke the schematic.
-   For example, the schematic for the Angular CLI “generate” command  has an alias “g”, allowing you to use the command `ng g`.
+   For example, the schematic for the Angular CLI “generate” command has an alias “g”, allowing you to use the command `ng g`.
 
 ### Named schematics
 
