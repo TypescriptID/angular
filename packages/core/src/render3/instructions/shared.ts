@@ -23,8 +23,8 @@ import {executeCheckHooks, executeInitAndCheckHooks, incrementInitPhaseFlags, re
 import {ACTIVE_INDEX, CONTAINER_HEADER_OFFSET, LContainer} from '../interfaces/container';
 import {ComponentDef, ComponentTemplate, DirectiveDef, DirectiveDefListOrFactory, PipeDefListOrFactory, RenderFlags, ViewQueriesFunction} from '../interfaces/definition';
 import {INJECTOR_BLOOM_PARENT_SIZE, NodeInjectorFactory} from '../interfaces/injector';
-import {AttributeMarker, InitialInputData, InitialInputs, LocalRefExtractor, PropertyAliasValue, PropertyAliases, TAttributes, TContainerNode, TElementContainerNode, TElementNode, TIcuContainerNode, TNode, TNodeFlags, TNodeProviderIndexes, TNodeType, TProjectionNode, TViewNode} from '../interfaces/node';
-import {RComment, RElement, RText, Renderer3, RendererFactory3, isProceduralRenderer} from '../interfaces/renderer';
+import {AttributeMarker, InitialInputData, InitialInputs, LocalRefExtractor, PropertyAliasValue, PropertyAliases, TAttributes, TContainerNode, TDirectiveHostNode, TElementContainerNode, TElementNode, TIcuContainerNode, TNode, TNodeFlags, TNodeProviderIndexes, TNodeType, TProjectionNode, TViewNode} from '../interfaces/node';
+import {RComment, RElement, RNode, RText, Renderer3, RendererFactory3, isProceduralRenderer} from '../interfaces/renderer';
 import {SanitizerFn} from '../interfaces/sanitization';
 import {isComponentDef, isComponentHost, isContentQueryHost, isLContainer, isRootView} from '../interfaces/type_checks';
 import {CHILD_HEAD, CHILD_TAIL, CLEANUP, CONTEXT, DECLARATION_VIEW, ExpandoInstructions, FLAGS, HEADER_OFFSET, HOST, INJECTOR, InitPhaseState, LView, LViewFlags, NEXT, PARENT, RENDERER, RENDERER_FACTORY, RootContext, RootContextFlags, SANITIZER, TData, TVIEW, TView, T_HOST} from '../interfaces/view';
@@ -529,10 +529,9 @@ export function executeContentQueries(tView: TView, tNode: TNode, lView: LView) 
 /**
  * Creates directive instances.
  */
-export function createDirectivesInstances(
-    tView: TView, lView: LView, tNode: TElementNode | TContainerNode | TElementContainerNode) {
+export function createDirectivesInstances(tView: TView, lView: LView, tNode: TDirectiveHostNode) {
   if (!getBindingsEnabled()) return;
-  instantiateAllDirectives(tView, lView, tNode);
+  instantiateAllDirectives(tView, lView, tNode, getNativeByTNode(tNode, lView));
   if ((tNode.flags & TNodeFlags.hasHostBindings) === TNodeFlags.hasHostBindings) {
     invokeDirectivesHostBindings(tView, lView, tNode);
   }
@@ -543,7 +542,8 @@ export function createDirectivesInstances(
  * to LView in the same order as they are loaded in the template with load().
  */
 export function saveResolvedLocalsInData(
-    viewData: LView, tNode: TNode, localRefExtractor: LocalRefExtractor = getNativeByTNode): void {
+    viewData: LView, tNode: TDirectiveHostNode,
+    localRefExtractor: LocalRefExtractor = getNativeByTNode): void {
   const localNames = tNode.localNames;
   if (localNames) {
     let localIndex = tNode.index + 1;
@@ -1018,17 +1018,20 @@ function warnAboutUnknownProperty(propName: string, tNode: TNode): void {
 /**
  * Instantiate a root component.
  */
-export function instantiateRootComponent<T>(
-    tView: TView, viewData: LView, def: ComponentDef<T>): T {
+export function instantiateRootComponent<T>(tView: TView, lView: LView, def: ComponentDef<T>): T {
   const rootTNode = getPreviousOrParentTNode();
   if (tView.firstTemplatePass) {
     if (def.providersResolver) def.providersResolver(def);
     generateExpandoInstructionBlock(tView, rootTNode, 1);
-    baseResolveDirective(tView, viewData, def);
+    baseResolveDirective(tView, lView, def);
   }
   const directive =
-      getNodeInjectable(tView.data, viewData, viewData.length - 1, rootTNode as TElementNode);
-  postProcessBaseDirective(viewData, rootTNode, directive);
+      getNodeInjectable(tView.data, lView, lView.length - 1, rootTNode as TElementNode);
+  attachPatchData(directive, lView);
+  const native = getNativeByTNode(rootTNode, lView);
+  if (native) {
+    attachPatchData(native, lView);
+  }
   return directive;
 }
 
@@ -1090,20 +1093,37 @@ export function resolveDirectives(
 /**
  * Instantiate all the directives that were previously resolved on the current node.
  */
-function instantiateAllDirectives(tView: TView, lView: LView, tNode: TNode) {
+function instantiateAllDirectives(
+    tView: TView, lView: LView, tNode: TDirectiveHostNode, native: RNode) {
   const start = tNode.directiveStart;
   const end = tNode.directiveEnd;
   if (!tView.firstTemplatePass) {
-    getOrCreateNodeInjectorForNode(
-        tNode as TElementNode | TContainerNode | TElementContainerNode, lView);
+    getOrCreateNodeInjectorForNode(tNode, lView);
   }
+
+  attachPatchData(native, lView);
+
+  const initialInputs = tNode.initialInputs;
   for (let i = start; i < end; i++) {
     const def = tView.data[i] as DirectiveDef<any>;
-    if (isComponentDef(def)) {
-      addComponentLogic(lView, tNode, def as ComponentDef<any>);
+    const isComponent = isComponentDef(def);
+
+    if (isComponent) {
+      ngDevMode && assertNodeOfPossibleTypes(tNode, TNodeType.Element);
+      addComponentLogic(lView, tNode as TElementNode, def as ComponentDef<any>);
     }
-    const directive = getNodeInjectable(tView.data, lView !, i, tNode as TElementNode);
-    postProcessDirective(lView, tNode, directive, def, i - start);
+
+    const directive = getNodeInjectable(tView.data, lView, i, tNode);
+    attachPatchData(directive, lView);
+
+    if (initialInputs !== null) {
+      setInputsFromAttrs(lView, i - start, directive, def, tNode, initialInputs !);
+    }
+
+    if (isComponent) {
+      const componentView = getComponentLViewByIndex(tNode.index, lView);
+      componentView[CONTEXT] = directive;
+    }
   }
 }
 
@@ -1168,38 +1188,6 @@ export function generateExpandoInstructionBlock(
   (tView.expandoInstructions || (tView.expandoInstructions = [
    ])).push(elementIndex, providerCount, directiveCount);
 }
-
-/**
- * Process a directive on the current node after its creation.
- */
-function postProcessDirective<T>(
-    lView: LView, hostTNode: TNode, directive: T, def: DirectiveDef<T>,
-    directiveDefIdx: number): void {
-  postProcessBaseDirective(lView, hostTNode, directive);
-  if (hostTNode.initialInputs !== null) {
-    setInputsFromAttrs(lView, directiveDefIdx, directive, def, hostTNode);
-  }
-
-  if (isComponentDef(def)) {
-    const componentView = getComponentLViewByIndex(hostTNode.index, lView);
-    componentView[CONTEXT] = directive;
-  }
-}
-
-/**
- * A lighter version of postProcessDirective() that is used for the root component.
- */
-function postProcessBaseDirective<T>(lView: LView, hostTNode: TNode, directive: T): void {
-  ngDevMode && assertLessThanOrEqual(
-                   getBindingIndex(), lView[TVIEW].bindingStartIndex,
-                   'directives should be created before any bindings');
-  attachPatchData(directive, lView);
-  const native = getNativeByTNode(hostTNode, lView);
-  if (native) {
-    attachPatchData(native, lView);
-  }
-}
-
 
 /**
 * Matches the current node against all available selectors.
@@ -1306,7 +1294,7 @@ function baseResolveDirective<T>(tView: TView, viewData: LView, def: DirectiveDe
   viewData.push(nodeInjectorFactory);
 }
 
-function addComponentLogic<T>(lView: LView, hostTNode: TNode, def: ComponentDef<T>): void {
+function addComponentLogic<T>(lView: LView, hostTNode: TElementNode, def: ComponentDef<T>): void {
   const native = getNativeByTNode(hostTNode, lView) as RElement;
   const tView = getOrCreateTView(def);
 
@@ -1361,8 +1349,8 @@ export function elementAttributeInternal(
  * @param tNode The static data for this node
  */
 function setInputsFromAttrs<T>(
-    lView: LView, directiveIndex: number, instance: T, def: DirectiveDef<T>, tNode: TNode): void {
-  const initialInputData = tNode.initialInputs as InitialInputData;
+    lView: LView, directiveIndex: number, instance: T, def: DirectiveDef<T>, tNode: TNode,
+    initialInputData: InitialInputData): void {
   const initialInputs: InitialInputs|null = initialInputData ![directiveIndex];
   if (initialInputs !== null) {
     const setInput = def.setInput;

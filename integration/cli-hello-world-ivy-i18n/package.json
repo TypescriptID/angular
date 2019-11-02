@@ -1,5 +1,5 @@
 {
-  "name": "cli-hello-world-ivy-compat",
+  "name": "cli-hello-world-ivy-i18n",
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
@@ -11,24 +11,9 @@
     "update-webdriver": "webdriver-manager update --gecko=false --standalone=false $CI_CHROMEDRIVER_VERSION_ARG",
     "start": "ng serve",
     "pretest": "ng version",
-    "test": "ng test && yarn e2e --configuration=ci && yarn e2e --configuration=ci-production && yarn translated:test && yarn translated:legacy-xlf:test && yarn translated:legacy-xmb:test",
-    "translate": "localize-translate -r \"dist/\" -s \"**/*\" -l \"en-US\" -t \"src/locales/messages.de.json\" \"src/locales/messages.fr.json\" -o \"../tmp/translations/{{LOCALE}}\"",
-    "runtime:test": "yarn e2e --configuration=runtime-translations",
-    "translated:test": "yarn build && yarn translate && yarn translated:fr:e2e && yarn translated:de:e2e && yarn translated:en:e2e",
-    "translated:fr:serve": "serve ../tmp/translations/fr --listen 4200",
-    "translated:fr:e2e": "npm-run-all -p -r translated:fr:serve \"ng e2e --configuration=translated-fr\"",
-    "translated:de:serve": "serve ../tmp/translations/de --listen 4200",
-    "translated:de:e2e": "npm-run-all -p -r translated:de:serve \"ng e2e --configuration=translated-de\"",
-    "translated:en:serve": "serve ../tmp/translations/en-US --listen 4200",
-    "translated:en:e2e": "npm-run-all -p -r translated:en:serve \"ng e2e --configuration=translated-en\"",
-    "translated:legacy:serve": "serve ../tmp/translations/legacy --listen 4200",
-    "translated:legacy:e2e": "npm-run-all -p -r translated:legacy:serve \"ng e2e --configuration=translated-legacy\"",
-    "translated:legacy:translate": "localize-translate -r \"dist/\" -s \"**/*\" -o \"../tmp/translations/{{LOCALE}}\"",
-
-    "translated:legacy-xlf:test": "yarn ng xi18n && yarn translated:legacy-xlf:update-translations && yarn ng build --configuration=translated-legacy && yarn translated:legacy:translate -t \"../tmp/legacy-locales/messages.legacy.xlf\" && yarn translated:legacy:e2e",
-    "translated:legacy-xlf:update-translations": "sed -i.bak -e 's/source>/target>'/ -e 's/Hello/Bonjour/' -e 's/source-language=\"en-US\"/source-language=\"en-US\" target-language=\"legacy\"/' ../tmp/legacy-locales/messages.legacy.xlf",
-    "translated:legacy-xmb:test": "yarn ng xi18n --format=xmb --outFile=messages.legacy.xmb && yarn translated:legacy-xmb:update-translations && yarn ng build --configuration=translated-legacy-xmb && yarn translated:legacy:translate -t \"../tmp/legacy-locales/messages.legacy.xtb\" && yarn translated:legacy:e2e",
-    "translated:legacy-xmb:update-translations": "sed -e 's/messagebundle/translationbundle/' -e 's/<translationbundle>/<translationbundle lang=\"legacy\">/' -e 's/msg/translation/' -e 's/Hello/Bonjour/' -e 's/<source>.*<\\/source>//' ../tmp/legacy-locales/messages.legacy.xmb > ../tmp/legacy-locales/messages.legacy.xtb"
+    "test": "ng e2e --prod && ng xi18n && yarn translate && ng build --configuration production,fr && ng build --configuration production,de && run-p -r \"serve dist/fr\" \"ng e2e --configuration=fr\" && run-p -r \"serve dist/de\" \"ng e2e --configuration=de\"",
+    "translate": "cp src/locale/messages.xlf src/locale/messages.fr.xlf && cp src/locale/messages.xlf src/locale/messages.de.xlf && sed -i.bak -e 's/source>/target>/g' -e 's/Hello/Bonjour/' src/locale/messages.fr.xlf && sed -i.bak -e 's/source>/target>/g' -e 's/Hello/Hallo/' src/locale/messages.de.xlf",
+    "serve": "serve --listen 4200"
   },
   "private": true,
   "dependencies": {
@@ -49,7 +34,7 @@
     "zone.js": "file:../../node_modules/zone.js"
   },
   "devDependencies": {
-    "@angular-devkit/build-angular": "^0.900.0-next.15",
+    "@angular-devkit/build-angular": "^0.900.0-rc.0",
     "@angular/cli": "file:../../node_modules/@angular/cli",
     "@angular/compiler-cli": "file:../../dist/packages-dist/compiler-cli",
     "@angular/language-service": "file:../../dist/packages-dist/language-service",
