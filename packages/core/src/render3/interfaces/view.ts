@@ -15,7 +15,7 @@ import {Sanitizer} from '../../sanitization/sanitizer';
 import {LContainer} from './container';
 import {ComponentDef, ComponentTemplate, DirectiveDef, DirectiveDefList, HostBindingsFunction, PipeDef, PipeDefList, ViewQueriesFunction} from './definition';
 import {I18nUpdateOpCodes, TI18n} from './i18n';
-import {TAttributes, TElementNode, TNode, TViewNode} from './node';
+import {TAttributes, TConstants, TElementNode, TNode, TViewNode} from './node';
 import {PlayerHandler} from './player';
 import {LQueries, TQueries} from './query';
 import {RElement, Renderer3, RendererFactory3} from './renderer';
@@ -311,6 +311,35 @@ export const enum PreOrderHookFlags {
 export interface ExpandoInstructions extends Array<number|HostBindingsFunction<any>|null> {}
 
 /**
+ * Explicitly marks `TView` as a specific type in `ngDevMode`
+ *
+ * It is useful to know conceptually what time of `TView` we are dealing with when
+ * debugging an application (even if the runtime does not need it.) For this reason
+ * we store this information in the `ngDevMode` `TView` and than use it for
+ * better debugging experience.
+ */
+export const enum TViewType {
+  /**
+   * Root `TView` is the used to bootstrap components into. It is used in conjunction with
+   * `LView` which takes an existing DOM node not owned by Angular and wraps it in `TView`/`LView`
+   * so that other components can be loaded into it.
+   */
+  Root = 0,
+
+  /**
+   * `TView` associated with a Component. This would be the `TView` directly associated with the
+   * component view (as opposed an `Embedded` `TView` which would be a child of `Component` `TView`)
+   */
+  Component = 1,
+
+  /**
+   * `TView` associated with a template. Such as `*ngIf`, `<ng-template>` etc... A `Component`
+   * can have zero or more `Embedede` `TView`s.
+   */
+  Embedded = 2,
+}
+
+/**
  * The static data for an LView (shared between all templates of a
  * given type).
  *
@@ -360,8 +389,11 @@ export interface TView {
    */
   node: TViewNode|TElementNode|null;
 
-  /** Whether or not this template has been processed. */
-  firstTemplatePass: boolean;
+  /** Whether or not this template has been processed in creation mode. */
+  firstCreatePass: boolean;
+
+  /** Whether or not the first update for this template has been processed. */
+  firstUpdatePass: boolean;
 
   /** Static data equivalent of LView.data[]. Contains TNodes, PipeDefInternal or TI18n. */
   data: TData;
@@ -555,10 +587,10 @@ export interface TView {
   schemas: SchemaMetadata[]|null;
 
   /**
-   * Array of attributes for all of the elements in the view. Used
-   * for directive matching and attribute bindings.
+   * Array of constants for the view. Includes attribute arrays, local definition arrays etc.
+   * Used for directive matching, attribute bindings, local definitions and more.
    */
-  consts: TAttributes[]|null;
+  consts: TConstants|null;
 }
 
 export const enum RootContextFlags {Empty = 0b00, DetectChanges = 0b01, FlushPlayers = 0b10}

@@ -11,16 +11,16 @@ import {throwErrorIfNoChangesMode} from '../errors';
 import {setInputsForProperty} from '../instructions/shared';
 import {AttributeMarker, TAttributes, TNode, TNodeFlags, TNodeType} from '../interfaces/node';
 import {RElement} from '../interfaces/renderer';
-import {StylingMapArray, StylingMapArrayIndex, TStylingConfig, TStylingContext} from '../interfaces/styling';
+import {StylingMapArray, StylingMapArrayIndex, TStylingContext} from '../interfaces/styling';
 import {isDirectiveHost} from '../interfaces/type_checks';
-import {LView, RENDERER} from '../interfaces/view';
+import {LView, RENDERER, TVIEW, TView} from '../interfaces/view';
 import {getActiveDirectiveId, getCheckNoChangesMode, getCurrentStyleSanitizer, getLView, getSelectedIndex, incrementBindingIndex, nextBindingIndex, resetCurrentStyleSanitizer, setCurrentStyleSanitizer, setElementExitFn} from '../state';
 import {applyStylingMapDirectly, applyStylingValueDirectly, flushStyling, setClass, setStyle, updateClassViaContext, updateStyleViaContext} from '../styling/bindings';
 import {activateStylingMapFeature} from '../styling/map_based_bindings';
 import {attachStylingDebugObject} from '../styling/styling_debug';
 import {NO_CHANGE} from '../tokens';
 import {renderStringify} from '../util/misc_utils';
-import {addItemToStylingMap, allocStylingMapArray, allocTStylingContext, allowDirectStyling, concatString, forceClassesAsString, forceStylesAsString, getInitialStylingValue, getStylingMapArray, getValue, hasClassInput, hasStyleInput, hasValueChanged, isContextLocked, isHostStylingActive, isStylingContext, normalizeIntoStylingMap, patchConfig, selectClassBasedInputName, setValue, stylingMapToString} from '../util/styling_utils';
+import {addItemToStylingMap, allocStylingMapArray, allocTStylingContext, allowDirectStyling, concatString, forceClassesAsString, forceStylesAsString, getInitialStylingValue, getStylingMapArray, getValue, hasClassInput, hasStyleInput, hasValueChanged, isHostStylingActive, isStylingContext, isStylingValueDefined, normalizeIntoStylingMap, patchConfig, selectClassBasedInputName, setValue, stylingMapToString} from '../util/styling_utils';
 import {getNativeByTNode, getTNode} from '../util/view_utils';
 
 
@@ -95,9 +95,21 @@ export function stylePropInternal(
   // still needs to be incremented because all styling binding values
   // are stored inside of the lView.
   const bindingIndex = nextBindingIndex();
+  const lView = getLView();
+  const tNode = getTNode(elementIndex, lView);
+  const firstUpdatePass = lView[TVIEW].firstUpdatePass;
 
-  const updated =
-      stylingProp(elementIndex, bindingIndex, prop, resolveStylePropValue(value, suffix), false);
+  // we check for this in the instruction code so that the context can be notified
+  // about prop or map bindings so that the direct apply check can decide earlier
+  // if it allows for context resolution to be bypassed.
+  if (firstUpdatePass) {
+    patchConfig(tNode, TNodeFlags.hasStylePropBindings);
+    patchHostStylingFlag(tNode, isHostStyling(), false);
+  }
+
+  const updated = stylingProp(
+      tNode, firstUpdatePass, lView, bindingIndex, prop, resolveStylePropValue(value, suffix),
+      false);
   if (ngDevMode) {
     ngDevMode.styleProp++;
     if (updated) {
@@ -127,8 +139,20 @@ export function ɵɵclassProp(className: string, value: boolean | null): void {
   // still needs to be incremented because all styling binding values
   // are stored inside of the lView.
   const bindingIndex = nextBindingIndex();
+  const lView = getLView();
+  const elementIndex = getSelectedIndex();
+  const tNode = getTNode(elementIndex, lView);
+  const firstUpdatePass = lView[TVIEW].firstUpdatePass;
 
-  const updated = stylingProp(getSelectedIndex(), bindingIndex, className, value, true);
+  // we check for this in the instruction code so that the context can be notified
+  // about prop or map bindings so that the direct apply check can decide earlier
+  // if it allows for context resolution to be bypassed.
+  if (firstUpdatePass) {
+    patchConfig(tNode, TNodeFlags.hasClassPropBindings);
+    patchHostStylingFlag(tNode, isHostStyling(), true);
+  }
+
+  const updated = stylingProp(tNode, firstUpdatePass, lView, bindingIndex, className, value, true);
   if (ngDevMode) {
     ngDevMode.classProp++;
     if (updated) {
@@ -148,25 +172,14 @@ export function ɵɵclassProp(className: string, value: boolean | null): void {
  * present together).
  */
 function stylingProp(
-    elementIndex: number, bindingIndex: number, prop: string,
+    tNode: TNode, firstUpdatePass: boolean, lView: LView, bindingIndex: number, prop: string,
     value: boolean | number | SafeValue | string | null | undefined | NO_CHANGE,
     isClassBased: boolean): boolean {
   let updated = false;
 
-  const lView = getLView();
-  const tNode = getTNode(elementIndex, lView);
   const native = getNativeByTNode(tNode, lView) as RElement;
-
-  const hostBindingsMode = isHostStyling();
   const context = isClassBased ? getClassesContext(tNode) : getStylesContext(tNode);
   const sanitizer = isClassBased ? null : getCurrentStyleSanitizer();
-
-  // we check for this in the instruction code so that the context can be notified
-  // about prop or map bindings so that the direct apply check can decide earlier
-  // if it allows for context resolution to be bypassed.
-  if (!isContextLocked(context, hostBindingsMode)) {
-    patchConfig(context, TStylingConfig.HasPropBindings);
-  }
 
   // [style.prop] and [class.name] bindings do not use `bind()` and will
   // therefore manage accessing and updating the new value in the lView directly.
@@ -181,11 +194,12 @@ function stylingProp(
 
   // Direct Apply Case: bypass context resolution and apply the
   // style/class value directly to the element
-  if (allowDirectStyling(context, hostBindingsMode)) {
+  if (allowDirectStyling(tNode, isClassBased, firstUpdatePass)) {
     const sanitizerToUse = isClassBased ? null : sanitizer;
     const renderer = getRenderer(tNode, lView);
     updated = applyStylingValueDirectly(
-        renderer, context, native, lView, bindingIndex, prop, value, isClassBased, sanitizerToUse);
+        renderer, context, tNode, native, lView, bindingIndex, prop, value, isClassBased,
+        sanitizerToUse);
 
     if (sanitizerToUse) {
       // it's important we remove the current style sanitizer once the
@@ -200,12 +214,12 @@ function stylingProp(
     const directiveIndex = getActiveDirectiveId();
     if (isClassBased) {
       updated = updateClassViaContext(
-          context, lView, native, directiveIndex, prop, bindingIndex,
-          value as string | boolean | null);
+          context, tNode, lView, native, directiveIndex, prop, bindingIndex,
+          value as string | boolean | null, false, firstUpdatePass);
     } else {
       updated = updateStyleViaContext(
-          context, lView, native, directiveIndex, prop, bindingIndex,
-          value as string | SafeValue | null, sanitizer);
+          context, tNode, lView, native, directiveIndex, prop, bindingIndex,
+          value as string | SafeValue | null, sanitizer, false, firstUpdatePass);
     }
 
     setElementExitFn(stylingApply);
@@ -237,6 +251,7 @@ export function ɵɵstyleMap(styles: {[styleName: string]: any} | NO_CHANGE | nu
   const index = getSelectedIndex();
   const lView = getLView();
   const tNode = getTNode(index, lView);
+  const firstUpdatePass = lView[TVIEW].firstUpdatePass;
   const context = getStylesContext(tNode);
   const hasDirectiveInput = hasStyleInput(tNode);
 
@@ -245,16 +260,26 @@ export function ɵɵstyleMap(styles: {[styleName: string]: any} | NO_CHANGE | nu
   // still needs to be incremented because all styling binding values
   // are stored inside of the lView.
   const bindingIndex = incrementBindingIndex(2);
+  const hostBindingsMode = isHostStyling();
 
   // inputs are only evaluated from a template binding into a directive, therefore,
   // there should not be a situation where a directive host bindings function
   // evaluates the inputs (this should only happen in the template function)
-  if (!isHostStyling() && hasDirectiveInput && styles !== NO_CHANGE) {
-    updateDirectiveInputValue(context, lView, tNode, bindingIndex, styles, false);
+  if (!hostBindingsMode && hasDirectiveInput && styles !== NO_CHANGE) {
+    updateDirectiveInputValue(context, lView, tNode, bindingIndex, styles, false, firstUpdatePass);
     styles = NO_CHANGE;
   }
 
-  stylingMap(context, tNode, lView, bindingIndex, styles, false, hasDirectiveInput);
+  // we check for this in the instruction code so that the context can be notified
+  // about prop or map bindings so that the direct apply check can decide earlier
+  // if it allows for context resolution to be bypassed.
+  if (firstUpdatePass) {
+    patchConfig(tNode, TNodeFlags.hasStyleMapBindings);
+    patchHostStylingFlag(tNode, isHostStyling(), false);
+  }
+
+  stylingMap(
+      context, tNode, firstUpdatePass, lView, bindingIndex, styles, false, hasDirectiveInput);
 }
 
 /**
@@ -289,6 +314,7 @@ export function classMapInternal(
     elementIndex: number, classes: {[className: string]: any} | NO_CHANGE | string | null): void {
   const lView = getLView();
   const tNode = getTNode(elementIndex, lView);
+  const firstUpdatePass = lView[TVIEW].firstUpdatePass;
   const context = getClassesContext(tNode);
   const hasDirectiveInput = hasClassInput(tNode);
 
@@ -297,16 +323,26 @@ export function classMapInternal(
   // still needs to be incremented because all styling binding values
   // are stored inside of the lView.
   const bindingIndex = incrementBindingIndex(2);
+  const hostBindingsMode = isHostStyling();
 
   // inputs are only evaluated from a template binding into a directive, therefore,
   // there should not be a situation where a directive host bindings function
   // evaluates the inputs (this should only happen in the template function)
-  if (!isHostStyling() && hasDirectiveInput && classes !== NO_CHANGE) {
-    updateDirectiveInputValue(context, lView, tNode, bindingIndex, classes, true);
+  if (!hostBindingsMode && hasDirectiveInput && classes !== NO_CHANGE) {
+    updateDirectiveInputValue(context, lView, tNode, bindingIndex, classes, true, firstUpdatePass);
     classes = NO_CHANGE;
   }
 
-  stylingMap(context, tNode, lView, bindingIndex, classes, true, hasDirectiveInput);
+  // we check for this in the instruction code so that the context can be notified
+  // about prop or map bindings so that the direct apply check can decide earlier
+  // if it allows for context resolution to be bypassed.
+  if (firstUpdatePass) {
+    patchConfig(tNode, TNodeFlags.hasClassMapBindings);
+    patchHostStylingFlag(tNode, isHostStyling(), true);
+  }
+
+  stylingMap(
+      context, tNode, firstUpdatePass, lView, bindingIndex, classes, true, hasDirectiveInput);
 }
 
 /**
@@ -316,13 +352,12 @@ export function classMapInternal(
  * `[class]` bindings in Angular.
  */
 function stylingMap(
-    context: TStylingContext, tNode: TNode, lView: LView, bindingIndex: number,
-    value: {[key: string]: any} | string | null, isClassBased: boolean,
+    context: TStylingContext, tNode: TNode, firstUpdatePass: boolean, lView: LView,
+    bindingIndex: number, value: {[key: string]: any} | string | null, isClassBased: boolean,
     hasDirectiveInput: boolean): void {
   const directiveIndex = getActiveDirectiveId();
   const native = getNativeByTNode(tNode, lView) as RElement;
   const oldValue = getValue(lView, bindingIndex);
-  const hostBindingsMode = isHostStyling();
   const sanitizer = getCurrentStyleSanitizer();
   const valueHasChanged = hasValueChanged(oldValue, value);
 
@@ -334,20 +369,13 @@ function stylingMap(
     throwErrorIfNoChangesMode(false, oldValue, value);
   }
 
-  // we check for this in the instruction code so that the context can be notified
-  // about prop or map bindings so that the direct apply check can decide earlier
-  // if it allows for context resolution to be bypassed.
-  if (!isContextLocked(context, hostBindingsMode)) {
-    patchConfig(context, TStylingConfig.HasMapBindings);
-  }
-
   // Direct Apply Case: bypass context resolution and apply the
   // style/class map values directly to the element
-  if (allowDirectStyling(context, hostBindingsMode)) {
+  if (allowDirectStyling(tNode, isClassBased, firstUpdatePass)) {
     const sanitizerToUse = isClassBased ? null : sanitizer;
     const renderer = getRenderer(tNode, lView);
     applyStylingMapDirectly(
-        renderer, context, native, lView, bindingIndex, value, isClassBased, sanitizerToUse,
+        renderer, context, tNode, native, lView, bindingIndex, value, isClassBased, sanitizerToUse,
         valueHasChanged, hasDirectiveInput);
     if (sanitizerToUse) {
       // it's important we remove the current style sanitizer once the
@@ -366,12 +394,12 @@ function stylingMap(
     // value to the element.
     if (isClassBased) {
       updateClassViaContext(
-          context, lView, native, directiveIndex, null, bindingIndex, stylingMapArr,
-          valueHasChanged);
+          context, tNode, lView, native, directiveIndex, null, bindingIndex, stylingMapArr,
+          valueHasChanged, firstUpdatePass);
     } else {
       updateStyleViaContext(
-          context, lView, native, directiveIndex, null, bindingIndex, stylingMapArr, sanitizer,
-          valueHasChanged);
+          context, tNode, lView, native, directiveIndex, null, bindingIndex, stylingMapArr,
+          sanitizer, valueHasChanged, firstUpdatePass);
     }
 
     setElementExitFn(stylingApply);
@@ -396,18 +424,17 @@ function stylingMap(
  * depending on the following situations:
  *
  * - If `oldValue !== newValue`
- * - If `newValue` is `null` (but this is skipped if it is during the first update pass--
- *    which is when the context is not locked yet)
+ * - If `newValue` is `null` (but this is skipped if it is during the first update pass)
  */
 function updateDirectiveInputValue(
     context: TStylingContext, lView: LView, tNode: TNode, bindingIndex: number, newValue: any,
-    isClassBased: boolean): void {
-  const oldValue = lView[bindingIndex];
-  if (oldValue !== newValue) {
+    isClassBased: boolean, firstUpdatePass: boolean): void {
+  const oldValue = getValue(lView, bindingIndex);
+  if (hasValueChanged(oldValue, newValue)) {
     // even if the value has changed we may not want to emit it to the
     // directive input(s) in the event that it is falsy during the
     // first update pass.
-    if (newValue || isContextLocked(context, false)) {
+    if (isStylingValueDefined(newValue) || !firstUpdatePass) {
       const inputName: string = isClassBased ? selectClassBasedInputName(tNode.inputs !) : 'style';
       const inputs = tNode.inputs ![inputName] !;
       const initialValue = getInitialStylingValue(context);
@@ -452,6 +479,7 @@ function normalizeStylingDirectiveInputValue(
  */
 function stylingApply(): void {
   const lView = getLView();
+  const tView = lView[TVIEW];
   const elementIndex = getSelectedIndex();
   const tNode = getTNode(elementIndex, lView);
   const native = getNativeByTNode(tNode, lView) as RElement;
@@ -460,7 +488,9 @@ function stylingApply(): void {
   const sanitizer = getCurrentStyleSanitizer();
   const classesContext = isStylingContext(tNode.classes) ? tNode.classes as TStylingContext : null;
   const stylesContext = isStylingContext(tNode.styles) ? tNode.styles as TStylingContext : null;
-  flushStyling(renderer, lView, classesContext, stylesContext, native, directiveIndex, sanitizer);
+  flushStyling(
+      renderer, lView, tNode, classesContext, stylesContext, native, directiveIndex, sanitizer,
+      tView.firstUpdatePass);
   resetCurrentStyleSanitizer();
 }
 
@@ -537,7 +567,7 @@ function getContext(tNode: TNode, isClassBased: boolean): TStylingContext {
     const hasDirectives = isDirectiveHost(tNode);
     context = allocTStylingContext(context as StylingMapArray | null, hasDirectives);
     if (ngDevMode) {
-      attachStylingDebugObject(context as TStylingContext, isClassBased);
+      attachStylingDebugObject(context as TStylingContext, tNode, isClassBased);
     }
 
     if (isClassBased) {
@@ -577,4 +607,11 @@ function resolveStylePropValue(
  */
 function isHostStyling(): boolean {
   return isHostStylingActive(getActiveDirectiveId());
+}
+
+function patchHostStylingFlag(tNode: TNode, hostBindingsMode: boolean, isClassBased: boolean) {
+  const flag = hostBindingsMode ?
+      isClassBased ? TNodeFlags.hasHostClassBindings : TNodeFlags.hasHostStyleBindings :
+      isClassBased ? TNodeFlags.hasTemplateClassBindings : TNodeFlags.hasTemplateStyleBindings;
+  patchConfig(tNode, flag);
 }

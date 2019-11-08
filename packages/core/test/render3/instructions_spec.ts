@@ -45,7 +45,7 @@ describe('instructions', () => {
       t.update(() => { ɵɵproperty('title', 'World'); });
       expect(t.html).toEqual('<a title="World"></a>');
       expect(ngDevMode).toHaveProperties({
-        firstTemplatePass: 1,
+        firstCreatePass: 1,
         tNode: 2,  // 1 for hostElement + 1 for the template under test
         tView: 2,  // 1 for rootView + 1 for the template view
         rendererCreateElement: 1,
@@ -64,7 +64,7 @@ describe('instructions', () => {
          t.update();
          expect(t.html).toEqual('<a title="Hello"></a>');
          expect(ngDevMode).toHaveProperties({
-           firstTemplatePass: 1,
+           firstCreatePass: 1,
            tNode: 2,  // 1 for hostElement + 1 for the template under test
            tView: 2,  // 1 for rootView + 1 for the template view
            rendererCreateElement: 1,
@@ -83,7 +83,7 @@ describe('instructions', () => {
       expect(div.id).toEqual('test');
       expect(div.title).toEqual('Hello');
       expect(ngDevMode).toHaveProperties({
-        firstTemplatePass: 1,
+        firstCreatePass: 1,
         tNode: 2,  // 1 for div, 1 for host element
         tView: 2,  // 1 for rootView + 1 for the template view
         rendererCreateElement: 1,
@@ -103,7 +103,7 @@ describe('instructions', () => {
       });
       expect(t.html).toEqual('<div title="javascript:true"></div>');
       expect(ngDevMode).toHaveProperties({
-        firstTemplatePass: 1,
+        firstCreatePass: 1,
         tNode: 2,  // 1 for div, 1 for host element
         tView: 2,  // 1 for rootView + 1 for the template view
         rendererCreateElement: 1,
@@ -126,7 +126,7 @@ describe('instructions', () => {
       t.update(() => { ɵɵproperty('title', 'two')('accessKey', 'B'); });
       expect(t.html).toEqual('<div accesskey="B" title="two"></div>');
       expect(ngDevMode).toHaveProperties({
-        firstTemplatePass: 1,
+        firstCreatePass: 1,
         tNode: 2,  // 1 for div, 1 for host element
         tView: 2,  // 1 for rootView + 1 for the template view
         rendererCreateElement: 1,
@@ -170,21 +170,21 @@ describe('instructions', () => {
       const detectedValues: string[] = [];
       const sanitizerInterceptor =
           new MockSanitizerInterceptor(value => { detectedValues.push(value); });
-      const fixture =
-          createTemplateFixtureWithSanitizer(() => createDiv(), 1, sanitizerInterceptor);
-
-      fixture.update(() => {
-        ɵɵstyleSanitizer(sanitizerInterceptor.getStyleSanitizer());
-        ɵɵstyleMap({
-          'background-image': 'background-image',
-          'background': 'background',
-          'border-image': 'border-image',
-          'list-style': 'list-style',
-          'list-style-image': 'list-style-image',
-          'filter': 'filter',
-          'width': 'width'
-        });
-      });
+      const fixture = new TemplateFixture(
+          () => { return createDiv(); },  //
+          () => {
+            ɵɵstyleSanitizer(sanitizerInterceptor.getStyleSanitizer());
+            ɵɵstyleMap({
+              'background-image': 'background-image',
+              'background': 'background',
+              'border-image': 'border-image',
+              'list-style': 'list-style',
+              'list-style-image': 'list-style-image',
+              'filter': 'filter',
+              'width': 'width'
+            });
+          },
+          1, 0, null, null, sanitizerInterceptor);
 
       const props = detectedValues.sort();
       expect(props).toEqual([
@@ -197,8 +197,8 @@ describe('instructions', () => {
     function createDivWithStyling() { ɵɵelement(0, 'div'); }
 
     it('should add class', () => {
-      const fixture = new TemplateFixture(createDivWithStyling, () => {}, 1);
-      fixture.update(() => { ɵɵclassMap('multiple classes'); });
+      const fixture =
+          new TemplateFixture(createDivWithStyling, () => { ɵɵclassMap('multiple classes'); }, 1);
       expect(fixture.html).toEqual('<div class="classes multiple"></div>');
     });
   });
@@ -485,9 +485,4 @@ class MockSanitizerInterceptor {
 function stripStyleWsCharacters(value: string): string {
   // color: blue; => color:blue
   return value.replace(/;/g, '').replace(/:\s+/g, ':');
-}
-
-function createTemplateFixtureWithSanitizer(
-    buildFn: () => any, decls: number, sanitizer: Sanitizer) {
-  return new TemplateFixture(buildFn, () => {}, decls, 0, null, null, sanitizer);
 }

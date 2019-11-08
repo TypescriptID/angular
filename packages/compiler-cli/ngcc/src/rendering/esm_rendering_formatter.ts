@@ -96,8 +96,32 @@ export class EsmRenderingFormatter implements RenderingFormatter {
     if (!classSymbol) {
       throw new Error(`Compiled class does not have a valid symbol: ${compiledClass.name}`);
     }
-    const insertionPoint = classSymbol.declaration.valueDeclaration !.getEnd();
+    const insertionPoint = classSymbol.declaration.valueDeclaration.getEnd();
     output.appendLeft(insertionPoint, '\n' + definitions);
+  }
+
+  /**
+   * Add the adjacent statements after all static properties of the class.
+   */
+  addAdjacentStatements(output: MagicString, compiledClass: CompiledClass, statements: string):
+      void {
+    const classSymbol = this.host.getClassSymbol(compiledClass.declaration);
+    if (!classSymbol) {
+      throw new Error(`Compiled class does not have a valid symbol: ${compiledClass.name}`);
+    }
+
+    let insertionPoint = classSymbol.declaration.valueDeclaration.getEnd();
+
+    // If there are static members on this class then insert after the last one
+    if (classSymbol.declaration.exports !== undefined) {
+      classSymbol.declaration.exports.forEach(exportSymbol => {
+        const exportStatement = getContainingStatement(exportSymbol);
+        if (exportStatement !== null) {
+          insertionPoint = Math.max(insertionPoint, exportStatement.getEnd());
+        }
+      });
+    }
+    output.appendLeft(insertionPoint, '\n' + statements);
   }
 
   /**
@@ -243,4 +267,22 @@ function generateImportString(
 function getNextSiblingInArray<T extends ts.Node>(node: T, array: ts.NodeArray<T>): T|null {
   const index = array.indexOf(node);
   return index !== -1 && array.length > index + 1 ? array[index + 1] : null;
+}
+
+/**
+ * Find the statement that contains the given class member
+ * @param symbol the symbol of a static member of a class
+ */
+function getContainingStatement(symbol: ts.Symbol): ts.ExpressionStatement|null {
+  if (symbol.valueDeclaration === undefined) {
+    return null;
+  }
+  let node: ts.Node|null = symbol.valueDeclaration;
+  while (node) {
+    if (ts.isExpressionStatement(node)) {
+      break;
+    }
+    node = node.parent;
+  }
+  return node || null;
 }

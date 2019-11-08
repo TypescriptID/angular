@@ -315,12 +315,6 @@
     "name": "_activeStylingMapApplyFn"
   },
   {
-    "name": "_c0"
-  },
-  {
-    "name": "_c1"
-  },
-  {
     "name": "_currentInjector"
   },
   {
@@ -639,7 +633,7 @@
     "name": "getComponentViewByInstance"
   },
   {
-    "name": "getConfig"
+    "name": "getConstant"
   },
   {
     "name": "getContainerRenderParent"
@@ -672,10 +666,10 @@
     "name": "getFactoryDef"
   },
   {
-    "name": "getGuardMask"
+    "name": "getFirstNativeNode"
   },
   {
-    "name": "getHostNative"
+    "name": "getGuardMask"
   },
   {
     "name": "getInitialStylingValue"
@@ -699,9 +693,6 @@
     "name": "getLViewParent"
   },
   {
-    "name": "getLockedConfig"
-  },
-  {
     "name": "getMapProp"
   },
   {
@@ -723,9 +714,6 @@
     "name": "getNativeByTNode"
   },
   {
-    "name": "getNativeByTNodeOrNull"
-  },
-  {
     "name": "getNodeInjectable"
   },
   {
@@ -735,10 +723,10 @@
     "name": "getOrCreateNodeInjectorForNode"
   },
   {
-    "name": "getOrCreateTNode"
+    "name": "getOrCreateTComponentView"
   },
   {
-    "name": "getOrCreateTView"
+    "name": "getOrCreateTNode"
   },
   {
     "name": "getOriginalError"
@@ -924,9 +912,6 @@
     "name": "isContentQueryHost"
   },
   {
-    "name": "isContextLocked"
-  },
-  {
     "name": "isCreationMode"
   },
   {
@@ -1014,12 +999,6 @@
     "name": "locateHostElement"
   },
   {
-    "name": "lockAndFinalizeContext"
-  },
-  {
-    "name": "lockContext"
-  },
-  {
     "name": "looseIdentical"
   },
   {
@@ -1087,6 +1066,9 @@
   },
   {
     "name": "patchConfig"
+  },
+  {
+    "name": "patchHostStylingFlag"
   },
   {
     "name": "readPatchedData"
@@ -1297,6 +1279,9 @@
   },
   {
     "name": "stylingProp"
+  },
+  {
+    "name": "syncContextInitialStyling"
   },
   {
     "name": "syncViewWithBlueprint"

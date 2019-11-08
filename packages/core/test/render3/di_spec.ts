@@ -16,7 +16,7 @@ import {ɵɵdefineDirective, ɵɵdirectiveInject, ɵɵelement, ɵɵelementEnd, �
 import {TNODE} from '../../src/render3/interfaces/injector';
 import {TNodeType} from '../../src/render3/interfaces/node';
 import {isProceduralRenderer} from '../../src/render3/interfaces/renderer';
-import {LViewFlags, TVIEW} from '../../src/render3/interfaces/view';
+import {LViewFlags, TVIEW, TViewType} from '../../src/render3/interfaces/view';
 import {enterView, leaveViewProcessExit} from '../../src/render3/state';
 
 import {getRendererFactory2} from './imported_renderer2';
@@ -145,7 +145,7 @@ describe('di', () => {
     describe('bloom filter', () => {
       let mockTView: any;
       beforeEach(() => {
-        mockTView = {data: [0, 0, 0, 0, 0, 0, 0, 0, null], firstTemplatePass: true};
+        mockTView = {data: [0, 0, 0, 0, 0, 0, 0, 0, null], firstCreatePass: true};
       });
 
       function bloomState() { return mockTView.data.slice(0, TNODE).reverse(); }
@@ -223,7 +223,7 @@ describe('di', () => {
   describe('getOrCreateNodeInjector', () => {
     it('should handle initial undefined state', () => {
       const contentView = createLView(
-          null, createTView(-1, null, 1, 0, null, null, null, null, null), null,
+          null, createTView(TViewType.Embedded, -1, null, 1, 0, null, null, null, null, null), {},
           LViewFlags.CheckAlways, null, null, {} as any, {} as any);
       enterView(contentView, null);
       try {

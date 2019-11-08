@@ -535,10 +535,6 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     const isI18nRootElement: boolean =
         isI18nRootNode(element.i18n) && !isSingleI18nIcu(element.i18n);
 
-    if (isI18nRootElement && this.i18n) {
-      throw new Error(`Could not mark an element as translatable inside of a translatable section`);
-    }
-
     const i18nAttrs: (t.TextAttribute | t.BoundAttribute)[] = [];
     const outputAttrs: t.TextAttribute[] = [];
     let ngProjectAsAttr: t.TextAttribute|undefined;
@@ -606,10 +602,11 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     // add attributes for directive and projection matching purposes
     attributes.push(...this.prepareNonRenderAttrs(
         allOtherInputs, element.outputs, stylingBuilder, [], i18nAttrs, ngProjectAsAttr));
-    parameters.push(this.addConstants(attributes));
+    parameters.push(this.addAttrsToConsts(attributes));
 
     // local refs (ex.: <div #foo #bar="baz">)
-    parameters.push(this.prepareRefsParameter(element.references));
+    const refs = this.prepareRefsArray(element.references);
+    parameters.push(this.addToConsts(refs));
 
     const wasInNamespace = this._namespace;
     const currentNamespace = this.getNamespaceInstruction(namespaceKey);
@@ -869,11 +866,12 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
         (a: t.TextAttribute) => { attrsExprs.push(asLiteral(a.name), asLiteral(a.value)); });
     attrsExprs.push(...this.prepareNonRenderAttrs(
         template.inputs, template.outputs, undefined, template.templateAttrs));
-    parameters.push(this.addConstants(attrsExprs));
+    parameters.push(this.addAttrsToConsts(attrsExprs));
 
     // local refs (ex.: <ng-template #foo>)
     if (template.references && template.references.length) {
-      parameters.push(this.prepareRefsParameter(template.references));
+      const refs = this.prepareRefsArray(template.references);
+      parameters.push(this.addToConsts(refs));
       parameters.push(o.importExpr(R3.templateRefExtractor));
     }
 
@@ -1191,9 +1189,9 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     return args;
   }
 
-  private matchDirectives(tagName: string, elOrTpl: t.Element|t.Template) {
+  private matchDirectives(elementName: string, elOrTpl: t.Element|t.Template) {
     if (this.directiveMatcher) {
-      const selector = createCssSelector(tagName, getAttrsForDirectiveMatching(elOrTpl));
+      const selector = createCssSelector(elementName, getAttrsForDirectiveMatching(elOrTpl));
       this.directiveMatcher.match(
           selector, (cssSelector, staticType) => { this.directives.add(staticType); });
     }
@@ -1294,24 +1292,26 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     return attrExprs;
   }
 
-  private addConstants(constExprs: o.Expression[]): o.LiteralExpr {
-    if (constExprs.length > 0) {
-      const literal = o.literalArr(constExprs);
-
-      // Try to reuse a literal that's already in the array, if possible.
-      for (let i = 0; i < this._constants.length; i++) {
-        if (this._constants[i].isEquivalent(literal)) {
-          return o.literal(i);
-        }
-      }
-
-      return o.literal(this._constants.push(literal) - 1);
+  private addToConsts(expression: o.Expression): o.LiteralExpr {
+    if (o.isNull(expression)) {
+      return o.TYPED_NULL_EXPR;
     }
 
-    return o.TYPED_NULL_EXPR;
+    // Try to reuse a literal that's already in the array, if possible.
+    for (let i = 0; i < this._constants.length; i++) {
+      if (this._constants[i].isEquivalent(expression)) {
+        return o.literal(i);
+      }
+    }
+
+    return o.literal(this._constants.push(expression) - 1);
   }
 
-  private prepareRefsParameter(references: t.Reference[]): o.Expression {
+  private addAttrsToConsts(attrs: o.Expression[]): o.LiteralExpr {
+    return attrs.length > 0 ? this.addToConsts(o.literalArr(attrs)) : o.TYPED_NULL_EXPR;
+  }
+
+  private prepareRefsArray(references: t.Reference[]): o.Expression {
     if (!references || references.length === 0) {
       return o.TYPED_NULL_EXPR;
     }
@@ -1336,7 +1336,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       return [reference.name, reference.value];
     }));
 
-    return this.constantPool.getConstLiteral(asLiteral(refsParam), true);
+    return asLiteral(refsParam);
   }
 
   private prepareListenerParameter(tagName: string, outputAst: t.BoundEvent, index: number):
@@ -1762,15 +1762,18 @@ export class BindingScope implements LocalResolver {
 /**
  * Creates a `CssSelector` given a tag name and a map of attributes
  */
-function createCssSelector(tag: string, attributes: {[name: string]: string}): CssSelector {
+export function createCssSelector(
+    elementName: string, attributes: {[name: string]: string}): CssSelector {
   const cssSelector = new CssSelector();
+  const elementNameNoNs = splitNsName(elementName)[1];
 
-  cssSelector.setElement(tag);
+  cssSelector.setElement(elementNameNoNs);
 
   Object.getOwnPropertyNames(attributes).forEach((name) => {
+    const nameNoNs = splitNsName(name)[1];
     const value = attributes[name];
 
-    cssSelector.addAttribute(name, value);
+    cssSelector.addAttribute(nameNoNs, value);
     if (name.toLowerCase() === 'class') {
       const classes = value.trim().split(/\s+/);
       classes.forEach(className => cssSelector.addClassName(className));
