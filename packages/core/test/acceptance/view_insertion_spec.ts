@@ -263,15 +263,7 @@ describe('view insertion', () => {
     }
 
     describe('before embedded view', () => {
-      @Component({
-        selector: 'test-cmpt',
-        template: `
-          <ng-template #insert>insert</ng-template>  
-          <ng-template #before>|before</ng-template>
-          
-          <div><ng-template #vi="vi" viewInserting></ng-template></div>
-        `
-      })
+      @Component({selector: 'test-cmpt', template: ''})
       class TestCmpt {
         @ViewChild('before', {static: true}) beforeTpl !: TemplateRef<{}>;
         @ViewChild('insert', {static: true}) insertTpl !: TemplateRef<{}>;
@@ -327,6 +319,11 @@ describe('view insertion', () => {
             .toBe('insert|before');
       });
 
+      it('should insert before a view with the empty ng-container as the first root node', () => {
+        expect(createAndInsertViews(`<ng-container></ng-container>|before`).textContent)
+            .toBe('insert|before');
+      });
+
       it('should insert before a view with ICU container inside a ng-container as the first root node',
          () => {
            expect(
@@ -343,8 +340,8 @@ describe('view insertion', () => {
       });
 
       it('should insert before a view with an empty container as the first root node', () => {
-        expect(createAndInsertViews(`<ng-template [ngIf]="true"></ng-template>`).textContent)
-            .toBe('insert');
+        expect(createAndInsertViews(`<ng-template [ngIf]="true"></ng-template>|before`).textContent)
+            .toBe('insert|before');
 
       });
 
