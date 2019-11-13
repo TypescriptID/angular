@@ -8,9 +8,10 @@
 import {Injector} from '../../di';
 import {ErrorHandler} from '../../error_handler';
 import {CUSTOM_ELEMENTS_SCHEMA, NO_ERRORS_SCHEMA, SchemaMetadata} from '../../metadata/schema';
+import {ViewEncapsulation} from '../../metadata/view';
 import {validateAgainstEventAttributes, validateAgainstEventProperties} from '../../sanitization/sanitization';
 import {Sanitizer} from '../../sanitization/sanitizer';
-import {assertDataInRange, assertDefined, assertDomNode, assertEqual, assertGreaterThan, assertLessThanOrEqual, assertNotEqual, assertNotSame} from '../../util/assert';
+import {assertDataInRange, assertDefined, assertDomNode, assertEqual, assertGreaterThan, assertNotEqual, assertNotSame} from '../../util/assert';
 import {createNamedArrayType} from '../../util/named_array_type';
 import {initNgDevMode} from '../../util/ng_dev_mode';
 import {normalizeDebugBindingName, normalizeDebugBindingValue} from '../../util/ng_reflect';
@@ -20,7 +21,7 @@ import {getFactoryDef} from '../definition';
 import {diPublicInInjector, getNodeInjectable, getOrCreateNodeInjectorForNode} from '../di';
 import {throwMultipleComponentError} from '../errors';
 import {executeCheckHooks, executeInitAndCheckHooks, incrementInitPhaseFlags, registerPreOrderHooks} from '../hooks';
-import {ACTIVE_INDEX, CONTAINER_HEADER_OFFSET, LContainer} from '../interfaces/container';
+import {ACTIVE_INDEX, CONTAINER_HEADER_OFFSET, LContainer, MOVED_VIEWS} from '../interfaces/container';
 import {ComponentDef, ComponentTemplate, DirectiveDef, DirectiveDefListOrFactory, PipeDefListOrFactory, RenderFlags, ViewQueriesFunction} from '../interfaces/definition';
 import {INJECTOR_BLOOM_PARENT_SIZE, NodeInjectorFactory} from '../interfaces/injector';
 import {AttributeMarker, InitialInputData, InitialInputs, LocalRefExtractor, PropertyAliasValue, PropertyAliases, TAttributes, TConstants, TContainerNode, TDirectiveHostNode, TElementContainerNode, TElementNode, TIcuContainerNode, TNode, TNodeFlags, TNodeProviderIndexes, TNodeType, TProjectionNode, TViewNode} from '../interfaces/node';
@@ -30,13 +31,13 @@ import {isComponentDef, isComponentHost, isContentQueryHost, isLContainer, isRoo
 import {CHILD_HEAD, CHILD_TAIL, CLEANUP, CONTEXT, DECLARATION_VIEW, ExpandoInstructions, FLAGS, HEADER_OFFSET, HOST, INJECTOR, InitPhaseState, LView, LViewFlags, NEXT, PARENT, RENDERER, RENDERER_FACTORY, RootContext, RootContextFlags, SANITIZER, TData, TVIEW, TView, TViewType, T_HOST} from '../interfaces/view';
 import {assertNodeOfPossibleTypes} from '../node_assert';
 import {isNodeMatchingSelectorList} from '../node_selector_matcher';
-import {ActiveElementFlags, enterView, executeElementExitFn, getBindingIndex, getBindingsEnabled, getCheckNoChangesMode, getIsParent, getPreviousOrParentTNode, getSelectedIndex, hasActiveElementFlag, incrementActiveDirectiveId, leaveView, leaveViewProcessExit, setActiveHostElement, setBindingIndex, setBindingRoot, setCheckNoChangesMode, setCurrentDirectiveDef, setCurrentQueryIndex, setPreviousOrParentTNode, setSelectedIndex} from '../state';
+import {ActiveElementFlags, enterView, executeElementExitFn, getBindingsEnabled, getCheckNoChangesMode, getIsParent, getPreviousOrParentTNode, getSelectedIndex, hasActiveElementFlag, incrementActiveDirectiveId, leaveView, leaveViewProcessExit, setActiveHostElement, setBindingIndex, setBindingRoot, setCheckNoChangesMode, setCurrentDirectiveDef, setCurrentQueryIndex, setPreviousOrParentTNode, setSelectedIndex} from '../state';
 import {renderStylingMap, writeStylingValueDirectly} from '../styling/bindings';
 import {NO_CHANGE} from '../tokens';
 import {isAnimationProp} from '../util/attrs_utils';
 import {INTERPOLATION_DELIMITER, renderStringify, stringifyForError} from '../util/misc_utils';
 import {getInitialStylingValue} from '../util/styling_utils';
-import {getLViewParent} from '../util/view_traversal_utils';
+import {findComponentView, getLViewParent} from '../util/view_traversal_utils';
 import {getComponentLViewByIndex, getNativeByIndex, getNativeByTNode, getTNode, isCreationMode, readPatchedLView, resetPreOrderHookFlags, unwrapRNode, viewAttachedToChangeDetector} from '../util/view_utils';
 
 import {selectIndexInternal} from './advance';
@@ -678,32 +679,50 @@ function createViewBlueprint(bindingStartIndex: number, initialViewLength: numbe
   return blueprint as LView;
 }
 
-export function createError(text: string, token: any) {
+function createError(text: string, token: any) {
   return new Error(`Renderer: ${text} [${stringifyForError(token)}]`);
 }
 
-
-/**
- * Locates the host native element, used for bootstrapping existing nodes into rendering pipeline.
- *
- * @param elementOrSelector Render element or CSS selector to locate the element.
- */
-export function locateHostElement(
-    factory: RendererFactory3, elementOrSelector: RElement | string): RElement|null {
-  const defaultRenderer = factory.createRenderer(null, null);
-  const rNode = typeof elementOrSelector === 'string' ?
-      (isProceduralRenderer(defaultRenderer) ?
-           defaultRenderer.selectRootElement(elementOrSelector) :
-           defaultRenderer.querySelector(elementOrSelector)) :
-      elementOrSelector;
-  if (ngDevMode && !rNode) {
+function assertHostNodeExists(rElement: RElement, elementOrSelector: RElement | string) {
+  if (!rElement) {
     if (typeof elementOrSelector === 'string') {
       throw createError('Host node with selector not found:', elementOrSelector);
     } else {
       throw createError('Host node is required:', elementOrSelector);
     }
   }
-  return rNode;
+}
+
+/**
+ * Locates the host native element, used for bootstrapping existing nodes into rendering pipeline.
+ *
+ * @param rendererFactory Factory function to create renderer instance.
+ * @param elementOrSelector Render element or CSS selector to locate the element.
+ * @param encapsulation View Encapsulation defined for component that requests host element.
+ */
+export function locateHostElement(
+    rendererFactory: RendererFactory3, elementOrSelector: RElement | string,
+    encapsulation: ViewEncapsulation): RElement {
+  const renderer = rendererFactory.createRenderer(null, null);
+
+  if (isProceduralRenderer(renderer)) {
+    // When using native Shadow DOM, do not clear host element to allow native slot projection
+    const preserveContent = encapsulation === ViewEncapsulation.ShadowDom;
+    return renderer.selectRootElement(elementOrSelector, preserveContent);
+  }
+
+  let rElement = typeof elementOrSelector === 'string' ?
+      renderer.querySelector(elementOrSelector) ! :
+      elementOrSelector;
+  ngDevMode && assertHostNodeExists(rElement, elementOrSelector);
+
+  // Always clear host element's content when Renderer3 is in use. For procedural renderer case we
+  // make it depend on whether ShadowDom encapsulation is used (in which case the content should be
+  // preserved to allow native slot projection). ShadowDom encapsulation requires procedural
+  // renderer, and procedural renderer case is handled above.
+  rElement.textContent = '';
+
+  return rElement;
 }
 
 /**
@@ -1444,21 +1463,21 @@ const LContainerArray: any = ((typeof ngDevMode === 'undefined' || ngDevMode) &&
  * @returns LContainer
  */
 export function createLContainer(
-    hostNative: RElement | RComment | LView, currentView: LView, native: RComment, tNode: TNode,
-    isForViewContainerRef?: boolean): LContainer {
+    hostNative: RElement | RComment | LView, currentView: LView, native: RComment,
+    tNode: TNode): LContainer {
   ngDevMode && assertLView(currentView);
   ngDevMode && !isProceduralRenderer(currentView[RENDERER]) && assertDomNode(native);
   // https://jsperf.com/array-literal-vs-new-array-really
   const lContainer: LContainer = new (ngDevMode ? LContainerArray : Array)(
-      hostNative,  // host native
-      true,        // Boolean `true` in this position signifies that this is an `LContainer`
-      isForViewContainerRef ? -1 : 0,  // active index
-      currentView,                     // parent
-      null,                            // next
-      null,                            // queries
-      tNode,                           // t_host
-      native,                          // native,
-      null,                            // view refs
+      hostNative,   // host native
+      true,         // Boolean `true` in this position signifies that this is an `LContainer`
+      -1,           // active index
+      currentView,  // parent
+      null,         // next
+      null,         // queries
+      tNode,        // t_host
+      native,       // native,
+      null,         // view refs
       );
   ngDevMode && attachLContainerDebug(lContainer);
   return lContainer;
@@ -1480,6 +1499,32 @@ function refreshDynamicEmbeddedViews(lView: LView) {
         const embeddedTView = embeddedLView[TVIEW];
         ngDevMode && assertDefined(embeddedTView, 'TView must be allocated');
         refreshView(embeddedLView, embeddedTView, embeddedTView.template, embeddedLView[CONTEXT] !);
+      }
+      const movedViews = viewOrContainer[MOVED_VIEWS];
+      if (movedViews !== null) {
+        // We should only CD moved views if the component where they were inserted does not match
+        // the component where they were declared. Moved views also contains intra component moves,
+        // which we don't care about.
+        // TODO(misko): this is not the most efficient way to do this as we have to do a lot of
+        // searches. Will refactor for performance later.
+        const declaredComponentLView = findComponentView(lView);
+        for (let i = 0; i < movedViews.length; i++) {
+          const movedLView = movedViews[i] !;
+          let parentLView = movedLView[PARENT];
+          while (isLContainer(parentLView)) {
+            parentLView = parentLView[PARENT];
+          }
+          const insertedComponentLView = findComponentView(parentLView !);
+          const insertionIsOnPush =
+              (insertedComponentLView[FLAGS] & LViewFlags.CheckAlways) !== LViewFlags.CheckAlways;
+          if (insertionIsOnPush && insertedComponentLView !== declaredComponentLView) {
+            // Here we know that the template has been transplanted across components
+            // (not just moved within a component)
+            const movedTView = movedLView[TVIEW];
+            ngDevMode && assertDefined(movedTView, 'TView must be allocated');
+            refreshView(movedLView, movedTView, movedTView.template, movedLView[CONTEXT] !);
+          }
+        }
       }
     }
     viewOrContainer = viewOrContainer[NEXT];

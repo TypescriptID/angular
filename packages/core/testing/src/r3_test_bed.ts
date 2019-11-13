@@ -35,7 +35,6 @@ import {MetadataOverride} from './metadata_override';
 import {TestBed} from './test_bed';
 import {ComponentFixtureAutoDetect, ComponentFixtureNoNgZone, TestBedStatic, TestComponentRenderer, TestModuleMetadata} from './test_bed_common';
 import {R3TestBedCompiler} from './r3_test_bed_compiler';
-import {clearRegisteredModuleState} from '../../src/linker/ng_module_factory_registration';
 
 let _nextRootElementId = 0;
 

@@ -17,7 +17,7 @@ import {expect} from '@angular/platform-browser/testing/src/matchers';
 import {modifiedInIvy, obsoleteInIvy, onlyInIvy} from '@angular/private/testing';
 
 import {InternalNgModuleRef, NgModuleFactory} from '../../src/linker/ng_module_factory';
-import {clearRegisteredModuleState} from '../../src/linker/ng_module_factory_registration';
+import {clearModulesForTest} from '../../src/linker/ng_module_factory_registration';
 import {stringify} from '../../src/util/stringify';
 
 class Engine {}
@@ -294,7 +294,7 @@ function declareTests(config?: {useJit: boolean}) {
     describe('id', () => {
       const token = 'myid';
 
-      afterEach(() => clearRegisteredModuleState());
+      afterEach(() => clearModulesForTest());
 
       it('should register loaded modules', () => {
         @NgModule({id: token})
