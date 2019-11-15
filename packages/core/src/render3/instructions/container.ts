@@ -17,7 +17,7 @@ import {FLAGS, HEADER_OFFSET, InitPhaseState, LView, LViewFlags, RENDERER, TVIEW
 import {assertNodeType} from '../node_assert';
 import {appendChild, removeView} from '../node_manipulation';
 import {getBindingIndex, getCheckNoChangesMode, getIsParent, getLView, getPreviousOrParentTNode, setIsNotParent, setPreviousOrParentTNode} from '../state';
-import {getConstant, load} from '../util/view_utils';
+import {getConstant, getLContainerActiveIndex, load} from '../util/view_utils';
 
 import {addToViewTree, createDirectivesInstances, createLContainer, createTNode, createTView, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
 
@@ -73,8 +73,8 @@ export function ɵɵtemplate(
 
   // TODO: consider a separate node type for templates
   const tContainerNode = containerInternal(
-      lView, index, tagName || null, getConstant(tViewConsts, attrsIndex) as TAttributes);
-  const localRefs = getConstant(tViewConsts, localRefsIndex) as string[];
+      lView, index, tagName || null, getConstant<TAttributes>(tViewConsts, attrsIndex));
+  const localRefs = getConstant<string[]>(tViewConsts, localRefsIndex);
   if (tView.firstCreatePass) {
     ngDevMode && ngDevMode.firstCreatePass++;
     resolveDirectives(tView, lView, tContainerNode, localRefs);
@@ -160,7 +160,7 @@ export function ɵɵcontainerRefreshEnd(): void {
   ngDevMode && assertNodeType(previousOrParentTNode, TNodeType.Container);
 
   const lContainer: LContainer = getLView()[previousOrParentTNode.index];
-  const nextIndex = lContainer[ACTIVE_INDEX];
+  const nextIndex = getLContainerActiveIndex(lContainer);
 
   // remove extra views at the end of the container
   while (nextIndex < lContainer.length - CONTAINER_HEADER_OFFSET) {

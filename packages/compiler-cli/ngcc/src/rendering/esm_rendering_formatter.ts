@@ -5,10 +5,12 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
+import {Statement} from '@angular/compiler';
 import MagicString from 'magic-string';
 import * as ts from 'typescript';
 import {relative, dirname, AbsoluteFsPath, absoluteFromSourceFile} from '../../../src/ngtsc/file_system';
-import {Import, ImportManager} from '../../../src/ngtsc/translator';
+import {NOOP_DEFAULT_IMPORT_RECORDER, Reexport} from '../../../src/ngtsc/imports';
+import {Import, ImportManager, translateStatement} from '../../../src/ngtsc/translator';
 import {isDtsPath} from '../../../src/ngtsc/util/src/typescript';
 import {CompiledClass} from '../analysis/types';
 import {NgccReflectionHost, POST_R3_MARKER, PRE_R3_MARKER, SwitchableVariableDeclaration} from '../host/ngcc_host';
@@ -16,12 +18,14 @@ import {ModuleWithProvidersInfo} from '../analysis/module_with_providers_analyze
 import {ExportInfo} from '../analysis/private_declarations_analyzer';
 import {RenderingFormatter, RedundantDecoratorMap} from './rendering_formatter';
 import {stripExtension} from './utils';
-import {Reexport} from '../../../src/ngtsc/imports';
+import {isAssignment} from '../host/esm2015_host';
 
 /**
  * A RenderingFormatter that works with ECMAScript Module import and export statements.
  */
 export class EsmRenderingFormatter implements RenderingFormatter {
+  protected printer = ts.createPrinter({newLine: ts.NewLineKind.LineFeed});
+
   constructor(protected host: NgccReflectionHost, protected isCore: boolean) {}
 
   /**
@@ -124,7 +128,19 @@ export class EsmRenderingFormatter implements RenderingFormatter {
           // Remove the entire statement
           const statement = findStatement(containerNode);
           if (statement) {
-            output.remove(statement.getFullStart(), statement.getEnd());
+            if (ts.isExpressionStatement(statement)) {
+              // The statement looks like: `SomeClass = __decorate(...);`
+              // Remove it completely
+              output.remove(statement.getFullStart(), statement.getEnd());
+            } else if (
+                ts.isReturnStatement(statement) && statement.expression &&
+                isAssignment(statement.expression)) {
+              // The statement looks like: `return SomeClass = __decorate(...);`
+              // We only want to end up with: `return SomeClass;`
+              const startOfRemoval = statement.expression.left.getEnd();
+              const endOfRemoval = getEndExceptSemicolon(statement);
+              output.remove(startOfRemoval, endOfRemoval);
+            }
           }
         } else {
           nodesToRemove.forEach(node => {
@@ -212,6 +228,24 @@ export class EsmRenderingFormatter implements RenderingFormatter {
     });
   }
 
+  /**
+   * Convert a `Statement` to JavaScript code in a format suitable for rendering by this formatter.
+   *
+   * @param stmt The `Statement` to print.
+   * @param sourceFile A `ts.SourceFile` that provides context for the statement. See
+   *     `ts.Printer#printNode()` for more info.
+   * @param importManager The `ImportManager` to use for managing imports.
+   *
+   * @return The JavaScript code corresponding to `stmt` (in the appropriate format).
+   */
+  printStatement(stmt: Statement, sourceFile: ts.SourceFile, importManager: ImportManager): string {
+    const node = translateStatement(
+        stmt, importManager, NOOP_DEFAULT_IMPORT_RECORDER, ts.ScriptTarget.ES2015);
+    const code = this.printer.printNode(ts.EmitHint.Unspecified, node, sourceFile);
+
+    return code;
+  }
+
   protected findEndOfImports(sf: ts.SourceFile): number {
     for (const stmt of sf.statements) {
       if (!ts.isImportDeclaration(stmt) && !ts.isImportEqualsDeclaration(stmt) &&
@@ -239,7 +273,7 @@ export class EsmRenderingFormatter implements RenderingFormatter {
 
 function findStatement(node: ts.Node) {
   while (node) {
-    if (ts.isExpressionStatement(node)) {
+    if (ts.isExpressionStatement(node) || ts.isReturnStatement(node)) {
       return node;
     }
     node = node.parent;
@@ -256,4 +290,10 @@ function generateImportString(
 function getNextSiblingInArray<T extends ts.Node>(node: T, array: ts.NodeArray<T>): T|null {
   const index = array.indexOf(node);
   return index !== -1 && array.length > index + 1 ? array[index + 1] : null;
+}
+
+function getEndExceptSemicolon(statement: ts.Statement): number {
+  const lastToken = statement.getLastToken();
+  return (lastToken && lastToken.kind === ts.SyntaxKind.SemicolonToken) ? statement.getEnd() - 1 :
+                                                                          statement.getEnd();
 }
