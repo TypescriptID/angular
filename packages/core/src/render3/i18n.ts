@@ -1019,9 +1019,9 @@ function i18nAttributesFirstPass(lView: LView, tView: TView, index: number, valu
             elementAttributeInternal(previousElementIndex, attrName, value, lView);
           }
           // Check if that attribute is a directive input
-          const dataValue = tNode.inputs && tNode.inputs[attrName];
+          const dataValue = tNode.inputs !== null && tNode.inputs[attrName];
           if (dataValue) {
-            setInputsForProperty(lView, dataValue, value);
+            setInputsForProperty(lView, dataValue, attrName, value);
             if (ngDevMode) {
               const element = getNativeByIndex(previousElementIndex, lView) as RElement | RComment;
               setNgReflectProperties(lView, element, tNode.type, dataValue, value);

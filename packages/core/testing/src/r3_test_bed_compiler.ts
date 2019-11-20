@@ -88,6 +88,7 @@ export class R3TestBedCompiler {
 
   private testModuleType: NgModuleType<any>;
   private testModuleRef: NgModuleRef<any>|null = null;
+  private hasModuleOverrides: boolean = false;
 
   constructor(private platform: PlatformRef, private additionalModuleTypes: Type<any>|Type<any>[]) {
     class DynamicTestModule {}
@@ -122,6 +123,8 @@ export class R3TestBedCompiler {
   }
 
   overrideModule(ngModule: Type<any>, override: MetadataOverride<NgModule>): void {
+    this.hasModuleOverrides = true;
+
     // Compile the module right away.
     this.resolvers.module.addOverride(ngModule, override);
     const metadata = this.resolvers.module.resolve(ngModule);
@@ -331,8 +334,15 @@ export class R3TestBedCompiler {
     const getScopeOfModule =
         (moduleType: Type<any>| TestingModuleOverride): NgModuleTransitiveScopes => {
           if (!moduleToScope.has(moduleType)) {
-            const realType = isTestingModuleOverride(moduleType) ? this.testModuleType : moduleType;
-            moduleToScope.set(moduleType, transitiveScopesFor(realType));
+            const isTestingModule = isTestingModuleOverride(moduleType);
+            const realType = isTestingModule ? this.testModuleType : moduleType as Type<any>;
+            // Module overrides (via TestBed.overrideModule) might affect scopes that were
+            // previously calculated and stored in `transitiveCompileScopes`. If module overrides
+            // are present, always re-calculate transitive scopes to have the most up-to-date
+            // information available. The `moduleToScope` map avoids repeated re-calculation of
+            // scopes for the same module.
+            const forceRecalc = !isTestingModule && this.hasModuleOverrides;
+            moduleToScope.set(moduleType, transitiveScopesFor(realType, forceRecalc));
           }
           return moduleToScope.get(moduleType) !;
         };
@@ -486,17 +496,29 @@ export class R3TestBedCompiler {
   }
 
   private queueTypesFromModulesArray(arr: any[]): void {
-    for (const value of arr) {
-      if (Array.isArray(value)) {
-        this.queueTypesFromModulesArray(value);
-      } else if (hasNgModuleDef(value)) {
-        const def = value.ɵmod;
-        // Look through declarations, imports, and exports, and queue everything found there.
-        this.queueTypeArray(maybeUnwrapFn(def.declarations), value);
-        this.queueTypesFromModulesArray(maybeUnwrapFn(def.imports));
-        this.queueTypesFromModulesArray(maybeUnwrapFn(def.exports));
+    // Because we may encounter the same NgModule while processing the imports and exports of an
+    // NgModule tree, we cache them in this set so we can skip ones that have already been seen
+    // encountered. In some test setups, this caching resulted in 10X runtime improvement.
+    const processedNgModuleDefs = new Set();
+    const queueTypesFromModulesArrayRecur = (arr: any[]): void => {
+      for (const value of arr) {
+        if (Array.isArray(value)) {
+          queueTypesFromModulesArrayRecur(value);
+        } else if (hasNgModuleDef(value)) {
+          const def = value.ɵmod;
+          if (processedNgModuleDefs.has(def)) {
+            continue;
+          }
+          processedNgModuleDefs.add(def);
+          // Look through declarations, imports, and exports, and queue
+          // everything found there.
+          this.queueTypeArray(maybeUnwrapFn(def.declarations), value);
+          queueTypesFromModulesArrayRecur(maybeUnwrapFn(def.imports));
+          queueTypesFromModulesArrayRecur(maybeUnwrapFn(def.exports));
+        }
       }
-    }
+    };
+    queueTypesFromModulesArrayRecur(arr);
   }
 
   private maybeStoreNgDef(prop: string, type: Type<any>) {

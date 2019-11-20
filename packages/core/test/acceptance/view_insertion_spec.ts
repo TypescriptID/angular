@@ -541,4 +541,124 @@ describe('view insertion', () => {
     });
   });
 
+  describe('non-regression', () => {
+
+    // https://github.com/angular/angular/issues/31971
+    it('should insert component views into ViewContainerRef injected by querying <ng-container>',
+       () => {
+
+         @Component({selector: 'dynamic-cmpt', template: 'dynamic'})
+         class DynamicComponent {
+         }
+
+         @Component({
+           selector: 'app-root',
+           template: `
+            <div>start|</div>
+            <ng-container #container></ng-container>
+            <div>|end</div>
+
+            <div (click)="click()" >|click</div>
+        `
+         })
+         class AppComponent {
+           @ViewChild('container', {read: ViewContainerRef, static: true})
+           vcr !: ViewContainerRef;
+
+           constructor(private _cfr: ComponentFactoryResolver) {}
+
+           click() {
+             this.vcr.createComponent(this._cfr.resolveComponentFactory(DynamicComponent));
+           }
+         }
+
+         @NgModule({
+           declarations: [DynamicComponent],
+           entryComponents: [DynamicComponent],
+         })
+         class TestModule {
+         }
+
+         TestBed.configureTestingModule({
+           declarations: [AppComponent],
+           imports: [TestModule],
+         });
+         const fixture = TestBed.createComponent(AppComponent);
+         fixture.detectChanges();
+         expect(fixture.nativeElement.textContent).toBe('start||end|click');
+
+         fixture.componentInstance.click();
+         fixture.detectChanges();
+         expect(fixture.nativeElement.textContent).toBe('start|dynamic|end|click');
+       });
+
+    // https://github.com/angular/angular/issues/33679
+    it('should insert embedded views into ViewContainerRef injected by querying <ng-container>',
+       () => {
+
+         @Component({
+           selector: 'app-root',
+           template: `
+        <div>container start|</div>
+        <ng-container #container></ng-container>
+        <div>|container end</div>
+
+        <ng-template #template >test</ng-template>
+        <div (click)="click()" >|click</div>
+        `
+         })
+         class AppComponent {
+           @ViewChild('container', {read: ViewContainerRef, static: true})
+           vcr !: ViewContainerRef;
+
+           @ViewChild('template', {read: TemplateRef, static: true}) template !: TemplateRef<any>;
+
+           click() { this.vcr.createEmbeddedView(this.template, undefined, 0); }
+         }
+
+         TestBed.configureTestingModule({
+           declarations: [AppComponent],
+         });
+         const fixture = TestBed.createComponent(AppComponent);
+         fixture.detectChanges();
+         expect(fixture.nativeElement.textContent).toBe('container start||container end|click');
+
+         fixture.componentInstance.click();
+         fixture.detectChanges();
+         expect(fixture.nativeElement.textContent).toBe('container start|test|container end|click');
+       });
+
+    it('should properly insert before views in a ViewContainerRef injected on ng-container', () => {
+      @Component({
+        selector: 'app-root',
+        template: `            
+          <ng-template #parameterListItem let-parameter="parameter">
+            {{parameter}}
+          </ng-template>
+          <ng-container *ngFor="let parameter of items;"
+            [ngTemplateOutlet]="parameterListItem"
+            [ngTemplateOutletContext]="{parameter:parameter}">
+          </ng-container>
+        `
+      })
+      class AppComponent {
+        items = [1];
+      }
+
+      TestBed.configureTestingModule({
+        declarations: [AppComponent],
+        imports: [CommonModule],
+      });
+
+      const fixture = TestBed.createComponent(AppComponent);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent.trim()).toContain('1');
+
+      fixture.componentInstance.items = [2, 1];
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent.trim()).toContain('2  1');
+    });
+
+  });
 });

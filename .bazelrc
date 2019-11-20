@@ -68,13 +68,6 @@ test --test_output=errors
 # any bazel target. This is a temporary flag until codebase is permanently switched to Ivy.
 build --define=compile=legacy
 
-################################
-# Settings for rules_nodejs    #
-################################
-# Temporary define while angular depends on the legacy rollup_bundle rule.
-# TODO: remove this setting after https://github.com/angular/angular/pull/33201 lands.
-build --define=enable_legacy_rollup_rule=1
-
 #######################
 # Remote HTTP Caching #
 #######################
@@ -107,6 +100,10 @@ build:remote --remote_timeout=600
 # parallelism
 build:remote --jobs=150
 build:remote --google_default_credentials
+
+# Force remote exeuctions to consider the entire run as linux
+build:remote --cpu=k8
+build:remote --host_cpu=k8
 
 # Toolchain and platform related flags
 build:remote --host_javabase=@rbe_ubuntu1604_angular//java:jdk

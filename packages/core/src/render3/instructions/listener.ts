@@ -192,14 +192,14 @@ function listenerInternal(
   // subscribe to directive outputs
   const outputs = tNode.outputs;
   let props: PropertyAliasValue|undefined;
-  if (processOutputs && outputs != null && (props = outputs[eventName])) {
+  if (processOutputs && outputs !== null && (props = outputs[eventName])) {
     const propsLength = props.length;
     if (propsLength) {
       const lCleanup = getCleanup(lView);
-      for (let i = 0; i < propsLength; i += 3) {
+      for (let i = 0; i < propsLength; i += 2) {
         const index = props[i] as number;
         ngDevMode && assertDataInRange(lView, index);
-        const minifiedName = props[i + 2];
+        const minifiedName = props[i + 1];
         const directiveInstance = lView[index];
         const output = directiveInstance[minifiedName];
 

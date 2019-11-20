@@ -19,7 +19,7 @@ import {EntryPointJsonProperty, EntryPointPackageJson, SUPPORTED_FORMAT_PROPERTI
 import {Transformer} from '../../src/packages/transformer';
 import {DirectPackageJsonUpdater, PackageJsonUpdater} from '../../src/writing/package_json_updater';
 import {MockLogger} from '../helpers/mock_logger';
-import {genNodeModules} from './util';
+import {compileIntoApf, compileIntoFlatEs5Package} from './util';
 
 
 const testFiles = loadStandardTestFiles({fakeCore: false, rxjs: true});
@@ -113,23 +113,21 @@ runInEachFileSystem(() => {
     });
 
     it('should generate correct metadata for decorated getter/setter properties', () => {
-      genNodeModules({
-        'test-package': {
-          '/index.ts': `
-            import {Directive, Input, NgModule} from '@angular/core';
-
-            @Directive({selector: '[foo]'})
-            export class FooDirective {
-              @Input() get bar() { return 'bar'; }
-              set bar(value: string) {}
-            }
-
-            @NgModule({
-              declarations: [FooDirective],
-            })
-            export class FooModule {}
-          `,
-        },
+      compileIntoFlatEs5Package('test-package', {
+        '/index.ts': `
+          import {Directive, Input, NgModule} from '@angular/core';
+  
+          @Directive({selector: '[foo]'})
+          export class FooDirective {
+            @Input() get bar() { return 'bar'; }
+            set bar(value: string) {}
+          }
+  
+          @NgModule({
+            declarations: [FooDirective],
+          })
+          export class FooModule {}
+        `,
       });
 
       mainNgcc({
@@ -141,31 +139,29 @@ runInEachFileSystem(() => {
       const jsContents = fs.readFile(_(`/node_modules/test-package/index.js`)).replace(/\s+/g, ' ');
       expect(jsContents)
           .toContain(
-              '/*@__PURE__*/ ɵngcc0.ɵsetClassMetadata(FooDirective, ' +
+              '/*@__PURE__*/ (function () { ɵngcc0.ɵsetClassMetadata(FooDirective, ' +
               '[{ type: Directive, args: [{ selector: \'[foo]\' }] }], ' +
               'function () { return []; }, ' +
-              '{ bar: [{ type: Input }] });');
+              '{ bar: [{ type: Input }] }); })();');
     });
 
     it('should not add `const` in ES5 generated code', () => {
-      genNodeModules({
-        'test-package': {
-          '/index.ts': `
-            import {Directive, Input, NgModule} from '@angular/core';
-
-            @Directive({
-              selector: '[foo]',
-              host: {bar: ''},
-            })
-            export class FooDirective {
-            }
-
-            @NgModule({
-              declarations: [FooDirective],
-            })
-            export class FooModule {}
-          `,
-        },
+      compileIntoFlatEs5Package('test-package', {
+        '/index.ts': `
+          import {Directive, Input, NgModule} from '@angular/core';
+  
+          @Directive({
+            selector: '[foo]',
+            host: {bar: ''},
+          })
+          export class FooDirective {
+          }
+  
+          @NgModule({
+            declarations: [FooDirective],
+          })
+          export class FooModule {}
+        `,
       });
 
       mainNgcc({
@@ -178,6 +174,54 @@ runInEachFileSystem(() => {
       expect(jsContents).not.toMatch(/\bconst \w+\s*=/);
       expect(jsContents).toMatch(/\bvar _c0 =/);
     });
+
+    it('should add generic type for ModuleWithProviders and generate exports for private modules',
+       () => {
+         compileIntoApf('test-package', {
+           '/index.ts': `
+              import {ModuleWithProviders} from '@angular/core';
+              import {InternalFooModule} from './internal';
+              
+              export class FooModule {
+                static forRoot(): ModuleWithProviders {
+                  return {
+                    ngModule: InternalFooModule,
+                  };
+                }
+              }
+            `,
+           '/internal.ts': `
+              import {NgModule} from '@angular/core';
+  
+              @NgModule()
+              export class InternalFooModule {}
+           `,
+         });
+
+         mainNgcc({
+           basePath: '/node_modules',
+           targetEntryPointPath: 'test-package',
+           propertiesToConsider: ['esm2015', 'esm5', 'module'],
+         });
+
+         // The .d.ts where FooModule is declared should have a generic type added
+         const dtsContents = fs.readFile(_(`/node_modules/test-package/src/index.d.ts`));
+         expect(dtsContents).toContain(`import * as ɵngcc0 from './internal';`);
+         expect(dtsContents)
+             .toContain(`static forRoot(): ModuleWithProviders<ɵngcc0.InternalFooModule>`);
+
+         // The public facing .d.ts should export the InternalFooModule
+         const entryDtsContents = fs.readFile(_(`/node_modules/test-package/index.d.ts`));
+         expect(entryDtsContents).toContain(`export {InternalFooModule} from './src/internal';`);
+
+         // The esm2015 index source should export the InternalFooModule
+         const esm2015Contents = fs.readFile(_(`/node_modules/test-package/esm2015/index.js`));
+         expect(esm2015Contents).toContain(`export {InternalFooModule} from './src/internal';`);
+
+         // The esm5 index source should also export the InternalFooModule
+         const esm5Contents = fs.readFile(_(`/node_modules/test-package/esm5/index.js`));
+         expect(esm5Contents).toContain(`export {InternalFooModule} from './src/internal';`);
+       });
 
     describe('in async mode', () => {
       it('should run ngcc without errors for fesm2015', async() => {
@@ -823,9 +867,8 @@ runInEachFileSystem(() => {
     describe('undecorated child class migration', () => {
       it('should generate a directive definition with CopyDefinitionFeature for an undecorated child directive',
          () => {
-           genNodeModules({
-             'test-package': {
-               '/index.ts': `
+           compileIntoFlatEs5Package('test-package', {
+             '/index.ts': `
               import {Directive, NgModule} from '@angular/core';
 
               @Directive({
@@ -840,7 +883,6 @@ runInEachFileSystem(() => {
               })
               export class Module {}
             `,
-             },
            });
 
            mainNgcc({
@@ -864,9 +906,8 @@ runInEachFileSystem(() => {
 
       it('should generate a component definition with CopyDefinitionFeature for an undecorated child component',
          () => {
-           genNodeModules({
-             'test-package': {
-               '/index.ts': `
+           compileIntoFlatEs5Package('test-package', {
+             '/index.ts': `
            import {Component, NgModule} from '@angular/core';
 
            @Component({
@@ -882,7 +923,6 @@ runInEachFileSystem(() => {
            })
            export class Module {}
          `,
-             },
            });
 
            mainNgcc({
@@ -906,9 +946,8 @@ runInEachFileSystem(() => {
 
       it('should generate directive definitions with CopyDefinitionFeature for undecorated child directives in a long inheritance chain',
          () => {
-           genNodeModules({
-             'test-package': {
-               '/index.ts': `
+           compileIntoFlatEs5Package('test-package', {
+             '/index.ts': `
            import {Directive, NgModule} from '@angular/core';
 
            @Directive({
@@ -927,7 +966,6 @@ runInEachFileSystem(() => {
            })
            export class Module {}
          `,
-             },
            });
 
            mainNgcc({
