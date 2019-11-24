@@ -54,7 +54,7 @@ def compile_strategy(ctx):
 
     return strategy
 
-def _is_ivy_enabled(ctx):
+def is_ivy_enabled(ctx):
     """Determine if the ivy compiler should be used to by the ng_module.
 
     Args:
@@ -89,7 +89,7 @@ def _compiler_name(ctx):
       The name of the current compiler to be displayed in build output
     """
 
-    return "ngtsc" if _is_ivy_enabled(ctx) else "ngc"
+    return "Ivy" if is_ivy_enabled(ctx) else "ViewEngine"
 
 def _is_view_engine_enabled(ctx):
     """Determines whether Angular outputs will be produced by the current compilation strategy.
@@ -102,7 +102,7 @@ def _is_view_engine_enabled(ctx):
       factory files), false otherwise
     """
 
-    return not _is_ivy_enabled(ctx)
+    return not is_ivy_enabled(ctx)
 
 def _basename_of(ctx, file):
     ext_len = len(".ts")
@@ -129,7 +129,7 @@ def _flat_module_out_file(ctx):
     Returns:
       a basename used for the flat module out (no extension)
     """
-    if hasattr(ctx.attr, "flat_module_out_file") and ctx.attr.flat_module_out_file:
+    if getattr(ctx.attr, "flat_module_out_file", False):
         return ctx.attr.flat_module_out_file
     return "%s_public_index" % ctx.label.name
 
@@ -149,7 +149,7 @@ def _should_produce_dts_bundle(ctx):
     # At the moment we cannot use this with ngtsc compiler since it emits
     # import * as ___ from local modules which is not supported
     # see: https://github.com/Microsoft/web-build-tools/issues/1029
-    return _is_view_engine_enabled(ctx) and hasattr(ctx.attr, "bundle_dts") and ctx.attr.bundle_dts
+    return _is_view_engine_enabled(ctx) and getattr(ctx.attr, "bundle_dts", False)
 
 def _should_produce_r3_symbols_bundle(ctx):
     """Should we produce r3_symbols bundle.
@@ -208,11 +208,14 @@ def _expected_outs(ctx):
         if short_path.endswith(".ts") and not short_path.endswith(".d.ts"):
             basename = short_path[len(package_prefix):-len(".ts")]
             if (len(factory_basename_set.to_list()) == 0 or basename in factory_basename_set.to_list()):
-                devmode_js = [
-                    ".ngfactory.js",
-                    ".ngsummary.js",
-                    ".js",
-                ]
+                if _generate_ve_shims(ctx):
+                    devmode_js = [
+                        ".ngfactory.js",
+                        ".ngsummary.js",
+                        ".js",
+                    ]
+                else:
+                    devmode_js = [".js"]
 
                 # Only ngc produces .json files, they're not needed in Ivy.
                 if is_legacy_ngc:
@@ -293,7 +296,18 @@ def _expected_outs(ctx):
         i18n_messages = i18n_messages_files,
     )
 
+# Determines if we need to generate View Engine shims (.ngfactory and .ngsummary files)
+def _generate_ve_shims(ctx):
+    # we are checking the workspace name here, because otherwise this would be a breaking change
+    # (the shims used to be on by default)
+    # we can remove this check once angular/components and angular/angular-cli repos no longer depend
+    # on the presence of shims, or if they explicitly opt-in to their generation via ng_modules' generate_ve_shims attr
+    return _is_bazel() and _is_view_engine_enabled(ctx) or (
+        getattr(ctx.attr, "generate_ve_shims", False) == True or ctx.workspace_name != "angular"
+    )
+
 def _ngc_tsconfig(ctx, files, srcs, **kwargs):
+    generate_ve_shims = _generate_ve_shims(ctx)
     outs = _expected_outs(ctx)
     is_legacy_ngc = _is_view_engine_enabled(ctx)
     if "devmode_manifest" in kwargs:
@@ -305,11 +319,11 @@ def _ngc_tsconfig(ctx, files, srcs, **kwargs):
         "enableResourceInlining": ctx.attr.inline_resources,
         "generateCodeForLibraries": False,
         "allowEmptyCodegenFiles": True,
-        "generateNgFactoryShims": True,
-        "generateNgSummaryShims": True,
+        "generateNgFactoryShims": True if generate_ve_shims else False,
+        "generateNgSummaryShims": True if generate_ve_shims else False,
         # Summaries are only enabled if Angular outputs are to be produced.
         "enableSummariesForJit": is_legacy_ngc,
-        "enableIvy": _is_ivy_enabled(ctx),
+        "enableIvy": is_ivy_enabled(ctx),
         "fullTemplateTypeCheck": ctx.attr.type_check,
         # TODO(alxhub/arick): template type-checking for Ivy needs to be tested in g3 before it can
         # be enabled here.
@@ -771,6 +785,8 @@ NG_MODULE_RULE_ATTRS = dict(dict(COMMON_ATTRIBUTES, **NG_MODULE_ATTRIBUTES), **{
         executable = True,
         cfg = "host",
     ),
+    # Should the rule generate ngfactory and ngsummary shim files?
+    "generate_ve_shims": attr.bool(default = False),
 })
 
 ng_module = rule(

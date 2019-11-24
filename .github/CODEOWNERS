@@ -50,6 +50,7 @@
 #  gkalpak - George Kalpakas
 #  IgorMinar - Igor Minar
 #  JiaLiPassion - Jia Li
+#  JoostK - Joost Koehoorn
 #  josephperrott - Joey Perrott
 #  kapunahelewong - Kapunahele Wong
 #  kara - Kara Erickson
@@ -131,6 +132,9 @@
 # ===========================================================
 #
 #   - alxhub
+#   - AndrewKushnir
+#   - kara
+#   - JoostK
 
 
 # ===========================================================
@@ -943,6 +947,14 @@ testing/**                                                      @angular/fw-test
 /aio/content/examples/styleguide/**                             @angular/fw-public-api
 /aio/content/images/guide/styleguide/**                         @angular/fw-public-api
 
+
+
+# ================================================
+#  Size tracking
+# ================================================
+
+/aio/scripts/_payload-limits.json                               @kara @IgorMinar
+/integration/_payload-limits.json                               @kara @IgorMinar
 
 
 # ================================================

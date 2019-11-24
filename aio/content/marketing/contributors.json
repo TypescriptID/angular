@@ -670,11 +670,21 @@
     "groups": ["Collaborators", "GDE"],
     "mentor": "gkalpak"
   },
+  "tracylee": {
+    "name": "Tracy Lee",
+    "picture": "tracylee.jpg",
+    "groups": ["GDE"],
+    "twitter": "ladyleet",
+    "website": "https://www.thisdot.co/labs",
+    "bio": "Tracy is the Co-Founder of This Dot Labs, a consultancy focused on helping companies with digital transformations. She is also a Google Developer Expert, RxJS Core Team member, a Women Techmakers Lead, and a frequent keynote speaker at conferences. She heads up Community Relations for Node.js at OpenJS Foundation, is the host of the Modern Web podcast, organizer of This.JavaScript, Contributor Days, Google Developer Group Silicon Valley and Triangle, and RxWorkshop. You can find her on Twitter @ladyleet or at http://thisdot.co/labs."
+  },
   "jiali": {
     "name": "Jia Li",
     "groups": ["Collaborators"],
     "mentor": "mhevery",
     "picture": "JiaLiPassion.jpg",
+    "twitter": "Jialipassion",
+    "website": "https://github.com/JiaLiPassion",
     "bio": "A programmer with passion, angular/zone.js guy! Web frontend engineer @thisdot"
   },
   "cexbrayat": {
@@ -864,5 +874,20 @@
     "website": "http://martina-kraus.io",
     "bio": "Martina is a software engineer and an Angular enthusiast. As a trainer, mentor and speaker she loves sharing knowledge about Web Technologies and Angular. She is Organizer of ngGirls and the local Angular Meetup",
     "groups": ["GDE"]
+  },
+  "santosh": {
+    "name": "Santosh Yadav",
+    "picture": "santoshyadav.jpg",
+    "twitter": "Santosh19742211",
+    "website": "https://www.santoshyadav.dev",
+    "bio": "Santosh is a GDE for Angular and Web Technologies and loves to contribute to Open Source. He is the creator of ng deploy for netlify and core team member for NestJS Addons. He writes for AngularInDepth, mentors for DotNetTricks, organizes Pune Tech Meetup, and conducts free workshops on Angular.",
+    "groups": ["GDE"]
+  },
+  "josephperrott": {
+    "name": "Joey Perrott",
+    "picture": "josephperrott.jpeg",
+    "twitter": "joeyperrott",
+    "groups": ["Angular"],
+    "lead": "igorminar"
   }
 }
