@@ -5155,13 +5155,16 @@ export const Foo = Foo__PRE_R3__;
         @Component({
           selector: 'test',
           template: '<style>h1 {font-size: larger}</style>',
+          styles: ['h2 {width: 10px}']
         })
         export class TestCmp {}
       `);
 
         env.driveMain();
         const jsContents = env.getContents('test.js');
-        expect(jsContents).toContain('styles: ["h1[_ngcontent-%COMP%] {font-size: larger}"]');
+        expect(jsContents)
+            .toContain(
+                'styles: ["h2[_ngcontent-%COMP%] {width: 10px}", "h1[_ngcontent-%COMP%] {font-size: larger}"]');
       });
 
       it('should process inline <link> tags', () => {
@@ -5181,6 +5184,60 @@ export const Foo = Foo__PRE_R3__;
         expect(jsContents).toContain('styles: ["h1[_ngcontent-%COMP%] {font-size: larger}"]');
       });
     });
+
+    describe('non-exported classes', () => {
+      beforeEach(() => env.tsconfig({compileNonExportedClasses: false}));
+
+      it('should not emit directive definitions for non-exported classes if configured', () => {
+        env.write('test.ts', `
+          import {Directive} from '@angular/core';
+
+          @Directive({
+            selector: '[test]'
+          })
+          class TestDirective {}
+        `);
+        env.driveMain();
+        const jsContents = env.getContents('test.js');
+
+        expect(jsContents).not.toContain('defineDirective(');
+        expect(jsContents).toContain('Directive({');
+      });
+
+      it('should not emit component definitions for non-exported classes if configured', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            selector: 'test',
+            template: 'hello'
+          })
+          class TestComponent {}
+        `);
+        env.driveMain();
+        const jsContents = env.getContents('test.js');
+
+        expect(jsContents).not.toContain('defineComponent(');
+        expect(jsContents).toContain('Component({');
+      });
+
+      it('should not emit module definitions for non-exported classes if configured', () => {
+        env.write('test.ts', `
+          import {NgModule} from '@angular/core';
+
+          @NgModule({
+            declarations: []
+          })
+          class TestModule {}
+        `);
+        env.driveMain();
+        const jsContents = env.getContents('test.js');
+
+        expect(jsContents).not.toContain('defineNgModule(');
+        expect(jsContents).toContain('NgModule({');
+      });
+    });
+
   });
 
   function expectTokenAtPosition<T extends ts.Node>(
