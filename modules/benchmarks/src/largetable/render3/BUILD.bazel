@@ -1,7 +1,6 @@
 package(default_visibility = ["//visibility:public"])
 
-load("//tools:defaults.bzl", "ng_module", "ng_rollup_bundle")
-load("@npm_bazel_typescript//:index.bzl", "ts_devserver")
+load("//tools:defaults.bzl", "ng_module", "ng_rollup_bundle", "ts_devserver")
 load("//modules/benchmarks:benchmark_test.bzl", "benchmark_test")
 
 ng_module(
@@ -32,8 +31,8 @@ ng_rollup_bundle(
 
 ts_devserver(
     name = "devserver",
-    index_html = "index.html",
     port = 4200,
+    static_files = ["index.html"],
     tags = ["ivy-only"],
     deps = [
         ":bundle.min_debug.js",
