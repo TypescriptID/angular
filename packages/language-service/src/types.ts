@@ -193,7 +193,7 @@ export interface LanguageServiceHost {
   /**
    * Return the AST for both HTML and template for the contextFile.
    */
-  getTemplateAst(template: TemplateSource): AstResult|Diagnostic;
+  getTemplateAst(template: TemplateSource): AstResult|undefined;
 
   /**
    * Return the template AST for the node that corresponds to the position.
@@ -238,16 +238,6 @@ export type Completions = Completion[];
 export interface Location {
   fileName: string;
   span: Span;
-}
-
-/**
- * The kind of diagnostic message.
- *
- * @publicApi
- */
-export enum DiagnosticKind {
-  Error,
-  Warning,
 }
 
 /**
@@ -314,7 +304,7 @@ export interface Diagnostic {
   /**
    * The kind of diagnostic message
    */
-  kind: DiagnosticKind;
+  kind: ts.DiagnosticCategory;
 
   /**
    * The source span that should be highlighted.

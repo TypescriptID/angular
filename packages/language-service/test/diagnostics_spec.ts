@@ -119,6 +119,31 @@ describe('diagnostics', () => {
     expect(diagnostics).toEqual([]);
   });
 
+  describe('diagnostics for ngFor exported values', () => {
+    it('should report errors for mistmatched exported types', () => {
+      mockHost.override(TEST_TEMPLATE, `
+        <div *ngFor="let hero of heroes; let i = index; let isFirst = first">
+            'i' is a number; 'isFirst' is a boolean
+          {{ i === isFirst }}
+        </div>
+      `);
+      const diags = ngLS.getDiagnostics(TEST_TEMPLATE);
+      expect(diags.length).toBe(1);
+      expect(diags[0].messageText).toBe(`Expected the operants to be of similar type or any`);
+    });
+
+    it('should not report errors for matching exported type', () => {
+      mockHost.override(TEST_TEMPLATE, `
+        <div *ngFor="let hero of heroes; let i = index">
+            'i' is a number
+          {{ i < 2 }}
+        </div>
+      `);
+      const diags = ngLS.getDiagnostics(TEST_TEMPLATE);
+      expect(diags.length).toBe(0);
+    });
+  });
+
   describe('diagnostics for invalid indexed type property access', () => {
     it('should work with numeric index signatures (arrays)', () => {
       mockHost.override(TEST_TEMPLATE, `
@@ -803,5 +828,21 @@ describe('diagnostics', () => {
       // would be off if CRLF endings are not handled properly.
       expect(content.substring(start !, start ! + length !)).toBe(`line${i}`);
     }
+  });
+
+  it('should not produce diagnostics for non-exported directives', () => {
+    const fileName = '/app/test.component.ts';
+    mockHost.addScript(fileName, `
+      import {Component} from '@angular/core';
+
+      @Component({
+        template: '<test-comp></test-comp>'
+      })
+      class TestHostComponent {}
+    `);
+    const tsDiags = tsLS.getSemanticDiagnostics(fileName);
+    expect(tsDiags).toEqual([]);
+    const ngDiags = ngLS.getDiagnostics(fileName);
+    expect(ngDiags).toEqual([]);
   });
 });

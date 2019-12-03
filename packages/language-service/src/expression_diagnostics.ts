@@ -7,9 +7,11 @@
  */
 
 import {AST, AstPath, Attribute, BoundDirectivePropertyAst, BoundElementPropertyAst, BoundEventAst, BoundTextAst, CompileDirectiveSummary, CompileTypeMetadata, DirectiveAst, ElementAst, EmbeddedTemplateAst, Node, ParseSourceSpan, RecursiveTemplateAstVisitor, ReferenceAst, TemplateAst, TemplateAstPath, VariableAst, findNode, identifierName, templateVisitAll, tokenReference} from '@angular/compiler';
+import * as ts from 'typescript';
 
-import {AstType, DiagnosticKind, ExpressionDiagnosticsContext, TypeDiagnostic} from './expression_type';
+import {AstType, ExpressionDiagnosticsContext, TypeDiagnostic} from './expression_type';
 import {BuiltinType, Definition, Span, Symbol, SymbolDeclaration, SymbolQuery, SymbolTable} from './symbols';
+import {Diagnostic} from './types';
 
 export interface DiagnosticTemplateInfo {
   fileName?: string;
@@ -20,14 +22,7 @@ export interface DiagnosticTemplateInfo {
   templateAst: TemplateAst[];
 }
 
-export interface ExpressionDiagnostic {
-  message: string;
-  span: Span;
-  kind: DiagnosticKind;
-}
-
-export function getTemplateExpressionDiagnostics(info: DiagnosticTemplateInfo):
-    ExpressionDiagnostic[] {
+export function getTemplateExpressionDiagnostics(info: DiagnosticTemplateInfo): Diagnostic[] {
   const visitor = new ExpressionDiagnosticsVisitor(
       info, (path: TemplateAstPath, includeEvent: boolean) =>
                 getExpressionScope(info, path, includeEvent));
@@ -115,7 +110,7 @@ function getVarDeclarations(
           // that have been declared so far are also in scope.
           info.query.createSymbolTable(results),
         ]);
-        symbol = refinedVariableType(symbolsInScope, info.query, current);
+        symbol = refinedVariableType(variable.value, symbolsInScope, info.query, current);
       }
       results.push({
         name: variable.name,
@@ -128,15 +123,36 @@ function getVarDeclarations(
 }
 
 /**
+ * Gets the type of an ngFor exported value, as enumerated in
+ * https://angular.io/api/common/NgForOfContext
+ * @param value exported value name
+ * @param query type symbol query
+ */
+function getNgForExportedValueType(value: string, query: SymbolQuery): Symbol|undefined {
+  switch (value) {
+    case 'index':
+    case 'count':
+      return query.getBuiltinType(BuiltinType.Number);
+    case 'first':
+    case 'last':
+    case 'even':
+    case 'odd':
+      return query.getBuiltinType(BuiltinType.Boolean);
+  }
+}
+
+/**
  * Resolve a more specific type for the variable in `templateElement` by inspecting
  * all variables that are in scope in the `mergedTable`. This function is a special
  * case for `ngFor` and `ngIf`. If resolution fails, return the `any` type.
+ * @param value variable value name
  * @param mergedTable symbol table for all variables in scope
  * @param query
  * @param templateElement
  */
 function refinedVariableType(
-    mergedTable: SymbolTable, query: SymbolQuery, templateElement: EmbeddedTemplateAst): Symbol {
+    value: string, mergedTable: SymbolTable, query: SymbolQuery,
+    templateElement: EmbeddedTemplateAst): Symbol {
   // Special case the ngFor directive
   const ngForDirective = templateElement.directives.find(d => {
     const name = identifierName(d.directive.type);
@@ -145,12 +161,17 @@ function refinedVariableType(
   if (ngForDirective) {
     const ngForOfBinding = ngForDirective.inputs.find(i => i.directiveName == 'ngForOf');
     if (ngForOfBinding) {
+      // Check if the variable value is a type exported by the ngFor statement.
+      let result = getNgForExportedValueType(value, query);
+
+      // Otherwise, check if there is a known type for the ngFor binding.
       const bindingType = new AstType(mergedTable, query, {}).getType(ngForOfBinding.value);
-      if (bindingType) {
-        const result = query.getElementType(bindingType);
-        if (result) {
-          return result;
-        }
+      if (!result && bindingType) {
+        result = query.getElementType(bindingType);
+      }
+
+      if (result) {
+        return result;
       }
     }
   }
@@ -202,7 +223,7 @@ class ExpressionDiagnosticsVisitor extends RecursiveTemplateAstVisitor {
   // TODO(issue/24571): remove '!'.
   private directiveSummary !: CompileDirectiveSummary;
 
-  diagnostics: ExpressionDiagnostic[] = [];
+  diagnostics: Diagnostic[] = [];
 
   constructor(
       private info: DiagnosticTemplateInfo,
@@ -309,13 +330,13 @@ class ExpressionDiagnosticsVisitor extends RecursiveTemplateAstVisitor {
   private reportError(message: string, span: Span|undefined) {
     if (span) {
       this.diagnostics.push(
-          {span: offsetSpan(span, this.info.offset), kind: DiagnosticKind.Error, message});
+          {span: offsetSpan(span, this.info.offset), kind: ts.DiagnosticCategory.Error, message});
     }
   }
 
   private reportWarning(message: string, span: Span) {
     this.diagnostics.push(
-        {span: offsetSpan(span, this.info.offset), kind: DiagnosticKind.Warning, message});
+        {span: offsetSpan(span, this.info.offset), kind: ts.DiagnosticCategory.Warning, message});
   }
 }
 

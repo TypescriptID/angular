@@ -9,7 +9,7 @@
   "//engines-comment": "Keep this in sync with aio/package.json",
   "engines": {
     "node": ">=10.9.0 <13.0.0",
-    "yarn": ">=1.17.3 <=1.19.1"
+    "yarn": ">=1.17.3 <1.20.0"
   },
   "repository": {
     "type": "git",
@@ -41,12 +41,12 @@
     "@angular-devkit/schematics": "^9.0.0-rc.3",
     "@angular/bazel": "file:./tools/npm/@angular_bazel",
     "@babel/core": "^7.6.4",
-    "@bazel/jasmine": "0.41.0",
-    "@bazel/karma": "0.41.0",
-    "@bazel/protractor": "0.41.0",
-    "@bazel/rollup": "0.41.0",
-    "@bazel/terser": "0.41.0",
-    "@bazel/typescript": "0.41.0",
+    "@bazel/jasmine": "0.42.1",
+    "@bazel/karma": "0.42.1",
+    "@bazel/protractor": "0.42.1",
+    "@bazel/rollup": "0.42.1",
+    "@bazel/terser": "0.42.1",
+    "@bazel/typescript": "0.42.1",
     "@microsoft/api-extractor": "^7.3.9",
     "@schematics/angular": "^9.0.0-rc.3",
     "@types/angular": "^1.6.47",
@@ -127,13 +127,11 @@
     "xhr2": "0.1.4",
     "yargs": "13.1.0"
   },
-  "optionalDependencies": {
-    "fsevents": "2.1.2"
-  },
   "// 2": "devDependencies are not used under Bazel. Many can be removed after test.sh is deleted.",
   "// 3": "when updating @bazel/bazel version you also need to update the RBE settings in .bazelrc (see https://github.com/angular/angular/pull/27935)",
   "devDependencies": {
     "@angular/cli": "^9.0.0-rc.3",
+    "@angular-devkit/build-angular": "^0.900.0-rc.3",
     "@bazel/bazel": "1.1.0",
     "@bazel/buildifier": "^0.29.0",
     "@bazel/ibazel": "^0.10.3",
@@ -146,14 +144,12 @@
     "cldr-data": "36.0.0",
     "cldrjs": "0.5.0",
     "conventional-changelog": "^2.0.3",
-    "cors": "2.8.4",
     "entities": "1.1.1",
     "firebase-tools": "5.1.1",
     "firefox-profile": "1.0.3",
     "glob": "7.1.2",
     "gulp": "3.9.1",
     "gulp-clang-format": "1.0.23",
-    "gulp-connect": "5.0.0",
     "gulp-conventional-changelog": "^2.0.3",
     "gulp-filter": "^5.1.0",
     "gulp-git": "^2.7.0",

@@ -26,7 +26,7 @@ export function getTemplateDiagnostics(ast: AstResult): ng.Diagnostic[] {
   if (parseErrors && parseErrors.length) {
     return parseErrors.map(e => {
       return {
-        kind: ng.DiagnosticKind.Error,
+        kind: ts.DiagnosticCategory.Error,
         span: offsetSpan(spanOf(e.span), template.span.start),
         message: e.msg,
       };
@@ -54,13 +54,6 @@ function missingDirective(name: string, isComponent: boolean) {
 }
 
 /**
- * Logs an error for an impossible state with a certain message.
- */
-function logImpossibleState(message: string) {
-  console.error(`Impossible state: ${message}`);
-}
-
-/**
  * Performs a variety diagnostics on directive declarations.
  *
  * @param declarations Angular directive declarations
@@ -85,20 +78,20 @@ export function getDeclarationDiagnostics(
 
     const sf = host.getSourceFile(type.filePath);
     if (!sf) {
-      logImpossibleState(`directive ${type.name} exists but has no source file`);
+      host.error(`directive ${type.name} exists but has no source file`);
       return [];
     }
     // TypeScript identifier of the directive declaration annotation (e.g. "Component" or
     // "Directive") on a directive class.
     const directiveIdentifier = findTightestNode(sf, declarationSpan.start);
     if (!directiveIdentifier) {
-      logImpossibleState(`directive ${type.name} exists but has no identifier`);
+      host.error(`directive ${type.name} exists but has no identifier`);
       return [];
     }
 
     for (const error of errors) {
       results.push({
-        kind: ng.DiagnosticKind.Error,
+        kind: ts.DiagnosticCategory.Error,
         message: error.message,
         span: error.span,
       });
@@ -109,7 +102,7 @@ export function getDeclarationDiagnostics(
     if (metadata.isComponent) {
       if (!modules.ngModuleByPipeOrDirective.has(declaration.type)) {
         results.push({
-          kind: ng.DiagnosticKind.Error,
+          kind: ts.DiagnosticCategory.Suggestion,
           message: missingDirective(type.name, metadata.isComponent),
           span: declarationSpan,
         });
@@ -117,14 +110,14 @@ export function getDeclarationDiagnostics(
       const {template, templateUrl, styleUrls} = metadata.template !;
       if (template === null && !templateUrl) {
         results.push({
-          kind: ng.DiagnosticKind.Error,
+          kind: ts.DiagnosticCategory.Error,
           message: `Component '${type.name}' must have a template or templateUrl`,
           span: declarationSpan,
         });
       } else if (templateUrl) {
         if (template) {
           results.push({
-            kind: ng.DiagnosticKind.Error,
+            kind: ts.DiagnosticCategory.Error,
             message: `Component '${type.name}' must not have both template and templateUrl`,
             span: declarationSpan,
           });
@@ -138,7 +131,7 @@ export function getDeclarationDiagnostics(
         const templateUrlNode = findPropertyValueOfType(
             directiveIdentifier.parent, 'templateUrl', ts.isLiteralExpression);
         if (!templateUrlNode) {
-          logImpossibleState(`templateUrl ${templateUrl} exists but its TypeScript node doesn't`);
+          host.error(`templateUrl ${templateUrl} exists but its TypeScript node doesn't`);
           return [];
         }
 
@@ -151,7 +144,7 @@ export function getDeclarationDiagnostics(
         const styleUrlsNode = findPropertyValueOfType(
             directiveIdentifier.parent, 'styleUrls', ts.isArrayLiteralExpression);
         if (!styleUrlsNode) {
-          logImpossibleState(`styleUrls property exists but its TypeScript node doesn't'`);
+          host.error(`styleUrls property exists but its TypeScript node doesn't'`);
           return [];
         }
 
@@ -159,7 +152,7 @@ export function getDeclarationDiagnostics(
       }
     } else if (!directives.has(declaration.type)) {
       results.push({
-        kind: ng.DiagnosticKind.Error,
+        kind: ts.DiagnosticCategory.Suggestion,
         message: missingDirective(type.name, metadata.isComponent),
         span: declarationSpan,
       });
@@ -199,7 +192,7 @@ function validateUrls(
     if (tsLsHost.fileExists(url)) continue;
 
     allErrors.push({
-      kind: ng.DiagnosticKind.Error,
+      kind: ts.DiagnosticCategory.Error,
       message: `URL does not point to a valid file`,
       // Exclude opening and closing quotes in the url span.
       span: {start: urlNode.getStart() + 1, end: urlNode.end - 1},
@@ -233,7 +226,7 @@ export function ngDiagnosticToTsDiagnostic(
     start: d.span.start,
     length: d.span.end - d.span.start,
     messageText: typeof d.message === 'string' ? d.message : chainDiagnostics(d.message),
-    category: ts.DiagnosticCategory.Error,
+    category: d.kind,
     code: 0,
     source: 'ng',
   };
