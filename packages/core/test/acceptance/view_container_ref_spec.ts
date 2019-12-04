@@ -220,6 +220,47 @@ describe('ViewContainerRef', () => {
       viewContainerRef.insert(ref0);
       expect(fixture.nativeElement.textContent).toEqual('0');
     });
+
+    it('should insert a view already inserted into another container', () => {
+
+      @Component({
+        selector: 'test-cmpt',
+        template: `
+          <ng-template #t>content</ng-template>
+          before|<ng-template #c1></ng-template>|middle|<ng-template #c2></ng-template>|after
+        `
+      })
+      class TestComponent {
+        @ViewChild('t', {static: true}) t !: TemplateRef<{}>;
+        @ViewChild('c1', {static: true, read: ViewContainerRef}) c1 !: ViewContainerRef;
+        @ViewChild('c2', {static: true, read: ViewContainerRef}) c2 !: ViewContainerRef;
+      }
+
+      TestBed.configureTestingModule({declarations: [TestComponent]});
+      const fixture = TestBed.createComponent(TestComponent);
+      fixture.detectChanges();
+      const cmpt = fixture.componentInstance;
+      const native = fixture.nativeElement;
+
+      expect(native.textContent.trim()).toEqual('before||middle||after');
+
+      // create and insert an embedded view into the c1 container
+      const viewRef = cmpt.c1.createEmbeddedView(cmpt.t, {});
+      expect(native.textContent.trim()).toEqual('before|content|middle||after');
+      expect(cmpt.c1.indexOf(viewRef)).toBe(0);
+      expect(cmpt.c2.indexOf(viewRef)).toBe(-1);
+
+      // move the existing embedded view into the c2 container
+      cmpt.c2.insert(viewRef);
+      expect(native.textContent.trim()).toEqual('before||middle|content|after');
+
+      // VE has a bug where a view moved between containers is not correctly detached from the
+      // previous container. Check https://github.com/angular/angular/issues/20824 for more details.
+      if (ivyEnabled) {
+        expect(cmpt.c1.indexOf(viewRef)).toBe(-1);
+      }
+      expect(cmpt.c2.indexOf(viewRef)).toBe(0);
+    });
   });
 
   describe('move', () => {
@@ -477,6 +518,24 @@ describe('ViewContainerRef', () => {
       const viewRef = vcRefDir.vcref.get(0);
       vcRefDir.vcref.remove(0);
       expect(vcRefDir.vcref.indexOf(viewRef !)).toEqual(-1);
+    });
+
+    it('should return -1 as indexOf when no views were inserted', () => {
+      const fixture = TestBed.createComponent(ViewContainerRefComp);
+      fixture.detectChanges();
+
+      const cmpt = fixture.componentInstance;
+      const viewRef = cmpt.templates.first.createEmbeddedView({});
+
+      // ViewContainerRef is empty and we've got a reference to a view that was not attached
+      // anywhere
+      expect(cmpt.vcr.indexOf(viewRef)).toBe(-1);
+
+      cmpt.vcr.insert(viewRef);
+      expect(cmpt.vcr.indexOf(viewRef)).toBe(0);
+
+      cmpt.vcr.remove(0);
+      expect(cmpt.vcr.indexOf(viewRef)).toBe(-1);
     });
   });
 

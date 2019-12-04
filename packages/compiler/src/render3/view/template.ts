@@ -841,6 +841,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   visitTemplate(template: t.Template) {
     const NG_TEMPLATE_TAG_NAME = 'ng-template';
     const templateIndex = this.allocateDataSlot();
+    let ngProjectAsAttr: t.TextAttribute|undefined;
 
     if (this.i18n) {
       this.i18n.appendTemplate(template.i18n !, templateIndex);
@@ -864,10 +865,15 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
 
     // prepare attributes parameter (including attributes used for directive matching)
     const attrsExprs: o.Expression[] = [];
-    template.attributes.forEach(
-        (a: t.TextAttribute) => { attrsExprs.push(asLiteral(a.name), asLiteral(a.value)); });
+    template.attributes.forEach((attr: t.TextAttribute) => {
+      if (attr.name === NG_PROJECT_AS_ATTR_NAME) {
+        ngProjectAsAttr = attr;
+      }
+      attrsExprs.push(asLiteral(attr.name), asLiteral(attr.value));
+    });
     attrsExprs.push(...this.prepareNonRenderAttrs(
-        template.inputs, template.outputs, undefined, template.templateAttrs));
+        template.inputs, template.outputs, undefined, template.templateAttrs, undefined,
+        ngProjectAsAttr));
     parameters.push(this.addAttrsToConsts(attrsExprs));
 
     // local refs (ex.: <ng-template #foo>)
@@ -1945,17 +1951,14 @@ export interface ParseTemplateOptions {
   leadingTriviaChars?: string[];
 
   /**
-   * Render `$localize` message ids with the specified legacy format (xlf, xlf2 or xmb).
+   * Render `$localize` message ids with additional legacy message ids.
    *
-   * Use this option when use are using the `$localize` based localization messages but
-   * have not migrated the translation files to use the new `$localize` message id format.
+   * This option defaults to `true` but in the future the defaul will be flipped.
    *
-   * @deprecated
-   * `i18nLegacyMessageIdFormat` should only be used while migrating from legacy message id
-   * formatted translation files and will be removed at the same time as ViewEngine support is
-   * removed.
+   * For now set this option to false if you have migrated the translation files to use the new
+   * `$localize` message id format and you are not using compile time translation merging.
    */
-  i18nLegacyMessageIdFormat?: string;
+  enableI18nLegacyMessageIdFormat?: boolean;
 }
 
 /**
@@ -1968,7 +1971,7 @@ export interface ParseTemplateOptions {
 export function parseTemplate(
     template: string, templateUrl: string, options: ParseTemplateOptions = {}):
     {errors?: ParseError[], nodes: t.Node[], styleUrls: string[], styles: string[]} {
-  const {interpolationConfig, preserveWhitespaces, i18nLegacyMessageIdFormat} = options;
+  const {interpolationConfig, preserveWhitespaces, enableI18nLegacyMessageIdFormat} = options;
   const bindingParser = makeBindingParser(interpolationConfig);
   const htmlParser = new HtmlParser();
   const parseResult = htmlParser.parse(
@@ -1986,7 +1989,8 @@ export function parseTemplate(
   // extraction process (ng xi18n) relies on a raw content to generate
   // message ids
   const i18nMetaVisitor = new I18nMetaVisitor(
-      interpolationConfig, /* keepI18nAttrs */ !preserveWhitespaces, i18nLegacyMessageIdFormat);
+      interpolationConfig, /* keepI18nAttrs */ !preserveWhitespaces,
+      enableI18nLegacyMessageIdFormat);
   rootNodes = html.visitAll(i18nMetaVisitor, rootNodes);
 
   if (!preserveWhitespaces) {
@@ -2066,7 +2070,7 @@ const NG_I18N_CLOSURE_MODE = 'ngI18nClosureMode';
  *
  * ```
  * var I18N_1;
- * if (ngI18nClosureMode) {
+ * if (typeof ngI18nClosureMode !== undefined && ngI18nClosureMode) {
  *     var MSG_EXTERNAL_XXX = goog.getMsg(
  *          "Some message with {$interpolation}!",
  *          { "interpolation": "\uFFFD0\uFFFD" }
@@ -2094,10 +2098,9 @@ export function getTranslationDeclStmts(
   const statements: o.Statement[] = [
     declareI18nVariable(variable),
     o.ifStmt(
-        o.variable(NG_I18N_CLOSURE_MODE),
-        createGoogleGetMsgStatements(
-            variable, message, closureVar,
-            i18nFormatPlaceholderNames(params, /* useCamelCase */ true)),
+        createClosureModeGuard(), createGoogleGetMsgStatements(
+                                      variable, message, closureVar,
+                                      i18nFormatPlaceholderNames(params, /* useCamelCase */ true)),
         createLocalizeStatements(
             variable, message, i18nFormatPlaceholderNames(params, /* useCamelCase */ false))),
   ];
@@ -2107,4 +2110,18 @@ export function getTranslationDeclStmts(
   }
 
   return statements;
+}
+
+/**
+ * Create the expression that will be used to guard the closure mode block
+ * It is equivalent to:
+ *
+ * ```
+ * typeof ngI18nClosureMode !== undefined && ngI18nClosureMode
+ * ```
+ */
+function createClosureModeGuard(): o.BinaryOperatorExpr {
+  return o.typeofExpr(o.variable(NG_I18N_CLOSURE_MODE))
+      .notIdentical(o.literal('undefined', o.STRING_TYPE))
+      .and(o.variable(NG_I18N_CLOSURE_MODE));
 }
