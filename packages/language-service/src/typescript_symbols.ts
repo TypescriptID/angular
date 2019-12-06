@@ -244,10 +244,7 @@ class TypeWrapper implements Symbol {
     }
   }
 
-  get name(): string {
-    const symbol = this.tsType.symbol;
-    return (symbol && symbol.name) || '<anonymous>';
-  }
+  get name(): string { return this.context.checker.typeToString(this.tsType); }
 
   public readonly kind: DeclarationKind = 'type';
 
@@ -306,6 +303,12 @@ class TypeWrapper implements Symbol {
         return sType && new TypeWrapper(sType, this.context);
     }
   }
+}
+
+// If stringIndexType a primitive type(e.g. 'string'), the Symbol is undefined;
+// and in AstType.resolvePropertyRead method, the Symbol.type should get the right type.
+class StringIndexTypeWrapper extends TypeWrapper {
+  public readonly type = new TypeWrapper(this.tsType, this.context);
 }
 
 class SymbolWrapper implements Symbol {
@@ -506,10 +509,7 @@ class SymbolTableWrapper implements SymbolTable {
       //   obj.stringIndex // equivalent to obj['stringIndex'];
       //
       // In this case, return the type indexed by an arbitrary string key.
-      const symbol = this.stringIndexType.getSymbol();
-      if (symbol) {
-        return new SymbolWrapper(symbol, this.context, this.stringIndexType);
-      }
+      return new StringIndexTypeWrapper(this.stringIndexType, this.context);
     }
 
     return undefined;
@@ -608,15 +608,10 @@ class PipeSymbol implements Symbol {
         let resultType: ts.Type|undefined = undefined;
         switch (this.name) {
           case 'async':
-            switch (parameterType.name) {
-              case 'Observable':
-              case 'Promise':
-              case 'EventEmitter':
-                resultType = getTypeParameterOf(parameterType.tsType, parameterType.name);
-                break;
-              default:
-                resultType = getTsTypeFromBuiltinType(BuiltinType.Any, this.context);
-                break;
+            // Get symbol of 'Observable', 'Promise', or 'EventEmitter' type.
+            const symbol = parameterType.tsType.symbol;
+            if (symbol) {
+              resultType = getTypeParameterOf(parameterType.tsType, symbol.name);
             }
             break;
           case 'slice':

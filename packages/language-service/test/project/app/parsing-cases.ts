@@ -192,6 +192,7 @@ export class TemplateReference {
   tupleArray: [string, Hero] = ['test', this.hero];
   league: Hero[][] = [this.heroes];
   heroesByName: {[name: string]: Hero} = {};
+  primitiveIndexType: {[name: string]: string} = {};
   anyValue: any;
   myClick(event: any) {}
 }

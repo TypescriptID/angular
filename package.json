@@ -6,10 +6,10 @@
   "homepage": "https://github.com/angular/angular",
   "bugs": "https://github.com/angular/angular/issues",
   "license": "MIT",
-  "//engines-comment": "Keep this in sync with aio/package.json",
+  "//engines-comment": "Keep this in sync with /aio/package.json and /aio/tools/examples/shared/package.json",
   "engines": {
     "node": ">=10.9.0 <13.0.0",
-    "yarn": ">=1.17.3 <1.20.0"
+    "yarn": ">=1.17.3 <2"
   },
   "repository": {
     "type": "git",
@@ -41,12 +41,12 @@
     "@angular-devkit/schematics": "^9.0.0-rc.3",
     "@angular/bazel": "file:./tools/npm/@angular_bazel",
     "@babel/core": "^7.6.4",
-    "@bazel/jasmine": "0.42.1",
-    "@bazel/karma": "0.42.1",
-    "@bazel/protractor": "0.42.1",
-    "@bazel/rollup": "0.42.1",
-    "@bazel/terser": "0.42.1",
-    "@bazel/typescript": "0.42.1",
+    "@bazel/jasmine": "0.42.2",
+    "@bazel/karma": "0.42.2",
+    "@bazel/protractor": "0.42.2",
+    "@bazel/rollup": "0.42.2",
+    "@bazel/terser": "0.42.2",
+    "@bazel/typescript": "0.42.2",
     "@microsoft/api-extractor": "^7.3.9",
     "@schematics/angular": "^9.0.0-rc.3",
     "@types/angular": "^1.6.47",
