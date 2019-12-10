@@ -116,13 +116,13 @@ runInEachFileSystem(() => {
       compileIntoFlatEs5Package('test-package', {
         '/index.ts': `
           import {Directive, Input, NgModule} from '@angular/core';
-  
+
           @Directive({selector: '[foo]'})
           export class FooDirective {
             @Input() get bar() { return 'bar'; }
             set bar(value: string) {}
           }
-  
+
           @NgModule({
             declarations: [FooDirective],
           })
@@ -149,14 +149,14 @@ runInEachFileSystem(() => {
       compileIntoFlatEs5Package('test-package', {
         '/index.ts': `
           import {Directive, Input, NgModule} from '@angular/core';
-  
+
           @Directive({
             selector: '[foo]',
             host: {bar: ''},
           })
           export class FooDirective {
           }
-  
+
           @NgModule({
             declarations: [FooDirective],
           })
@@ -210,7 +210,7 @@ runInEachFileSystem(() => {
       compileIntoFlatEs5Package('test-package', {
         '/index.ts': `
         import {Injectable, Pipe, PipeTransform} from '@angular/core';
-       
+
         @Injectable()
         @Pipe({
           name: 'myTestPipe'
@@ -759,13 +759,20 @@ runInEachFileSystem(() => {
             `,
           },
         ]);
-        expect(() => mainNgcc({
-                 basePath: '/node_modules',
-                 targetEntryPointPath: 'fatal-error',
-                 propertiesToConsider: ['es2015']
-               }))
-            .toThrowError(
-                /^Failed to compile entry-point fatal-error due to compilation errors:\nnode_modules\/fatal-error\/index\.js\(5,17\): error TS-992001: component is missing a template\r?\n$/);
+
+        try {
+          mainNgcc({
+            basePath: '/node_modules',
+            targetEntryPointPath: 'fatal-error',
+            propertiesToConsider: ['es2015']
+          });
+          fail('should have thrown');
+        } catch (e) {
+          expect(e.message).toContain(
+              'Failed to compile entry-point fatal-error due to compilation errors:');
+          expect(e.message).toContain('NG2001');
+          expect(e.message).toContain('component is missing a template');
+        }
       });
     });
 
@@ -965,6 +972,7 @@ runInEachFileSystem(() => {
 
               @Directive({
                 selector: '[base]',
+                exportAs: 'base1, base2',
               })
               export class BaseDir {}
 
@@ -987,13 +995,14 @@ runInEachFileSystem(() => {
            const jsContents = fs.readFile(_(`/node_modules/test-package/index.js`));
            expect(jsContents)
                .toContain(
-                   'DerivedDir.ɵdir = ɵngcc0.ɵɵdefineDirective({ type: DerivedDir, selectors: [["", "base", ""]], ' +
+                   'DerivedDir.ɵdir = ɵngcc0.ɵɵdefineDirective({ type: DerivedDir, ' +
+                   'selectors: [["", "base", ""]], exportAs: ["base1", "base2"], ' +
                    'features: [ɵngcc0.ɵɵInheritDefinitionFeature, ɵngcc0.ɵɵCopyDefinitionFeature] });');
 
            const dtsContents = fs.readFile(_(`/node_modules/test-package/index.d.ts`));
            expect(dtsContents)
                .toContain(
-                   'static ɵdir: ɵngcc0.ɵɵDirectiveDefWithMeta<DerivedDir, "[base]", never, {}, {}, never>;');
+                   'static ɵdir: ɵngcc0.ɵɵDirectiveDefWithMeta<DerivedDir, "[base]", ["base1", "base2"], {}, {}, never>;');
          });
 
       it('should generate a component definition with CopyDefinitionFeature for an undecorated child component',
