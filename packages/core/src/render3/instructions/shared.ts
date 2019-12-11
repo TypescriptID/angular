@@ -55,13 +55,14 @@ const _CLEAN_PROMISE = (() => Promise.resolve(null))();
 export function setHostBindings(tView: TView, lView: LView): void {
   const selectedIndex = getSelectedIndex();
   try {
-    if (tView.expandoInstructions !== null) {
+    const expandoInstructions = tView.expandoInstructions;
+    if (expandoInstructions !== null) {
       let bindingRootIndex = setBindingIndex(tView.expandoStartIndex);
       setBindingRoot(bindingRootIndex);
       let currentDirectiveIndex = -1;
       let currentElementIndex = -1;
-      for (let i = 0; i < tView.expandoInstructions.length; i++) {
-        const instruction = tView.expandoInstructions[i];
+      for (let i = 0; i < expandoInstructions.length; i++) {
+        const instruction = expandoInstructions[i];
         if (typeof instruction === 'number') {
           if (instruction <= 0) {
             // Negative numbers mean that we are starting new EXPANDO block and need to update
@@ -70,7 +71,7 @@ export function setHostBindings(tView: TView, lView: LView): void {
             setActiveHostElement(currentElementIndex);
 
             // Injector block and providers are taken into account.
-            const providerCount = (tView.expandoInstructions[++i] as number);
+            const providerCount = (expandoInstructions[++i] as number);
             bindingRootIndex += INJECTOR_BLOOM_PARENT_SIZE + providerCount;
 
             currentDirectiveIndex = bindingRootIndex;
@@ -1216,7 +1217,10 @@ export function generateExpandoInstructionBlock(
                    tView.firstCreatePass, true,
                    'Expando block should only be generated on first create pass.');
 
-  const elementIndex = -(tNode.index - HEADER_OFFSET);
+  // Important: In JS `-x` and `0-x` is not the same! If `x===0` then `-x` will produce `-0` which
+  // requires non standard math arithmetic and it can prevent VM optimizations.
+  // `0-0` will always produce `0` and will not cause a potential deoptimization in VM.
+  const elementIndex = HEADER_OFFSET - tNode.index;
   const providerStartIndex = tNode.providerIndexes & TNodeProviderIndexes.ProvidersStartIndexMask;
   const providerCount = tView.data.length - providerStartIndex;
   (tView.expandoInstructions || (tView.expandoInstructions = [
@@ -1300,7 +1304,7 @@ function saveNameToExportMap(
         exportsMap[def.exportAs[i]] = index;
       }
     }
-    if ((def as ComponentDef<any>).template) exportsMap[''] = index;
+    if (isComponentDef(def)) exportsMap[''] = index;
   }
 }
 

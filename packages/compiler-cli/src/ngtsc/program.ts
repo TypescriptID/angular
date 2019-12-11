@@ -23,6 +23,7 @@ import {IncrementalDriver} from './incremental';
 import {IndexedComponent, IndexingContext} from './indexer';
 import {generateAnalysis} from './indexer/src/transform';
 import {CompoundMetadataReader, CompoundMetadataRegistry, DtsMetadataReader, LocalMetadataRegistry, MetadataReader} from './metadata';
+import {ModuleWithProvidersScanner} from './modulewithproviders';
 import {PartialEvaluator} from './partial_evaluator';
 import {NOOP_PERF_RECORDER, PerfRecorder, PerfTracker} from './perf';
 import {TypeScriptReflectionHost} from './reflection';
@@ -31,7 +32,7 @@ import {NgModuleRouteAnalyzer, entryPointKeyFor} from './routing';
 import {ComponentScopeReader, CompoundComponentScopeReader, LocalModuleScopeRegistry, MetadataDtsModuleScopeResolver} from './scope';
 import {FactoryGenerator, FactoryInfo, GeneratedShimsHostWrapper, ShimGenerator, SummaryGenerator, TypeCheckShimGenerator, generatedFactoryTransform} from './shims';
 import {ivySwitchTransform} from './switch';
-import {IvyCompilation, declarationTransformFactory, ivyTransformFactory} from './transform';
+import {DtsTransformRegistry, IvyCompilation, declarationTransformFactory, ivyTransformFactory} from './transform';
 import {aliasTransformFactory} from './transform/src/alias';
 import {TypeCheckContext, TypeCheckingConfig, typeCheckFilePath} from './typecheck';
 import {normalizeSeparators} from './util/src/path';
@@ -68,8 +69,9 @@ export class NgtscProgram implements api.Program {
   private perfTracker: PerfTracker|null = null;
   private incrementalDriver: IncrementalDriver;
   private typeCheckFilePath: AbsoluteFsPath;
-
   private modifiedResourceFiles: Set<string>|null;
+  private dtsTransforms: DtsTransformRegistry|null = null;
+  private mwpScanner: ModuleWithProvidersScanner|null = null;
 
   constructor(
       rootNames: ReadonlyArray<string>, private options: api.CompilerOptions,
@@ -369,9 +371,12 @@ export class NgtscProgram implements api.Program {
       aliasTransformFactory(compilation.exportStatements) as ts.TransformerFactory<ts.SourceFile>,
       this.defaultImportTracker.importPreservingTransformer(),
     ];
-    const afterDeclarationsTransforms = [
-      declarationTransformFactory(compilation),
-    ];
+
+    const afterDeclarationsTransforms: ts.TransformerFactory<ts.Bundle|ts.SourceFile>[] = [];
+    if (this.dtsTransforms !== null) {
+      afterDeclarationsTransforms.push(
+          declarationTransformFactory(this.dtsTransforms, this.importRewriter));
+    }
 
     // Only add aliasing re-exports to the .d.ts output if the `AliasingHost` requests it.
     if (this.aliasingHost !== null && this.aliasingHost.aliasExportsInDts) {
@@ -617,6 +622,10 @@ export class NgtscProgram implements api.Program {
 
     this.routeAnalyzer = new NgModuleRouteAnalyzer(this.moduleResolver, evaluator);
 
+    this.dtsTransforms = new DtsTransformRegistry();
+
+    this.mwpScanner = new ModuleWithProvidersScanner(this.reflector, evaluator, this.refEmitter);
+
     // Set up the IvyCompilation, which manages state for the Ivy transformer.
     const handlers = [
       new ComponentDecoratorHandler(
@@ -645,7 +654,7 @@ export class NgtscProgram implements api.Program {
     return new IvyCompilation(
         handlers, this.reflector, this.importRewriter, this.incrementalDriver, this.perfRecorder,
         this.sourceToFactorySymbols, scopeRegistry,
-        this.options.compileNonExportedClasses !== false);
+        this.options.compileNonExportedClasses !== false, this.dtsTransforms, this.mwpScanner);
   }
 
   private get reflector(): TypeScriptReflectionHost {
