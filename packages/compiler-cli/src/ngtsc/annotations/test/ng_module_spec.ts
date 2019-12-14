@@ -57,7 +57,7 @@ runInEachFileSystem(() => {
       ]);
       const checker = program.getTypeChecker();
       const reflectionHost = new TypeScriptReflectionHost(checker);
-      const evaluator = new PartialEvaluator(reflectionHost, checker);
+      const evaluator = new PartialEvaluator(reflectionHost, checker, /* dependencyTracker */ null);
       const referencesRegistry = new NoopReferencesRegistry();
       const metaRegistry = new LocalMetadataRegistry();
       const metaReader = new CompoundMetadataReader([metaRegistry]);
@@ -69,8 +69,8 @@ runInEachFileSystem(() => {
 
       const handler = new NgModuleDecoratorHandler(
           reflectionHost, evaluator, metaReader, metaRegistry, scopeRegistry, referencesRegistry,
-          false, null, refEmitter, NOOP_DEFAULT_IMPORT_RECORDER,
-          /* annotateForClosureCompiler */ false);
+          /* isCore */ false, /* routeAnalyzer */ null, refEmitter, /* factoryTracker */ null,
+          NOOP_DEFAULT_IMPORT_RECORDER, /* annotateForClosureCompiler */ false);
       const TestModule =
           getDeclaration(program, _('/entry.ts'), 'TestModule', isNamedClassDeclaration);
       const detected =

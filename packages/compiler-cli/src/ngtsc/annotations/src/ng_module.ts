@@ -16,6 +16,7 @@ import {PartialEvaluator, ResolvedValue} from '../../partial_evaluator';
 import {ClassDeclaration, Decorator, ReflectionHost, reflectObjectLiteral, typeNodeToValueExpr} from '../../reflection';
 import {NgModuleRouteAnalyzer} from '../../routing';
 import {LocalModuleScopeRegistry, ScopeData} from '../../scope';
+import {FactoryTracker} from '../../shims';
 import {AnalysisOutput, CompileResult, DecoratorHandler, DetectResult, HandlerPrecedence, ResolveResult} from '../../transform';
 import {getSourceFile} from '../../util/src/typescript';
 
@@ -28,26 +29,34 @@ export interface NgModuleAnalysis {
   inj: R3InjectorMetadata;
   metadataStmt: Statement|null;
   declarations: Reference<ClassDeclaration>[];
+  schemas: SchemaMetadata[];
+  imports: Reference<ClassDeclaration>[];
   exports: Reference<ClassDeclaration>[];
   id: Expression|null;
+  factorySymbolName: string;
 }
+
+export interface NgModuleResolution { injectorImports: Expression[]; }
 
 /**
  * Compiles @NgModule annotations to ngModuleDef fields.
  *
  * TODO(alxhub): handle injector side of things as well.
  */
-export class NgModuleDecoratorHandler implements DecoratorHandler<NgModuleAnalysis, Decorator> {
+export class NgModuleDecoratorHandler implements
+    DecoratorHandler<Decorator, NgModuleAnalysis, NgModuleResolution> {
   constructor(
       private reflector: ReflectionHost, private evaluator: PartialEvaluator,
       private metaReader: MetadataReader, private metaRegistry: MetadataRegistry,
       private scopeRegistry: LocalModuleScopeRegistry,
       private referencesRegistry: ReferencesRegistry, private isCore: boolean,
       private routeAnalyzer: NgModuleRouteAnalyzer|null, private refEmitter: ReferenceEmitter,
+      private factoryTracker: FactoryTracker|null,
       private defaultImportRecorder: DefaultImportRecorder,
       private annotateForClosureCompiler: boolean, private localeId?: string) {}
 
   readonly precedence = HandlerPrecedence.PRIMARY;
+  readonly name = NgModuleDecoratorHandler.name;
 
   detect(node: ClassDeclaration, decorators: Decorator[]|null): DetectResult<Decorator>|undefined {
     if (!decorators) {
@@ -64,7 +73,8 @@ export class NgModuleDecoratorHandler implements DecoratorHandler<NgModuleAnalys
     }
   }
 
-  analyze(node: ClassDeclaration, decorator: Decorator): AnalysisOutput<NgModuleAnalysis> {
+  analyze(node: ClassDeclaration, decorator: Readonly<Decorator>):
+      AnalysisOutput<NgModuleAnalysis> {
     const name = node.name.text;
     if (decorator.args === null || decorator.args.length > 1) {
       throw new FatalDiagnosticError(
@@ -164,18 +174,6 @@ export class NgModuleDecoratorHandler implements DecoratorHandler<NgModuleAnalys
 
     const id: Expression|null =
         ngModule.has('id') ? new WrappedNodeExpr(ngModule.get('id') !) : null;
-
-    // Register this module's information with the LocalModuleScopeRegistry. This ensures that
-    // during the compile() phase, the module's metadata is available for selector scope
-    // computation.
-    this.metaRegistry.registerNgModuleMetadata({
-      ref: new Reference(node),
-      schemas,
-      declarations: declarationRefs,
-      imports: importRefs,
-      exports: exportRefs,
-    });
-
     const valueContext = node.getSourceFile();
 
     let typeContext = valueContext;
@@ -244,21 +242,44 @@ export class NgModuleDecoratorHandler implements DecoratorHandler<NgModuleAnalys
     return {
       analysis: {
         id,
+        schemas: schemas,
         mod: ngModuleDef,
         inj: ngInjectorDef,
         declarations: declarationRefs,
+        imports: importRefs,
         exports: exportRefs,
         metadataStmt: generateSetClassMetadataCall(
             node, this.reflector, this.defaultImportRecorder, this.isCore,
             this.annotateForClosureCompiler),
+        factorySymbolName: node.name.text,
       },
-      factorySymbolName: node.name.text,
     };
   }
 
-  resolve(node: ClassDeclaration, analysis: NgModuleAnalysis): ResolveResult {
+  register(node: ClassDeclaration, analysis: NgModuleAnalysis): void {
+    // Register this module's information with the LocalModuleScopeRegistry. This ensures that
+    // during the compile() phase, the module's metadata is available for selector scope
+    // computation.
+    this.metaRegistry.registerNgModuleMetadata({
+      ref: new Reference(node),
+      schemas: analysis.schemas,
+      declarations: analysis.declarations,
+      imports: analysis.imports,
+      exports: analysis.exports,
+    });
+
+    if (this.factoryTracker !== null) {
+      this.factoryTracker.track(node.getSourceFile(), analysis.factorySymbolName);
+    }
+  }
+
+  resolve(node: ClassDeclaration, analysis: Readonly<NgModuleAnalysis>):
+      ResolveResult<NgModuleResolution> {
     const scope = this.scopeRegistry.getScopeOfModule(node);
     const diagnostics = this.scopeRegistry.getDiagnosticsOfModule(node) || undefined;
+    const data: NgModuleResolution = {
+      injectorImports: [],
+    };
 
     if (scope !== null) {
       // Using the scope information, extend the injector's imports using the modules that are
@@ -266,7 +287,7 @@ export class NgModuleDecoratorHandler implements DecoratorHandler<NgModuleAnalys
       const context = getSourceFile(node);
       for (const exportRef of analysis.exports) {
         if (isNgModule(exportRef.node, scope.compilation)) {
-          analysis.inj.imports.push(this.refEmitter.emit(exportRef, context));
+          data.injectorImports.push(this.refEmitter.emit(exportRef, context));
         }
       }
 
@@ -282,17 +303,25 @@ export class NgModuleDecoratorHandler implements DecoratorHandler<NgModuleAnalys
     }
 
     if (scope === null || scope.reexports === null) {
-      return {diagnostics};
+      return {data, diagnostics};
     } else {
       return {
+        data,
         diagnostics,
         reexports: scope.reexports,
       };
     }
   }
 
-  compile(node: ClassDeclaration, analysis: NgModuleAnalysis): CompileResult[] {
-    const ngInjectorDef = compileInjector(analysis.inj);
+  compile(
+      node: ClassDeclaration, analysis: Readonly<NgModuleAnalysis>,
+      resolution: Readonly<NgModuleResolution>): CompileResult[] {
+    //  Merge the injector imports (which are 'exports' that were later found to be NgModules)
+    //  computed during resolution with the ones from analysis.
+    const ngInjectorDef = compileInjector({
+      ...analysis.inj,
+      imports: [...analysis.inj.imports, ...resolution.injectorImports],
+    });
     const ngModuleDef = compileNgModule(analysis.mod);
     const ngModuleStatements = ngModuleDef.additionalStatements;
     if (analysis.metadataStmt !== null) {

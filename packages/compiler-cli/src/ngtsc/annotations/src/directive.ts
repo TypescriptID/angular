@@ -32,17 +32,20 @@ const LIFECYCLE_HOOKS = new Set([
 ]);
 
 export interface DirectiveHandlerData {
+  baseClass: Reference<ClassDeclaration>|'dynamic'|null;
+  guards: ReturnType<typeof extractDirectiveGuards>;
   meta: R3DirectiveMetadata;
   metadataStmt: Statement|null;
 }
 export class DirectiveDecoratorHandler implements
-    DecoratorHandler<DirectiveHandlerData, Decorator|null> {
+    DecoratorHandler<Decorator|null, DirectiveHandlerData, unknown> {
   constructor(
       private reflector: ReflectionHost, private evaluator: PartialEvaluator,
       private metaRegistry: MetadataRegistry, private defaultImportRecorder: DefaultImportRecorder,
       private isCore: boolean, private annotateForClosureCompiler: boolean) {}
 
   readonly precedence = HandlerPrecedence.PRIMARY;
+  readonly name = DirectiveDecoratorHandler.name;
 
   detect(node: ClassDeclaration, decorators: Decorator[]|null):
       DetectResult<Decorator|null>|undefined {
@@ -72,7 +75,7 @@ export class DirectiveDecoratorHandler implements
     }
   }
 
-  analyze(node: ClassDeclaration, decorator: Decorator|null, flags = HandlerFlags.NONE):
+  analyze(node: ClassDeclaration, decorator: Readonly<Decorator|null>, flags = HandlerFlags.NONE):
       AnalysisOutput<DirectiveHandlerData> {
     const directiveResult = extractDirectiveMetadata(
         node, decorator, this.reflector, this.evaluator, this.defaultImportRecorder, this.isCore,
@@ -83,33 +86,38 @@ export class DirectiveDecoratorHandler implements
       return {};
     }
 
-    // Register this directive's information with the `MetadataRegistry`. This ensures that
-    // the information about the directive is available during the compile() phase.
-    const ref = new Reference(node);
-    this.metaRegistry.registerDirectiveMetadata({
-      ref,
-      name: node.name.text,
-      selector: analysis.selector,
-      exportAs: analysis.exportAs,
-      inputs: analysis.inputs,
-      outputs: analysis.outputs,
-      queries: analysis.queries.map(query => query.propertyName),
-      isComponent: false, ...extractDirectiveGuards(node, this.reflector),
-      baseClass: readBaseClass(node, this.reflector, this.evaluator),
-    });
-
     return {
       analysis: {
         meta: analysis,
         metadataStmt: generateSetClassMetadataCall(
             node, this.reflector, this.defaultImportRecorder, this.isCore,
             this.annotateForClosureCompiler),
+        baseClass: readBaseClass(node, this.reflector, this.evaluator),
+        guards: extractDirectiveGuards(node, this.reflector),
       }
     };
   }
 
-  compile(node: ClassDeclaration, analysis: DirectiveHandlerData, pool: ConstantPool):
-      CompileResult[] {
+  register(node: ClassDeclaration, analysis: Readonly<DirectiveHandlerData>): void {
+    // Register this directive's information with the `MetadataRegistry`. This ensures that
+    // the information about the directive is available during the compile() phase.
+    const ref = new Reference(node);
+    this.metaRegistry.registerDirectiveMetadata({
+      ref,
+      name: node.name.text,
+      selector: analysis.meta.selector,
+      exportAs: analysis.meta.exportAs,
+      inputs: analysis.meta.inputs,
+      outputs: analysis.meta.outputs,
+      queries: analysis.meta.queries.map(query => query.propertyName),
+      isComponent: false,
+      baseClass: analysis.baseClass, ...analysis.guards,
+    });
+  }
+
+  compile(
+      node: ClassDeclaration, analysis: Readonly<DirectiveHandlerData>,
+      resolution: Readonly<unknown>, pool: ConstantPool): CompileResult[] {
     const meta = analysis.meta;
     const res = compileDirectiveFromMetadata(meta, pool, makeBindingParser());
     const factoryRes = compileNgFactoryDefField(
@@ -135,7 +143,7 @@ export class DirectiveDecoratorHandler implements
  * the module.
  */
 export function extractDirectiveMetadata(
-    clazz: ClassDeclaration, decorator: Decorator | null, reflector: ReflectionHost,
+    clazz: ClassDeclaration, decorator: Readonly<Decorator|null>, reflector: ReflectionHost,
     evaluator: PartialEvaluator, defaultImportRecorder: DefaultImportRecorder, isCore: boolean,
     flags: HandlerFlags, annotateForClosureCompiler: boolean,
     defaultSelector: string | null = null): {

@@ -27,7 +27,7 @@ import {isDefined} from '../utils';
 
 import {DefaultMigrationHost} from './migration_host';
 import {AnalyzedClass, AnalyzedFile, CompiledClass, CompiledFile, DecorationAnalyses} from './types';
-import {analyzeDecorators, isWithinPackage} from './util';
+import {NOOP_DEPENDENCY_TRACKER, analyzeDecorators, isWithinPackage} from './util';
 
 
 /**
@@ -59,6 +59,8 @@ export class DecorationAnalyzer {
    * Map of NgModule declarations to the re-exports for that NgModule.
    */
   private reexportMap = new Map<ts.Declaration, Map<string, [string, string]>>();
+  moduleResolver =
+      new ModuleResolver(this.program, this.options, this.host, /* moduleResolutionCache */ null);
   resourceManager = new NgccResourceLoader(this.fs);
   metaRegistry = new LocalMetadataRegistry();
   dtsMetaReader = new DtsMetadataReader(this.typeChecker, this.reflectionHost);
@@ -66,7 +68,7 @@ export class DecorationAnalyzer {
   refEmitter = new ReferenceEmitter([
     new LocalIdentifierStrategy(),
     new AbsoluteModuleStrategy(
-        this.program, this.typeChecker, this.options, this.host, this.reflectionHost),
+        this.program, this.typeChecker, this.moduleResolver, this.reflectionHost),
     // TODO(alxhub): there's no reason why ngcc needs the "logical file system" logic here, as ngcc
     // projects only ever have one rootDir. Instead, ngcc should just switch its emitted import
     // based on whether a bestGuessOwningModule is present in the Reference.
@@ -79,21 +81,24 @@ export class DecorationAnalyzer {
   scopeRegistry = new LocalModuleScopeRegistry(
       this.metaRegistry, this.dtsModuleScopeResolver, this.refEmitter, this.aliasingHost);
   fullRegistry = new CompoundMetadataRegistry([this.metaRegistry, this.scopeRegistry]);
-  evaluator = new PartialEvaluator(this.reflectionHost, this.typeChecker);
-  moduleResolver = new ModuleResolver(this.program, this.options, this.host);
+  evaluator =
+      new PartialEvaluator(this.reflectionHost, this.typeChecker, /* dependencyTracker */ null);
   importGraph = new ImportGraph(this.moduleResolver);
   cycleAnalyzer = new CycleAnalyzer(this.importGraph);
-  handlers: DecoratorHandler<any, any>[] = [
+  handlers: DecoratorHandler<unknown, unknown, unknown>[] = [
     new ComponentDecoratorHandler(
         this.reflectionHost, this.evaluator, this.fullRegistry, this.fullMetaReader,
         this.scopeRegistry, this.scopeRegistry, this.isCore, this.resourceManager, this.rootDirs,
         /* defaultPreserveWhitespaces */ false,
         /* i18nUseExternalIds */ true, this.bundle.enableI18nLegacyMessageIdFormat,
         this.moduleResolver, this.cycleAnalyzer, this.refEmitter, NOOP_DEFAULT_IMPORT_RECORDER,
-        /* annotateForClosureCompiler */ false),
+        NOOP_DEPENDENCY_TRACKER, /* annotateForClosureCompiler */ false),
+    // See the note in ngtsc about why this cast is needed.
+    // clang-format off
     new DirectiveDecoratorHandler(
         this.reflectionHost, this.evaluator, this.fullRegistry, NOOP_DEFAULT_IMPORT_RECORDER,
-        this.isCore, /* annotateForClosureCompiler */ false),
+        this.isCore, /* annotateForClosureCompiler */ false) as DecoratorHandler<unknown, unknown, unknown>,
+    // clang-format on
     // Pipe handler must be before injectable handler in list so pipe factories are printed
     // before injectable factories (so injectable factories can delegate to them)
     new PipeDecoratorHandler(
@@ -105,7 +110,9 @@ export class DecorationAnalyzer {
     new NgModuleDecoratorHandler(
         this.reflectionHost, this.evaluator, this.fullMetaReader, this.fullRegistry,
         this.scopeRegistry, this.referencesRegistry, this.isCore, /* routeAnalyzer */ null,
-        this.refEmitter, NOOP_DEFAULT_IMPORT_RECORDER, /* annotateForClosureCompiler */ false),
+        this.refEmitter,
+        /* factoryTracker */ null, NOOP_DEFAULT_IMPORT_RECORDER,
+        /* annotateForClosureCompiler */ false),
   ];
   migrations: Migration[] = [
     new UndecoratedParentMigration(),
@@ -195,8 +202,8 @@ export class DecorationAnalyzer {
 
   protected compileClass(clazz: AnalyzedClass, constantPool: ConstantPool): CompileResult[] {
     const compilations: CompileResult[] = [];
-    for (const {handler, analysis} of clazz.matches) {
-      const result = handler.compile(clazz.declaration, analysis, constantPool);
+    for (const {handler, analysis, resolution} of clazz.matches) {
+      const result = handler.compile(clazz.declaration, analysis, resolution, constantPool);
       if (Array.isArray(result)) {
         result.forEach(current => {
           if (!compilations.some(compilation => compilation.name === current.name)) {
@@ -211,19 +218,21 @@ export class DecorationAnalyzer {
   }
 
   protected resolveFile(analyzedFile: AnalyzedFile): void {
-    analyzedFile.analyzedClasses.forEach(({declaration, matches}) => {
-      matches.forEach(({handler, analysis}) => {
+    for (const {declaration, matches} of analyzedFile.analyzedClasses) {
+      for (const match of matches) {
+        const {handler, analysis} = match;
         if ((handler.resolve !== undefined) && analysis) {
-          const {reexports, diagnostics} = handler.resolve(declaration, analysis);
+          const {reexports, diagnostics, data} = handler.resolve(declaration, analysis);
           if (reexports !== undefined) {
             this.addReexports(reexports, declaration);
           }
           if (diagnostics !== undefined) {
             diagnostics.forEach(error => this.diagnosticHandler(error));
           }
+          match.resolution = data as Readonly<unknown>;
         }
-      });
-    });
+      }
+    }
   }
 
   private getReexportsForClass(declaration: ClassDeclaration<ts.Declaration>) {

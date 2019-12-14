@@ -25,13 +25,14 @@ export interface PipeHandlerData {
   metadataStmt: Statement|null;
 }
 
-export class PipeDecoratorHandler implements DecoratorHandler<PipeHandlerData, Decorator> {
+export class PipeDecoratorHandler implements DecoratorHandler<Decorator, PipeHandlerData, unknown> {
   constructor(
       private reflector: ReflectionHost, private evaluator: PartialEvaluator,
       private metaRegistry: MetadataRegistry, private defaultImportRecorder: DefaultImportRecorder,
       private isCore: boolean) {}
 
   readonly precedence = HandlerPrecedence.PRIMARY;
+  readonly name = PipeDecoratorHandler.name;
 
   detect(node: ClassDeclaration, decorators: Decorator[]|null): DetectResult<Decorator>|undefined {
     if (!decorators) {
@@ -48,7 +49,8 @@ export class PipeDecoratorHandler implements DecoratorHandler<PipeHandlerData, D
     }
   }
 
-  analyze(clazz: ClassDeclaration, decorator: Decorator): AnalysisOutput<PipeHandlerData> {
+  analyze(clazz: ClassDeclaration, decorator: Readonly<Decorator>):
+      AnalysisOutput<PipeHandlerData> {
     const name = clazz.name.text;
     const type = new WrappedNodeExpr(clazz.name);
     const internalType = new WrappedNodeExpr(this.reflector.getInternalNameOfClass(clazz));
@@ -79,8 +81,6 @@ export class PipeDecoratorHandler implements DecoratorHandler<PipeHandlerData, D
       throw new FatalDiagnosticError(
           ErrorCode.VALUE_HAS_WRONG_TYPE, pipeNameExpr, `@Pipe.name must be a string`);
     }
-    const ref = new Reference(clazz);
-    this.metaRegistry.registerPipeMetadata({ref, name: pipeName});
 
     let pure = true;
     if (pipe.has('pure')) {
@@ -110,7 +110,12 @@ export class PipeDecoratorHandler implements DecoratorHandler<PipeHandlerData, D
     };
   }
 
-  compile(node: ClassDeclaration, analysis: PipeHandlerData): CompileResult[] {
+  register(node: ClassDeclaration, analysis: Readonly<PipeHandlerData>): void {
+    const ref = new Reference(node);
+    this.metaRegistry.registerPipeMetadata({ref, name: analysis.meta.pipeName});
+  }
+
+  compile(node: ClassDeclaration, analysis: Readonly<PipeHandlerData>): CompileResult[] {
     const meta = analysis.meta;
     const res = compilePipeFromMetadata(meta);
     const factoryRes = compileNgFactoryDefField({

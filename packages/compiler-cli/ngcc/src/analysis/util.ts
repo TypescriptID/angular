@@ -9,8 +9,9 @@ import * as ts from 'typescript';
 
 import {isFatalDiagnosticError} from '../../../src/ngtsc/diagnostics';
 import {AbsoluteFsPath, absoluteFromSourceFile, relative} from '../../../src/ngtsc/file_system';
+import {DependencyTracker} from '../../../src/ngtsc/incremental/api';
 import {Decorator} from '../../../src/ngtsc/reflection';
-import {DecoratorHandler, DetectResult, HandlerFlags, HandlerPrecedence} from '../../../src/ngtsc/transform';
+import {DecoratorHandler, HandlerFlags, HandlerPrecedence} from '../../../src/ngtsc/transform';
 import {NgccClassSymbol} from '../host/ngcc_host';
 
 import {AnalyzedClass, MatchingHandler} from './types';
@@ -19,26 +20,37 @@ export function isWithinPackage(packagePath: AbsoluteFsPath, sourceFile: ts.Sour
   return !relative(packagePath, absoluteFromSourceFile(sourceFile)).startsWith('..');
 }
 
+const NOT_YET_KNOWN: Readonly<unknown> = null as unknown as Readonly<unknown>;
+
 export function analyzeDecorators(
     classSymbol: NgccClassSymbol, decorators: Decorator[] | null,
-    handlers: DecoratorHandler<any, any>[], flags?: HandlerFlags): AnalyzedClass|null {
+    handlers: DecoratorHandler<unknown, unknown, unknown>[], flags?: HandlerFlags): AnalyzedClass|
+    null {
   const declaration = classSymbol.declaration.valueDeclaration;
-  const matchingHandlers = handlers
-                               .map(handler => {
-                                 const detected = handler.detect(declaration, decorators);
-                                 return {handler, detected};
-                               })
-                               .filter(isMatchingHandler);
+  const matchingHandlers: MatchingHandler<unknown, unknown, unknown>[] = [];
+  for (const handler of handlers) {
+    const detected = handler.detect(declaration, decorators);
+    if (detected !== undefined) {
+      matchingHandlers.push({
+        handler,
+        detected,
+        analysis: NOT_YET_KNOWN,
+        resolution: NOT_YET_KNOWN,
+      });
+    }
+  }
 
   if (matchingHandlers.length === 0) {
     return null;
   }
-  const detections: {handler: DecoratorHandler<any, any>, detected: DetectResult<any>}[] = [];
+
+  const detections: MatchingHandler<unknown, unknown, unknown>[] = [];
   let hasWeakHandler: boolean = false;
   let hasNonWeakHandler: boolean = false;
   let hasPrimaryHandler: boolean = false;
 
-  for (const {handler, detected} of matchingHandlers) {
+  for (const match of matchingHandlers) {
+    const {handler} = match;
     if (hasNonWeakHandler && handler.precedence === HandlerPrecedence.WEAK) {
       continue;
     } else if (hasWeakHandler && handler.precedence !== HandlerPrecedence.WEAK) {
@@ -49,7 +61,7 @@ export function analyzeDecorators(
       throw new Error(`TODO.Diagnostic: Class has multiple incompatible Angular decorators.`);
     }
 
-    detections.push({handler, detected});
+    detections.push(match);
     if (handler.precedence === HandlerPrecedence.WEAK) {
       hasWeakHandler = true;
     } else if (handler.precedence === HandlerPrecedence.SHARED) {
@@ -60,15 +72,22 @@ export function analyzeDecorators(
     }
   }
 
-  const matches: {handler: DecoratorHandler<any, any>, analysis: any}[] = [];
+  const matches: MatchingHandler<unknown, unknown, unknown>[] = [];
   const allDiagnostics: ts.Diagnostic[] = [];
-  for (const {handler, detected} of detections) {
+  for (const match of detections) {
     try {
-      const {analysis, diagnostics} = handler.analyze(declaration, detected.metadata, flags);
+      const {analysis, diagnostics} =
+          match.handler.analyze(declaration, match.detected.metadata, flags);
       if (diagnostics !== undefined) {
         allDiagnostics.push(...diagnostics);
       }
-      matches.push({handler, analysis});
+      if (analysis !== undefined) {
+        match.analysis = analysis;
+        if (match.handler.register !== undefined) {
+          match.handler.register(declaration, analysis);
+        }
+      }
+      matches.push(match);
     } catch (e) {
       if (isFatalDiagnosticError(e)) {
         allDiagnostics.push(e.toDiagnostic());
@@ -82,11 +101,15 @@ export function analyzeDecorators(
     declaration,
     decorators,
     matches,
-    diagnostics: allDiagnostics.length > 0 ? allDiagnostics : undefined
+    diagnostics: allDiagnostics.length > 0 ? allDiagnostics : undefined,
   };
 }
 
-function isMatchingHandler<A, M>(handler: Partial<MatchingHandler<A, M>>):
-    handler is MatchingHandler<A, M> {
-  return !!handler.detected;
+class NoopDependencyTracker implements DependencyTracker {
+  addDependency(): void {}
+  addResourceDependency(): void {}
+  addTransitiveDependency(): void {}
+  addTransitiveResources(): void {}
 }
+
+export const NOOP_DEPENDENCY_TRACKER: DependencyTracker = new NoopDependencyTracker();

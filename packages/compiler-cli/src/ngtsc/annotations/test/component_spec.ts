@@ -47,8 +47,9 @@ runInEachFileSystem(() => {
       ]);
       const checker = program.getTypeChecker();
       const reflectionHost = new TypeScriptReflectionHost(checker);
-      const evaluator = new PartialEvaluator(reflectionHost, checker);
-      const moduleResolver = new ModuleResolver(program, options, host);
+      const evaluator = new PartialEvaluator(reflectionHost, checker, /* dependencyTracker */ null);
+      const moduleResolver =
+          new ModuleResolver(program, options, host, /* moduleResolutionCache */ null);
       const importGraph = new ImportGraph(moduleResolver);
       const cycleAnalyzer = new CycleAnalyzer(importGraph);
       const metaRegistry = new LocalMetadataRegistry();
@@ -64,7 +65,8 @@ runInEachFileSystem(() => {
           /* isCore */ false, new NoopResourceLoader(), /* rootDirs */[''],
           /* defaultPreserveWhitespaces */ false, /* i18nUseExternalIds */ true,
           /* enableI18nLegacyMessageIdFormat */ false, moduleResolver, cycleAnalyzer, refEmitter,
-          NOOP_DEFAULT_IMPORT_RECORDER, /* annotateForClosureCompiler */ false);
+          NOOP_DEFAULT_IMPORT_RECORDER, /* depTracker */ null,
+          /* annotateForClosureCompiler */ false);
       const TestCmp = getDeclaration(program, _('/entry.ts'), 'TestCmp', isNamedClassDeclaration);
       const detected = handler.detect(TestCmp, reflectionHost.getDecoratorsOfDeclaration(TestCmp));
       if (detected === undefined) {

@@ -18,9 +18,6 @@ import {getComponentLViewByIndex, getNativeByTNodeOrNull} from '../render3/util/
 import {assertDomNode} from '../util/assert';
 import {DebugContext} from '../view/index';
 
-import {createProxy} from './proxy';
-
-
 
 /**
  * @publicApi
@@ -204,6 +201,7 @@ function _queryNodeChildren(
     });
   }
 }
+
 class DebugNode__POST_R3__ implements DebugNode {
   readonly nativeNode: Node;
 
@@ -331,10 +329,14 @@ class DebugElement__POST_R3__ extends DebugNode__POST_R3__ implements DebugEleme
     const eAttrs = element.attributes;
     for (let i = 0; i < eAttrs.length; i++) {
       const attr = eAttrs[i];
+      const lowercaseName = attr.name.toLowerCase();
+
       // Make sure that we don't assign the same attribute both in its
       // case-sensitive form and the lower-cased one from the browser.
-      if (lowercaseTNodeAttrs.indexOf(attr.name) === -1) {
-        attributes[attr.name] = attr.value;
+      if (lowercaseTNodeAttrs.indexOf(lowercaseName) === -1) {
+        // Save the lowercase name to align the behavior between browsers.
+        // IE preserves the case, while all other browser convert it to lower case.
+        attributes[lowercaseName] = attr.value;
       }
     }
 
@@ -348,35 +350,14 @@ class DebugElement__POST_R3__ extends DebugNode__POST_R3__ implements DebugEleme
     return {};
   }
 
-  private _classesProxy !: {};
   get classes(): {[key: string]: boolean;} {
-    if (!this._classesProxy) {
-      const element = this.nativeElement;
+    const result: {[key: string]: boolean;} = {};
+    const element = this.nativeElement as HTMLElement;
+    const classNames = element.className.split(' ');
 
-      // we use a proxy here because VE code expects `.classes` to keep
-      // track of which classes have been added and removed. Because we
-      // do not make use of a debug renderer anymore, the return value
-      // must always be `false` in the event that a class does not exist
-      // on the element (even if it wasn't added and removed beforehand).
-      this._classesProxy = createProxy({
-        get(target: {}, prop: string) {
-          return element ? element.classList.contains(prop) : false;
-        },
-        set(target: {}, prop: string, value: any) {
-          return element ? element.classList.toggle(prop, !!value) : false;
-        },
-        ownKeys() { return element ? Array.from(element.classList).sort() : []; },
-        getOwnPropertyDescriptor(k: any) {
-          // we use a special property descriptor here so that enumeration operations
-          // such as `Object.keys` will work on this proxy.
-          return {
-            enumerable: true,
-            configurable: true,
-          };
-        },
-      });
-    }
-    return this._classesProxy;
+    classNames.forEach((value: string) => result[value] = true);
+
+    return result;
   }
 
   get childNodes(): DebugNode[] {

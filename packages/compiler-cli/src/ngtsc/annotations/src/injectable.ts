@@ -29,7 +29,7 @@ export interface InjectableHandlerData {
  * Adapts the `compileIvyInjectable` compiler for `@Injectable` decorators to the Ivy compiler.
  */
 export class InjectableDecoratorHandler implements
-    DecoratorHandler<InjectableHandlerData, Decorator> {
+    DecoratorHandler<Decorator, InjectableHandlerData, unknown> {
   constructor(
       private reflector: ReflectionHost, private defaultImportRecorder: DefaultImportRecorder,
       private isCore: boolean, private strictCtorDeps: boolean,
@@ -42,6 +42,7 @@ export class InjectableDecoratorHandler implements
       private errorOnDuplicateProv = true) {}
 
   readonly precedence = HandlerPrecedence.SHARED;
+  readonly name = InjectableDecoratorHandler.name;
 
   detect(node: ClassDeclaration, decorators: Decorator[]|null): DetectResult<Decorator>|undefined {
     if (!decorators) {
@@ -58,7 +59,8 @@ export class InjectableDecoratorHandler implements
     }
   }
 
-  analyze(node: ClassDeclaration, decorator: Decorator): AnalysisOutput<InjectableHandlerData> {
+  analyze(node: ClassDeclaration, decorator: Readonly<Decorator>):
+      AnalysisOutput<InjectableHandlerData> {
     const meta = extractInjectableMetadata(node, decorator, this.reflector);
     const decorators = this.reflector.getDecoratorsOfDeclaration(node);
 
@@ -78,7 +80,7 @@ export class InjectableDecoratorHandler implements
     };
   }
 
-  compile(node: ClassDeclaration, analysis: InjectableHandlerData): CompileResult[] {
+  compile(node: ClassDeclaration, analysis: Readonly<InjectableHandlerData>): CompileResult[] {
     const res = compileIvyInjectable(analysis.meta);
     const statements = res.statements;
     const results: CompileResult[] = [];
