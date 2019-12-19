@@ -2895,6 +2895,9 @@ runInEachFileSystem(os => {
       env.write(`test.ts`, `
         import {Directive} from '@angular/core';
 
+        @Directive({
+          selector: '[base]',
+        })
         class Base {}
 
         @Directive({
@@ -5131,6 +5134,245 @@ export const Foo = Foo__PRE_R3__;
       });
     });
 
+    describe('inherited directives', () => {
+      beforeEach(() => {
+        env.write('local.ts', `
+          import {Component, Directive, ElementRef} from '@angular/core';
+
+          export class BasePlain {}
+
+          export class BasePlainWithBlankConstructor {
+            constructor() {}
+          }
+
+          export class BasePlainWithConstructorParameters {
+            constructor(elementRef: ElementRef) {}
+          }
+
+          @Component({
+            selector: 'base-cmp',
+            template: 'BaseCmp',
+          })
+          export class BaseCmp {}
+
+          @Directive({
+            selector: '[base]',
+          })
+          export class BaseDir {}
+        `);
+
+        env.write('lib.d.ts', `
+          import {ɵɵComponentDefWithMeta, ɵɵDirectiveDefWithMeta, ElementRef} from '@angular/core';
+
+          export declare class BasePlain {}
+
+          export declare class BasePlainWithBlankConstructor {
+            constructor() {}
+          }
+
+          export declare class BasePlainWithConstructorParameters {
+            constructor(elementRef: ElementRef) {}
+          }
+
+          export declare class BaseCmp {
+            static ɵcmp: ɵɵComponentDefWithMeta<BaseCmp, "base-cmp", never, {}, {}, never>
+          }
+
+          export declare class BaseDir {
+            static ɵdir: ɵɵDirectiveDefWithMeta<BaseDir, '[base]', never, never, never, never>;
+          }
+        `);
+      });
+
+      it('should not error when inheriting a constructor from a decorated directive class', () => {
+        env.tsconfig();
+        env.write('test.ts', `
+          import {Directive, Component} from '@angular/core';
+          import {BaseDir, BaseCmp} from './local';
+
+          @Directive({
+            selector: '[dir]',
+          })
+          export class Dir extends BaseDir {}
+
+          @Component({
+            selector: 'test-cmp',
+            template: 'TestCmp',
+          })
+          export class Cmp extends BaseCmp {}
+        `);
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toBe(0);
+      });
+
+      it('should not error when inheriting a constructor without parameters', () => {
+        env.tsconfig();
+        env.write('test.ts', `
+          import {Directive, Component} from '@angular/core';
+          import {BasePlainWithBlankConstructor} from './local';
+
+          @Directive({
+            selector: '[dir]',
+          })
+          export class Dir extends BasePlainWithBlankConstructor {}
+
+          @Component({
+            selector: 'test-cmp',
+            template: 'TestCmp',
+          })
+          export class Cmp extends BasePlainWithBlankConstructor {}
+        `);
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toBe(0);
+      });
+
+      it('should not error when inheriting from a class without a constructor', () => {
+        env.tsconfig();
+        env.write('test.ts', `
+          import {Directive, Component} from '@angular/core';
+          import {BasePlain} from './local';
+
+          @Directive({
+            selector: '[dir]',
+          })
+          export class Dir extends BasePlain {}
+
+          @Component({
+            selector: 'test-cmp',
+            template: 'TestCmp',
+          })
+          export class Cmp extends BasePlain {}
+        `);
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toBe(0);
+      });
+
+      it('should error when inheriting a constructor from an undecorated class', () => {
+        env.tsconfig();
+        env.write('test.ts', `
+          import {Directive, Component} from '@angular/core';
+          import {BasePlainWithConstructorParameters} from './local';
+
+          @Directive({
+            selector: '[dir]',
+          })
+          export class Dir extends BasePlainWithConstructorParameters {}
+
+          @Component({
+            selector: 'test-cmp',
+            template: 'TestCmp',
+          })
+          export class Cmp extends BasePlainWithConstructorParameters {}
+        `);
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toBe(2);
+        expect(diags[0].messageText).toContain('Dir');
+        expect(diags[0].messageText).toContain('BasePlainWithConstructorParameters');
+        expect(diags[1].messageText).toContain('Cmp');
+        expect(diags[1].messageText).toContain('BasePlainWithConstructorParameters');
+      });
+
+      it('should error when inheriting a constructor from undecorated grand super class', () => {
+        env.tsconfig();
+        env.write('test.ts', `
+          import {Directive, Component} from '@angular/core';
+          import {BasePlainWithConstructorParameters} from './local';
+
+          class Parent extends BasePlainWithConstructorParameters {}
+
+          @Directive({
+            selector: '[dir]',
+          })
+          export class Dir extends Parent {}
+
+          @Component({
+            selector: 'test-cmp',
+            template: 'TestCmp',
+          })
+          export class Cmp extends Parent {}
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toBe(2);
+        expect(diags[0].messageText).toContain('Dir');
+        expect(diags[0].messageText).toContain('BasePlainWithConstructorParameters');
+        expect(diags[1].messageText).toContain('Cmp');
+        expect(diags[1].messageText).toContain('BasePlainWithConstructorParameters');
+      });
+
+      it('should error when inheriting a constructor from undecorated grand grand super class',
+         () => {
+           env.tsconfig();
+           env.write('test.ts', `
+              import {Directive, Component} from '@angular/core';
+              import {BasePlainWithConstructorParameters} from './local';
+
+              class GrandParent extends BasePlainWithConstructorParameters {}
+
+              class Parent extends GrandParent {}
+
+              @Directive({
+                selector: '[dir]',
+              })
+              export class Dir extends Parent {}
+
+              @Component({
+                selector: 'test-cmp',
+                template: 'TestCmp',
+              })
+              export class Cmp extends Parent {}
+            `);
+
+           const diags = env.driveDiagnostics();
+           expect(diags.length).toBe(2);
+           expect(diags[0].messageText).toContain('Dir');
+           expect(diags[0].messageText).toContain('BasePlainWithConstructorParameters');
+           expect(diags[1].messageText).toContain('Cmp');
+           expect(diags[1].messageText).toContain('BasePlainWithConstructorParameters');
+         });
+
+      it('should not error when inheriting a constructor from decorated directive or component classes in a .d.ts file',
+         () => {
+           env.tsconfig();
+           env.write('test.ts', `
+              import {Component, Directive} from '@angular/core';
+              import {BaseDir, BaseCmp} from './lib';
+
+              @Directive({
+                selector: '[dir]',
+              })
+              export class Dir extends BaseDir {}
+
+              @Component({
+                selector: 'test-cmp',
+                template: 'TestCmp',
+              })
+              export class Cmp extends BaseCmp {}
+           `);
+           const diags = env.driveDiagnostics();
+           expect(diags.length).toBe(0);
+         });
+
+      it('should error when inheriting a constructor from an undecorated class in a .d.ts file',
+         () => {
+           env.tsconfig();
+           env.write('test.ts', `
+              import {Directive} from '@angular/core';
+
+              import {BasePlainWithConstructorParameters} from './lib';
+
+              @Directive({
+                selector: '[dir]',
+              })
+              export class Dir extends BasePlainWithConstructorParameters {}
+            `);
+           const diags = env.driveDiagnostics();
+           expect(diags.length).toBe(1);
+           expect(diags[0].messageText).toContain('Dir');
+           expect(diags[0].messageText).toContain('Base');
+         });
+    });
+
     describe('inline resources', () => {
       it('should process inline <style> tags', () => {
         env.write('test.ts', `
@@ -5220,6 +5462,334 @@ export const Foo = Foo__PRE_R3__;
         expect(jsContents).not.toContain('defineNgModule(');
         expect(jsContents).toContain('NgModule({');
       });
+    });
+
+    describe('undecorated providers', () => {
+      it('should error when an undecorated class, with a non-trivial constructor, is provided directly in a module',
+         () => {
+           env.write('test.ts', `
+            import {NgModule, NgZone} from '@angular/core';
+
+            class NotAService {
+              constructor(ngZone: NgZone) {}
+            }
+
+            @NgModule({
+              providers: [NotAService]
+            })
+            export class SomeModule {}
+          `);
+
+           const diags = env.driveDiagnostics();
+           expect(diags.length).toBe(1);
+           expect(diags[0].messageText).toContain('cannot be created via dependency injection');
+         });
+
+      it('should error when an undecorated class is provided via useClass', () => {
+        env.write('test.ts', `
+          import {NgModule, Injectable, NgZone} from '@angular/core';
+
+          @Injectable({providedIn: 'root'})
+          class Service {}
+
+          class NotAService {
+            constructor(ngZone: NgZone) {}
+          }
+
+          @NgModule({
+            providers: [{provide: Service, useClass: NotAService}]
+          })
+          export class SomeModule {}
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toBe(1);
+        expect(diags[0].messageText).toContain('cannot be created via dependency injection');
+      });
+
+      it('should not error when an undecorated class is provided via useClass with deps', () => {
+        env.write('test.ts', `
+          import {NgModule, Injectable, NgZone} from '@angular/core';
+
+          @Injectable({providedIn: 'root'})
+          class Service {}
+
+          class NotAService {
+            constructor(ngZone: NgZone) {}
+          }
+
+          @NgModule({
+            providers: [{provide: Service, useClass: NotAService, deps: [NgZone]}]
+          })
+          export class SomeModule {}
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toBe(0);
+      });
+
+      it('should error when an undecorated class is provided via an array', () => {
+        env.write('test.ts', `
+          import {NgModule, Injectable, NgZone} from '@angular/core';
+
+          @Injectable({providedIn: 'root'})
+          class Service {}
+
+          class NotAService {
+            constructor(ngZone: NgZone) {}
+          }
+
+          @NgModule({
+            providers: [Service, [NotAService]]
+          })
+          export class SomeModule {}
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toBe(1);
+        expect(diags[0].messageText).toContain('cannot be created via dependency injection');
+      });
+
+      it('should error when an undecorated class is provided to a directive', () => {
+        env.write('test.ts', `
+          import {NgModule, Directive, NgZone} from '@angular/core';
+
+          class NotAService {
+            constructor(ngZone: NgZone) {}
+          }
+
+          @Directive({
+            selector: '[some-dir]',
+            providers: [NotAService]
+          })
+          class SomeDirective {}
+
+          @NgModule({
+            declarations: [SomeDirective]
+          })
+          export class SomeModule {}
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toBe(1);
+        expect(diags[0].messageText).toContain('cannot be created via dependency injection');
+      });
+
+      it('should error when an undecorated class is provided to a component', () => {
+        env.write('test.ts', `
+          import {NgModule, Component, NgZone} from '@angular/core';
+
+          class NotAService {
+            constructor(ngZone: NgZone) {}
+          }
+
+          @Component({
+            selector: 'some-comp',
+            template: '',
+            providers: [NotAService]
+          })
+          class SomeComponent {}
+
+          @NgModule({
+            declarations: [SomeComponent]
+          })
+          export class SomeModule {}
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toBe(1);
+        expect(diags[0].messageText).toContain('cannot be created via dependency injection');
+      });
+
+      it('should error when an undecorated class is provided to a component via viewProviders',
+         () => {
+           env.write('test.ts', `
+          import {NgModule, Component, NgZone} from '@angular/core';
+
+          class NotAService {
+            constructor(ngZone: NgZone) {}
+          }
+
+          @Component({
+            selector: 'some-comp',
+            template: '',
+            viewProviders: [NotAService]
+          })
+          class SomeComponent {}
+
+          @NgModule({
+            declarations: [SomeComponent]
+          })
+          export class SomeModule {}
+        `);
+
+           const diags = env.driveDiagnostics();
+           expect(diags.length).toBe(1);
+           expect(diags[0].messageText).toContain('cannot be created via dependency injection');
+         });
+
+      it('should not error when a class with a factory is provided', () => {
+        env.write('test.ts', `
+          import {NgModule, Pipe} from '@angular/core';
+
+          @Pipe({
+            name: 'some-pipe'
+          })
+          class SomePipe {}
+
+          @NgModule({
+            declarations: [SomePipe],
+            providers: [SomePipe]
+          })
+          export class SomeModule {}
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toBe(0);
+      });
+
+      it('should not error when an NgModule is provided', () => {
+        env.write('test.ts', `
+          import {Injectable, NgModule} from '@angular/core';
+
+          @Injectable()
+          export class Service {}
+
+          @NgModule({
+          })
+          class SomeModule {
+            constructor(dep: Service) {}
+          }
+
+          @NgModule({
+            providers: [SomeModule],
+          })
+          export class Module {}
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toBe(0);
+      });
+
+      it('should not error when an undecorated class from a declaration file is provided', () => {
+        env.write('node_modules/@angular/core/testing/index.d.ts', `
+          export declare class Testability {
+          }
+        `);
+        env.write('test.ts', `
+          import {NgModule} from '@angular/core';
+          import {Testability} from '@angular/core/testing';
+
+          @NgModule({
+            providers: [Testability]
+          })
+          export class SomeModule {}
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toBe(0);
+      });
+
+      it('should not error when an undecorated class without a constructor from a declaration file is provided via useClass',
+         () => {
+           env.write('node_modules/@angular/core/testing/index.d.ts', `
+            export declare class Testability {
+            }
+          `);
+           env.write('test.ts', `
+            import {NgModule, Injectable} from '@angular/core';
+            import {Testability} from '@angular/core/testing';
+
+            @Injectable()
+            class TestingService {}
+
+            @NgModule({
+              providers: [{provide: TestingService, useClass: Testability}]
+            })
+            export class SomeModule {}
+          `);
+
+           const diags = env.driveDiagnostics();
+           expect(diags.length).toBe(0);
+         });
+
+      it('should not error if the undecorated class does not have a constructor or the constructor is blank',
+         () => {
+           env.write('test.ts', `
+          import {NgModule, NgZone} from '@angular/core';
+
+          class NoConstructorService {
+          }
+
+          class BlankConstructorService {
+          }
+
+          @NgModule({
+            providers: [NoConstructorService, BlankConstructorService]
+          })
+          export class SomeModule {}
+        `);
+
+           const diags = env.driveDiagnostics();
+           expect(diags.length).toBe(0);
+         });
+
+      it('should error when an undecorated class with a non-trivial constructor in a declaration file is provided via useClass',
+         () => {
+           env.write('node_modules/@angular/core/testing/index.d.ts', `
+            export declare class NgZone {}
+
+            export declare class Testability {
+              constructor(ngZone: NgZone) {}
+            }
+          `);
+           env.write('test.ts', `
+            import {NgModule, Injectable} from '@angular/core';
+            import {Testability} from '@angular/core/testing';
+
+            @Injectable()
+            class TestingService {}
+
+            @NgModule({
+              providers: [{provide: TestingService, useClass: Testability}]
+            })
+            export class SomeModule {}
+          `);
+
+           const diags = env.driveDiagnostics();
+           expect(diags.length).toBe(1);
+           expect(diags[0].messageText).toContain('cannot be created via dependency injection');
+         });
+
+      it('should not error when an class with a factory definition and a non-trivial constructor in a declaration file is provided via useClass',
+         () => {
+           env.write('node_modules/@angular/core/testing/index.d.ts', `
+            import * as i0 from '@angular/core';
+
+            export declare class NgZone {}
+
+            export declare class Testability {
+              static ɵfac: i0.ɵɵFactoryDef<Testability>;
+              constructor(ngZone: NgZone) {}
+            }
+          `);
+           env.write('test.ts', `
+            import {NgModule, Injectable} from '@angular/core';
+            import {Testability} from '@angular/core/testing';
+
+            @Injectable()
+            class TestingService {}
+
+            @NgModule({
+              providers: [{provide: TestingService, useClass: Testability}]
+            })
+            export class SomeModule {}
+          `);
+
+           const diags = env.driveDiagnostics();
+           expect(diags.length).toBe(0);
+         });
+
     });
 
   });

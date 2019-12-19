@@ -235,6 +235,34 @@ runInEachFileSystem(() => {
               `TestClass.ɵprov = ɵngcc0.ɵɵdefineInjectable({`);
     });
 
+    it('should use the correct type name in typings files when an export has a different name in source files',
+       () => {
+         // We need to make sure that changes to the typings files use the correct name
+         // static ɵprov: ɵngcc0.ɵɵInjectableDef<ɵangular_packages_common_common_a>;
+         mainNgcc({
+           basePath: '/node_modules',
+           targetEntryPointPath: '@angular/common',
+           propertiesToConsider: ['esm2015']
+         });
+
+         // In `@angular/common` the `NgClassR3Impl` class gets exported as something like
+         // `ɵangular_packages_common_common_a`.
+         const jsContents = fs.readFile(_(`/node_modules/@angular/common/fesm2015/common.js`));
+         const exportedNameMatch = jsContents.match(/export.* NgClassR3Impl as ([^ ,}]+)/);
+         if (exportedNameMatch === null) {
+           return fail(
+               'Expected `/node_modules/@angular/common/fesm2015/common.js` to export `NgClassR3Impl` via an alias');
+         }
+         const exportedName = exportedNameMatch[1];
+
+         // We need to make sure that the flat typings file exports this directly
+         const dtsContents = fs.readFile(_('/node_modules/@angular/common/common.d.ts'));
+         expect(dtsContents)
+             .toContain(`export declare class ${exportedName} implements ɵNgClassImpl`);
+         // And that ngcc's modifications to that class use the correct (exported) name
+         expect(dtsContents).toContain(`static ɵprov: ɵngcc0.ɵɵInjectableDef<${exportedName}>`);
+       });
+
     it('should add generic type for ModuleWithProviders and generate exports for private modules',
        () => {
          compileIntoApf('test-package', {
@@ -769,7 +797,7 @@ runInEachFileSystem(() => {
           fail('should have thrown');
         } catch (e) {
           expect(e.message).toContain(
-              'Failed to compile entry-point fatal-error due to compilation errors:');
+              'Failed to compile entry-point fatal-error (es2015 as esm2015) due to compilation errors:');
           expect(e.message).toContain('NG2001');
           expect(e.message).toContain('component is missing a template');
         }

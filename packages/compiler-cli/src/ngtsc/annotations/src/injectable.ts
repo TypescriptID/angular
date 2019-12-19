@@ -11,12 +11,13 @@ import * as ts from 'typescript';
 
 import {ErrorCode, FatalDiagnosticError} from '../../diagnostics';
 import {DefaultImportRecorder} from '../../imports';
+import {InjectableClassRegistry} from '../../metadata';
 import {ClassDeclaration, Decorator, ReflectionHost, reflectObjectLiteral} from '../../reflection';
 import {AnalysisOutput, CompileResult, DecoratorHandler, DetectResult, HandlerPrecedence} from '../../transform';
 
 import {compileNgFactoryDefField} from './factory';
 import {generateSetClassMetadataCall} from './metadata';
-import {findAngularDecorator, getConstructorDependencies, getValidConstructorDependencies, isAngularCore, unwrapConstructorDependencies, unwrapForwardRef, validateConstructorDependencies} from './util';
+import {findAngularDecorator, getConstructorDependencies, getValidConstructorDependencies, isAngularCore, unwrapConstructorDependencies, unwrapForwardRef, validateConstructorDependencies, wrapTypeReference} from './util';
 
 export interface InjectableHandlerData {
   meta: R3InjectableMetadata;
@@ -33,6 +34,7 @@ export class InjectableDecoratorHandler implements
   constructor(
       private reflector: ReflectionHost, private defaultImportRecorder: DefaultImportRecorder,
       private isCore: boolean, private strictCtorDeps: boolean,
+      private injectableRegistry: InjectableClassRegistry,
       /**
        * What to do if the injectable already contains a ɵprov property.
        *
@@ -79,6 +81,8 @@ export class InjectableDecoratorHandler implements
       },
     };
   }
+
+  register(node: ClassDeclaration): void { this.injectableRegistry.registerInjectable(node); }
 
   compile(node: ClassDeclaration, analysis: Readonly<InjectableHandlerData>): CompileResult[] {
     const res = compileIvyInjectable(analysis.meta);
@@ -130,7 +134,7 @@ function extractInjectableMetadata(
     clazz: ClassDeclaration, decorator: Decorator,
     reflector: ReflectionHost): R3InjectableMetadata {
   const name = clazz.name.text;
-  const type = new WrappedNodeExpr(clazz.name);
+  const type = wrapTypeReference(reflector, clazz);
   const internalType = new WrappedNodeExpr(reflector.getInternalNameOfClass(clazz));
   const typeArgumentCount = reflector.getGenericArityOfClass(clazz) || 0;
   if (decorator.args === null) {

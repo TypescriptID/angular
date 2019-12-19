@@ -271,8 +271,10 @@ export function mainNgcc(
         const errors = replaceTsWithNgInErrors(
             ts.formatDiagnosticsWithColorAndContext(result.diagnostics, bundle.src.host));
         throw new Error(
-            `Failed to compile entry-point ${entryPoint.name} due to compilation errors:\n${errors}`);
+            `Failed to compile entry-point ${entryPoint.name} (${formatProperty} as ${format}) due to compilation errors:\n${errors}`);
       }
+
+      logger.debug(`  Successfully compiled ${entryPoint.name} : ${formatProperty}`);
 
       onTaskCompleted(task, TaskProcessingOutcome.Processed);
     };

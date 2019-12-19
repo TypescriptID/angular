@@ -93,28 +93,10 @@ export class NumberModel {
   @Output('outputAlias') modelChange: EventEmitter<number> = new EventEmitter();
 }
 
-@Component({
-  selector: 'foo-component',
-  template: `
-    <div string-model ~{string-marker}="text"></div>
-    <div number-model ~{number-marker}="value"></div>
-  `,
-})
-export class FooComponent {
-  text: string = 'some text';
-  value: number = 42;
-}
-
 interface Person {
   name: string;
   age: number;
   street: string;
-}
-
-@Component({
-  template: '<div *ngFor="~{for-empty}"></div>',
-})
-export class ForOfEmpty {
 }
 
 @Component({
@@ -131,7 +113,7 @@ export class ForLetIEqual {
 
 @Component({
   template: `
-    <div *ngFor="~{for-let}let ~{for-person}person ~{for-of}of ~{for-people}people">
+    <div *ngFor="let ~{for-person}person of ~{for-people}people">
       <span>Name: {{~{for-interp-person}person.~{for-interp-name}name}}</span>
       <span>Age: {{person.~{for-interp-age}age}}</span>
     </div>`,
