@@ -419,11 +419,9 @@ class ExpressionVisitor extends NullTemplateVisitor {
   }
 
   visitAttr(ast: AttrAst) {
-    // The attribute value is a template expression but the expression AST
-    // was not produced when the TemplateAst was produced so do that here.
+    // First, verify the attribute consists of some binding we can give completions for.
     const {templateBindings} = this.info.expressionParser.parseTemplateBindings(
         ast.name, ast.value, ast.sourceSpan.toString(), ast.sourceSpan.start.offset);
-
     // Find where the cursor is relative to the start of the attribute value.
     const valueRelativePosition = this.position - ast.sourceSpan.start.offset;
     // Find the template binding that contains the position
@@ -436,12 +434,11 @@ class ExpressionVisitor extends NullTemplateVisitor {
     if (ast.name.startsWith('*')) {
       this.microSyntaxInAttributeValue(ast, binding);
     } else {
-      // If the position is in the expression or after the key or there is no key,
-      // return the expression completions
-      const span = new ParseSpan(0, ast.value.length);
-      const offset = ast.sourceSpan.start.offset;
-      const receiver = new ImplicitReceiver(span, span.toAbsolute(offset));
-      const expressionAst = new PropertyRead(span, span.toAbsolute(offset), receiver, '');
+      // If the position is in the expression or after the key or there is no key, return the
+      // expression completions.
+      // The expression must be reparsed to get a valid AST rather than only template bindings.
+      const expressionAst = this.info.expressionParser.parseBinding(
+          ast.value, ast.sourceSpan.toString(), ast.sourceSpan.start.offset);
       this.addAttributeValuesToCompletions(expressionAst);
     }
   }
@@ -469,11 +466,15 @@ class ExpressionVisitor extends NullTemplateVisitor {
       if (s.name.startsWith('__') || !s.public || this.completions.has(s.name)) {
         continue;
       }
+
+      // The pipe method should not include parentheses.
+      // e.g. {{ value_expression | slice : start [ : end ] }}
+      const shouldInsertParentheses = s.callable && s.kind !== ng.CompletionKind.PIPE;
       this.completions.set(s.name, {
         name: s.name,
         kind: s.kind as ng.CompletionKind,
         sortText: s.name,
-        insertText: s.callable ? `${s.name}()` : s.name,
+        insertText: shouldInsertParentheses ? `${s.name}()` : s.name,
       });
     }
   }
@@ -538,10 +539,8 @@ class ExpressionVisitor extends NullTemplateVisitor {
     const KW_OF = ' of ';
     const ofLocation = attr.value.indexOf(KW_OF);
     if (ofLocation > 0 && valueRelativePosition >= ofLocation + KW_OF.length) {
-      const span = new ParseSpan(0, attr.value.length);
-      const offset = attr.sourceSpan.start.offset;
-      const receiver = new ImplicitReceiver(span, span.toAbsolute(offset));
-      const expressionAst = new PropertyRead(span, span.toAbsolute(offset), receiver, '');
+      const expressionAst = this.info.expressionParser.parseBinding(
+          attr.value, attr.sourceSpan.toString(), attr.sourceSpan.start.offset);
       this.addAttributeValuesToCompletions(expressionAst);
     }
   }

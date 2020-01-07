@@ -82,6 +82,11 @@ export class NgtscProgram implements api.Program {
       verifySupportedTypeScriptVersion();
     }
 
+    const incompatibleTypeCheckOptionsDiagnostic = verifyCompatibleTypeCheckOptions(options);
+    if (incompatibleTypeCheckOptionsDiagnostic !== null) {
+      this.constructionDiagnostics.push(incompatibleTypeCheckOptionsDiagnostic);
+    }
+
     if (shouldEnablePerfTracing(options)) {
       this.perfTracker = PerfTracker.zeroedToNow();
       this.perfRecorder = this.perfTracker;
@@ -457,9 +462,15 @@ export class NgtscProgram implements api.Program {
   }
 
   private getTemplateDiagnostics(): ReadonlyArray<ts.Diagnostic> {
+    // Determine the strictness level of type checking based on compiler options. As
+    // `strictTemplates` is a superset of `fullTemplateTypeCheck`, the former implies the latter.
+    // Also see `verifyCompatibleTypeCheckOptions` where it is verified that `fullTemplateTypeCheck`
+    // is not disabled when `strictTemplates` is enabled.
+    const strictTemplates = !!this.options.strictTemplates;
+    const fullTemplateTypeCheck = strictTemplates || !!this.options.fullTemplateTypeCheck;
+
     // Skip template type-checking if it's disabled.
-    if (this.options.ivyTemplateTypeCheck === false &&
-        this.options.fullTemplateTypeCheck !== true) {
+    if (this.options.ivyTemplateTypeCheck === false && !fullTemplateTypeCheck) {
       return [];
     }
 
@@ -470,8 +481,7 @@ export class NgtscProgram implements api.Program {
     // First select a type-checking configuration, based on whether full template type-checking is
     // requested.
     let typeCheckingConfig: TypeCheckingConfig;
-    if (this.options.fullTemplateTypeCheck) {
-      const strictTemplates = !!this.options.strictTemplates;
+    if (fullTemplateTypeCheck) {
       typeCheckingConfig = {
         applyTemplateContextGuards: strictTemplates,
         checkQueries: false,
@@ -542,7 +552,8 @@ export class NgtscProgram implements api.Program {
 
     // Execute the typeCheck phase of each decorator in the program.
     const prepSpan = this.perfRecorder.start('typeCheckPrep');
-    const ctx = new TypeCheckContext(typeCheckingConfig, this.refEmitter !, this.typeCheckFilePath);
+    const ctx = new TypeCheckContext(
+        typeCheckingConfig, this.refEmitter !, this.reflector, this.typeCheckFilePath);
     compilation.typeCheck(ctx);
     this.perfRecorder.stop(prepSpan);
 
@@ -826,6 +837,37 @@ function isAngularCorePackage(program: ts.Program): boolean {
       return true;
     });
   });
+}
+
+/**
+ * Since "strictTemplates" is a true superset of type checking capabilities compared to
+ * "strictTemplateTypeCheck", it is required that the latter is not explicitly disabled if the
+ * former is enabled.
+ */
+function verifyCompatibleTypeCheckOptions(options: api.CompilerOptions): ts.Diagnostic|null {
+  if (options.fullTemplateTypeCheck === false && options.strictTemplates === true) {
+    return {
+      category: ts.DiagnosticCategory.Error,
+      code: ngErrorCode(ErrorCode.CONFIG_STRICT_TEMPLATES_IMPLIES_FULL_TEMPLATE_TYPECHECK),
+      file: undefined,
+      start: undefined,
+      length: undefined,
+      messageText:
+          `Angular compiler option "strictTemplates" is enabled, however "fullTemplateTypeCheck" is disabled.
+
+Having the "strictTemplates" flag enabled implies that "fullTemplateTypeCheck" is also enabled, so
+the latter can not be explicitly disabled.
+
+One of the following actions is required:
+1. Remove the "fullTemplateTypeCheck" option.
+2. Remove "strictTemplates" or set it to 'false'.
+
+More information about the template type checking compiler options can be found in the documentation:
+https://v9.angular.io/guide/template-typecheck#template-type-checking`,
+    };
+  }
+
+  return null;
 }
 
 export class ReferenceGraphAdapter implements ReferencesRegistry {
