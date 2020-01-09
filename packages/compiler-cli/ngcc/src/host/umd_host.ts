@@ -12,15 +12,20 @@ import {absoluteFrom} from '../../../src/ngtsc/file_system';
 import {Declaration, Import} from '../../../src/ngtsc/reflection';
 import {Logger} from '../logging/logger';
 import {BundleProgram} from '../packages/bundle_program';
-import {stripExtension} from '../utils';
+import {FactoryMap, stripExtension} from '../utils';
+import {ExportDeclaration, ExportStatement, ReexportStatement, findNamespaceOfIdentifier, findRequireCallReference, isExportStatement, isReexportStatement, isRequireCall} from './commonjs_umd_utils';
 import {Esm5ReflectionHost, stripParentheses} from './esm5_host';
 
 export class UmdReflectionHost extends Esm5ReflectionHost {
-  protected umdModules = new Map<ts.SourceFile, UmdModule|null>();
-  protected umdExports = new Map<ts.SourceFile, Map<string, Declaration>|null>();
-  protected umdImportPaths = new Map<ts.ParameterDeclaration, string|null>();
+  protected umdModules =
+      new FactoryMap<ts.SourceFile, UmdModule|null>(sf => this.computeUmdModule(sf));
+  protected umdExports = new FactoryMap<ts.SourceFile, Map<string, Declaration>|null>(
+      sf => this.computeExportsOfUmdModule(sf));
+  protected umdImportPaths =
+      new FactoryMap<ts.ParameterDeclaration, string|null>(param => this.computeImportPath(param));
   protected program: ts.Program;
   protected compilerHost: ts.CompilerHost;
+
   constructor(logger: Logger, isCore: boolean, src: BundleProgram, dts: BundleProgram|null = null) {
     super(logger, isCore, src, dts);
     this.program = src.program;
@@ -47,54 +52,19 @@ export class UmdReflectionHost extends Esm5ReflectionHost {
   }
 
   getExportsOfModule(module: ts.Node): Map<string, Declaration>|null {
-    return super.getExportsOfModule(module) || this.getUmdExports(module.getSourceFile());
+    return super.getExportsOfModule(module) || this.umdExports.get(module.getSourceFile());
   }
 
   getUmdModule(sourceFile: ts.SourceFile): UmdModule|null {
     if (sourceFile.isDeclarationFile) {
       return null;
     }
-    if (!this.umdModules.has(sourceFile)) {
-      if (sourceFile.statements.length !== 1) {
-        throw new Error(
-            `Expected UMD module file (${sourceFile.fileName}) to contain exactly one statement, but found ${sourceFile.statements}.`);
-      }
-      this.umdModules.set(sourceFile, parseStatementForUmdModule(sourceFile.statements[0]));
-    }
-    return this.umdModules.get(sourceFile) !;
+
+    return this.umdModules.get(sourceFile);
   }
 
   getUmdImportPath(importParameter: ts.ParameterDeclaration): string|null {
-    if (this.umdImportPaths.has(importParameter)) {
-      return this.umdImportPaths.get(importParameter) !;
-    }
-
-    const umdModule = this.getUmdModule(importParameter.getSourceFile());
-    if (umdModule === null) {
-      return null;
-    }
-
-    const imports = getImportsOfUmdModule(umdModule);
-    if (imports === null) {
-      return null;
-    }
-
-    for (const i of imports) {
-      this.umdImportPaths.set(i.parameter, i.path);
-      if (i.parameter === importParameter) {
-        return i.path;
-      }
-    }
-
-    return null;
-  }
-
-  getUmdExports(sourceFile: ts.SourceFile): Map<string, Declaration>|null {
-    if (!this.umdExports.has(sourceFile)) {
-      const moduleExports = this.computeExportsOfUmdModule(sourceFile);
-      this.umdExports.set(sourceFile, moduleExports);
-    }
-    return this.umdExports.get(sourceFile) !;
+    return this.umdImportPaths.get(importParameter);
   }
 
   /** Get the top level statements for a module.
@@ -109,14 +79,22 @@ export class UmdReflectionHost extends Esm5ReflectionHost {
     return umdModule !== null ? Array.from(umdModule.factoryFn.body.statements) : [];
   }
 
+  private computeUmdModule(sourceFile: ts.SourceFile): UmdModule|null {
+    if (sourceFile.statements.length !== 1) {
+      throw new Error(
+          `Expected UMD module file (${sourceFile.fileName}) to contain exactly one statement, ` +
+          `but found ${sourceFile.statements.length}.`);
+    }
+
+    return parseStatementForUmdModule(sourceFile.statements[0]);
+  }
+
   private computeExportsOfUmdModule(sourceFile: ts.SourceFile): Map<string, Declaration>|null {
     const moduleMap = new Map<string, Declaration>();
     for (const statement of this.getModuleStatements(sourceFile)) {
-      if (isUmdExportStatement(statement)) {
-        const declaration = this.extractUmdExportDeclaration(statement);
-        if (declaration !== null) {
-          moduleMap.set(declaration.name, declaration.declaration);
-        }
+      if (isExportStatement(statement)) {
+        const exportDeclaration = this.extractUmdExportDeclaration(statement);
+        moduleMap.set(exportDeclaration.name, exportDeclaration.declaration);
       } else if (isReexportStatement(statement)) {
         const reexports = this.extractUmdReexports(statement, sourceFile);
         for (const reexport of reexports) {
@@ -127,25 +105,69 @@ export class UmdReflectionHost extends Esm5ReflectionHost {
     return moduleMap;
   }
 
-  private extractUmdExportDeclaration(statement: UmdExportStatement): UmdExportDeclaration|null {
-    const exportExpression = statement.expression.right;
-    const name = statement.expression.left.name.text;
-
-    const declaration = this.getDeclarationOfExpression(exportExpression);
-    if (declaration === null) {
+  private computeImportPath(param: ts.ParameterDeclaration): string|null {
+    const umdModule = this.getUmdModule(param.getSourceFile());
+    if (umdModule === null) {
       return null;
     }
 
-    return {name, declaration};
+    const imports = getImportsOfUmdModule(umdModule);
+    if (imports === null) {
+      return null;
+    }
+
+    let importPath: string|null = null;
+
+    for (const i of imports) {
+      // Add all imports to the map to speed up future look ups.
+      this.umdImportPaths.set(i.parameter, i.path);
+      if (i.parameter === param) {
+        importPath = i.path;
+      }
+    }
+
+    return importPath;
+  }
+
+  private extractUmdExportDeclaration(statement: ExportStatement): ExportDeclaration {
+    const exportExpression = statement.expression.right;
+    const declaration = this.getDeclarationOfExpression(exportExpression);
+    const name = statement.expression.left.name.text;
+    if (declaration !== null) {
+      return {name, declaration};
+    } else {
+      return {
+        name,
+        declaration: {
+          node: null,
+          expression: exportExpression,
+          viaModule: null,
+        },
+      };
+    }
   }
 
   private extractUmdReexports(statement: ReexportStatement, containingFile: ts.SourceFile):
-      UmdExportDeclaration[] {
-    const importParameter = this.findUmdImportParameter(statement.expression.arguments[0]);
-    const importPath = importParameter && this.getUmdImportPath(importParameter);
+      ExportDeclaration[] {
+    const reexportArg = statement.expression.arguments[0];
+
+    const requireCall = isRequireCall(reexportArg) ?
+        reexportArg :
+        ts.isIdentifier(reexportArg) ? findRequireCallReference(reexportArg, this.checker) : null;
+
+    let importPath: string|null = null;
+
+    if (requireCall !== null) {
+      importPath = requireCall.arguments[0].text;
+    } else if (ts.isIdentifier(reexportArg)) {
+      const importParameter = this.findUmdImportParameter(reexportArg);
+      importPath = importParameter && this.getUmdImportPath(importParameter);
+    }
+
     if (importPath === null) {
       return [];
     }
+
     const importedFile = this.resolveModuleName(importPath, containingFile);
     if (importedFile === undefined) {
       return [];
@@ -157,7 +179,7 @@ export class UmdReflectionHost extends Esm5ReflectionHost {
     }
 
     const viaModule = stripExtension(importedFile.fileName);
-    const reexports: UmdExportDeclaration[] = [];
+    const reexports: ExportDeclaration[] = [];
     importedExports.forEach((decl, name) => {
       if (decl.node !== null) {
         reexports.push({name, declaration: {node: decl.node, viaModule}});
@@ -256,32 +278,6 @@ interface UmdModule {
   factoryFn: ts.FunctionExpression;
 }
 
-type UmdExportStatement = ts.ExpressionStatement & {
-  expression:
-      ts.BinaryExpression & {left: ts.PropertyAccessExpression & {expression: ts.Identifier}}
-};
-
-function isUmdExportStatement(s: ts.Statement): s is UmdExportStatement {
-  return ts.isExpressionStatement(s) && ts.isBinaryExpression(s.expression) &&
-      ts.isPropertyAccessExpression(s.expression.left) &&
-      ts.isIdentifier(s.expression.left.expression) &&
-      s.expression.left.expression.text === 'exports';
-}
-
-interface UmdExportDeclaration {
-  name: string;
-  declaration: Declaration;
-}
-
-type ReexportStatement = ts.ExpressionStatement & {expression: {arguments: [ts.Identifier]}};
-function isReexportStatement(statement: ts.Statement): statement is ReexportStatement {
-  return ts.isExpressionStatement(statement) && ts.isCallExpression(statement.expression) &&
-      ts.isIdentifier(statement.expression.expression) &&
-      statement.expression.expression.text === '__export' &&
-      statement.expression.arguments.length === 1 &&
-      ts.isIdentifier(statement.expression.arguments[0]);
-}
-
 function getRequiredModulePath(wrapperFn: ts.FunctionExpression, paramIndex: number): string {
   const statement = wrapperFn.body.statements[0];
   if (!ts.isExpressionStatement(statement)) {
@@ -309,21 +305,4 @@ function getRequiredModulePath(wrapperFn: ts.FunctionExpression, paramIndex: num
       node.forEachChild(findModulePaths);
     }
   }
-}
-
-function isRequireCall(node: ts.Node): node is ts.CallExpression {
-  return ts.isCallExpression(node) && ts.isIdentifier(node.expression) &&
-      node.expression.text === 'require' && node.arguments.length === 1;
-}
-
-/**
- * If the identifier `id` is the RHS of a property access of the form `namespace.id`
- * and `namespace` is an identifer then return `namespace`, otherwise `null`.
- * @param id The identifier whose namespace we want to find.
- */
-function findNamespaceOfIdentifier(id: ts.Identifier): ts.Identifier|null {
-  return id.parent && ts.isPropertyAccessExpression(id.parent) &&
-          ts.isIdentifier(id.parent.expression) ?
-      id.parent.expression :
-      null;
 }

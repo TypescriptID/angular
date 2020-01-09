@@ -17,6 +17,7 @@ import {AbsoluteFsPath, FileSystem, absoluteFrom, dirname, getFileSystem, resolv
 
 import {CommonJsDependencyHost} from './dependencies/commonjs_dependency_host';
 import {DependencyResolver, InvalidEntryPoint, PartiallyOrderedEntryPoints, SortedEntryPointsInfo} from './dependencies/dependency_resolver';
+import {DtsDependencyHost} from './dependencies/dts_dependency_host';
 import {EsmDependencyHost} from './dependencies/esm_dependency_host';
 import {ModuleResolver} from './dependencies/module_resolver';
 import {UmdDependencyHost} from './dependencies/umd_dependency_host';
@@ -164,12 +165,15 @@ export function mainNgcc(
     const esmDependencyHost = new EsmDependencyHost(fileSystem, moduleResolver);
     const umdDependencyHost = new UmdDependencyHost(fileSystem, moduleResolver);
     const commonJsDependencyHost = new CommonJsDependencyHost(fileSystem, moduleResolver);
-    const dependencyResolver = new DependencyResolver(fileSystem, logger, {
-      esm5: esmDependencyHost,
-      esm2015: esmDependencyHost,
-      umd: umdDependencyHost,
-      commonjs: commonJsDependencyHost
-    });
+    const dtsDependencyHost = new DtsDependencyHost(fileSystem, pathMappings);
+    const dependencyResolver = new DependencyResolver(
+        fileSystem, logger, {
+          esm5: esmDependencyHost,
+          esm2015: esmDependencyHost,
+          umd: umdDependencyHost,
+          commonjs: commonJsDependencyHost
+        },
+        dtsDependencyHost);
 
     const absBasePath = absoluteFrom(basePath);
     const config = new NgccConfiguration(fileSystem, dirname(absBasePath));

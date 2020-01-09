@@ -2,31 +2,11 @@
 
 This guide contains everything you need to know about updating to the next Angular version.
 
-<div class="alert is-helpful">
-
-For step-by-step instructions on how to update to the latest Angular release, use the interactive update guide at [update.angular.io](https://update.angular.io).
-
-</div>
-
 ## Updating CLI Apps
 
-If your application uses the CLI, you can update to version 9 automatically with the help of the `ng update` script:
+For step-by-step instructions on how to update to the latest Angular release (and leverage our automated migration tools to do so), use the interactive update guide at [update.angular.io](https://update.angular.io).
 
-```sh
-ng update @angular/core@8 @angular/cli@8
-git add .
-git commit --all -m "build: update Angular packages to latest 8.x version"
-ng update @angular/cli @angular/core --next
-```
-
-<div class="alert is-important">
-In order to improve the updating experience, we strongly suggest that you update to the latest 8.x version of `@angular/core` and `@angular/cli`.
-
-Additionally, during the RC period, the `--next` command line flag is required. This flag will no longer be necessary once version 9 final is released.
-</div>
-
-The script runs a series of small migrations that will transform the code of your application to be compatible with version 9.
-If you're curious about the specific migrations being run, see the [automated migrations section](#migrations) for details on what code is changing and why.
+If you're curious about the specific migrations being run by the CLI, see the [automated migrations section](#migrations) for details on what code is changing and why.
 
 ## Changes and Deprecations in Version 9
 
@@ -39,7 +19,7 @@ If you're curious about the specific migrations being run, see the [automated mi
 {@a breaking-changes}
 ### New Breaking Changes
 
-- Angular now compiles with Ivy by default. See [Ivy compatibility section](#ivy).
+- Angular now compiles with Ivy by default. See the [Ivy compatibility section](#ivy).
 
 - CLI apps compile in [AOT mode](/guide/aot-compiler) by default (which includes template type-checking).
 Users who only built with JIT before may see new type errors.
@@ -57,6 +37,7 @@ See our [template type-checking guide](guide/template-typecheck) for more inform
 | [`entryComponents`](api/core/NgModule#entryComponents)                  | none                                 | See [`entryComponents`](guide/deprecations#entryComponents) |
 | [`ANALYZE_FOR_ENTRY_COMPONENTS`](api/core/ANALYZE_FOR_ENTRY_COMPONENTS) | none                                 | See [`ANALYZE_FOR_ENTRY_COMPONENTS`](guide/deprecations#entryComponents) |
 | `ModuleWithProviders` without a generic                                 | `ModuleWithProviders` with a generic | See [`ModuleWithProviders` section](guide/deprecations#moduleWithProviders) |
+| Undecorated base classes that use Angular features                      | Base classes with `@Directive()` decorator that use Angular features | See [undecorated base classes section](guide/deprecations#undecorated-base-classes) |
 | `esm5` and `fesm5` distribution in `@angular/*` npm packages            | `esm2015` and `fesm2015` entrypoints | See [`esm5` and `fesm5`](guide/deprecations#esm5-fesm5) |
 | [`TestBed.get`](api/core/testing/TestBed#get)                           | [`TestBed.inject`](api/core/testing/TestBed#inject) | Same behavior, but type safe. |
 
@@ -101,7 +82,7 @@ In Version 9, Angular Ivy is the default rendering engine. If you haven't heard 
 Read about the migrations the CLI handles for you automatically:
 
 - [Migrating from `Renderer` to `Renderer2`](guide/migration-renderer)
-- [Migrating undecorated classes](guide/migration-undecorated-classes)
+- [Migrating missing `@Directive()`/`@Component()` decorators](guide/migration-undecorated-classes)
 - [Migrating missing `@Injectable()` decorators and incomplete provider definitions](guide/migration-injectable)
 - [Migrating dynamic queries](guide/migration-dynamic-flag)
 - [Migrating to the new `$localize` i18n support](guide/migration-localize)
