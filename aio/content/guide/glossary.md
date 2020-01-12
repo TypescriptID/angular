@@ -478,6 +478,15 @@ or displayed between element tags, as in this example.
 
 Read more about [interpolation](guide/template-syntax#interpolation) in [Template Syntax](guide/template-syntax).
 
+{@a ivy}
+
+## Ivy
+
+Ivy is the code name for Angular's [next-generation compilation and rendering pipeline](https://blog.angular.io/a-plan-for-version-8-0-and-ivy-b3318dfc19f7).
+With the version 9 release of Angular, the new compiler and runtime instructions are used by default instead of the older compiler and runtime, known as [View Engine](#ve).
+
+See [Angular Ivy](guide/ivy).
+
 
 {@a J}
 
@@ -571,6 +580,14 @@ Compare to [NgModule](#ngmodule).
 
 
 {@a N}
+
+{@a ngcc}
+
+## ngcc
+
+Angular compatability compiler.
+If you build your app using [Ivy](#ivy), but it depends on libraries have not been compiled with Ivy, the CLI uses `ngcc` to automatically update the dependent libraries to use Ivy.
+
 
 {@a ngmodule}
 
@@ -950,6 +967,13 @@ the structure (number and order) of elements in a view can't.
 You can change the structure of elements by inserting, moving, or removing nested views within their view containers.
 
 View hierarchies can be loaded and unloaded dynamically as the user navigates through the application, typically under the control of a [router](#router).
+
+{@a ve}
+
+## View Engine
+
+The compilation and rendering pipeline used by Angular before version 9. Compare [Ivy](#ivy).
+
 
 {@a view-tree}
 
