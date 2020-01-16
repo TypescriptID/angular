@@ -13,6 +13,8 @@ import {TypeScriptServiceHost} from '../src/typescript_host';
 
 import {MockTypescriptHost} from './test_utils';
 
+const TEST_TEMPLATE = '/app/test.ng';
+
 describe('definitions', () => {
   const mockHost = new MockTypescriptHost(['/app/main.ts']);
   const service = ts.createLanguageService(mockHost);
@@ -260,6 +262,60 @@ describe('definitions', () => {
       expect(def.kind).toBe('pipe');
       // Not asserting the textSpan of definition because it's external file
     }
+  });
+
+  it('should be able to find a structural directive', () => {
+    mockHost.override(TEST_TEMPLATE, `<div ~{start-my}*«ngIf»="true"~{end-my}></div>`);
+
+    // Get the marker for ngIf in the code added above.
+    const marker = mockHost.getReferenceMarkerFor(TEST_TEMPLATE, 'ngIf');
+
+    const result = ngService.getDefinitionAt(TEST_TEMPLATE, marker.start);
+    expect(result).toBeDefined();
+    const {textSpan, definitions} = result !;
+
+    // Get the marker for bounded text in the code added above
+    const boundedText = mockHost.getLocationMarkerFor(TEST_TEMPLATE, 'my');
+    expect(textSpan).toEqual(boundedText);
+
+    expect(definitions).toBeDefined();
+    expect(definitions !.length).toBe(1);
+
+    const refFileName = '/node_modules/@angular/common/common.d.ts';
+    const def = definitions ![0];
+    expect(def.fileName).toBe(refFileName);
+    expect(def.name).toBe('ngIf');
+    expect(def.kind).toBe('property');
+    // Not asserting the textSpan of definition because it's external file
+  });
+
+  it('should be able to find a two-way binding', () => {
+    mockHost.override(
+        TEST_TEMPLATE,
+        `<test-comp string-model ~{start-my}[(«model»)]="title"~{end-my}></test-comp>`);
+    // Get the marker for «model» in the code added above.
+    const marker = mockHost.getReferenceMarkerFor(TEST_TEMPLATE, 'model');
+
+    const result = ngService.getDefinitionAt(TEST_TEMPLATE, marker.start);
+    expect(result).toBeDefined();
+    const {textSpan, definitions} = result !;
+
+    // Get the marker for bounded text in the code added above
+    const boundedText = mockHost.getLocationMarkerFor(TEST_TEMPLATE, 'my');
+    expect(textSpan).toEqual(boundedText);
+
+    // There should be exactly 1 definition
+    expect(definitions).toBeDefined();
+    expect(definitions !.length).toBe(1);
+    const def = definitions ![0];
+
+    const refFileName = '/app/parsing-cases.ts';
+    expect(def.fileName).toBe(refFileName);
+    expect(def.name).toBe('model');
+    expect(def.kind).toBe('property');
+    const content = mockHost.readFile(refFileName) !;
+    expect(content.substring(def.textSpan.start, def.textSpan.start + def.textSpan.length))
+        .toEqual(`@Input() model: string = 'model';`);
   });
 
   it('should be able to find a template from a url', () => {

@@ -148,6 +148,26 @@ describe('hover', () => {
     expect(toText(displayParts)).toBe('(property) TestComponent.name: string');
   });
 
+  it('should be able to find a structural directive', () => {
+    mockHost.override(TEST_TEMPLATE, `<div «*ᐱngIfᐱ="true"»></div>`);
+    const marker = mockHost.getDefinitionMarkerFor(TEST_TEMPLATE, 'ngIf');
+    const quickInfo = ngLS.getHoverAt(TEST_TEMPLATE, marker.start);
+    expect(quickInfo).toBeTruthy();
+    const {textSpan, displayParts} = quickInfo !;
+    expect(textSpan).toEqual(marker);
+    expect(toText(displayParts)).toBe('(property) NgIf<T>.ngIf: T');
+  });
+
+  it('should be able to find a reference to a two-way binding', () => {
+    mockHost.override(TEST_TEMPLATE, `<test-comp string-model «[(ᐱmodelᐱ)]="title"»></test-comp>`);
+    const marker = mockHost.getDefinitionMarkerFor(TEST_TEMPLATE, 'model');
+    const quickInfo = ngLS.getHoverAt(TEST_TEMPLATE, marker.start);
+    expect(quickInfo).toBeTruthy();
+    const {textSpan, displayParts} = quickInfo !;
+    expect(textSpan).toEqual(marker);
+    expect(toText(displayParts)).toBe('(property) StringModel.model: string');
+  });
+
   it('should be able to ignore a reference declaration', () => {
     const fileName = mockHost.addCode(`
       @Component({

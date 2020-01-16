@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {AST, Attribute, BoundDirectivePropertyAst, BoundEventAst, CompileTypeSummary, CssSelector, DirectiveAst, ElementAst, SelectorMatcher, TemplateAstPath, tokenReference} from '@angular/compiler';
+import {AST, Attribute, BoundDirectivePropertyAst, BoundEventAst, CompileTypeSummary, CssSelector, DirectiveAst, ElementAst, EmbeddedTemplateAst, RecursiveTemplateAstVisitor, SelectorMatcher, TemplateAst, TemplateAstPath, templateVisitAll, tokenReference} from '@angular/compiler';
 
 import {AstResult} from './common';
 import {getExpressionScope} from './expression_diagnostics';
@@ -37,7 +37,7 @@ export function locateSymbol(info: AstResult, position: number): SymbolInfo|unde
       if (attribute) {
         if (inSpan(templatePosition, spanOf(attribute.valueSpan))) {
           const dinfo = diagnosticInfoFromTemplateInfo(info);
-          const scope = getExpressionScope(dinfo, path, inEvent);
+          const scope = getExpressionScope(dinfo, path);
           if (attribute.valueSpan) {
             const result = getExpressionSymbol(scope, ast, templatePosition, info.template.query);
             if (result) {
@@ -113,7 +113,7 @@ export function locateSymbol(info: AstResult, position: number): SymbolInfo|unde
             const expressionPosition = templatePosition - ast.sourceSpan.start.offset;
             if (inSpan(expressionPosition, ast.value.span)) {
               const dinfo = diagnosticInfoFromTemplateInfo(info);
-              const scope = getExpressionScope(dinfo, path, /* includeEvent */ false);
+              const scope = getExpressionScope(dinfo, path);
               const result =
                   getExpressionSymbol(scope, ast.value, templatePosition, info.template.query);
               if (result) {
@@ -130,7 +130,7 @@ export function locateSymbol(info: AstResult, position: number): SymbolInfo|unde
           },
           visitDirectiveProperty(ast) {
             if (!attributeValueSymbol(ast.value)) {
-              symbol = findInputBinding(info, path, ast);
+              symbol = findInputBinding(info, templatePosition, ast);
               span = spanOf(ast);
             }
           }
@@ -148,18 +148,61 @@ function findAttribute(info: AstResult, position: number): Attribute|undefined {
   return path.first(Attribute);
 }
 
+// TODO: remove this function after the path includes 'DirectiveAst'.
+// Find the directive that corresponds to the specified 'binding'
+// at the specified 'position' in the 'ast'.
+function findParentOfBinding(
+    ast: TemplateAst[], binding: BoundDirectivePropertyAst, position: number): DirectiveAst|
+    undefined {
+  let res: DirectiveAst|undefined;
+  const visitor = new class extends RecursiveTemplateAstVisitor {
+    visit(ast: TemplateAst): any {
+      const span = spanOf(ast);
+      if (!inSpan(position, span)) {
+        // Returning a value here will result in the children being skipped.
+        return true;
+      }
+    }
+
+    visitEmbeddedTemplate(ast: EmbeddedTemplateAst, context: any): any {
+      return this.visitChildren(context, visit => {
+        visit(ast.directives);
+        visit(ast.children);
+      });
+    }
+
+    visitElement(ast: ElementAst, context: any): any {
+      return this.visitChildren(context, visit => {
+        visit(ast.directives);
+        visit(ast.children);
+      });
+    }
+
+    visitDirective(ast: DirectiveAst) {
+      const result = this.visitChildren(ast, visit => { visit(ast.inputs); });
+      return result;
+    }
+
+    visitDirectiveProperty(ast: BoundDirectivePropertyAst, context: DirectiveAst) {
+      if (ast === binding) {
+        res = context;
+      }
+    }
+  };
+  templateVisitAll(visitor, ast);
+  return res;
+}
+
 function findInputBinding(
-    info: AstResult, path: TemplateAstPath, binding: BoundDirectivePropertyAst): Symbol|undefined {
-  const element = path.first(ElementAst);
-  if (element) {
-    for (const directive of element.directives) {
-      const invertedInput = invertMap(directive.directive.inputs);
-      const fieldName = invertedInput[binding.templateName];
-      if (fieldName) {
-        const classSymbol = info.template.query.getTypeSymbol(directive.directive.type.reference);
-        if (classSymbol) {
-          return classSymbol.members().get(fieldName);
-        }
+    info: AstResult, position: number, binding: BoundDirectivePropertyAst): Symbol|undefined {
+  const directiveAst = findParentOfBinding(info.templateAst, binding, position);
+  if (directiveAst) {
+    const invertedInput = invertMap(directiveAst.directive.inputs);
+    const fieldName = invertedInput[binding.templateName];
+    if (fieldName) {
+      const classSymbol = info.template.query.getTypeSymbol(directiveAst.directive.type.reference);
+      if (classSymbol) {
+        return classSymbol.members().get(fieldName);
       }
     }
   }

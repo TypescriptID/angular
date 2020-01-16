@@ -36,10 +36,12 @@ export function init(moduleRef: NgModuleRef<StylingModule>) {
     appRef.tick();
   }
 
-  function detectChanges() {
+  function update() {
     component.exp = component.exp === 'bar' ? 'baz' : 'bar';
     appRef.tick();
   }
+
+  function detectChanges() { appRef.tick(); }
 
   function modifyExternally() {
     const buttonEls = componentHostEl.querySelectorAll('button') as HTMLButtonElement[];
@@ -54,12 +56,18 @@ export function init(moduleRef: NgModuleRef<StylingModule>) {
   }
 
   bindAction('#create', () => create(select.selectedIndex));
-  bindAction('#detectChanges', detectChanges);
+  bindAction('#update', update);
+  bindAction('#detect_changes', detectChanges);
   bindAction('#destroy', destroy);
-  bindAction('#profile', profile(() => {
+  bindAction('#profile_update', profile(() => {
+               for (let i = 0; i < 10; i++) {
+                 update();
+               }
+             }, () => {}, 'update and detect changes'));
+  bindAction('#profile_detect_changes', profile(() => {
                for (let i = 0; i < 10; i++) {
                  detectChanges();
                }
-             }, () => {}, 'detect changes'));
+             }, () => {}, 'noop detect changes'));
   bindAction('#modify', modifyExternally);
 }
