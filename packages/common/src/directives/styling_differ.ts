@@ -13,7 +13,7 @@
  * of how [style] and [class] behave in Angular.
  *
  * The differences are:
- *  - ngStyle and ngClass both **watch** their binding values for changes each time CD runs
+ *  - ngStyle and ngClass both **deep-watch** their binding values for changes each time CD runs
  *    while [style] and [class] bindings do not (they check for identity changes)
  *  - ngStyle allows for unit-based keys (e.g. `{'max-width.px':value}`) and [style] does not
  *  - ngClass supports arrays of class values and [class] only accepts map and string values
@@ -24,8 +24,9 @@
  * and unnecessary. Instead, ngClass and ngStyle should have their input values be converted
  * into something that the core-level [style] and [class] bindings understand.
  *
- * This [StylingDiffer] class handles this conversion by creating a new input value each time
- * the inner representation of the binding value have changed.
+ * This [StylingDiffer] class handles this conversion by creating a new output value each time
+ * the input value of the binding value has changed (either via identity change or deep collection
+ * content change).
  *
  * ## Why do we care about ngStyle/ngClass?
  * The styling algorithm code (documented inside of `render3/interfaces/styling.ts`) needs to
@@ -40,8 +41,8 @@
  * - If ngStyle/ngClass is used in combination with [style]/[class] bindings then the
  *   styles and classes would fall out of sync and be applied and updated at
  *   inconsistent times
- * - Both ngClass/ngStyle do not respect [class.name] and [style.prop] bindings
- *   (they will write over them given the right combination of events)
+ * - Both ngClass/ngStyle should respect [class.name] and [style.prop] bindings (and not arbitrarily
+ *   overwrite their changes)
  *
  *   ```
  *   <!-- if `w1` is updated then it will always override `w2`
@@ -57,43 +58,64 @@
  * - ngClass/ngStyle were written as a directives and made use of maps, closures and other
  *   expensive data structures which were evaluated each time CD runs
  */
-export class StylingDiffer<T> {
+export class StylingDiffer<T extends({[key: string]: string | null} | {[key: string]: true})> {
+  /**
+   * Normalized string map representing the last value set via `setValue()` or null if no value has
+   * been set or the last set value was null
+   */
   public readonly value: T|null = null;
 
-  private _lastSetValue: {[key: string]: any}|string|string[]|null = null;
-  private _lastSetValueType: StylingDifferValueTypes = StylingDifferValueTypes.Null;
-  private _lastSetValueIdentityChange = false;
+  /**
+   * The last set value that was applied via `setValue()`
+   */
+  private _inputValue: T|string|string[]|Set<string>|null = null;
+
+  /**
+   * The type of value that the `_lastSetValue` variable is
+   */
+  private _inputValueType: StylingDifferValueTypes = StylingDifferValueTypes.Null;
+
+  /**
+   * Whether or not the last value change occurred because the variable itself changed reference
+   * (identity)
+   */
+  private _inputValueIdentityChangeSinceLastCheck = false;
 
   constructor(private _name: string, private _options: StylingDifferOptions) {}
 
   /**
-   * Sets (updates) the styling value within the differ.
+   * Sets the input value for the differ and updates the output value if necessary.
    *
-   * Only when `hasValueChanged` is called then this new value will be evaluted
-   * and checked against the previous value.
-   *
-   * @param value the new styling value provided from the ngClass/ngStyle binding
+   * @param value the new styling input value provided from the ngClass/ngStyle binding
    */
-  setValue(value: {[key: string]: any}|string[]|string|null) {
-    if (Array.isArray(value)) {
-      this._lastSetValueType = StylingDifferValueTypes.Array;
-    } else if (value instanceof Set) {
-      this._lastSetValueType = StylingDifferValueTypes.Set;
-    } else if (value && typeof value === 'string') {
-      if (!(this._options & StylingDifferOptions.AllowStringValue)) {
-        throw new Error(this._name + ' string values are not allowed');
+  setInput(value: T|string[]|string|Set<string>|null): void {
+    if (value !== this._inputValue) {
+      let type: StylingDifferValueTypes;
+      if (!value) {  // matches empty strings, null, false and undefined
+        type = StylingDifferValueTypes.Null;
+        value = null;
+      } else if (Array.isArray(value)) {
+        type = StylingDifferValueTypes.Array;
+      } else if (value instanceof Set) {
+        type = StylingDifferValueTypes.Set;
+      } else if (typeof value === 'string') {
+        if (!(this._options & StylingDifferOptions.AllowStringValue)) {
+          throw new Error(this._name + ' string values are not allowed');
+        }
+        type = StylingDifferValueTypes.String;
+      } else {
+        type = StylingDifferValueTypes.StringMap;
       }
-      this._lastSetValueType = StylingDifferValueTypes.String;
-    } else {
-      this._lastSetValueType = value ? StylingDifferValueTypes.Map : StylingDifferValueTypes.Null;
-    }
 
-    this._lastSetValueIdentityChange = true;
-    this._lastSetValue = value || null;
+      this._inputValue = value;
+      this._inputValueType = type;
+      this._inputValueIdentityChangeSinceLastCheck = true;
+      this._processValueChange(true);
+    }
   }
 
   /**
-   * Determines whether or not the value has changed.
+   * Checks the input value for identity or deep changes and updates output value if necessary.
    *
    * This function can be called right after `setValue()` is called, but it can also be
    * called incase the existing value (if it's a collection) changes internally. If the
@@ -102,131 +124,178 @@ export class StylingDiffer<T> {
    *
    * @returns whether or not the value has changed in some way.
    */
-  hasValueChanged(): boolean {
-    let valueHasChanged = this._lastSetValueIdentityChange;
-    if (!valueHasChanged && !(this._lastSetValueType & StylingDifferValueTypes.Collection))
-      return false;
+  updateValue(): boolean {
+    let valueHasChanged = this._inputValueIdentityChangeSinceLastCheck;
+    if (!this._inputValueIdentityChangeSinceLastCheck &&
+        (this._inputValueType & StylingDifferValueTypes.Collection)) {
+      valueHasChanged = this._processValueChange(false);
+    } else {
+      // this is set to false in the event that the value is a collection.
+      // This way (if the identity hasn't changed), then the algorithm can
+      // diff the collection value to see if the contents have mutated
+      // (otherwise the value change was processed during the time when
+      // the variable changed).
+      this._inputValueIdentityChangeSinceLastCheck = false;
+    }
+    return valueHasChanged;
+  }
 
-    let finalValue: {[key: string]: any}|string|null = null;
+  /**
+   * Examines the last set value to see if there was a change in content.
+   *
+   * @param inputValueIdentityChanged whether or not the last set value changed in identity or not
+   * @returns `true` when the value has changed (either by identity or by shape if its a
+   * collection)
+   */
+  private _processValueChange(inputValueIdentityChanged: boolean): boolean {
+    // if the inputValueIdentityChanged then we know that input has changed
+    let inputChanged = inputValueIdentityChanged;
+
+    let newOutputValue: T|string|null = null;
     const trimValues = (this._options & StylingDifferOptions.TrimProperties) ? true : false;
     const parseOutUnits = (this._options & StylingDifferOptions.AllowUnits) ? true : false;
     const allowSubKeys = (this._options & StylingDifferOptions.AllowSubKeys) ? true : false;
 
-    switch (this._lastSetValueType) {
+    switch (this._inputValueType) {
       // case 1: [input]="string"
-      case StylingDifferValueTypes.String:
-        const tokens = (this._lastSetValue as string).split(/\s+/g);
-        if (this._options & StylingDifferOptions.ForceAsMap) {
-          finalValue = {};
-          tokens.forEach((token, i) => (finalValue as{[key: string]: any})[token] = true);
-        } else {
-          finalValue = tokens.reduce((str, token, i) => str + (i ? ' ' : '') + token);
-        }
-        break;
-
-      // case 2: [input]="{key:value}"
-      case StylingDifferValueTypes.Map:
-        const map: {[key: string]: any} = this._lastSetValue as{[key: string]: any};
-        const keys = Object.keys(map);
-        if (!valueHasChanged) {
-          if (this.value) {
-            // we know that the classExp value exists and that it is
-            // a map (otherwise an identity change would have occurred)
-            valueHasChanged = mapHasChanged(keys, this.value as{[key: string]: any}, map);
+      case StylingDifferValueTypes.String: {
+        if (inputValueIdentityChanged) {
+          // process string input only if the identity has changed since the strings are immutable
+          const keys = (this._inputValue as string).split(/\s+/g);
+          if (this._options & StylingDifferOptions.ForceAsMap) {
+            newOutputValue = {} as T;
+            for (let i = 0; i < keys.length; i++) {
+              (newOutputValue as any)[keys[i]] = true;
+            }
           } else {
-            valueHasChanged = true;
+            newOutputValue = keys.join(' ');
           }
         }
+        break;
+      }
+      // case 2: [input]="{key:value}"
+      case StylingDifferValueTypes.StringMap: {
+        const inputMap = this._inputValue as T;
+        const inputKeys = Object.keys(inputMap);
 
-        if (valueHasChanged) {
-          finalValue =
-              bulidMapFromValues(this._name, trimValues, parseOutUnits, allowSubKeys, map, keys);
+        if (!inputValueIdentityChanged) {
+          // if StringMap and the identity has not changed then output value must have already been
+          // initialized to a StringMap, so we can safely compare the input and output maps
+          inputChanged = mapsAreEqual(inputKeys, inputMap, this.value as T);
+        }
+
+        if (inputChanged) {
+          newOutputValue = bulidMapFromStringMap(
+              trimValues, parseOutUnits, allowSubKeys, inputMap, inputKeys) as T;
         }
         break;
-
+      }
       // case 3a: [input]="[str1, str2, ...]"
       // case 3b: [input]="Set"
       case StylingDifferValueTypes.Array:
-      case StylingDifferValueTypes.Set:
-        const values = Array.from(this._lastSetValue as string[] | Set<string>);
-        if (!valueHasChanged) {
-          const keys = Object.keys(this.value !);
-          valueHasChanged = !arrayEqualsArray(keys, values);
+      case StylingDifferValueTypes.Set: {
+        const inputKeys = Array.from(this._inputValue as string[] | Set<string>);
+        if (!inputValueIdentityChanged) {
+          const outputKeys = Object.keys(this.value !);
+          inputChanged = !keyArraysAreEqual(outputKeys, inputKeys);
         }
-        if (valueHasChanged) {
-          finalValue =
-              bulidMapFromValues(this._name, trimValues, parseOutUnits, allowSubKeys, values);
+        if (inputChanged) {
+          newOutputValue =
+              bulidMapFromStringArray(this._name, trimValues, allowSubKeys, inputKeys) as T;
         }
         break;
-
+      }
       // case 4: [input]="null|undefined"
       default:
-        finalValue = null;
+        inputChanged = inputValueIdentityChanged;
+        newOutputValue = null;
         break;
     }
 
-    if (valueHasChanged) {
-      (this as any).value = finalValue !;
+    if (inputChanged) {
+      // update the readonly `value` property by casting it to `any` first
+      (this as any).value = newOutputValue;
     }
 
-    return valueHasChanged;
+    return inputChanged;
   }
 }
 
 /**
- * Various options that are consumed by the [StylingDiffer] class.
+ * Various options that are consumed by the [StylingDiffer] class
  */
 export const enum StylingDifferOptions {
-  None = 0b00000,
-  TrimProperties = 0b00001,
-  AllowSubKeys = 0b00010,
-  AllowStringValue = 0b00100,
-  AllowUnits = 0b01000,
-  ForceAsMap = 0b10000,
+  None = 0b00000,              //
+  TrimProperties = 0b00001,    //
+  AllowSubKeys = 0b00010,      //
+  AllowStringValue = 0b00100,  //
+  AllowUnits = 0b01000,        //
+  ForceAsMap = 0b10000,        //
 }
 
 /**
  * The different types of inputs that the [StylingDiffer] can deal with
  */
 const enum StylingDifferValueTypes {
-  Null = 0b0000,
-  String = 0b0001,
-  Map = 0b0010,
-  Array = 0b0100,
-  Set = 0b1000,
-  Collection = 0b1110,
+  Null = 0b0000,        //
+  String = 0b0001,      //
+  StringMap = 0b0010,   //
+  Array = 0b0100,       //
+  Set = 0b1000,         //
+  Collection = 0b1110,  //
 }
 
 
 /**
- * builds and returns a map based on the values input value
- *
- * If the `keys` param is provided then the `values` param is treated as a
- * string map. Otherwise `values` is treated as a string array.
+ * @param trim whether the keys should be trimmed of leading or trailing whitespace
+ * @param parseOutUnits whether units like "px" should be parsed out of the key name and appended to
+ *   the value
+ * @param allowSubKeys whether key needs to be subsplit by whitespace into multiple keys
+ * @param values values of the map
+ * @param keys keys of the map
+ * @return a normalized string map based on the input string map
  */
-function bulidMapFromValues(
-    errorPrefix: string, trim: boolean, parseOutUnits: boolean, allowSubKeys: boolean,
-    values: {[key: string]: any} | string[], keys?: string[]) {
-  const map: {[key: string]: any} = {};
-  if (keys) {
-    // case 1: map
-    for (let i = 0; i < keys.length; i++) {
-      let key = keys[i];
-      const value = (values as{[key: string]: any})[key];
+function bulidMapFromStringMap(
+    trim: boolean, parseOutUnits: boolean, allowSubKeys: boolean,
+    values: {[key: string]: string | null | true},
+    keys: string[]): {[key: string]: string | null | true} {
+  const map: {[key: string]: string | null | true} = {};
 
-      if (value !== undefined) {
-        // Map uses untrimmed keys, so don't trim until passing to `setMapValues`
-        setMapValues(map, trim ? key.trim() : key, value, parseOutUnits, allowSubKeys);
+  for (let i = 0; i < keys.length; i++) {
+    let key = keys[i];
+    let value = values[key];
+
+    if (value !== undefined) {
+      if (typeof value !== 'boolean') {
+        value = '' + value;
       }
+      // Map uses untrimmed keys, so don't trim until passing to `setMapValues`
+      setMapValues(map, trim ? key.trim() : key, value, parseOutUnits, allowSubKeys);
     }
-  } else {
-    // case 2: array
-    for (let i = 0; i < values.length; i++) {
-      let value = (values as string[])[i];
-      assertValidValue(errorPrefix, value);
-      value = trim ? value.trim() : value;
-      setMapValues(map, value, true, false, allowSubKeys);
-    }
+  }
+
+  return map;
+}
+
+/**
+ * @param trim whether the keys should be trimmed of leading or trailing whitespace
+ * @param parseOutUnits whether units like "px" should be parsed out of the key name and appended to
+ *   the value
+ * @param allowSubKeys whether key needs to be subsplit by whitespace into multiple keys
+ * @param values values of the map
+ * @param keys keys of the map
+ * @return a normalized string map based on the input string array
+ */
+function bulidMapFromStringArray(
+    errorPrefix: string, trim: boolean, allowSubKeys: boolean,
+    keys: string[]): {[key: string]: true} {
+  const map: {[key: string]: true} = {};
+
+  for (let i = 0; i < keys.length; i++) {
+    let key = keys[i];
+    ngDevMode && assertValidValue(errorPrefix, key);
+    key = trim ? key.trim() : key;
+    setMapValues(map, key, true, false, allowSubKeys);
   }
 
   return map;
@@ -235,12 +304,12 @@ function bulidMapFromValues(
 function assertValidValue(errorPrefix: string, value: any) {
   if (typeof value !== 'string') {
     throw new Error(
-        `${errorPrefix} can only toggle CSS classes expressed as strings, got ${value}`);
+        `${errorPrefix} can only toggle CSS classes expressed as strings, got: ${value}`);
   }
 }
 
 function setMapValues(
-    map: {[key: string]: any}, key: string, value: any, parseOutUnits: boolean,
+    map: {[key: string]: unknown}, key: string, value: string | null | true, parseOutUnits: boolean,
     allowSubKeys: boolean) {
   if (allowSubKeys && key.indexOf(' ') > 0) {
     const innerKeys = key.split(/\s+/g);
@@ -253,39 +322,41 @@ function setMapValues(
 }
 
 function setIndividualMapValue(
-    map: {[key: string]: any}, key: string, value: any, parseOutUnits: boolean) {
-  if (parseOutUnits) {
-    const values = normalizeStyleKeyAndValue(key, value);
-    value = values.value;
-    key = values.key;
+    map: {[key: string]: unknown}, key: string, value: string | true | null,
+    parseOutUnits: boolean) {
+  if (parseOutUnits && typeof value === 'string') {
+    // parse out the unit (e.g. ".px") from the key and append it to the value
+    // e.g. for [width.px]="40" => ["width","40px"]
+    const unitIndex = key.indexOf('.');
+    if (unitIndex > 0) {
+      const unit = key.substr(unitIndex + 1);  // skip over the "." in "width.px"
+      key = key.substring(0, unitIndex);
+      value += unit;
+    }
   }
   map[key] = value;
 }
 
-function normalizeStyleKeyAndValue(key: string, value: string | null) {
-  const index = key.indexOf('.');
-  if (index > 0) {
-    const unit = key.substr(index + 1);  // ignore the . ([width.px]="'40'" => "40px")
-    key = key.substring(0, index);
-    if (value != null) {  // we should not convert null values to string
-      value += unit;
-    }
-  }
-  return {key, value};
-}
 
-function mapHasChanged(keys: string[], a: {[key: string]: any}, b: {[key: string]: any}) {
-  const oldKeys = Object.keys(a);
-  const newKeys = keys;
+/**
+ * Compares two maps and returns true if they are equal
+ *
+ * @param inputKeys value of `Object.keys(inputMap)` it's unclear if this actually performs better
+ * @param inputMap map to compare
+ * @param outputMap map to compare
+ */
+function mapsAreEqual(
+    inputKeys: string[], inputMap: {[key: string]: unknown},
+    outputMap: {[key: string]: unknown}, ): boolean {
+  const outputKeys = Object.keys(outputMap);
 
-  // the keys are different which means the map changed
-  if (!arrayEqualsArray(oldKeys, newKeys)) {
+  if (inputKeys.length !== outputKeys.length) {
     return true;
   }
 
-  for (let i = 0; i < newKeys.length; i++) {
-    const key = newKeys[i];
-    if (a[key] !== b[key]) {
+  for (let i = 0, n = inputKeys.length; i <= n; i++) {
+    let key = inputKeys[i];
+    if (key !== outputKeys[i] || inputMap[key] !== outputMap[key]) {
       return true;
     }
   }
@@ -293,13 +364,27 @@ function mapHasChanged(keys: string[], a: {[key: string]: any}, b: {[key: string
   return false;
 }
 
-function arrayEqualsArray(a: any[] | null, b: any[] | null) {
-  if (a && b) {
-    if (a.length !== b.length) return false;
-    for (let i = 0; i < a.length; i++) {
-      if (b.indexOf(a[i]) === -1) return false;
-    }
-    return true;
+
+/**
+ * Compares two Object.keys() arrays and returns true if they are equal.
+ *
+ * @param keyArray1 Object.keys() array to compare
+ * @param keyArray1 Object.keys() array to compare
+ */
+function keyArraysAreEqual(keyArray1: string[] | null, keyArray2: string[] | null): boolean {
+  if (!Array.isArray(keyArray1) || !Array.isArray(keyArray2)) {
+    return false;
   }
-  return false;
+
+  if (keyArray1.length !== keyArray2.length) {
+    return false;
+  }
+
+  for (let i = 0; i < keyArray1.length; i++) {
+    if (keyArray1[i] !== keyArray2[i]) {
+      return false;
+    }
+  }
+
+  return true;
 }

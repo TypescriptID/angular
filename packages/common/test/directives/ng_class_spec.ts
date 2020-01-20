@@ -196,7 +196,7 @@ import {ComponentFixture, TestBed, async} from '@angular/core/testing';
         fixture = createTestComponent(`<div [ngClass]="['foo', {}]"></div>`);
         expect(() => fixture !.detectChanges())
             .toThrowError(
-                /NgClass can only toggle CSS classes expressed as strings, got \[object Object\]/);
+                /NgClass can only toggle CSS classes expressed as strings, got: \[object Object\]/);
       });
     });
 
@@ -351,6 +351,27 @@ import {ComponentFixture, TestBed, async} from '@angular/core/testing';
            cmp.objExpr = null;
            detectChangesAndExpectClassName('init baz');
          }));
+    });
+
+    describe('prevent regressions', () => {
+
+      // https://github.com/angular/angular/issues/34336
+      it('should not write to the native node unless the bound expression has changed', () => {
+        fixture = createTestComponent(`<div [ngClass]="{'color-red': condition}"></div>`);
+        detectChangesAndExpectClassName('color-red');
+
+        // Overwrite CSS classes so that we can check if ngClass performed DOM manipulation to
+        // update it
+        fixture.debugElement.children[0].nativeElement.className = '';
+        // Assert that the DOM node still has the same value after change detection
+        detectChangesAndExpectClassName('');
+
+        fixture.componentInstance.condition = false;
+        fixture.detectChanges();
+        fixture.componentInstance.condition = true;
+        detectChangesAndExpectClassName('color-red');
+      });
+
     });
   });
 }
