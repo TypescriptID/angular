@@ -94,7 +94,10 @@ describe('CachedFileSystem', () => {
     it('should call delegate', () => {
       const spy = spyOn(delegate, 'writeFile');
       fs.writeFile(abcPath, 'Some contents');
-      expect(spy).toHaveBeenCalledWith(abcPath, 'Some contents');
+      expect(spy).toHaveBeenCalledWith(abcPath, 'Some contents', undefined);
+      spy.calls.reset();
+      fs.writeFile(abcPath, 'Some contents', /* exclusive */ true);
+      expect(spy).toHaveBeenCalledWith(abcPath, 'Some contents', true);
     });
 
     it('should update the exists and "readFile" caches', () => {
@@ -107,6 +110,23 @@ describe('CachedFileSystem', () => {
       expect(fs.exists(abcPath)).toBe(true);
       expect(existsSpy).not.toHaveBeenCalled();
       expect(readFileSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('removeFile()', () => {
+    it('should call delegate', () => {
+      const spy = spyOn(delegate, 'removeFile');
+      fs.removeFile(abcPath);
+      expect(spy).toHaveBeenCalledWith(abcPath);
+    });
+
+    it('should update the exists cache', () => {
+      spyOn(delegate, 'removeFile');
+      const existsSpy = spyOn(delegate, 'exists');
+
+      fs.removeFile(abcPath);
+      expect(fs.exists(abcPath)).toBe(false);
+      expect(existsSpy).not.toHaveBeenCalled();
     });
   });
 

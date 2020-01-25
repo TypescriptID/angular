@@ -138,6 +138,9 @@
     "name": "_renderCompCount"
   },
   {
+    "name": "addHostBindingsToExpandoInstructions"
+  },
+  {
     "name": "addToViewTree"
   },
   {
@@ -160,6 +163,15 @@
   },
   {
     "name": "callHooks"
+  },
+  {
+    "name": "clearActiveHostElement"
+  },
+  {
+    "name": "computeStaticStyling"
+  },
+  {
+    "name": "concatStringsWithSpace"
   },
   {
     "name": "createLFrame"
@@ -208,9 +220,6 @@
   },
   {
     "name": "executeCheckHooks"
-  },
-  {
-    "name": "executeElementExitFn"
   },
   {
     "name": "executeInitAndCheckHooks"
@@ -318,7 +327,7 @@
     "name": "getSelectedIndex"
   },
   {
-    "name": "hasActiveElementFlag"
+    "name": "growHostVarsSpace"
   },
   {
     "name": "hasParentInjector"
@@ -327,13 +336,10 @@
     "name": "includeViewProviders"
   },
   {
-    "name": "incrementActiveDirectiveId"
-  },
-  {
     "name": "incrementInitPhaseFlags"
   },
   {
-    "name": "initNodeFlags"
+    "name": "initTNodeFlags"
   },
   {
     "name": "insertBloom"
@@ -349,6 +355,9 @@
   },
   {
     "name": "invokeHostBindingsInCreationMode"
+  },
+  {
+    "name": "isAnimationProp"
   },
   {
     "name": "isComponentDef"
@@ -370,9 +379,6 @@
   },
   {
     "name": "leaveView"
-  },
-  {
-    "name": "leaveViewProcessExit"
   },
   {
     "name": "locateHostElement"
@@ -447,16 +453,13 @@
     "name": "setBindingIndex"
   },
   {
-    "name": "setBindingRoot"
-  },
-  {
-    "name": "setCurrentDirectiveDef"
+    "name": "setBindingRootForHostBindings"
   },
   {
     "name": "setCurrentQueryIndex"
   },
   {
-    "name": "setHostBindings"
+    "name": "setHostBindingsByExecutingExpandoInstructions"
   },
   {
     "name": "setIncludeViewProviders"
@@ -471,6 +474,9 @@
     "name": "setSelectedIndex"
   },
   {
+    "name": "setUpAttributes"
+  },
+  {
     "name": "stringifyForError"
   },
   {
@@ -481,6 +487,12 @@
   },
   {
     "name": "viewAttachedToChangeDetector"
+  },
+  {
+    "name": "writeDirectClass"
+  },
+  {
+    "name": "writeDirectStyle"
   },
   {
     "name": "ɵɵdefineComponent"

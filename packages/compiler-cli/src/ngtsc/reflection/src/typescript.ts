@@ -98,7 +98,7 @@ export class TypeScriptReflectionHost implements ReflectionHost {
   getExportsOfModule(node: ts.Node): Map<string, Declaration>|null {
     // In TypeScript code, modules are only ts.SourceFiles. Throw if the node isn't a module.
     if (!ts.isSourceFile(node)) {
-      throw new Error(`getDeclarationsOfModule() called on non-SourceFile in TS code`);
+      throw new Error(`getExportsOfModule() called on non-SourceFile in TS code`);
     }
     const map = new Map<string, Declaration>();
 
@@ -308,12 +308,12 @@ export class TypeScriptReflectionHost implements ReflectionHost {
     if (symbol.valueDeclaration !== undefined) {
       return {
         node: symbol.valueDeclaration,
-        viaModule,
+        known: null, viaModule,
       };
     } else if (symbol.declarations !== undefined && symbol.declarations.length > 0) {
       return {
         node: symbol.declarations[0],
-        viaModule,
+        known: null, viaModule,
       };
     } else {
       return null;

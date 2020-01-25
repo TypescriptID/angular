@@ -48,10 +48,16 @@ export class CachedFileSystem implements FileSystem {
     }
   }
 
-  writeFile(path: AbsoluteFsPath, data: string): void {
-    this.delegate.writeFile(path, data);
+  writeFile(path: AbsoluteFsPath, data: string, exclusive?: boolean): void {
+    this.delegate.writeFile(path, data, exclusive);
     this.readFileCache.set(path, data);
     this.existsCache.set(path, true);
+  }
+
+  removeFile(path: AbsoluteFsPath): void {
+    this.delegate.removeFile(path);
+    this.readFileCache.delete(path);
+    this.existsCache.set(path, false);
   }
 
   symlink(target: AbsoluteFsPath, path: AbsoluteFsPath): void {

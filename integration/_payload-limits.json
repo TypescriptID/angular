@@ -3,7 +3,7 @@
     "master": {
       "uncompressed": {
         "runtime-es2015": 1485,
-        "main-es2015": 141476,
+        "main-es2015": 141746,
         "polyfills-es2015": 36808
       }
     }
@@ -12,7 +12,7 @@
     "master": {
       "uncompressed": {
         "runtime-es2015": 1485,
-        "main-es2015": 15783,
+        "main-es2015": 16593,
         "polyfills-es2015": 36808
       }
     }
@@ -21,7 +21,7 @@
     "master": {
       "uncompressed": {
         "runtime-es2015": 1485,
-        "main-es2015": 147610,
+        "main-es2015": 147911,
         "polyfills-es2015": 36808
       }
     }
@@ -30,7 +30,7 @@
     "master": {
       "uncompressed": {
         "runtime-es2015": 1485,
-        "main-es2015": 137141,
+        "main-es2015": 137026,
         "polyfills-es2015": 37494
       }
     }
@@ -39,7 +39,7 @@
     "master": {
       "uncompressed": {
         "runtime-es2015": 2289,
-        "main-es2015": 267182,
+        "main-es2015": 254657,
         "polyfills-es2015": 36808,
         "5-es2015": 751
       }
@@ -49,7 +49,7 @@
     "master": {
       "uncompressed": {
         "runtime-es2015": 2289,
-        "main-es2015": 226288,
+        "main-es2015": 226321,
         "polyfills-es2015": 36808,
         "5-es2015": 779
       }
@@ -60,7 +60,7 @@
       "uncompressed": {
         "bundle": "TODO(i): temporarily increase the payload size limit from 105779 - this is due to a closure issue related to ESM reexports that still needs to be investigated",
         "bundle": "TODO(i): we should define ngDevMode to false in Closure, but --define only works in the global scope.",
-        "bundle": 176433
+        "bundle": 175498
       }
     }
   }

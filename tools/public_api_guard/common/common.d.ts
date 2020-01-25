@@ -51,6 +51,8 @@ export declare enum FormStyle {
 
 export declare function getCurrencySymbol(code: string, format: 'wide' | 'narrow', locale?: string): string;
 
+export declare function getLocaleCurrencyCode(locale: string): string | null;
+
 export declare function getLocaleCurrencyName(locale: string): string | null;
 
 export declare function getLocaleCurrencySymbol(locale: string): string | null;
@@ -187,23 +189,16 @@ export declare class LowerCasePipe implements PipeTransform {
     transform(value: string): string;
 }
 
-export declare class NgClass extends NgClassBase implements DoCheck {
+export declare class NgClass implements DoCheck {
     set klass(value: string);
     set ngClass(value: string | string[] | Set<string> | {
         [klass: string]: any;
     });
-    constructor(delegate: NgClassImpl);
+    constructor(_iterableDiffers: IterableDiffers, _keyValueDiffers: KeyValueDiffers, _ngEl: ElementRef, _renderer: Renderer2);
+    applyChanges(): void;
     ngDoCheck(): void;
-}
-
-export declare class NgClassBase {
-    protected _delegate: NgClassImpl;
-    constructor(_delegate: NgClassImpl);
-    getValue(): {
-        [key: string]: any;
-    } | null;
-    static ɵdir: any;
-    static ɵfac: any;
+    setClass(value: string): void;
+    setNgClass(value: any): void;
 }
 
 export declare class NgComponentOutlet implements OnChanges, OnDestroy {
@@ -273,22 +268,14 @@ export declare class NgPluralCase {
     constructor(value: string, template: TemplateRef<Object>, viewContainer: ViewContainerRef, ngPlural: NgPlural);
 }
 
-export declare class NgStyle extends NgStyleBase implements DoCheck {
-    set ngStyle(value: {
+export declare class NgStyle implements DoCheck {
+    set ngStyle(values: {
         [klass: string]: any;
     } | null);
-    constructor(delegate: NgStyleImpl);
+    constructor(_ngEl: ElementRef, _differs: KeyValueDiffers, _renderer: Renderer2);
+    applyChanges(): void;
     ngDoCheck(): void;
-}
-
-export declare class NgStyleBase {
-    protected _delegate: NgStyleImpl;
-    constructor(_delegate: NgStyleImpl);
-    getValue(): {
-        [key: string]: any;
-    } | null;
-    static ɵdir: any;
-    static ɵfac: any;
+    setNgStyle(value: any): void;
 }
 
 export declare class NgSwitch {

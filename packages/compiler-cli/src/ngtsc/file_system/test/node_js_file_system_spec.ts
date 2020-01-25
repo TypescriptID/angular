@@ -47,7 +47,18 @@ describe('NodeJSFileSystem', () => {
     it('should delegate to fs.writeFileSync()', () => {
       const spy = spyOn(realFs, 'writeFileSync');
       fs.writeFile(abcPath, 'Some contents');
-      expect(spy).toHaveBeenCalledWith(abcPath, 'Some contents', 'utf8');
+      expect(spy).toHaveBeenCalledWith(abcPath, 'Some contents', undefined);
+      spy.calls.reset();
+      fs.writeFile(abcPath, 'Some contents', /* exclusive */ true);
+      expect(spy).toHaveBeenCalledWith(abcPath, 'Some contents', {flag: 'wx'});
+    });
+  });
+
+  describe('removeFile()', () => {
+    it('should delegate to fs.unlink()', () => {
+      const spy = spyOn(realFs, 'unlinkSync');
+      fs.removeFile(abcPath);
+      expect(spy).toHaveBeenCalledWith(abcPath);
     });
   });
 

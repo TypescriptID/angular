@@ -682,8 +682,6 @@ export interface OutputDecorator {
 
 export declare function ɵɵadvance(delta: number): void;
 
-export declare function ɵɵallocHostVars(count: number): void;
-
 export declare function ɵɵattribute(name: string, value: any, sanitizer?: SanitizerFn | null, namespace?: string): typeof ɵɵattribute;
 
 export declare function ɵɵattributeInterpolate1(attrName: string, prefix: string, v0: any, suffix: string, sanitizer?: SanitizerFn, namespace?: string): typeof ɵɵattributeInterpolate1;
@@ -705,8 +703,8 @@ export declare function ɵɵattributeInterpolate8(attrName: string, prefix: stri
 export declare function ɵɵattributeInterpolateV(attrName: string, values: any[], sanitizer?: SanitizerFn, namespace?: string): typeof ɵɵattributeInterpolateV;
 
 export declare function ɵɵclassMap(classes: {
-    [className: string]: any;
-} | NO_CHANGE | string | null): void;
+    [className: string]: boolean | undefined | null;
+} | Map<string, boolean | undefined | null> | Set<string> | string[] | string | undefined | null): void;
 
 export declare function ɵɵclassMapInterpolate1(prefix: string, v0: any, suffix: string): void;
 
@@ -726,7 +724,7 @@ export declare function ɵɵclassMapInterpolate8(prefix: string, v0: any, i0: st
 
 export declare function ɵɵclassMapInterpolateV(values: any[]): void;
 
-export declare function ɵɵclassProp(className: string, value: boolean | null): typeof ɵɵclassProp;
+export declare function ɵɵclassProp(className: string, value: boolean | undefined | null): typeof ɵɵclassProp;
 
 export declare type ɵɵComponentDefWithMeta<T, Selector extends String, ExportAs extends string[], InputMap extends {
     [key: string]: string;
@@ -760,6 +758,8 @@ export declare function ɵɵdefineComponent<T>(componentDefinition: {
         [P in keyof T]?: string;
     };
     hostBindings?: HostBindingsFunction<T>;
+    hostVars?: number;
+    hostAttrs?: TAttributes;
     contentQueries?: ContentQueriesFunction<T>;
     exportAs?: string[];
     template: ComponentTemplate<T>;
@@ -785,6 +785,8 @@ export declare const ɵɵdefineDirective: <T>(directiveDefinition: {
     outputs?: { [P_1 in keyof T]?: string | undefined; } | undefined;
     features?: DirectiveDefFeature[] | undefined;
     hostBindings?: HostBindingsFunction<T> | undefined;
+    hostVars?: number | undefined;
+    hostAttrs?: TAttributes | undefined;
     contentQueries?: ContentQueriesFunction<T> | undefined;
     viewQuery?: ViewQueriesFunction<T> | null | undefined;
     exportAs?: string[] | undefined;
@@ -838,8 +840,6 @@ export declare function ɵɵelementContainerEnd(): void;
 export declare function ɵɵelementContainerStart(index: number, attrsIndex?: number | null, localRefsIndex?: number): void;
 
 export declare function ɵɵelementEnd(): void;
-
-export declare function ɵɵelementHostAttrs(attrs: TAttributes): void;
 
 export declare function ɵɵelementStart(index: number, name: string, attrsIndex?: number | null, localRefsIndex?: number): void;
 
@@ -1035,9 +1035,9 @@ export declare function ɵɵstaticViewQuery<T>(predicate: Type<any> | string[], 
 
 export declare function ɵɵstyleMap(styles: {
     [styleName: string]: any;
-} | NO_CHANGE | null): void;
+} | Map<string, string | number | null | undefined> | string | undefined | null): void;
 
-export declare function ɵɵstyleProp(prop: string, value: string | number | SafeValue | null, suffix?: string | null): typeof ɵɵstyleProp;
+export declare function ɵɵstyleProp(prop: string, value: string | number | SafeValue | undefined | null, suffix?: string | null): typeof ɵɵstyleProp;
 
 export declare function ɵɵstylePropInterpolate1(prop: string, prefix: string, v0: any, suffix: string, valueSuffix?: string | null): typeof ɵɵstylePropInterpolate1;
 

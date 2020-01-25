@@ -13,6 +13,7 @@ import * as os from 'os';
 import {AbsoluteFsPath, FileSystem, absoluteFrom, getFileSystem, join} from '../../../src/ngtsc/file_system';
 import {Folder, MockFileSystem, TestFile, runInEachFileSystem} from '../../../src/ngtsc/file_system/testing';
 import {loadStandardTestFiles, loadTestFiles} from '../../../test/helpers';
+import {LockFile} from '../../src/execution/lock_file';
 import {mainNgcc} from '../../src/main';
 import {markAsProcessed} from '../../src/packages/build_marker';
 import {EntryPointJsonProperty, EntryPointPackageJson, SUPPORTED_FORMAT_PROPERTIES} from '../../src/packages/entry_point';
@@ -145,6 +146,49 @@ runInEachFileSystem(() => {
               '{ bar: [{ type: Input }] }); })();');
     });
 
+    ['esm5', 'esm2015'].forEach(target => {
+      it(`should be able to process spread operator inside objects for ${target} format`, () => {
+        compileIntoApf(
+            'test-package', {
+              '/index.ts': `        
+                import {Directive, Input, NgModule} from '@angular/core';
+      
+                const a = { '[class.a]': 'true' };
+                const b = { '[class.b]': 'true' };
+      
+                @Directive({
+                  selector: '[foo]',
+                  host: {...a, ...b, '[class.c]': 'false'}
+                })
+                export class FooDirective {}
+      
+                @NgModule({
+                  declarations: [FooDirective],
+                })
+                export class FooModule {}
+              `,
+            },
+            {importHelpers: true});
+
+        // TODO: add test with import helpers disabled. This currently won't work because
+        // inlined TS helper functions are not detected. For more details, see PR:
+        // https://github.com/angular/angular/pull/34169
+        fs.writeFile(
+            _('/node_modules/tslib/index.d.ts'),
+            `export declare function __assign(...args: object[]): object;`);
+
+        mainNgcc({
+          basePath: '/node_modules',
+          targetEntryPointPath: 'test-package',
+          propertiesToConsider: [target],
+        });
+
+        const jsContents = fs.readFile(_(`/node_modules/test-package/${target}/src/index.js`))
+                               .replace(/\s+/g, ' ');
+        expect(jsContents).toContain('ngcc0.ɵɵclassProp("a", true)("b", true)("c", false)');
+      });
+    });
+
     it('should not add `const` in ES5 generated code', () => {
       compileIntoFlatEs5Package('test-package', {
         '/index.ts': `
@@ -172,7 +216,6 @@ runInEachFileSystem(() => {
 
       const jsContents = fs.readFile(_(`/node_modules/test-package/index.js`));
       expect(jsContents).not.toMatch(/\bconst \w+\s*=/);
-      expect(jsContents).toMatch(/\bvar _c0 =/);
     });
 
     it('should add ɵfac but not duplicate ɵprov properties on injectables', () => {
@@ -245,21 +288,23 @@ runInEachFileSystem(() => {
            propertiesToConsider: ['esm2015']
          });
 
-         // In `@angular/common` the `NgClassR3Impl` class gets exported as something like
+         // In `@angular/common` the `BrowserPlatformLocation` class gets exported as something like
          // `ɵangular_packages_common_common_a`.
          const jsContents = fs.readFile(_(`/node_modules/@angular/common/fesm2015/common.js`));
-         const exportedNameMatch = jsContents.match(/export.* NgClassR3Impl as ([^ ,}]+)/);
+         const exportedNameMatch =
+             jsContents.match(/export.* BrowserPlatformLocation as ([^ ,}]+)/);
          if (exportedNameMatch === null) {
            return fail(
-               'Expected `/node_modules/@angular/common/fesm2015/common.js` to export `NgClassR3Impl` via an alias');
+               'Expected `/node_modules/@angular/common/fesm2015/common.js` to export `BrowserPlatformLocation` via an alias');
          }
          const exportedName = exportedNameMatch[1];
 
          // We need to make sure that the flat typings file exports this directly
          const dtsContents = fs.readFile(_('/node_modules/@angular/common/common.d.ts'));
-         expect(dtsContents).toContain(`export declare class ${exportedName} extends ɵNgClassImpl`);
+         expect(dtsContents)
+             .toContain(`export declare class ${exportedName} extends PlatformLocation`);
          // And that ngcc's modifications to that class use the correct (exported) name
-         expect(dtsContents).toContain(`static ɵprov: ɵngcc0.ɵɵInjectableDef<${exportedName}>`);
+         expect(dtsContents).toContain(`static ɵfac: ɵngcc0.ɵɵFactoryDef<${exportedName}>`);
        });
 
     it('should add generic type for ModuleWithProviders and generate exports for private modules',
@@ -759,6 +804,79 @@ runInEachFileSystem(() => {
         expect(pkg.fesm5_ivy_ngcc).toEqual('__ivy_ngcc__/fesm5/core.js');
         expect(pkg.module_ivy_ngcc).toEqual('__ivy_ngcc__/fesm5/core.js');
       });
+
+      it('should update `package.json` deterministically (regardless of entry-point processing order)',
+         () => {
+           // Ensure formats are not marked as processed in `package.json` at the beginning.
+           let pkg = loadPackage('@angular/core');
+           expectNotToHaveProp(pkg, 'esm5_ivy_ngcc');
+           expectNotToHaveProp(pkg, 'fesm2015_ivy_ngcc');
+           expectNotToHaveProp(pkg, 'fesm5_ivy_ngcc');
+           expectNotToHaveProp(pkg, '__processed_by_ivy_ngcc__');
+
+           // Process `fesm2015` and update `package.json`.
+           pkg = processFormatAndUpdatePackageJson('fesm2015');
+           expectNotToHaveProp(pkg, 'esm5_ivy_ngcc');
+           expectToHaveProp(pkg, 'fesm2015_ivy_ngcc');
+           expectNotToHaveProp(pkg, 'fesm5_ivy_ngcc');
+           expectToHaveProp(pkg.__processed_by_ivy_ngcc__ !, 'fesm2015');
+
+           // Process `fesm5` and update `package.json`.
+           pkg = processFormatAndUpdatePackageJson('fesm5');
+           expectNotToHaveProp(pkg, 'esm5_ivy_ngcc');
+           expectToHaveProp(pkg, 'fesm2015_ivy_ngcc');
+           expectToHaveProp(pkg, 'fesm5_ivy_ngcc');
+           expectToHaveProp(pkg.__processed_by_ivy_ngcc__ !, 'fesm5');
+
+           // Process `esm5` and update `package.json`.
+           pkg = processFormatAndUpdatePackageJson('esm5');
+           expectToHaveProp(pkg, 'esm5_ivy_ngcc');
+           expectToHaveProp(pkg, 'fesm2015_ivy_ngcc');
+           expectToHaveProp(pkg, 'fesm5_ivy_ngcc');
+           expectToHaveProp(pkg.__processed_by_ivy_ngcc__ !, 'esm5');
+
+           // Ensure the properties are in deterministic order (regardless of processing order).
+           const pkgKeys = stringifyKeys(pkg);
+           expect(pkgKeys).toContain('|esm5_ivy_ngcc|esm5|');
+           expect(pkgKeys).toContain('|fesm2015_ivy_ngcc|fesm2015|');
+           expect(pkgKeys).toContain('|fesm5_ivy_ngcc|fesm5|');
+
+           // NOTE:
+           // Along with the first format that is processed, the typings are processed as well.
+           // Also, once a property has been processed, alias properties as also marked as
+           // processed. Aliases properties are properties that point to the same entry-point file.
+           // For example:
+           // - `fesm2015` <=> `es2015`
+           // - `fesm5` <=> `module`
+           expect(stringifyKeys(pkg.__processed_by_ivy_ngcc__ !))
+               .toBe('|es2015|esm5|fesm2015|fesm5|module|typings|');
+
+           // Helpers
+           function expectNotToHaveProp(obj: object, prop: string) {
+             expect(obj.hasOwnProperty(prop))
+                 .toBe(
+                     false,
+                     `Expected object not to have property '${prop}': ${JSON.stringify(obj, null, 2)}`);
+           }
+
+           function expectToHaveProp(obj: object, prop: string) {
+             expect(obj.hasOwnProperty(prop))
+                 .toBe(
+                     true,
+                     `Expected object to have property '${prop}': ${JSON.stringify(obj, null, 2)}`);
+           }
+
+           function processFormatAndUpdatePackageJson(formatProp: string) {
+             mainNgcc({
+               basePath: '/node_modules/@angular/core',
+               createNewEntryPointFormats: true,
+               propertiesToConsider: [formatProp],
+             });
+             return loadPackage('@angular/core');
+           }
+
+           function stringifyKeys(obj: object) { return `|${Object.keys(obj).join('|')}|`; }
+         });
     });
 
     describe('diagnostics', () => {
@@ -1319,6 +1437,7 @@ runInEachFileSystem(() => {
     function initMockFileSystem(fs: FileSystem, testFiles: Folder) {
       if (fs instanceof MockFileSystem) {
         fs.init(testFiles);
+        fs.ensureDir(fs.dirname(new LockFile(fs).lockFilePath));
       }
 
       // a random test package that no metadata.json file so not compiled by Angular.
