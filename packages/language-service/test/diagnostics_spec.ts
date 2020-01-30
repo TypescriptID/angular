@@ -257,11 +257,12 @@ describe('diagnostics', () => {
           `<button type="button" ~{start-emb}*counter="let hero of heroes"~{end-emb}></button>`);
       const diags = ngLS.getSemanticDiagnostics(TEST_TEMPLATE);
       expect(diags.length).toBe(1);
-      const {messageText, start, length} = diags[0];
+      const {messageText, start, length, category} = diags[0];
+      expect(category).toBe(ts.DiagnosticCategory.Suggestion);
       expect(messageText)
           .toBe(
               `The template context of 'CounterDirective' does not define an implicit value.\n` +
-                  `If the context type is a base type, consider refining it to a more specific type.`, );
+                  `If the context type is a base type or 'any', consider refining it to a more specific type.`, );
 
       const span = mockHost.getLocationMarkerFor(TEST_TEMPLATE, 'emb');
       expect(start).toBe(span.start);
@@ -274,9 +275,12 @@ describe('diagnostics', () => {
           `<div ~{start-emb}*ngFor="let hero of heroes; let e = even_1"~{end-emb}></div>`);
       const diags = ngLS.getSemanticDiagnostics(TEST_TEMPLATE);
       expect(diags.length).toBe(1);
-      const {messageText, start, length} = diags[0];
+      const {messageText, start, length, category} = diags[0];
+      expect(category).toBe(ts.DiagnosticCategory.Suggestion);
       expect(messageText)
-          .toBe(`The template context of 'NgForOf' does not define a member called 'even_1'`);
+          .toBe(
+              `The template context of 'NgForOf' does not define a member called 'even_1'.\n` +
+              `If the context type is a base type or 'any', consider refining it to a more specific type.`);
 
       const span = mockHost.getLocationMarkerFor(TEST_TEMPLATE, 'emb');
       expect(start).toBe(span.start);
@@ -311,16 +315,14 @@ describe('diagnostics', () => {
 
   describe('with $event', () => {
     it('should accept an event', () => {
-      const fileName = '/app/test.ng';
-      mockHost.override(fileName, '<div (click)="myClick($event)">Click me!</div>');
-      const diagnostics = ngLS.getSemanticDiagnostics(fileName);
+      mockHost.override(TEST_TEMPLATE, '<div (click)="myClick($event)">Click me!</div>');
+      const diagnostics = ngLS.getSemanticDiagnostics(TEST_TEMPLATE);
       expect(diagnostics).toEqual([]);
     });
 
     it('should reject it when not in an event binding', () => {
-      const fileName = '/app/test.ng';
-      const content = mockHost.override(fileName, '<div [tabIndex]="$event"></div>');
-      const diagnostics = ngLS.getSemanticDiagnostics(fileName) !;
+      const content = mockHost.override(TEST_TEMPLATE, '<div [tabIndex]="$event"></div>');
+      const diagnostics = ngLS.getSemanticDiagnostics(TEST_TEMPLATE) !;
       expect(diagnostics.length).toBe(1);
       const {messageText, start, length} = diagnostics[0];
       expect(messageText)
@@ -329,6 +331,17 @@ describe('diagnostics', () => {
       const keyword = '$event';
       expect(start).toBe(content.lastIndexOf(keyword));
       expect(length).toBe(keyword.length);
+    });
+
+    it('should reject invalid properties on an event type', () => {
+      const content = mockHost.override(
+          TEST_TEMPLATE, '<div string-model (modelChange)="$event.notSubstring()"></div>');
+      const diagnostics = ngLS.getSemanticDiagnostics(TEST_TEMPLATE) !;
+      expect(diagnostics.length).toBe(1);
+      const {messageText, start, length} = diagnostics[0];
+      expect(messageText).toBe(`Unknown method 'notSubstring'`);
+      expect(start).toBe(content.indexOf('$event'));
+      expect(length).toBe('$event.notSubstring()'.length);
     });
   });
 

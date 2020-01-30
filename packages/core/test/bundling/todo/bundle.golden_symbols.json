@@ -48,9 +48,6 @@
     "name": "EMPTY_ARRAY"
   },
   {
-    "name": "EMPTY_ARRAY"
-  },
-  {
     "name": "EMPTY_OBJ"
   },
   {
@@ -348,15 +345,6 @@
     "name": "arrayInsert2"
   },
   {
-    "name": "arrayMapGet"
-  },
-  {
-    "name": "arrayMapIndexOf"
-  },
-  {
-    "name": "arrayMapSet"
-  },
-  {
     "name": "assertTemplate"
   },
   {
@@ -399,34 +387,22 @@
     "name": "cleanUpView"
   },
   {
-    "name": "clearActiveHostElement"
+    "name": "collectNativeNodes"
   },
   {
-    "name": "collectNativeNodes"
+    "name": "collectResidual"
+  },
+  {
+    "name": "collectStylingFromDirectives"
+  },
+  {
+    "name": "collectStylingFromTAttrs"
   },
   {
     "name": "computeStaticStyling"
   },
   {
     "name": "concatStringsWithSpace"
-  },
-  {
-    "name": "consumeClassToken"
-  },
-  {
-    "name": "consumeQuotedText"
-  },
-  {
-    "name": "consumeSeparator"
-  },
-  {
-    "name": "consumeStyleKey"
-  },
-  {
-    "name": "consumeStyleValue"
-  },
-  {
-    "name": "consumeWhitespace"
   },
   {
     "name": "createContainerRef"
@@ -612,6 +588,9 @@
     "name": "getContextLView"
   },
   {
+    "name": "getCurrentDirectiveIndex"
+  },
+  {
     "name": "getCurrentStyleSanitizer"
   },
   {
@@ -636,6 +615,9 @@
     "name": "getFirstNativeNode"
   },
   {
+    "name": "getHostDirectiveDef"
+  },
+  {
     "name": "getInjectableDef"
   },
   {
@@ -652,9 +634,6 @@
   },
   {
     "name": "getLViewParent"
-  },
-  {
-    "name": "getLastParsedKey"
   },
   {
     "name": "getNameOnlyMarkerIndex"
@@ -747,6 +726,9 @@
     "name": "getTViewCleanup"
   },
   {
+    "name": "getTemplateHeadTStylingKey"
+  },
+  {
     "name": "getTypeName"
   },
   {
@@ -790,9 +772,6 @@
   },
   {
     "name": "initializeInputAndOutputAliases"
-  },
-  {
-    "name": "initializeStylingStaticArrayMap"
   },
   {
     "name": "injectElementRef"
@@ -903,10 +882,22 @@
     "name": "isRootView"
   },
   {
+    "name": "isStylingMatch"
+  },
+  {
     "name": "isStylingValuePresent"
   },
   {
     "name": "iterateListLike"
+  },
+  {
+    "name": "keyValueArrayGet"
+  },
+  {
+    "name": "keyValueArrayIndexOf"
+  },
+  {
+    "name": "keyValueArraySet"
   },
   {
     "name": "leaveDI"
@@ -946,6 +937,9 @@
   },
   {
     "name": "markDirtyIfOnPush"
+  },
+  {
+    "name": "markDuplicateOfResidualStyling"
   },
   {
     "name": "markDuplicates"
@@ -997,21 +991,6 @@
   },
   {
     "name": "normalizeAndApplySuffixOrSanitizer"
-  },
-  {
-    "name": "parseClassName"
-  },
-  {
-    "name": "parseClassNameNext"
-  },
-  {
-    "name": "parseStyle"
-  },
-  {
-    "name": "parseStyleNext"
-  },
-  {
-    "name": "parserState"
   },
   {
     "name": "readPatchedData"
@@ -1074,9 +1053,6 @@
     "name": "renderView"
   },
   {
-    "name": "resetParserState"
-  },
-  {
     "name": "resetPreOrderHookFlags"
   },
   {
@@ -1099,9 +1075,6 @@
   },
   {
     "name": "selectIndexInternal"
-  },
-  {
-    "name": "setActiveHostElement"
   },
   {
     "name": "setBindingIndex"
@@ -1158,6 +1131,9 @@
     "name": "setTStylingRangePrevDuplicate"
   },
   {
+    "name": "setTemplateHeadTStylingKey"
+  },
+  {
     "name": "setUpAttributes"
   },
   {
@@ -1173,7 +1149,7 @@
     "name": "stringifyForError"
   },
   {
-    "name": "stylingPropertyFirstUpdatePass"
+    "name": "stylingFirstUpdatePass"
   },
   {
     "name": "syncViewWithBlueprint"
@@ -1216,6 +1192,9 @@
   },
   {
     "name": "walkUpViews"
+  },
+  {
+    "name": "wrapInStaticStylingKey"
   },
   {
     "name": "wrapListener"

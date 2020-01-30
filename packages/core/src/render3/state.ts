@@ -7,7 +7,7 @@
  */
 
 import {StyleSanitizeFn} from '../sanitization/style_sanitizer';
-import {assertDefined, assertEqual, assertGreaterThan} from '../util/assert';
+import {assertDefined} from '../util/assert';
 import {assertLViewOrUndefined} from './assert';
 import {TNode} from './interfaces/node';
 import {CONTEXT, DECLARATION_VIEW, LView, OpaqueViewState, TVIEW} from './interfaces/view';
@@ -104,6 +104,13 @@ interface LFrame {
    * We iterate over the list of Queries and increment current query index at every step.
    */
   currentQueryIndex: number;
+
+  /**
+   * When host binding is executing this points to the directive index.
+   * `TView.data[currentDirectiveIndex]` is `DirectiveDef`
+   * `LView[currentDirectiveIndex]` is directive instance.
+   */
+  currentDirectiveIndex: number;
 }
 
 /**
@@ -234,21 +241,6 @@ export function getLView(): LView {
 }
 
 /**
- * Sets the active directive host element and resets the directive id value
- * (when the provided elementIndex value has changed).
- *
- * @param elementIndex the element index value for the host element where
- *                     the directive/component instance lives
- */
-export function setActiveHostElement(elementIndex: number) {
-  setSelectedIndex(elementIndex);
-}
-
-export function clearActiveHostElement() {
-  setSelectedIndex(-1);
-}
-
-/**
  * Restores `contextViewData` to the given OpaqueViewState instance.
  *
  * Used in conjunction with the getCurrentView() instruction to save a snapshot
@@ -332,11 +324,25 @@ export function incrementBindingIndex(count: number): number {
  * Bindings inside the host template are 0 index. But because we don't know ahead of time
  * how many host bindings we have we can't pre-compute them. For this reason they are all
  * 0 index and we just shift the root so that they match next available location in the LView.
- * @param value
+ *
+ * @param bindingRootIndex Root index for `hostBindings`
+ * @param currentDirectiveIndex `TData[currentDirectiveIndex]` will point to the current directive
+ *        whose `hostBindings` are being processed.
  */
-export function setBindingRootForHostBindings(value: number) {
-  const lframe = instructionState.lFrame;
-  lframe.bindingIndex = lframe.bindingRootIndex = value;
+export function setBindingRootForHostBindings(
+    bindingRootIndex: number, currentDirectiveIndex: number) {
+  const lFrame = instructionState.lFrame;
+  lFrame.bindingIndex = lFrame.bindingRootIndex = bindingRootIndex;
+  lFrame.currentDirectiveIndex = currentDirectiveIndex;
+}
+
+/**
+ * When host binding is executing this points to the directive index.
+ * `TView.data[getCurrentDirectiveIndex()]` is `DirectiveDef`
+ * `LView[getCurrentDirectiveIndex()]` is directive instance.
+ */
+export function getCurrentDirectiveIndex(): number {
+  return instructionState.lFrame.currentDirectiveIndex;
 }
 
 export function getCurrentQueryIndex(): number {
@@ -403,6 +409,7 @@ export function enterView(newView: LView, tNode: TNode | null): void {
   newLFrame.selectedIndex = 0;
   newLFrame.contextLView = newView !;
   newLFrame.elementDepthCount = 0;
+  newLFrame.currentDirectiveIndex = -1;
   newLFrame.currentNamespace = null;
   newLFrame.currentSanitizer = null;
   newLFrame.bindingRootIndex = -1;
@@ -430,6 +437,7 @@ function createLFrame(parent: LFrame | null): LFrame {
     elementDepthCount: 0,           //
     currentNamespace: null,         //
     currentSanitizer: null,         //
+    currentDirectiveIndex: -1,      //
     bindingRootIndex: -1,           //
     bindingIndex: -1,               //
     currentQueryIndex: 0,           //
@@ -538,12 +546,4 @@ export function getCurrentStyleSanitizer() {
   // `NodeStyleDebug` hence we return `null`. This should be fixed
   const lFrame = instructionState.lFrame;
   return lFrame === null ? null : lFrame.currentSanitizer;
-}
-
-/**
- * Used for encoding both Class and Style index into `LFrame.stylingBindingChanged`.
- */
-const enum BindingChanged {
-  CLASS_SHIFT = 16,
-  STYLE_MASK = 0xFFFF,
 }

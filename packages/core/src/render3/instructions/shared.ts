@@ -24,14 +24,14 @@ import {executeCheckHooks, executeInitAndCheckHooks, incrementInitPhaseFlags} fr
 import {ACTIVE_INDEX, ActiveIndexFlag, CONTAINER_HEADER_OFFSET, LContainer, MOVED_VIEWS} from '../interfaces/container';
 import {ComponentDef, ComponentTemplate, DirectiveDef, DirectiveDefListOrFactory, PipeDefListOrFactory, RenderFlags, ViewQueriesFunction} from '../interfaces/definition';
 import {INJECTOR_BLOOM_PARENT_SIZE, NodeInjectorFactory} from '../interfaces/injector';
-import {AttributeMarker, InitialInputData, InitialInputs, LocalRefExtractor, PropertyAliasValue, PropertyAliases, TAttributes, TConstants, TContainerNode, TDirectiveHostNode, TElementContainerNode, TElementNode, TIcuContainerNode, TNode, TNodeFlags, TNodeProviderIndexes, TNodeType, TProjectionNode, TViewNode} from '../interfaces/node';
+import {AttributeMarker, DirectiveDefsValues, InitialInputData, InitialInputs, LocalRefExtractor, PropertyAliasValue, PropertyAliases, TAttributes, TConstants, TContainerNode, TDirectiveHostNode, TElementContainerNode, TElementNode, TIcuContainerNode, TNode, TNodeFlags, TNodeProviderIndexes, TNodeType, TProjectionNode, TViewNode} from '../interfaces/node';
 import {RComment, RElement, RNode, RText, Renderer3, RendererFactory3, isProceduralRenderer} from '../interfaces/renderer';
 import {SanitizerFn} from '../interfaces/sanitization';
 import {isComponentDef, isComponentHost, isContentQueryHost, isLContainer, isRootView} from '../interfaces/type_checks';
 import {CHILD_HEAD, CHILD_TAIL, CLEANUP, CONTEXT, DECLARATION_COMPONENT_VIEW, DECLARATION_VIEW, FLAGS, HEADER_OFFSET, HOST, INJECTOR, InitPhaseState, LView, LViewFlags, NEXT, PARENT, RENDERER, RENDERER_FACTORY, RootContext, RootContextFlags, SANITIZER, TData, TVIEW, TView, TViewType, T_HOST} from '../interfaces/view';
 import {assertNodeOfPossibleTypes} from '../node_assert';
 import {isNodeMatchingSelectorList} from '../node_selector_matcher';
-import {clearActiveHostElement, enterView, getBindingsEnabled, getCheckNoChangesMode, getIsParent, getPreviousOrParentTNode, getSelectedIndex, leaveView, setActiveHostElement, setBindingIndex, setBindingRootForHostBindings, setCheckNoChangesMode, setCurrentQueryIndex, setPreviousOrParentTNode, setSelectedIndex} from '../state';
+import {enterView, getBindingsEnabled, getCheckNoChangesMode, getIsParent, getPreviousOrParentTNode, getSelectedIndex, leaveView, setBindingIndex, setBindingRootForHostBindings, setCheckNoChangesMode, setCurrentQueryIndex, setPreviousOrParentTNode, setSelectedIndex} from '../state';
 import {NO_CHANGE} from '../tokens';
 import {isAnimationProp, mergeHostAttrs} from '../util/attrs_utils';
 import {INTERPOLATION_DELIMITER, renderStringify, stringifyForError} from '../util/misc_utils';
@@ -50,7 +50,7 @@ import {LCleanup, LViewBlueprint, MatchesArray, TCleanup, TNodeDebug, TNodeIniti
 const _CLEAN_PROMISE = (() => Promise.resolve(null))();
 
 /**
- * Process the `TVIew.expandoInstructions`. (Execute the `hostBindings`.)
+ * Process the `TView.expandoInstructions`. (Execute the `hostBindings`.)
  *
  * @param tView `TView` containing the `expandoInstructions`
  * @param lView `LView` associated with the `TView`
@@ -63,7 +63,7 @@ export function setHostBindingsByExecutingExpandoInstructions(tView: TView, lVie
       let bindingRootIndex = tView.expandoStartIndex;
       let currentDirectiveIndex = -1;
       let currentElementIndex = -1;
-      // TODO(misko): PERF It is possible to get here with `TVIew.expandoInstructions` containing no
+      // TODO(misko): PERF It is possible to get here with `TView.expandoInstructions` containing no
       // functions to execute. This is wasteful as there is no work to be done, but we still need
       // to iterate over the instructions.
       // In example of this is in this test: `host_binding_spec.ts`
@@ -82,7 +82,7 @@ export function setHostBindingsByExecutingExpandoInstructions(tView: TView, lVie
             // TODO(misko): PERF This should be refactored to use `~instruction` as that does not
             // suffer from `-0` and it is faster/more compact.
             currentElementIndex = 0 - instruction;
-            setActiveHostElement(currentElementIndex);
+            setSelectedIndex(currentElementIndex);
 
             // Injector block and providers are taken into account.
             const providerCount = (expandoInstructions[++i] as number);
@@ -98,7 +98,7 @@ export function setHostBindingsByExecutingExpandoInstructions(tView: TView, lVie
         } else {
           // If it's not a number, it's a host binding function that needs to be executed.
           if (instruction !== null) {
-            setBindingRootForHostBindings(bindingRootIndex);
+            setBindingRootForHostBindings(bindingRootIndex, currentDirectiveIndex);
             const hostCtx = lView[currentDirectiveIndex];
             instruction(RenderFlags.Update, hostCtx);
           }
@@ -113,7 +113,7 @@ export function setHostBindingsByExecutingExpandoInstructions(tView: TView, lVie
       }
     }
   } finally {
-    clearActiveHostElement();
+    setSelectedIndex(-1);
   }
 }
 
@@ -529,7 +529,7 @@ function executeTemplate<T>(
     lView: LView, templateFn: ComponentTemplate<T>, rf: RenderFlags, context: T) {
   const prevSelectedIndex = getSelectedIndex();
   try {
-    clearActiveHostElement();
+    setSelectedIndex(-1);
     if (rf & RenderFlags.Update && lView.length > HEADER_OFFSET) {
       // When we're updating, inherently select 0 so we don't
       // have to generate that instruction for most update blocks.
@@ -824,11 +824,12 @@ export function createTNode(
                          tParent,    // parent: TElementNode|TContainerNode|null
                          null,       // projection: number|(ITNode|RNode[])[]|null
                          null,       // styles: string|null
-                         undefined,  // stylesMap: string|null
+                         undefined,  // residualStyles: string|null
                          null,       // classes: string|null
-                         undefined,  // classesMap: string|null
+                         undefined,  // residualClasses: string|null
                          0 as any,   // classBindings: TStylingRange;
                          0 as any,   // styleBindings: TStylingRange;
+                         null,       // directives: TDirectiveDefs|null;
                          ) :
                      {
                        type: type,
@@ -853,11 +854,12 @@ export function createTNode(
                        parent: tParent,
                        projection: null,
                        styles: null,
-                       stylesMap: undefined,
+                       residualStyles: undefined,
                        classes: null,
-                       classesMap: undefined,
+                       residualClasses: undefined,
                        classBindings: 0 as any,
                        styleBindings: 0 as any,
+                       directives: null
                      };
 }
 
@@ -1111,6 +1113,7 @@ export function resolveDirectives(
     const exportsMap: ({[key: string]: number} | null) = localRefs === null ? null : {'': -1};
 
     if (directiveDefs !== null) {
+      tNode.directives = [DirectiveDefsValues.INITIAL_STYLING_CURSOR_VALUE];
       let totalDirectiveHostVars = 0;
       hasDirectives = true;
       initTNodeFlags(tNode, tView.data.length, directiveDefs.length);
@@ -1129,6 +1132,7 @@ export function resolveDirectives(
       let preOrderCheckHooksFound = false;
       for (let i = 0; i < directiveDefs.length; i++) {
         const def = directiveDefs[i];
+        tNode.directives.push(def);
         // Merge the attrs in the order of matches. This assumes that the first directive is the
         // component itself, so that the component has the least priority.
         tNode.mergedAttrs = mergeHostAttrs(tNode.mergedAttrs, def.hostAttrs);
@@ -1261,7 +1265,7 @@ function invokeDirectivesHostBindings(tView: TView, lView: LView, tNode: TNode) 
   const firstCreatePass = tView.firstCreatePass;
   const elementIndex = tNode.index - HEADER_OFFSET;
   try {
-    setActiveHostElement(elementIndex);
+    setSelectedIndex(elementIndex);
     for (let i = start; i < end; i++) {
       const def = tView.data[i] as DirectiveDef<any>;
       const directive = lView[i];
@@ -1272,7 +1276,7 @@ function invokeDirectivesHostBindings(tView: TView, lView: LView, tNode: TNode) 
       }
     }
   } finally {
-    clearActiveHostElement();
+    setSelectedIndex(-1);
   }
 }
 
