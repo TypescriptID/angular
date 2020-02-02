@@ -38,11 +38,11 @@ import {EntryPoint, EntryPointJsonProperty, EntryPointPackageJson, SUPPORTED_FOR
 import {makeEntryPointBundle} from './packages/entry_point_bundle';
 import {Transformer} from './packages/transformer';
 import {PathMappings} from './utils';
+import {cleanOutdatedPackages} from './writing/cleaning/package_cleaner';
 import {FileWriter} from './writing/file_writer';
 import {InPlaceFileWriter} from './writing/in_place_file_writer';
 import {NewEntryPointFileWriter} from './writing/new_entry_point_file_writer';
 import {DirectPackageJsonUpdater, PackageJsonUpdater} from './writing/package_json_updater';
-
 
 /**
  * The options to configure the ngcc compiler for synchronous execution.
@@ -125,8 +125,6 @@ export type AsyncNgccOptions = Omit<SyncNgccOptions, 'async'>& {async: true};
  */
 export type NgccOptions = AsyncNgccOptions | SyncNgccOptions;
 
-const EMPTY_GRAPH = new DepGraph<EntryPoint>();
-
 /**
  * This is the main entry-point into ngcc (aNGular Compatibility Compiler).
  *
@@ -190,9 +188,18 @@ export function mainNgcc(
 
     const absBasePath = absoluteFrom(basePath);
     const config = new NgccConfiguration(fileSystem, dirname(absBasePath));
-    const {entryPoints, graph} = getEntryPoints(
+    let entryPointInfo = getEntryPoints(
         fileSystem, pkgJsonUpdater, logger, dependencyResolver, config, absBasePath,
         absoluteTargetEntryPointPath, pathMappings);
+
+    const cleaned = cleanOutdatedPackages(fileSystem, entryPointInfo.entryPoints);
+    if (cleaned) {
+      // If we had to clean up one or more packages then we must read in the entry-points again.
+      entryPointInfo = getEntryPoints(
+          fileSystem, pkgJsonUpdater, logger, dependencyResolver, config, absBasePath,
+          absoluteTargetEntryPointPath, pathMappings);
+    }
+    const {entryPoints, graph} = entryPointInfo;
 
     const unprocessableEntryPointPaths: string[] = [];
     // The tasks are partially ordered by virtue of the entry-points being partially ordered too.
@@ -200,7 +207,7 @@ export function mainNgcc(
 
     for (const entryPoint of entryPoints) {
       const packageJson = entryPoint.packageJson;
-      const hasProcessedTypings = hasBeenProcessed(packageJson, 'typings', entryPoint.path);
+      const hasProcessedTypings = hasBeenProcessed(packageJson, 'typings');
       const {propertiesToProcess, equivalentPropertiesMap} =
           getPropertiesToProcess(packageJson, supportedPropertiesToConsider, compileAllFormats);
       let processDts = !hasProcessedTypings;
@@ -265,7 +272,7 @@ export function mainNgcc(
       }
 
       // The format-path which the property maps to is already processed - nothing to do.
-      if (hasBeenProcessed(packageJson, formatProperty, entryPoint.path)) {
+      if (hasBeenProcessed(packageJson, formatProperty)) {
         logger.debug(`Skipping ${entryPoint.name} : ${formatProperty} (already compiled).`);
         onTaskCompleted(task, TaskProcessingOutcome.AlreadyProcessed);
         return;
@@ -413,7 +420,7 @@ function hasProcessedTargetEntryPoint(
   for (const property of propertiesToConsider) {
     if (packageJson[property]) {
       // Here is a property that should be processed
-      if (hasBeenProcessed(packageJson, property as EntryPointJsonProperty, targetPath)) {
+      if (hasBeenProcessed(packageJson, property as EntryPointJsonProperty)) {
         if (!compileAllFormats) {
           // It has been processed and we only need one, so we are done.
           return true;
