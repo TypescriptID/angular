@@ -26,7 +26,7 @@ The CLI schematic `@nguniversal/express-engine` performs the required steps, as 
 The [Tour of Heroes tutorial](tutorial) is the foundation for this walkthrough.
 
 In this example, the Angular CLI compiles and bundles the Universal version of the app with the
-[Ahead-of-Time (AoT) compiler](guide/aot-compiler).
+[Ahead-of-Time (AOT) compiler](guide/aot-compiler).
 A Node Express web server compiles HTML pages with Universal based on client requests.
 
 To create the server-side app module, `app.server.module.ts`, run the following CLI command.
@@ -214,7 +214,7 @@ import {REQUEST} from '@nguniversal/express-engine/tokens';
 @Injectable()
 export class UniversalInterceptor implements HttpInterceptor {
 
-  constructor(@Optional() @Inject(REQUEST) protected request: Request) {}
+  constructor(@Optional() @Inject(REQUEST) protected request?: Request) {}
 
   intercept(req: HttpRequest<any>, next: HttpHandler) {
     let serverReq: HttpRequest<any> = req;

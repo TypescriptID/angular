@@ -135,6 +135,8 @@ export declare class AnimationEvent {
       const diags = env.driveDiagnostics();
       expect(diags.length).toBe(1);
       expect(diags[0].messageText).toEqual(`Type 'string' is not assignable to type 'number'.`);
+      // The reported error code should be in the TS error space, not a -99 "NG" code.
+      expect(diags[0].code).toBeGreaterThan(0);
     });
 
     it('should support inputs and outputs with names that are not JavaScript identifiers', () => {
@@ -236,6 +238,59 @@ export declare class AnimationEvent {
       //     .toEqual(
       //         `Argument of type 'FocusEvent' is not assignable to parameter of type 'string'.`);
       expect(diags[2].messageText).toEqual(`Property 'focused' does not exist on type 'TestCmp'.`);
+    });
+
+    // https://github.com/angular/angular/issues/35073
+    it('ngIf should narrow on output types', () => {
+      env.tsconfig({strictTemplates: true});
+      env.write('test.ts', `
+        import {CommonModule} from '@angular/common';
+        import {Component, NgModule} from '@angular/core';
+
+        @Component({
+          selector: 'test',
+          template: '<div *ngIf="person" (click)="handleEvent(person.name)"></div>',
+        })
+        class TestCmp {
+          person?: { name: string; };
+          handleEvent(name: string) {}
+        }
+
+        @NgModule({
+          imports: [CommonModule],
+          declarations: [TestCmp],
+        })
+        class Module {}
+      `);
+
+      const diags = env.driveDiagnostics();
+      expect(diags.length).toBe(0);
+    });
+
+    it('ngIf should narrow on output types across multiple guards', () => {
+      env.tsconfig({strictTemplates: true});
+      env.write('test.ts', `
+        import {CommonModule} from '@angular/common';
+        import {Component, NgModule} from '@angular/core';
+
+        @Component({
+          selector: 'test',
+          template: '<div *ngIf="person"><div *ngIf="person.name" (click)="handleEvent(person.name)"></div></div>',
+        })
+        class TestCmp {
+          person?: { name?: string; };
+          handleEvent(name: string) {}
+        }
+
+        @NgModule({
+          imports: [CommonModule],
+          declarations: [TestCmp],
+        })
+        class Module {}
+      `);
+
+      const diags = env.driveDiagnostics();
+      expect(diags.length).toBe(0);
     });
 
     describe('strictInputTypes', () => {
