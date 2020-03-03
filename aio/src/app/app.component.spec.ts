@@ -417,6 +417,15 @@ describe('AppComponent', () => {
         selectElement.triggerEventHandler('change', { option: versionWithoutUrl, index: versionWithoutUrlIndex });
         expect(locationService.go).not.toHaveBeenCalled();
       });
+
+      it('should navigate when change to a version with a url that does not end with `/`', async () => {
+        await setupSelectorForTesting();
+        locationService.urlSubject.next('docs#section-1');
+        const versionWithoutSlashIndex = component.docVersions.length;
+        const versionWithoutSlashUrl = component.docVersions[versionWithoutSlashIndex] = { url: 'https://next.angular.io', title: 'foo' };
+        selectElement.triggerEventHandler('change', { option: versionWithoutSlashUrl, index: versionWithoutSlashIndex });
+        expect(locationService.go).toHaveBeenCalledWith('https://next.angular.io/docs#section-1');
+      });
     });
 
     describe('currentDocument', () => {
@@ -792,7 +801,7 @@ describe('AppComponent', () => {
           const searchService = TestBed.inject(SearchService) as Partial<SearchService> as MockSearchService;
 
           const results = [
-            { path: 'news', title: 'News', type: 'marketing', keywords: '', titleWords: '', deprecated: false }
+            { path: 'news', title: 'News', type: 'marketing', keywords: '', titleWords: '', deprecated: false, topics: '' }
           ];
 
           searchService.searchResults.next({ query: 'something', results });

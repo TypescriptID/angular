@@ -237,16 +237,15 @@ You're free to change anything, anywhere, during this turn of the event loop.
 
 Like template expressions, template *statements* use a language that looks like JavaScript.
 The template statement parser differs from the template expression parser and
-specifically supports both basic assignment (`=`) and chaining expressions
-(with <code>;</code> or <code>,</code>).
+specifically supports both basic assignment (`=`) and chaining expressions with <code>;</code>.
 
-However, certain JavaScript syntax is not allowed:
+However, certain JavaScript and template expression syntax is not allowed:
 
 * <code>new</code>
 * increment and decrement operators, `++` and `--`
 * operator assignment, such as `+=` and `-=`
-* the bitwise operators `|` and `&`
-* the [template expression operators](guide/template-syntax#expression-operators)
+* the bitwise operators, such as `|` and `&`
+* the [pipe operator](guide/template-syntax#pipe)
 
 ### Statement context
 
@@ -1066,7 +1065,7 @@ However, using the above style binding syntax without `NgStyle` is preferred bec
 {@a styling-precedence}
 ### Styling Precedence
 
-A single HTML element can have its CSS class list and style values bound to a multiple sources (for example, host bindings from multiple directives).
+A single HTML element can have its CSS class list and style values bound to multiple sources (for example, host bindings from multiple directives).
 
 When there are multiple bindings to the same class name or style property, Angular uses a set of precedence rules to resolve conflicts and determine which classes or styles are ultimately applied to the element.
 

@@ -299,19 +299,28 @@ onlyInIvy('Ivy i18n logic').describe('runtime i18n', () => {
       [computeMsgId(
           '{$START_TAG_NG_CONTAINER} One {$CLOSE_TAG_NG_CONTAINER}' +
           '{$START_TAG_DIV} Two {$CLOSE_TAG_DIV}' +
-          '{$START_TAG_SPAN} Three {$CLOSE_TAG_SPAN}')]:
+          '{$START_TAG_SPAN} Three {$CLOSE_TAG_SPAN}' +
+          '{$START_TAG_NG_TEMPLATE} Four {$CLOSE_TAG_NG_TEMPLATE}' +
+          '{$START_TAG_NG_CONTAINER_1}{$CLOSE_TAG_NG_CONTAINER}')]:
+
           '{$START_TAG_NG_CONTAINER} Une {$CLOSE_TAG_NG_CONTAINER}' +
           '{$START_TAG_DIV} Deux {$CLOSE_TAG_DIV}' +
-          '{$START_TAG_SPAN} Trois {$CLOSE_TAG_SPAN}'
+          '{$START_TAG_SPAN} Trois {$CLOSE_TAG_SPAN}' +
+          '{$START_TAG_NG_TEMPLATE} Quatre {$CLOSE_TAG_NG_TEMPLATE}' +
+          '{$START_TAG_NG_CONTAINER_1}{$CLOSE_TAG_NG_CONTAINER}'
+
     });
     const fixture = initWithTemplate(AppComp, `
       <div i18n>
         <ng-container #localRefA> One </ng-container>
         <div #localRefB> Two </div>
         <span #localRefC> Three </span>
+
+        <ng-template #localRefD> Four </ng-template>
+        <ng-container *ngTemplateOutlet="localRefD"></ng-container>
       </div>
     `);
-    expect(fixture.nativeElement.textContent).toBe(' Une  Deux  Trois ');
+    expect(fixture.nativeElement.textContent).toBe(' Une  Deux  Trois  Quatre ');
   });
 
   it('should handle local refs correctly in case an element is removed in translation', () => {
@@ -1347,6 +1356,71 @@ onlyInIvy('Ivy i18n logic').describe('runtime i18n', () => {
 
       const element = fixture.nativeElement.firstChild;
       expect(element.title).toBe('Bonjour Angular');
+    });
+
+    it('should process i18n attributes on explicit <ng-template> elements', () => {
+      const titleDirInstances: TitleDir[] = [];
+      loadTranslations({[computeMsgId('Hello')]: 'Bonjour'});
+
+      @Directive({
+        selector: '[title]',
+      })
+      class TitleDir {
+        @Input() title = '';
+        constructor() { titleDirInstances.push(this); }
+      }
+
+      @Component({
+        selector: 'comp',
+        template: '<ng-template i18n-title title="Hello"></ng-template>',
+      })
+      class Comp {
+      }
+
+      TestBed.configureTestingModule({
+        declarations: [Comp, TitleDir],
+      });
+
+      const fixture = TestBed.createComponent(Comp);
+      fixture.detectChanges();
+
+      // make sure we only match `TitleDir` once
+      expect(titleDirInstances.length).toBe(1);
+
+      expect(titleDirInstances[0].title).toBe('Bonjour');
+    });
+
+    it('should match directive only once in case i18n attrs are present on inline template', () => {
+      const titleDirInstances: TitleDir[] = [];
+      loadTranslations({[computeMsgId('Hello')]: 'Bonjour'});
+
+      @Directive({selector: '[title]'})
+      class TitleDir {
+        @Input() title: string = '';
+        constructor(public elRef: ElementRef) { titleDirInstances.push(this); }
+      }
+
+      @Component({
+        selector: 'my-cmp',
+        template: `
+          <button *ngIf="true" i18n-title title="Hello"></button>
+        `,
+      })
+      class Cmp {
+      }
+
+      TestBed.configureTestingModule({
+        imports: [CommonModule],
+        declarations: [Cmp, TitleDir],
+      });
+      const fixture = TestBed.createComponent(Cmp);
+      fixture.detectChanges();
+
+      // make sure we only match `TitleDir` once and on the right element
+      expect(titleDirInstances.length).toBe(1);
+      expect(titleDirInstances[0].elRef.nativeElement instanceof HTMLButtonElement).toBeTruthy();
+
+      expect(titleDirInstances[0].title).toBe('Bonjour');
     });
 
     it('should apply i18n attributes during second template pass', () => {

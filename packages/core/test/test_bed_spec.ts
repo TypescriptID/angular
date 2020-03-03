@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Compiler, Component, Directive, ErrorHandler, Inject, Injectable, InjectionToken, Injector, Input, ModuleWithProviders, NgModule, Optional, Pipe, Type, ViewChild, ɵsetClassMetadata as setClassMetadata, ɵɵdefineComponent as defineComponent, ɵɵdefineInjector as defineInjector, ɵɵdefineNgModule as defineNgModule, ɵɵsetNgModuleScope as setNgModuleScope, ɵɵtext as text} from '@angular/core';
+import {ChangeDetectorRef, Compiler, Component, Directive, ErrorHandler, Inject, Injectable, InjectionToken, Injector, Input, ModuleWithProviders, NgModule, Optional, Pipe, Type, ViewChild, ɵsetClassMetadata as setClassMetadata, ɵɵdefineComponent as defineComponent, ɵɵdefineInjector as defineInjector, ɵɵdefineNgModule as defineNgModule, ɵɵsetNgModuleScope as setNgModuleScope, ɵɵtext as text} from '@angular/core';
 import {TestBed, getTestBed} from '@angular/core/testing/src/test_bed';
 import {By} from '@angular/platform-browser';
 import {expect} from '@angular/platform-browser/testing/src/matchers';
@@ -485,6 +485,26 @@ describe('TestBed', () => {
        expect(service.get()).toEqual('override');
      });
 
+  it('should handle overrides for a provider that has `ChangeDetectorRef` as a dependency', () => {
+    // Note: we specifically check an @Injectable with `ChangeDetectorRef` here due to the fact that
+    // in Ivy there is a special instruction that injects `ChangeDetectorRef` token for Pipes
+    // (ɵɵinjectPipeChangeDetectorRef) and using that function for other types causes problems,
+    // for example when we try to override an @Injectable. The test below captures a use-case that
+    // triggers a problem in case incompatible function is used to inject `ChangeDetectorRef` as a
+    // dependency.
+    @Injectable({providedIn: 'root'})
+    class MyService {
+      token = 'original';
+      constructor(public cdr: ChangeDetectorRef) {}
+    }
+
+    TestBed.configureTestingModule({});
+    TestBed.overrideProvider(MyService, {useValue: {token: 'override'}});
+
+    const service = TestBed.inject(MyService);
+    expect(service.token).toBe('override');
+  });
+
   it('should allow overriding a provider defined via ModuleWithProviders (using TestBed.configureTestingModule)',
      () => {
        const serviceOverride = {
@@ -889,15 +909,23 @@ describe('TestBed', () => {
               {set: {template: `<span someDirective>{{'hello' | somePipe}}</span>`}});
           TestBed.createComponent(SomeComponent);
 
-          const defBeforeReset = (SomeComponent as any).ɵcmp;
-          expect(defBeforeReset.pipeDefs().length).toEqual(1);
-          expect(defBeforeReset.directiveDefs().length).toEqual(2);  // directive + component
+          const cmpDefBeforeReset = (SomeComponent as any).ɵcmp;
+          expect(cmpDefBeforeReset.pipeDefs().length).toEqual(1);
+          expect(cmpDefBeforeReset.directiveDefs().length).toEqual(2);  // directive + component
+
+          const modDefBeforeReset = (SomeModule as any).ɵmod;
+          const transitiveScope = modDefBeforeReset.transitiveCompileScopes.compilation;
+          expect(transitiveScope.pipes.size).toEqual(1);
+          expect(transitiveScope.directives.size).toEqual(2);
 
           TestBed.resetTestingModule();
 
-          const defAfterReset = (SomeComponent as any).ɵcmp;
-          expect(defAfterReset.pipeDefs).toBe(null);
-          expect(defAfterReset.directiveDefs).toBe(null);
+          const cmpDefAfterReset = (SomeComponent as any).ɵcmp;
+          expect(cmpDefAfterReset.pipeDefs).toBe(null);
+          expect(cmpDefAfterReset.directiveDefs).toBe(null);
+
+          const modDefAfterReset = (SomeModule as any).ɵmod;
+          expect(modDefAfterReset.transitiveCompileScopes).toBe(null);
         });
 
         it('should cleanup ng defs for classes with no ng annotations (in case of inheritance)',

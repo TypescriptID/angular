@@ -222,6 +222,7 @@ describe('Zone', function() {
             });
 
             zone.run(() => { document.dispatchEvent(scrollEvent); });
+            (document as any).removeAllListeners('scroll');
           });
 
           it('should be able to clear on handler added before load zone.js', function() {
@@ -799,6 +800,7 @@ describe('Zone', function() {
 
               button.dispatchEvent(clickEvent);
               expect(logs).toEqual([]);
+              (document as any).removeAllListeners('click');
             });
           }));
 
@@ -1035,6 +1037,42 @@ describe('Zone', function() {
            button.removeEventListener('click', listener);
          }));
 
+      describe('passiveEvents by global settings', () => {
+        let logs: string[] = [];
+        const listener = (e: Event) => {
+          logs.push(e.defaultPrevented ? 'defaultPrevented' : 'default will run');
+          e.preventDefault();
+          logs.push(e.defaultPrevented ? 'defaultPrevented' : 'default will run');
+        };
+        const testPassive = function(eventName: string, expectedPassiveLog: string, options: any) {
+          (button as any).addEventListener(eventName, listener, options);
+          const evt = document.createEvent('Event');
+          evt.initEvent(eventName, true, true);
+          button.dispatchEvent(evt);
+          expect(logs).toEqual(['default will run', expectedPassiveLog]);
+          (button as any).removeAllListeners(eventName);
+        };
+        beforeEach(() => { logs = []; });
+        it('should be passive with global variable defined',
+           () => { testPassive('touchstart', 'default will run', {passive: true}); });
+        it('should not be passive without global variable defined',
+           () => { testPassive('touchend', 'defaultPrevented', undefined); });
+        it('should be passive with global variable defined even without passive options',
+           () => { testPassive('touchstart', 'default will run', undefined); });
+        it('should be passive with global variable defined even without passive options and with capture',
+           () => { testPassive('touchstart', 'default will run', {capture: true}); });
+        it('should be passive with global variable defined with capture option',
+           () => { testPassive('touchstart', 'default will run', true); });
+        it('should not be passive with global variable defined with passive false option',
+           () => { testPassive('touchstart', 'defaultPrevented', {passive: false}); });
+        it('should be passive with global variable defined and also blacklisted', () => {
+          (document as any).removeAllListeners('scroll');
+          testPassive('scroll', 'default will run', undefined);
+        });
+        it('should not be passive without global variable defined and also blacklisted',
+           () => { testPassive('wheel', 'defaultPrevented', undefined); });
+      });
+
       it('should support Event.stopImmediatePropagation',
          ifEnvSupports(supportEventListenerOptions, function() {
            const hookSpy = jasmine.createSpy('hook');
@@ -1082,11 +1120,11 @@ describe('Zone', function() {
         });
 
         zone.run(() => { button.addEventListener('click', function() { logs.push('click'); }); });
-        let listeners = (button as any).eventListeners('click');
+        let listeners = button.eventListeners('click');
         expect(listeners.length).toBe(1);
         eventTask !.zone.cancelTask(eventTask !);
 
-        listeners = (button as any).eventListeners('click');
+        listeners = button.eventListeners('click');
         button.dispatchEvent(clickEvent);
         expect(logs.length).toBe(0);
         expect(listeners.length).toBe(0);
@@ -1108,11 +1146,11 @@ describe('Zone', function() {
            zone.run(() => {
              button.addEventListener('click', function() { logs.push('click'); }, true);
            });
-           let listeners = (button as any).eventListeners('click');
+           let listeners = button.eventListeners('click');
            expect(listeners.length).toBe(1);
            eventTask !.zone.cancelTask(eventTask !);
 
-           listeners = (button as any).eventListeners('click');
+           listeners = button.eventListeners('click');
            button.dispatchEvent(clickEvent);
            expect(logs.length).toBe(0);
            expect(listeners.length).toBe(0);
@@ -1134,7 +1172,7 @@ describe('Zone', function() {
            zone.run(
                () => { button.addEventListener('click', function() { logs.push('click1'); }); });
            button.addEventListener('click', function() { logs.push('click2'); });
-           let listeners = (button as any).eventListeners('click');
+           let listeners = button.eventListeners('click');
            expect(listeners.length).toBe(2);
 
            button.dispatchEvent(clickEvent);
@@ -1143,7 +1181,7 @@ describe('Zone', function() {
            eventTask !.zone.cancelTask(eventTask !);
            logs = [];
 
-           listeners = (button as any).eventListeners('click');
+           listeners = button.eventListeners('click');
            button.dispatchEvent(clickEvent);
            expect(logs.length).toBe(1);
            expect(listeners.length).toBe(1);
@@ -1167,7 +1205,7 @@ describe('Zone', function() {
              button.addEventListener('click', function() { logs.push('click1'); }, true);
            });
            button.addEventListener('click', function() { logs.push('click2'); }, true);
-           let listeners = (button as any).eventListeners('click');
+           let listeners = button.eventListeners('click');
            expect(listeners.length).toBe(2);
 
            button.dispatchEvent(clickEvent);
@@ -1176,7 +1214,7 @@ describe('Zone', function() {
            eventTask !.zone.cancelTask(eventTask !);
            logs = [];
 
-           listeners = (button as any).eventListeners('click');
+           listeners = button.eventListeners('click');
            button.dispatchEvent(clickEvent);
            expect(logs.length).toBe(1);
            expect(listeners.length).toBe(1);
@@ -1200,7 +1238,7 @@ describe('Zone', function() {
              button.addEventListener('click', function() { logs.push('click1'); }, true);
            });
            button.addEventListener('click', function() { logs.push('click2'); });
-           let listeners = (button as any).eventListeners('click');
+           let listeners = button.eventListeners('click');
            expect(listeners.length).toBe(2);
 
            button.dispatchEvent(clickEvent);
@@ -1209,7 +1247,7 @@ describe('Zone', function() {
            eventTask !.zone.cancelTask(eventTask !);
            logs = [];
 
-           listeners = (button as any).eventListeners('click');
+           listeners = button.eventListeners('click');
            button.dispatchEvent(clickEvent);
            expect(logs.length).toBe(1);
            expect(listeners.length).toBe(1);
@@ -1751,7 +1789,7 @@ describe('Zone', function() {
            function() {
              let logs: string[] = [];
              const listener1 = function() {
-               (button as any).removeAllListeners('click');
+               button.removeAllListeners('click');
                logs.push('listener1');
              };
              const listener2 = function() { logs.push('listener2'); };
@@ -1774,7 +1812,7 @@ describe('Zone', function() {
            function() {
              let logs: string[] = [];
              const listener1 = function() {
-               (button as any).removeAllListeners('click');
+               button.removeAllListeners('click');
                logs.push('listener1');
              };
              const listener2 = function() { logs.push('listener2'); };
@@ -1798,7 +1836,7 @@ describe('Zone', function() {
              let logs: string[] = [];
              const listener1 = function() { logs.push('listener1'); };
              const listener2 = function() {
-               (button as any).removeAllListeners('click');
+               button.removeAllListeners('click');
                logs.push('listener2');
              };
              const listener3 = {handleEvent: function(event: Event) { logs.push('listener3'); }};
@@ -1821,7 +1859,7 @@ describe('Zone', function() {
              let logs: string[] = [];
              const listener1 = function() { logs.push('listener1'); };
              const listener2 = function() {
-               (button as any).removeAllListeners('click');
+               button.removeAllListeners('click');
                logs.push('listener2');
              };
              const listener3 = {handleEvent: function(event: Event) { logs.push('listener3'); }};
@@ -1847,7 +1885,7 @@ describe('Zone', function() {
              const listener3 = {
                handleEvent: function(event: Event) {
                  logs.push('listener3');
-                 (button as any).removeAllListeners('click');
+                 button.removeAllListeners('click');
                }
              };
 
@@ -1872,7 +1910,7 @@ describe('Zone', function() {
              const listener3 = {
                handleEvent: function(event: Event) {
                  logs.push('listener3');
-                 (button as any).removeAllListeners('click');
+                 button.removeAllListeners('click');
                }
              };
 
@@ -1901,7 +1939,7 @@ describe('Zone', function() {
         button.addEventListener('click', listener3);
         button.addEventListener('mouseover', listener4);
 
-        const listeners = (button as any).eventListeners('click');
+        const listeners = button.eventListeners('click');
         expect(listeners.length).toBe(3);
         expect(listeners).toEqual([listener1, listener2, listener3]);
         button.removeEventListener('click', listener1);
@@ -1918,7 +1956,7 @@ describe('Zone', function() {
         button.addEventListener('mouseover', listener2);
         button.addEventListener('mousehover', listener3);
 
-        const listeners = (button as any).eventListeners();
+        const listeners = button.eventListeners();
         expect(listeners.length).toBe(3);
         expect(listeners).toEqual([listener1, listener2, listener3]);
         button.removeEventListener('click', listener1);
@@ -1941,8 +1979,8 @@ describe('Zone', function() {
         button.onmouseover = listener5;
         expect((button as any)[Zone.__symbol__('ON_PROPERTYmouseover')]).toEqual(listener5);
 
-        (button as any).removeAllListeners('mouseover');
-        const listeners = (button as any).eventListeners('mouseover');
+        button.removeAllListeners('mouseover');
+        const listeners = button.eventListeners('mouseover');
         expect(listeners.length).toBe(0);
         expect((button as any)[Zone.__symbol__('ON_PROPERTYmouseover')]).toBeNull();
         expect(!!button.onmouseover).toBeFalsy();
@@ -1972,8 +2010,8 @@ describe('Zone', function() {
            button.addEventListener('mouseover', listener3, true);
            button.addEventListener('click', listener4, true);
 
-           (button as any).removeAllListeners('mouseover');
-           const listeners = (button as any).eventListeners('mouseover');
+           button.removeAllListeners('mouseover');
+           const listeners = button.eventListeners('mouseover');
            expect(listeners.length).toBe(0);
 
            const mouseEvent = document.createEvent('Event');
@@ -2001,8 +2039,8 @@ describe('Zone', function() {
            button.addEventListener('mouseover', listener3, true);
            button.addEventListener('click', listener4, true);
 
-           (button as any).removeAllListeners('mouseover');
-           const listeners = (button as any).eventListeners('mouseove');
+           button.removeAllListeners('mouseover');
+           const listeners = button.eventListeners('mouseove');
            expect(listeners.length).toBe(0);
 
            const mouseEvent = document.createEvent('Event');
@@ -2032,8 +2070,8 @@ describe('Zone', function() {
         button.onmouseover = listener5;
         expect((button as any)[Zone.__symbol__('ON_PROPERTYmouseover')]).toEqual(listener5);
 
-        (button as any).removeAllListeners();
-        const listeners = (button as any).eventListeners('mouseover');
+        button.removeAllListeners();
+        const listeners = button.eventListeners('mouseover');
         expect(listeners.length).toBe(0);
         expect((button as any)[Zone.__symbol__('ON_PROPERTYmouseover')]).toBeNull();
         expect(!!button.onmouseover).toBeFalsy();
@@ -2064,7 +2102,7 @@ describe('Zone', function() {
         button.removeEventListener('mouseover', listener2);
         button.removeEventListener('click', listener3);
         button.removeEventListener('click', listener4);
-        const listeners = (button as any).eventListeners('mouseover');
+        const listeners = button.eventListeners('mouseover');
         expect(listeners.length).toBe(0);
 
         const mouseEvent = document.createEvent('Event');
@@ -2089,8 +2127,8 @@ describe('Zone', function() {
         button.addEventListener('click', listener3);
         (button as any)[Zone.__symbol__('addEventListener')]('click', listener4);
 
-        (button as any).removeAllListeners();
-        const listeners = (button as any).eventListeners('mouseover');
+        button.removeAllListeners();
+        const listeners = button.eventListeners('mouseover');
         expect(listeners.length).toBe(0);
 
         const mouseEvent = document.createEvent('Event');

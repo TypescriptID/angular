@@ -70,7 +70,7 @@ export declare class NgIf<T = unknown> {
   ngIfThen: TemplateRef<NgIfContext<T>> | null;
   constructor(_viewContainer: ViewContainerRef, templateRef: TemplateRef<NgIfContext<T>>);
   static ngTemplateGuard_ngIf: 'binding';
-  static ngTemplateContextGuard<T>(dir: NgIf<T>, ctx: any): ctx is NgIfContext<T>;
+  static ngTemplateContextGuard<T>(dir: NgIf<T>, ctx: any): ctx is NgIfContext<NonNullable<T>>;
   static ɵdir: i0.ɵɵDirectiveDefWithMeta<NgIf<any>, '[ngIf]', never, {'ngIf': 'ngIf'}, {}, never>;
 }
 
@@ -289,6 +289,32 @@ export declare class AnimationEvent {
         class Module {}
       `);
 
+      const diags = env.driveDiagnostics();
+      expect(diags.length).toBe(0);
+    });
+
+    it('should support a directive being used in its own input expression', () => {
+      env.tsconfig({strictTemplates: true});
+      env.write('test.ts', `
+        import {Component, Directive, NgModule, Input} from '@angular/core';
+
+        @Component({
+          selector: 'test',
+          template: '<target-cmp #ref [foo]="ref.bar"></target-cmp>',
+        })
+        export class TestCmp {}
+
+        @Component({template: '', selector: 'target-cmp'})
+        export class TargetCmp {
+          readonly bar = 'test';
+          @Input() foo: string;
+        }
+
+        @NgModule({
+          declarations: [TestCmp, TargetCmp],
+        })
+        export class Module {}
+      `);
       const diags = env.driveDiagnostics();
       expect(diags.length).toBe(0);
     });
@@ -764,6 +790,54 @@ export declare class AnimationEvent {
     @Component({
       selector: 'test',
       template: '<div *ngIf="user !== null">{{user.name}}</div>',
+    })
+    class TestCmp {
+      user: {name: string}|null;
+    }
+
+    @NgModule({
+      declarations: [TestCmp],
+      imports: [CommonModule],
+    })
+    class Module {}
+    `);
+
+      env.driveMain();
+    });
+
+    it('should check usage of NgIf when using "let" to capture $implicit context variable', () => {
+      env.tsconfig({strictTemplates: true});
+      env.write('test.ts', `
+    import {CommonModule} from '@angular/common';
+    import {Component, NgModule} from '@angular/core';
+
+    @Component({
+      selector: 'test',
+      template: '<div *ngIf="user; let u">{{u.name}}</div>',
+    })
+    class TestCmp {
+      user: {name: string}|null;
+    }
+
+    @NgModule({
+      declarations: [TestCmp],
+      imports: [CommonModule],
+    })
+    class Module {}
+    `);
+
+      env.driveMain();
+    });
+
+    it('should check usage of NgIf when using "as" to capture `ngIf` context variable', () => {
+      env.tsconfig({strictTemplates: true});
+      env.write('test.ts', `
+    import {CommonModule} from '@angular/common';
+    import {Component, NgModule} from '@angular/core';
+
+    @Component({
+      selector: 'test',
+      template: '<div *ngIf="user as u">{{u.name}}</div>',
     })
     class TestCmp {
       user: {name: string}|null;

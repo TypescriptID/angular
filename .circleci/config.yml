@@ -22,8 +22,8 @@ version: 2.1
 # **NOTE 1 **: If you change the cache key prefix, also sync the cache_key_fallback to match.
 # **NOTE 2 **: Keep the static part of the cache key as prefix to enable correct fallbacks.
 # See https://circleci.com/docs/2.0/caching/#restoring-cache for how prefixes work in CircleCI.
-var_3: &cache_key v3-angular-node-12-{{ checksum "yarn.lock" }}-{{ checksum "WORKSPACE" }}-{{ checksum "packages/bazel/package.bzl" }}-{{ checksum "aio/yarn.lock" }}
-var_4: &cache_key_fallback v3-angular-node-12-
+var_3: &cache_key v4-angular-node-12-{{ checksum "yarn.lock" }}-{{ checksum "WORKSPACE" }}-{{ checksum "packages/bazel/package.bzl" }}-{{ checksum "aio/yarn.lock" }}
+var_4: &cache_key_fallback v4-angular-node-12-
 var_3_win: &cache_key_win v5-angular-win-node-12-{{ checksum "yarn.lock" }}-{{ checksum "WORKSPACE" }}-{{ checksum "packages/bazel/package.bzl" }}-{{ checksum "aio/yarn.lock" }}
 var_4_win: &cache_key_win_fallback v5-angular-win-node-12-
 
@@ -78,20 +78,6 @@ executors:
     resource_class: << parameters.resource_class >>
     working_directory: ~/ng
 
-  browsers-executor:
-    parameters:
-      resource_class:
-        type: string
-        default: medium
-    docker:
-      # The browser docker image comes with Chrome and Firefox preinstalled. This is just
-      # needed for jobs that run tests without Bazel. Bazel runs tests with browsers that will be
-      # fetched by the Webtesting rules. Therefore for jobs that run tests with Bazel, we don't need a
-      # docker image with browsers pre-installed.
-      - image: circleci/node:12.14.1-browsers@sha256:792797ab9be3179be7c9fc38a0931a3349288e699467c8d646d7c54e148ae46c
-    resource_class: << parameters.resource_class >>
-    working_directory: ~/ng
-
   windows-executor:
     working_directory: ~/ng
     resource_class: windows.medium
@@ -135,6 +121,19 @@ commands:
             # This is a very small install which takes around 7s in comparing to using the full
             # circleci/node:x.x.x-browsers image.
             sudo apt-get -y install libgtk-3-0 libasound2 libnss3 libxss1
+
+  # Install java runtime which is required by some integration tests such as
+  # //integration:hello_world__closure_test, //integration:i18n_test and
+  # //integration:ng_elements_test to run the closure compiler
+  install_java:
+    description: Install java
+    steps:
+      - run:
+          name: Install java
+          command: |
+            sudo apt-get update
+            # Install java runtime
+            sudo apt-get install default-jre
 
   # Initializes the CI environment by setting up common environment variables.
   init_environment:
@@ -281,10 +280,16 @@ jobs:
   test:
     executor:
       name: default-executor
-      resource_class: xlarge
+      # Now that large integration tests are running locally in parallel (they can't run on RBE yet
+      # as they require network access for yarn install), this test is running out of memory
+      # consistently with the xlarge machine.
+      # TODO: switch back to xlarge once integration tests are running on remote-exec
+      resource_class: 2xlarge+
     steps:
       - custom_attach_workspace
       - init_environment
+      - install_chrome_libs
+      - install_java
       - run:
           command: yarn bazel test //... --build_tag_filters=-ivy-only --test_tag_filters=-ivy-only
           no_output_timeout: 20m
@@ -297,6 +302,7 @@ jobs:
     steps:
       - custom_attach_workspace
       - init_environment
+      - install_chrome_libs
       # We need to explicitly specify the --symlink_prefix option because otherwise we would
       # not be able to easily find the output bin directory when uploading artifacts for size
       # measurements.
@@ -323,11 +329,7 @@ jobs:
           path: dist/bin/packages/core/test/bundling/todo/bundle.min.js.br
           destination: core/todo/bundle.br
 
-  # This job is currently a PoC for running tests on SauceLabs via bazel. It runs a subset of the
-  # tests in `legacy-unit-tests-saucelabs` (see
-  # [BUILD.bazel](https://github.com/angular/angular/blob/ef44f51d5/BUILD.bazel#L66-L92)).
-  #
-  # NOTE: This is currently limited to master builds only. See the `default_workflow` configuration.
+  # NOTE: This is currently limited to master builds only. See the `monitoring` configuration.
   saucelabs_view_engine:
     executor:
       name: default-executor
@@ -340,16 +342,18 @@ jobs:
       - init_environment
       - init_saucelabs_environment
       - run:
-          name: Run Bazel tests on Saucelabs
+          name: Run Bazel tests on Saucelabs with ViewEngine
           # See /tools/saucelabs/README.md for more info
           command: |
             yarn bazel run //tools/saucelabs:sauce_service_setup
-            yarn bazel test //:saucelabs_unit_tests_poc_suite --config=saucelabs
+            TESTS=$(./node_modules/.bin/bazel query --output label '(kind(karma_web_test, ...) intersect attr("tags", "saucelabs", ...)) except attr("tags", "ivy-only", ...) except attr("tags", "fixme-saucelabs-ve", ...)')
+            yarn bazel test --config=saucelabs ${TESTS}
             yarn bazel run //tools/saucelabs:sauce_service_stop
-          no_output_timeout: 20m
+          no_output_timeout: 40m
       - notify_webhook_on_fail:
           webhook_url_env_var: SLACK_DEV_INFRA_CI_FAILURES_WEBHOOK_URL
 
+  # NOTE: This is currently limited to master builds only. See the `monitoring` configuration.
   saucelabs_ivy:
     executor:
       name: default-executor
@@ -362,13 +366,16 @@ jobs:
       - init_environment
       - init_saucelabs_environment
       - run:
-          name: Run Bazel tests on Saucelabs
+          name: Run Bazel tests on Saucelabs with Ivy
           # See /tools/saucelabs/README.md for more info
           command: |
             yarn bazel run //tools/saucelabs:sauce_service_setup
-            yarn bazel test //:saucelabs_unit_tests --config=saucelabs --config=ivy
+            TESTS=$(./node_modules/.bin/bazel query --output label '(kind(karma_web_test, ...) intersect attr("tags", "saucelabs", ...)) except attr("tags", "no-ivy-aot", ...) except attr("tags", "fixme-saucelabs-ivy", ...)')
+            yarn bazel test --config=saucelabs --config=ivy ${TESTS}
             yarn bazel run //tools/saucelabs:sauce_service_stop
-          no_output_timeout: 20m
+          no_output_timeout: 40m
+      - notify_webhook_on_fail:
+          webhook_url_env_var: SLACK_DEV_INFRA_CI_FAILURES_WEBHOOK_URL
 
   test_aio:
     executor: default-executor
@@ -546,25 +553,18 @@ jobs:
           paths:
             - ng/dist/packages-dist-ivy-aot
 
-  # We run the integration tests outside of Bazel for now.
-  # They are a separate workflow job so that they can be easily re-run.
-  # When the tests are ported to bazel test targets, they should move to the "test"
-  # job above, as part of the bazel test command. That has flaky_test_attempts so the
-  # need to re-run manually should be alleviated.
+  # We run a subset of the integration tests outside of Bazel that track
+  # payload size.
   # See comments inside the integration/run_tests.sh script.
+  # TODO(gregmagolan): move payload size tracking to Bazel and remove this job.
   integration_test:
-    executor:
-      # Needed because the integration/bazel-schematics test expects Chrome to be installed
-      # TODO(gregmagolan): remove the dependency on local chrome from that test
-      name: browsers-executor
-      # Note: we run Bazel in one of the integration tests, and it can consume >2G
-      # of memory. Together with the system under test, this can exhaust the RAM
-      # on a 4G worker so we use a larger machine here too.
-      resource_class: xlarge
-    parallelism: 4
+    executor: default-executor
+    parallelism: 3
     steps:
       - custom_attach_workspace
       - init_environment
+      - install_chrome_libs
+      - install_java
       # Runs the integration tests in parallel across multiple CircleCI container instances. The
       # amount of container nodes for this job is controlled by the "parallelism" option.
       - run: ./integration/run_tests.sh ${CIRCLE_NODE_INDEX} ${CIRCLE_NODE_TOTAL}
@@ -819,17 +819,6 @@ workflows:
       - legacy-unit-tests-saucelabs:
           requires:
             - setup
-      - saucelabs_ivy:
-          requires:
-            - test_ivy_aot
-      - saucelabs_view_engine:
-          # This job is currently a PoC and a subset of `legacy-unit-tests-saucelabs`. Running on
-          # master only to avoid wasting resources.
-          # TODO: Run this job on all branches (including PRs) as soon as it is not a PoC and
-          # we can remove the legacy saucelabs job.
-          <<: *only_on_master
-          requires:
-            - setup
       - test_aio:
           requires:
             - setup
@@ -879,7 +868,6 @@ workflows:
             - test
             - test_ivy_aot
             - integration_test
-            - saucelabs_ivy
             # Only publish if `aio`/`docs` tests using the locally built Angular packages pass
             - test_aio_local
             - test_aio_local_viewengine
@@ -911,7 +899,7 @@ workflows:
           requires:
             - test_ivy_aot
 
-  aio_monitoring:
+  monitoring:
     jobs:
       - setup
       - aio_monitoring_stable:
@@ -920,8 +908,26 @@ workflows:
       - aio_monitoring_next:
           requires:
             - setup
+      - saucelabs_ivy:
+          # Testing saucelabs via Bazel currently taking longer than the legacy saucelabs job as it
+          # each karma_web_test target is provisioning and tearing down browsers which is adding
+          # a lot of overhead. Running once daily on master only to avoid wasting resources and
+          # slowing down CI for PRs.
+          # TODO: Run this job on all branches (including PRs) once karma_web_test targets can
+          # share provisioned browsers and we can remove the legacy saucelabs job.
+          requires:
+            - setup
+      - saucelabs_view_engine:
+          # Testing saucelabs via Bazel currently taking longer than the legacy saucelabs job as it
+          # each karma_web_test target is provisioning and tearing down browsers which is adding
+          # a lot of overhead. Running once daily on master only to avoid wasting resources and
+          # slowing down CI for PRs.
+          # TODO: Run this job on all branches (including PRs) once karma_web_test targets can
+          # share provisioned browsers and we can remove the legacy saucelabs job.
+          requires:
+            - setup
     triggers:
       - schedule:
           <<: *only_on_master
-          # Runs AIO monitoring jobs at 10:00AM every day.
+          # Runs monitoring jobs at 10:00AM every day.
           cron: "0 10 * * *"

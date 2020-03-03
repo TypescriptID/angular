@@ -1129,17 +1129,17 @@ describe('styling', () => {
   });
 
   onlyInIvy('only ivy combines static and dynamic class-related attr values')
-      .it('should write to a `className` input binding, when static `class` is present', () => {
+      .it('should write combined class attribute and class binding to the class input', () => {
         @Component({
           selector: 'comp',
           template: `{{className}}`,
         })
         class Comp {
-          @Input() className: string = '';
+          @Input('class') className: string = '';
         }
 
         @Component({
-          template: `<comp class="static" [className]="'my-className'"></comp>`,
+          template: `<comp class="static" [class]="'my-className'"></comp>`,
         })
         class App {
         }
@@ -1149,32 +1149,6 @@ describe('styling', () => {
         fixture.detectChanges();
         expect(fixture.debugElement.nativeElement.firstChild.innerHTML).toBe('static my-className');
       });
-
-  onlyInIvy('in Ivy [class] and [className] bindings on the same element are not allowed')
-      .it('should throw an error in case [class] and [className] bindings are used on the same element',
-          () => {
-            @Component({
-              selector: 'comp',
-              template: `{{class}} - {{className}}`,
-            })
-            class Comp {
-              @Input() class: string = '';
-              @Input() className: string = '';
-            }
-            @Component({
-              template: `<comp [class]="'my-class'" [className]="'className'"></comp>`,
-            })
-            class App {
-            }
-
-            TestBed.configureTestingModule({declarations: [Comp, App]});
-            expect(() => {
-              const fixture = TestBed.createComponent(App);
-              fixture.detectChanges();
-            })
-                .toThrowError(
-                    '[class] and [className] bindings cannot be used on the same element simultaneously');
-          });
 
   onlyInIvy('only ivy persists static class/style attrs with their binding counterparts')
       .it('should write to a `class` input binding if there is a static class value and there is a binding value',
@@ -3384,6 +3358,55 @@ describe('styling', () => {
   });
 
   describe('regression', () => {
+    it('should support sanitizer value in the [style] bindings', () => {
+      if (!ivyEnabled && !supportsWritingStringsToStyleProperty()) {
+        // VE does not treat `[style]` as anything special, instead it simply writes to the
+        // `style` property on the element like so `element.style=value`. This seems to work fine
+        // every where except ie10, where it throws an error and as a consequence this test fails in
+        // VE on ie10.
+        return;
+      }
+      @Component({template: `<div [style]="style"></div>`})
+      class HostBindingTestComponent {
+        style: SafeStyle = this.sanitizer.bypassSecurityTrustStyle('color: white; display: block;');
+        constructor(private sanitizer: DomSanitizer) {}
+      }
+      TestBed.configureTestingModule({declarations: [HostBindingTestComponent]});
+      const fixture = TestBed.createComponent(HostBindingTestComponent);
+      fixture.detectChanges();
+      const div: HTMLElement = fixture.nativeElement.querySelector('div');
+      expectStyle(div).toEqual({color: 'white', display: 'block'});
+    });
+
+    /**
+     * Tests to see if the current browser supports non standard way of writing into styles.
+     *
+     * This is not the correct way to write to style and is not supported in ie10.
+     * ```
+     * div.style = 'color: white';
+     * ```
+     *
+     * This is the correct way to write to styles:
+     * ```
+     * div.style.cssText = 'color: white';
+     * ```
+     *
+     * Even though writing to `div.style` is not officially supported, it works in all
+     * browsers except ie10.
+     *
+     * This function detects this condition and allows us to skip the test.
+     */
+    function supportsWritingStringsToStyleProperty() {
+      const div = document.createElement('div');
+      const CSS = 'color: white;';
+      try {
+        (div as any).style = CSS;
+      } catch (e) {
+        return false;
+      }
+      return div.style.cssText === CSS;
+    }
+
     onlyInIvy('styling priority resolution is Ivy only feature.')
         .it('should allow lookahead binding on second pass #35118', () => {
           @Component({
@@ -3411,13 +3434,12 @@ describe('styling', () => {
           class MyApp {
             // When the first view in the list gets CD-ed, everything works.
             // When the second view gets CD-ed, the styling has already created the data structures
-            // in the `TView`. As a result when
-            // `[class.foo]` runs it already knows that `[class]` is a duplicate and hence it
-            // should check with it. While the resolution is happening it reads the value of the
-            // `[class]`, however `[class]` has not yet executed and therefore it does not have
-            // normalized value in its `LView`. The result is that the assertions fails as it
-            // expects an
-            // `KeyValueArray`.
+            // in the `TView`. As a result when `[class.foo]` runs it already knows that `[class]`
+            // is a duplicate and hence it can overwrite the `[class.foo]` binding. While the
+            // styling resolution is happening the algorithm  reads the value of the `[class]`
+            // (because it overwrites `[class.foo]`), however  `[class]` has not yet executed and
+            // therefore it does not have normalized value in its `LView`. The result is that the
+            // assertions fails as it expects an `KeyValueArray`.
           }
 
           TestBed.configureTestingModule({declarations: [MyApp, MyCmp, HostStylingsDir]});
@@ -3427,6 +3449,44 @@ describe('styling', () => {
           expectClass(cmp1).toEqual({foo: true, bar: true});
           expectClass(cmp2).toEqual({foo: true, bar: true});
         });
+
+    it('should not bind [class] to @Input("className")', () => {
+      @Component({
+        selector: 'my-cmp',
+        template: `className = {{className}}`,
+      })
+      class MyCmp {
+        @Input()
+        className: string = 'unbound';
+      }
+      @Component({template: `<my-cmp [class]="'bound'"></my-cmp>`})
+      class MyApp {
+      }
+
+      TestBed.configureTestingModule({declarations: [MyApp, MyCmp]});
+      const fixture = TestBed.createComponent(MyApp);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toEqual('className = unbound');
+    });
+
+    it('should not bind class to @Input("className")', () => {
+      @Component({
+        selector: 'my-cmp',
+        template: `className = {{className}}`,
+      })
+      class MyCmp {
+        @Input()
+        className: string = 'unbound';
+      }
+      @Component({template: `<my-cmp class="bound"></my-cmp>`})
+      class MyApp {
+      }
+
+      TestBed.configureTestingModule({declarations: [MyApp, MyCmp]});
+      const fixture = TestBed.createComponent(MyApp);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toEqual('className = unbound');
+    });
   });
 });
 

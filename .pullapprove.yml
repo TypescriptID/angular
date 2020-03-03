@@ -40,6 +40,7 @@
 #  AndrewKushnir - Andrew Kushnir
 #  andrewseguin - Andrew Seguin
 #  atscott - Andrew Scott
+#  ayazhafiz - Ayaz Hafiz
 #  clydin - Charles Lyding
 #  crisbeto - Kristiyan Kostadinov
 #  dennispbrown - Denny Brown
@@ -630,6 +631,7 @@ groups:
           ])
     reviewers:
       users:
+        - ayazhafiz
         - kyliau
       teams:
         - ~framework-global-approvers
@@ -643,7 +645,8 @@ groups:
     conditions:
       - >
         contains_any_globs(files, [
-          'packages/zone.js/**'
+          'packages/zone.js/**',
+          'aio/content/guide/zone.md'
           ])
     reviewers:
       users:
@@ -953,6 +956,7 @@ groups:
           'tools/ng_rollup_bundle/**',
           'tools/ngcontainer/**',
           'tools/npm/**',
+          'tools/npm_integration_test/**',
           'tools/public_api_guard/BUILD.bazel',
           'tools/public_api_guard/public_api_guard.bzl',
           'tools/pullapprove/**',
