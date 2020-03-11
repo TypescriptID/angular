@@ -29,7 +29,7 @@ var_4_win: &cache_key_win_fallback v5-angular-win-node-12-
 
 # Cache key for the `components-repo-unit-tests` job. **Note** when updating the SHA in the
 # cache keys also update the SHA for the "COMPONENTS_REPO_COMMIT" environment variable.
-var_5: &components_repo_unit_tests_cache_key v5-angular-components-2ec7254f88c4865e0de251f74c27e64c9d00d40a
+var_5: &components_repo_unit_tests_cache_key v5-angular-components-598db096e668aa7e9debd56eedfd127b7a55e371
 var_6: &components_repo_unit_tests_cache_key_fallback v5-angular-components-
 
 # Workspace initially persisted by the `setup` job, and then enhanced by `build-npm-packages` and
@@ -274,7 +274,7 @@ jobs:
       - run: 'yarn bazel:lint ||
               (echo -e "\n.bzl files have lint errors. Please run ''yarn bazel:lint-fix''"; exit 1)'
 
-      - run: yarn gulp lint
+      - run: yarn lint
       - run: node tools/pullapprove/verify.js
 
   test:
@@ -465,12 +465,14 @@ jobs:
       - when:
           condition: << parameters.ivy >>
           steps:
-              # Rename the Ivy packages dist folder to "dist/packages-dist" as the AIO
-              # package installer picks up the locally built packages from that location.
+              # Rename the "dist/*-dist-ivy-aot" packages directories (persisted to the workspace by
+              # the `build-ivy-npm-packages` job) to "dist/*-dist" as the AIO package installer
+              # picks up the locally built packages from that location.
               # *Note*: We could also adjust the packages installer, but given we won't have
               # two different folders of Angular distributions in the future, we should keep
               # the packages installer unchanged.
             - run: mv dist/packages-dist-ivy-aot dist/packages-dist
+            - run: mv dist/zone.js-dist-ivy-aot dist/zone.js-dist
         # Run examples tests. The "CIRCLE_NODE_INDEX" will be set if "parallelism" is enabled.
         # Since the parallelism is set to "5", there will be five parallel CircleCI containers.
         # with either "0", "1", etc as node index. This can be passed to the "--shard" argument.
@@ -520,7 +522,7 @@ jobs:
     steps:
       - custom_attach_workspace
       - init_environment
-      - run: node scripts/build-packages-dist.js
+      - run: node scripts/build/build-packages-dist.js
 
       # Save the npm packages from //packages/... for other workflow jobs to read
       - persist_to_workspace:
@@ -545,13 +547,14 @@ jobs:
     steps:
       - custom_attach_workspace
       - init_environment
-      - run: node scripts/build-ivy-npm-packages.js
+      - run: node scripts/build/build-ivy-npm-packages.js
 
       # Save the npm packages from //packages/... for other workflow jobs to read
       - persist_to_workspace:
           root: *workspace_location
           paths:
             - ng/dist/packages-dist-ivy-aot
+            - ng/dist/zone.js-dist-ivy-aot
 
   # We run a subset of the integration tests outside of Bazel that track
   # payload size.

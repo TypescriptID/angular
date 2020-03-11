@@ -118,12 +118,38 @@ export class Parser {
         span, span.toAbsolute(absoluteOffset), prefix, uninterpretedExpression, location);
   }
 
-  parseTemplateBindings(tplKey: string, tplValue: string, location: any, absoluteOffset: number):
-      TemplateBindingParseResult {
-    const tokens = this._lexer.tokenize(tplValue);
+  /**
+   * Parse microsyntax template expression and return a list of bindings or
+   * parsing errors in case the given expression is invalid.
+   *
+   * For example,
+   * ```
+   *   <div *ngFor="let item of items">
+   *                ^ `absoluteOffset` for `tplValue`
+   * ```
+   * contains three bindings:
+   * 1. ngFor -> null
+   * 2. item -> NgForOfContext.$implicit
+   * 3. ngForOf -> items
+   *
+   * This is apparent from the de-sugared template:
+   * ```
+   *   <ng-template ngFor let-item [ngForOf]="items">
+   * ```
+   *
+   * @param templateKey name of directive, without the * prefix. For example: ngIf, ngFor
+   * @param templateValue RHS of the microsyntax attribute
+   * @param templateUrl template filename if it's external, component filename if it's inline
+   * @param absoluteOffset absolute offset of the `tplValue`
+   */
+  parseTemplateBindings(
+      templateKey: string, templateValue: string, templateUrl: string,
+      absoluteOffset: number): TemplateBindingParseResult {
+    const tokens = this._lexer.tokenize(templateValue);
     return new _ParseAST(
-               tplValue, location, absoluteOffset, tokens, tplValue.length, false, this.errors, 0)
-        .parseTemplateBindings(tplKey);
+               templateValue, templateUrl, absoluteOffset, tokens, templateValue.length,
+               false /* parseAction */, this.errors, 0 /* relative offset */)
+        .parseTemplateBindings(templateKey);
   }
 
   parseInterpolation(
@@ -288,7 +314,7 @@ export class _ParseAST {
 
   advance() { this.index++; }
 
-  optionalCharacter(code: number): boolean {
+  consumeOptionalCharacter(code: number): boolean {
     if (this.next.isCharacter(code)) {
       this.advance();
       return true;
@@ -301,11 +327,11 @@ export class _ParseAST {
   peekKeywordAs(): boolean { return this.next.isKeywordAs(); }
 
   expectCharacter(code: number) {
-    if (this.optionalCharacter(code)) return;
+    if (this.consumeOptionalCharacter(code)) return;
     this.error(`Missing expected ${String.fromCharCode(code)}`);
   }
 
-  optionalOperator(op: string): boolean {
+  consumeOptionalOperator(op: string): boolean {
     if (this.next.isOperator(op)) {
       this.advance();
       return true;
@@ -315,7 +341,7 @@ export class _ParseAST {
   }
 
   expectOperator(operator: string) {
-    if (this.optionalOperator(operator)) return;
+    if (this.consumeOptionalOperator(operator)) return;
     this.error(`Missing expected operator ${operator}`);
   }
 
@@ -346,11 +372,11 @@ export class _ParseAST {
       const expr = this.parsePipe();
       exprs.push(expr);
 
-      if (this.optionalCharacter(chars.$SEMICOLON)) {
+      if (this.consumeOptionalCharacter(chars.$SEMICOLON)) {
         if (!this.parseAction) {
           this.error('Binding expression cannot contain chained expression');
         }
-        while (this.optionalCharacter(chars.$SEMICOLON)) {
+        while (this.consumeOptionalCharacter(chars.$SEMICOLON)) {
         }  // read all semicolons
       } else if (this.index < this.tokens.length) {
         this.error(`Unexpected token '${this.next}'`);
@@ -363,7 +389,7 @@ export class _ParseAST {
 
   parsePipe(): AST {
     let result = this.parseExpression();
-    if (this.optionalOperator('|')) {
+    if (this.consumeOptionalOperator('|')) {
       if (this.parseAction) {
         this.error('Cannot have a pipe in an action expression');
       }
@@ -373,13 +399,13 @@ export class _ParseAST {
         const name = this.expectIdentifierOrKeyword();
         const nameSpan = this.sourceSpan(nameStart);
         const args: AST[] = [];
-        while (this.optionalCharacter(chars.$COLON)) {
+        while (this.consumeOptionalCharacter(chars.$COLON)) {
           args.push(this.parseExpression());
         }
         const {start} = result.span;
         result =
             new BindingPipe(this.span(start), this.sourceSpan(start), result, name, args, nameSpan);
-      } while (this.optionalOperator('|'));
+      } while (this.consumeOptionalOperator('|'));
     }
 
     return result;
@@ -391,10 +417,10 @@ export class _ParseAST {
     const start = this.inputIndex;
     const result = this.parseLogicalOr();
 
-    if (this.optionalOperator('?')) {
+    if (this.consumeOptionalOperator('?')) {
       const yes = this.parsePipe();
       let no: AST;
-      if (!this.optionalCharacter(chars.$COLON)) {
+      if (!this.consumeOptionalCharacter(chars.$COLON)) {
         const end = this.inputIndex;
         const expression = this.input.substring(start, end);
         this.error(`Conditional expression ${expression} requires all 3 expressions`);
@@ -411,7 +437,7 @@ export class _ParseAST {
   parseLogicalOr(): AST {
     // '||'
     let result = this.parseLogicalAnd();
-    while (this.optionalOperator('||')) {
+    while (this.consumeOptionalOperator('||')) {
       const right = this.parseLogicalAnd();
       const {start} = result.span;
       result = new Binary(this.span(start), this.sourceSpan(start), '||', result, right);
@@ -422,7 +448,7 @@ export class _ParseAST {
   parseLogicalAnd(): AST {
     // '&&'
     let result = this.parseEquality();
-    while (this.optionalOperator('&&')) {
+    while (this.consumeOptionalOperator('&&')) {
       const right = this.parseEquality();
       const {start} = result.span;
       result = new Binary(this.span(start), this.sourceSpan(start), '&&', result, right);
@@ -544,18 +570,18 @@ export class _ParseAST {
     let result = this.parsePrimary();
     const resultStart = result.span.start;
     while (true) {
-      if (this.optionalCharacter(chars.$PERIOD)) {
+      if (this.consumeOptionalCharacter(chars.$PERIOD)) {
         result = this.parseAccessMemberOrMethodCall(result, false);
 
-      } else if (this.optionalOperator('?.')) {
+      } else if (this.consumeOptionalOperator('?.')) {
         result = this.parseAccessMemberOrMethodCall(result, true);
 
-      } else if (this.optionalCharacter(chars.$LBRACKET)) {
+      } else if (this.consumeOptionalCharacter(chars.$LBRACKET)) {
         this.rbracketsExpected++;
         const key = this.parsePipe();
         this.rbracketsExpected--;
         this.expectCharacter(chars.$RBRACKET);
-        if (this.optionalOperator('=')) {
+        if (this.consumeOptionalOperator('=')) {
           const value = this.parseConditional();
           result = new KeyedWrite(
               this.span(resultStart), this.sourceSpan(resultStart), result, key, value);
@@ -563,7 +589,7 @@ export class _ParseAST {
           result = new KeyedRead(this.span(resultStart), this.sourceSpan(resultStart), result, key);
         }
 
-      } else if (this.optionalCharacter(chars.$LPAREN)) {
+      } else if (this.consumeOptionalCharacter(chars.$LPAREN)) {
         this.rparensExpected++;
         const args = this.parseCallArguments();
         this.rparensExpected--;
@@ -571,7 +597,7 @@ export class _ParseAST {
         result =
             new FunctionCall(this.span(resultStart), this.sourceSpan(resultStart), result, args);
 
-      } else if (this.optionalOperator('!')) {
+      } else if (this.consumeOptionalOperator('!')) {
         result = new NonNullAssert(this.span(resultStart), this.sourceSpan(resultStart), result);
 
       } else {
@@ -582,7 +608,7 @@ export class _ParseAST {
 
   parsePrimary(): AST {
     const start = this.inputIndex;
-    if (this.optionalCharacter(chars.$LPAREN)) {
+    if (this.consumeOptionalCharacter(chars.$LPAREN)) {
       this.rparensExpected++;
       const result = this.parsePipe();
       this.rparensExpected--;
@@ -609,7 +635,7 @@ export class _ParseAST {
       this.advance();
       return new ImplicitReceiver(this.span(start), this.sourceSpan(start));
 
-    } else if (this.optionalCharacter(chars.$LBRACKET)) {
+    } else if (this.consumeOptionalCharacter(chars.$LBRACKET)) {
       this.rbracketsExpected++;
       const elements = this.parseExpressionList(chars.$RBRACKET);
       this.rbracketsExpected--;
@@ -647,7 +673,7 @@ export class _ParseAST {
     if (!this.next.isCharacter(terminator)) {
       do {
         result.push(this.parsePipe());
-      } while (this.optionalCharacter(chars.$COMMA));
+      } while (this.consumeOptionalCharacter(chars.$COMMA));
     }
     return result;
   }
@@ -657,7 +683,7 @@ export class _ParseAST {
     const values: AST[] = [];
     const start = this.inputIndex;
     this.expectCharacter(chars.$LBRACE);
-    if (!this.optionalCharacter(chars.$RBRACE)) {
+    if (!this.consumeOptionalCharacter(chars.$RBRACE)) {
       this.rbracesExpected++;
       do {
         const quoted = this.next.isString();
@@ -665,7 +691,7 @@ export class _ParseAST {
         keys.push({key, quoted});
         this.expectCharacter(chars.$COLON);
         values.push(this.parsePipe());
-      } while (this.optionalCharacter(chars.$COMMA));
+      } while (this.consumeOptionalCharacter(chars.$COMMA));
       this.rbracesExpected--;
       this.expectCharacter(chars.$RBRACE);
     }
@@ -676,7 +702,7 @@ export class _ParseAST {
     const start = receiver.span.start;
     const id = this.expectIdentifierOrKeyword();
 
-    if (this.optionalCharacter(chars.$LPAREN)) {
+    if (this.consumeOptionalCharacter(chars.$LPAREN)) {
       this.rparensExpected++;
       const args = this.parseCallArguments();
       this.expectCharacter(chars.$RPAREN);
@@ -688,14 +714,14 @@ export class _ParseAST {
 
     } else {
       if (isSafe) {
-        if (this.optionalOperator('=')) {
+        if (this.consumeOptionalOperator('=')) {
           this.error('The \'?.\' operator cannot be used in the assignment');
           return new EmptyExpr(this.span(start), this.sourceSpan(start));
         } else {
           return new SafePropertyRead(this.span(start), this.sourceSpan(start), receiver, id);
         }
       } else {
-        if (this.optionalOperator('=')) {
+        if (this.consumeOptionalOperator('=')) {
           if (!this.parseAction) {
             this.error('Bindings cannot contain assignments');
             return new EmptyExpr(this.span(start), this.sourceSpan(start));
@@ -716,84 +742,208 @@ export class _ParseAST {
     const positionals: AST[] = [];
     do {
       positionals.push(this.parsePipe());
-    } while (this.optionalCharacter(chars.$COMMA));
+    } while (this.consumeOptionalCharacter(chars.$COMMA));
     return positionals as BindingPipe[];
   }
 
   /**
-   * An identifier, a keyword, a string with an optional `-` in between.
+   * Parses an identifier, a keyword, a string with an optional `-` in between.
    */
-  expectTemplateBindingKey(): string {
+  expectTemplateBindingKey(): {key: string, keySpan: ParseSpan} {
     let result = '';
     let operatorFound = false;
+    const start = this.inputIndex;
     do {
       result += this.expectIdentifierOrKeywordOrString();
-      operatorFound = this.optionalOperator('-');
+      operatorFound = this.consumeOptionalOperator('-');
       if (operatorFound) {
         result += '-';
       }
     } while (operatorFound);
-
-    return result.toString();
+    return {
+      key: result,
+      keySpan: new ParseSpan(start, start + result.length),
+    };
   }
 
-  // Parses the AST for `<some-tag *tplKey=AST>`
-  parseTemplateBindings(tplKey: string): TemplateBindingParseResult {
-    let firstBinding = true;
+  /**
+   * Parse microsyntax template expression and return a list of bindings or
+   * parsing errors in case the given expression is invalid.
+   *
+   * For example,
+   * ```
+   *   <div *ngFor="let item of items; index as i; trackBy: func">
+   * ```
+   * contains five bindings:
+   * 1. ngFor -> null
+   * 2. item -> NgForOfContext.$implicit
+   * 3. ngForOf -> items
+   * 4. i -> NgForOfContext.index
+   * 5. ngForTrackBy -> func
+   *
+   * For a full description of the microsyntax grammar, see
+   * https://gist.github.com/mhevery/d3530294cff2e4a1b3fe15ff75d08855
+   *
+   * @param templateKey name of the microsyntax directive, like ngIf, ngFor, without the *
+   */
+  parseTemplateBindings(templateKey: string): TemplateBindingParseResult {
     const bindings: TemplateBinding[] = [];
-    const warnings: string[] = [];
-    do {
-      const start = this.inputIndex;
-      let rawKey: string;
-      let key: string;
-      let isVar: boolean = false;
-      if (firstBinding) {
-        rawKey = key = tplKey;
-        firstBinding = false;
+
+    // The first binding is for the template key itself
+    // In *ngFor="let item of items", key = "ngFor", value = null
+    // In *ngIf="cond | pipe", key = "ngIf", value = "cond | pipe"
+    bindings.push(...this.parseDirectiveKeywordBindings(
+        templateKey, new ParseSpan(0, templateKey.length), this.absoluteOffset));
+
+    while (this.index < this.tokens.length) {
+      // If it starts with 'let', then this must be variable declaration
+      const letBinding = this.parseLetBinding();
+      if (letBinding) {
+        bindings.push(letBinding);
       } else {
-        isVar = this.peekKeywordLet();
-        if (isVar) this.advance();
-        rawKey = this.expectTemplateBindingKey();
-        key = isVar ? rawKey : tplKey + rawKey[0].toUpperCase() + rawKey.substring(1);
-        this.optionalCharacter(chars.$COLON);
-      }
-
-      let name: string = null !;
-      let expression: ASTWithSource|null = null;
-      if (isVar) {
-        if (this.optionalOperator('=')) {
-          name = this.expectTemplateBindingKey();
+        // Two possible cases here, either `value "as" key` or
+        // "directive-keyword expression". We don't know which case, but both
+        // "value" and "directive-keyword" are template binding key, so consume
+        // the key first.
+        const {key, keySpan} = this.expectTemplateBindingKey();
+        // Peek at the next token, if it is "as" then this must be variable
+        // declaration.
+        const binding = this.parseAsBinding(key, keySpan, this.absoluteOffset);
+        if (binding) {
+          bindings.push(binding);
         } else {
-          name = '\$implicit';
+          // Otherwise the key must be a directive keyword, like "of". Transform
+          // the key to actual key. Eg. of -> ngForOf, trackBy -> ngForTrackBy
+          const actualKey = templateKey + key[0].toUpperCase() + key.substring(1);
+          bindings.push(
+              ...this.parseDirectiveKeywordBindings(actualKey, keySpan, this.absoluteOffset));
         }
-      } else if (this.peekKeywordAs()) {
-        this.advance();  // consume `as`
-        name = rawKey;
-        key = this.expectTemplateBindingKey();  // read local var name
-        isVar = true;
-      } else if (this.next !== EOF && !this.peekKeywordLet()) {
-        const start = this.inputIndex;
-        const ast = this.parsePipe();
-        const source = this.input.substring(start - this.offset, this.inputIndex - this.offset);
-        expression =
-            new ASTWithSource(ast, source, this.location, this.absoluteOffset + start, this.errors);
       }
+      this.consumeStatementTerminator();
+    }
 
-      bindings.push(new TemplateBinding(
-          this.span(start), this.sourceSpan(start), key, isVar, name, expression));
-      if (this.peekKeywordAs() && !isVar) {
-        const letStart = this.inputIndex;
-        this.advance();                                   // consume `as`
-        const letName = this.expectTemplateBindingKey();  // read local var name
-        bindings.push(new TemplateBinding(
-            this.span(letStart), this.sourceSpan(letStart), letName, true, key, null !));
-      }
-      if (!this.optionalCharacter(chars.$SEMICOLON)) {
-        this.optionalCharacter(chars.$COMMA);
-      }
-    } while (this.index < this.tokens.length);
+    return new TemplateBindingParseResult(bindings, [] /* warnings */, this.errors);
+  }
 
-    return new TemplateBindingParseResult(bindings, warnings, this.errors);
+  /**
+   * Parse a directive keyword, followed by a mandatory expression.
+   * For example, "of items", "trackBy: func".
+   * The bindings are: ngForOf -> items, ngForTrackBy -> func
+   * There could be an optional "as" binding that follows the expression.
+   * For example,
+   * ```
+   * *ngFor="let item of items | slice:0:1 as collection".`
+   *                  ^^ ^^^^^^^^^^^^^^^^^ ^^^^^^^^^^^^^
+   *             keyword    bound target   optional 'as' binding
+   * ```
+   *
+   * @param key binding key, for example, ngFor, ngIf, ngForOf
+   * @param keySpan span of the key in the expression. keySpan might be different
+   * from `key.length`. For example, the span for key "ngForOf" is "of".
+   * @param absoluteOffset absolute offset of the attribute value
+   */
+  private parseDirectiveKeywordBindings(key: string, keySpan: ParseSpan, absoluteOffset: number):
+      TemplateBinding[] {
+    const bindings: TemplateBinding[] = [];
+    this.consumeOptionalCharacter(chars.$COLON);  // trackBy: trackByFunction
+    const valueExpr = this.getDirectiveBoundTarget();
+    const span = new ParseSpan(keySpan.start, this.inputIndex);
+    bindings.push(new TemplateBinding(
+        span, span.toAbsolute(absoluteOffset), key, false /* keyIsVar */, valueExpr?.source || '', valueExpr));
+    // The binding could optionally be followed by "as". For example,
+    // *ngIf="cond | pipe as x". In this case, the key in the "as" binding
+    // is "x" and the value is the template key itself ("ngIf"). Note that the
+    // 'key' in the current context now becomes the "value" in the next binding.
+    const asBinding = this.parseAsBinding(key, keySpan, absoluteOffset);
+    if (asBinding) {
+      bindings.push(asBinding);
+    }
+    this.consumeStatementTerminator();
+    return bindings;
+  }
+
+  /**
+   * Return the expression AST for the bound target of a directive keyword
+   * binding. For example,
+   * ```
+   * *ngIf="condition | pipe".
+   *        ^^^^^^^^^^^^^^^^ bound target for "ngIf"
+   * *ngFor="let item of items"
+   *                     ^^^^^ bound target for "ngForOf"
+   * ```
+   */
+  private getDirectiveBoundTarget(): ASTWithSource|null {
+    if (this.next === EOF || this.peekKeywordAs() || this.peekKeywordLet()) {
+      return null;
+    }
+    const ast = this.parsePipe();  // example: "condition | async"
+    const {start, end} = ast.span;
+    const value = this.input.substring(start, end);
+    return new ASTWithSource(ast, value, this.location, this.absoluteOffset + start, this.errors);
+  }
+
+  /**
+   * Return the binding for a variable declared using `as`. Note that the order
+   * of the key-value pair in this declaration is reversed. For example,
+   * ```
+   * *ngFor="let item of items; index as i"
+   *                            ^^^^^    ^
+   *                            value    key
+   * ```
+   *
+   * @param value name of the value in the declaration, "ngIf" in the example above
+   * @param valueSpan span of the value in the declaration
+   * @param absoluteOffset absolute offset of `value`
+   */
+  private parseAsBinding(value: string, valueSpan: ParseSpan, absoluteOffset: number):
+      TemplateBinding|null {
+    if (!this.peekKeywordAs()) {
+      return null;
+    }
+    this.advance();  // consume the 'as' keyword
+    const {key} = this.expectTemplateBindingKey();
+    const valueAst = new AST(valueSpan, valueSpan.toAbsolute(absoluteOffset));
+    const valueExpr = new ASTWithSource(
+        valueAst, value, this.location, absoluteOffset + valueSpan.start, this.errors);
+    const span = new ParseSpan(valueSpan.start, this.inputIndex);
+    return new TemplateBinding(
+        span, span.toAbsolute(absoluteOffset), key, true /* keyIsVar */, value, valueExpr);
+  }
+
+  /**
+   * Return the binding for a variable declared using `let`. For example,
+   * ```
+   * *ngFor="let item of items; let i=index;"
+   *         ^^^^^^^^           ^^^^^^^^^^^
+   * ```
+   * In the first binding, `item` is bound to `NgForOfContext.$implicit`.
+   * In the second binding, `i` is bound to `NgForOfContext.index`.
+   */
+  private parseLetBinding(): TemplateBinding|null {
+    if (!this.peekKeywordLet()) {
+      return null;
+    }
+    const spanStart = this.inputIndex;
+    this.advance();  // consume the 'let' keyword
+    const {key} = this.expectTemplateBindingKey();
+    let valueExpr: ASTWithSource|null = null;
+    if (this.consumeOptionalOperator('=')) {
+      const {key: value, keySpan: valueSpan} = this.expectTemplateBindingKey();
+      const ast = new AST(valueSpan, valueSpan.toAbsolute(this.absoluteOffset));
+      valueExpr = new ASTWithSource(
+          ast, value, this.location, this.absoluteOffset + valueSpan.start, this.errors);
+    }
+    const spanEnd = this.inputIndex;
+    const span = new ParseSpan(spanStart, spanEnd);
+    return new TemplateBinding(
+        span, span.toAbsolute(this.absoluteOffset), key, true /* keyIsVar */, valueExpr?.source || '$implicit', valueExpr);
+  }
+
+  /**
+   * Consume the optional statement terminator: semicolon or comma.
+   */
+  private consumeStatementTerminator() {
+    this.consumeOptionalCharacter(chars.$SEMICOLON) || this.consumeOptionalCharacter(chars.$COMMA);
   }
 
   error(message: string, index: number|null = null) {
