@@ -17,6 +17,9 @@ const VERBOSE_LOGS = !!process.env['VERBOSE_LOGS'];
 // Set to true if you want the /tmp folder created to persist after running `bazel test`
 const KEEP_TMP = false;
 
+// bazelisk requires a $HOME environment variable for its cache
+process.env['HOME'] = tmp.dirSync({keep: KEEP_TMP, unsafeCleanup: !KEEP_TMP}).name;
+
 function fail(...m) {
   console.error();
   console.error(`[${path.basename(__filename)}]`);
@@ -132,6 +135,22 @@ function copyToTmp(files) {
 }
 
 /**
+ * Expands environment variables in a string of the form ${FOO_BAR}.
+ */
+function expandEnv(s) {
+  if (!s) return s;
+  const reg = /\$\{(\w+)\}/g;
+  return s.replace(reg, (matched) => {
+    const varName = matched.substring(2, matched.length - 1);
+    if (process.env.hasOwnProperty(varName)) {
+      return process.env[varName];
+    } else {
+      throw `Failed to expand unbound environment variable '${varName}' in '${s}'`;
+    }
+  });
+}
+
+/**
  * TestRunner handles setting up the integration test and executing
  * the test commands based on the config.
  */
@@ -153,7 +172,7 @@ class TestRunner {
       //       and quoted arguments that contain spaces
       const split = command.split(' ');
       let binary = split[0];
-      const args = split.slice(1);
+      const args = split.slice(1).map(a => expandEnv(a));
       switch (binary) {
         case 'patch-package-json': {
           let packageJsonFile = 'package.json';

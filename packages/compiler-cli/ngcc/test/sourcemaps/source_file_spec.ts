@@ -7,30 +7,27 @@
  */
 import {encode} from 'sourcemap-codec';
 
-import {FileSystem, absoluteFrom, getFileSystem} from '../../../src/ngtsc/file_system';
+import {absoluteFrom} from '../../../src/ngtsc/file_system';
 import {runInEachFileSystem} from '../../../src/ngtsc/file_system/testing';
 import {RawSourceMap} from '../../src/sourcemaps/raw_source_map';
-import {SourceFile, computeLineLengths, extractOriginalSegments, parseMappings} from '../../src/sourcemaps/source_file';
+import {SegmentMarker} from '../../src/sourcemaps/segment_marker';
+import {Mapping, SourceFile, computeStartOfLinePositions, ensureOriginalSegmentLinks, extractOriginalSegments, findLastMappingIndexBefore, parseMappings} from '../../src/sourcemaps/source_file';
 
 runInEachFileSystem(() => {
   describe('SourceFile and utilities', () => {
-    let fs: FileSystem;
     let _: typeof absoluteFrom;
 
-    beforeEach(() => {
-      fs = getFileSystem();
-      _ = absoluteFrom;
-    });
+    beforeEach(() => { _ = absoluteFrom; });
 
     describe('parseMappings()', () => {
       it('should be an empty array for source files with no source map', () => {
-        const mappings = parseMappings(null, []);
+        const mappings = parseMappings(null, [], []);
         expect(mappings).toEqual([]);
       });
 
       it('should be empty array for source files with no source map mappings', () => {
         const rawSourceMap: RawSourceMap = {mappings: '', names: [], sources: [], version: 3};
-        const mappings = parseMappings(rawSourceMap, []);
+        const mappings = parseMappings(rawSourceMap, [], []);
         expect(mappings).toEqual([]);
       });
 
@@ -42,18 +39,18 @@ runInEachFileSystem(() => {
           version: 3
         };
         const originalSource = new SourceFile(_('/foo/src/a.js'), 'abcdefg', null, false, []);
-        const mappings = parseMappings(rawSourceMap, [originalSource]);
+        const mappings = parseMappings(rawSourceMap, [originalSource], [0, 8]);
         expect(mappings).toEqual([
           {
-            generatedSegment: {line: 0, column: 0},
+            generatedSegment: {line: 0, column: 0, position: 0, next: undefined},
             originalSource,
-            originalSegment: {line: 0, column: 0},
+            originalSegment: {line: 0, column: 0, position: 0, next: undefined},
             name: undefined
           },
           {
-            generatedSegment: {line: 0, column: 6},
+            generatedSegment: {line: 0, column: 6, position: 6, next: undefined},
             originalSource,
-            originalSegment: {line: 0, column: 3},
+            originalSegment: {line: 0, column: 3, position: 3, next: undefined},
             name: undefined
           },
         ]);
@@ -61,12 +58,13 @@ runInEachFileSystem(() => {
     });
 
     describe('extractOriginalSegments()', () => {
-      it('should return an empty array for source files with no source map',
-         () => { expect(extractOriginalSegments(parseMappings(null, []))).toEqual([]); });
+      it('should return an empty Map for source files with no source map', () => {
+        expect(extractOriginalSegments(parseMappings(null, [], []))).toEqual(new Map());
+      });
 
-      it('should be empty array for source files with no source map mappings', () => {
+      it('should be empty Map for source files with no source map mappings', () => {
         const rawSourceMap: RawSourceMap = {mappings: '', names: [], sources: [], version: 3};
-        expect(extractOriginalSegments(parseMappings(rawSourceMap, []))).toEqual([]);
+        expect(extractOriginalSegments(parseMappings(rawSourceMap, [], []))).toEqual(new Map());
       });
 
       it('should parse the segments in ascending order of original position from the raw source map',
@@ -78,11 +76,257 @@ runInEachFileSystem(() => {
              sources: ['a.js'],
              version: 3
            };
-           expect(extractOriginalSegments(parseMappings(rawSourceMap, [originalSource]))).toEqual([
-             {line: 0, column: 0},
-             {line: 0, column: 2},
-             {line: 0, column: 3},
+           const originalSegments =
+               extractOriginalSegments(parseMappings(rawSourceMap, [originalSource], [0, 8]));
+           expect(originalSegments.get(originalSource)).toEqual([
+             {line: 0, column: 0, position: 0, next: undefined},
+             {line: 0, column: 2, position: 2, next: undefined},
+             {line: 0, column: 3, position: 3, next: undefined},
            ]);
+         });
+
+      it('should create separate arrays for each original source file', () => {
+        const sourceA = new SourceFile(_('/foo/src/a.js'), 'abcdefg', null, false, []);
+        const sourceB = new SourceFile(_('/foo/src/b.js'), '1234567', null, false, []);
+        const rawSourceMap: RawSourceMap = {
+          mappings:
+              encode([[[0, 0, 0, 0], [2, 1, 0, 3], [4, 0, 0, 2], [5, 1, 0, 5], [6, 1, 0, 2]]]),
+          names: [],
+          sources: ['a.js', 'b.js'],
+          version: 3
+        };
+        const originalSegments =
+            extractOriginalSegments(parseMappings(rawSourceMap, [sourceA, sourceB], [0, 8]));
+        expect(originalSegments.get(sourceA)).toEqual([
+          {line: 0, column: 0, position: 0, next: undefined},
+          {line: 0, column: 2, position: 2, next: undefined},
+        ]);
+        expect(originalSegments.get(sourceB)).toEqual([
+          {line: 0, column: 2, position: 2, next: undefined},
+          {line: 0, column: 3, position: 3, next: undefined},
+          {line: 0, column: 5, position: 5, next: undefined},
+        ]);
+      });
+    });
+
+    describe('findLastMappingIndexBefore', () => {
+      it('should find the highest mapping index that has a segment marker below the given one if there is not an exact match',
+         () => {
+           const marker5: SegmentMarker = {line: 0, column: 50, position: 50, next: undefined};
+           const marker4: SegmentMarker = {line: 0, column: 40, position: 40, next: marker5};
+           const marker3: SegmentMarker = {line: 0, column: 30, position: 30, next: marker4};
+           const marker2: SegmentMarker = {line: 0, column: 20, position: 20, next: marker3};
+           const marker1: SegmentMarker = {line: 0, column: 10, position: 10, next: marker2};
+           const mappings: Mapping[] = [marker1, marker2, marker3, marker4, marker5].map(
+               marker => ({ generatedSegment: marker } as Mapping));
+
+           const marker: SegmentMarker = {line: 0, column: 35, position: 35, next: undefined};
+           const index = findLastMappingIndexBefore(mappings, marker, /* exclusive */ false, 0);
+           expect(index).toEqual(2);
+         });
+
+      it('should find the highest mapping index that has a segment marker (when there are duplicates) below the given one if there is not an exact match',
+         () => {
+           const marker5: SegmentMarker = {line: 0, column: 50, position: 50, next: undefined};
+           const marker4: SegmentMarker = {line: 0, column: 30, position: 30, next: marker5};
+           const marker3: SegmentMarker = {line: 0, column: 30, position: 30, next: marker4};
+           const marker2: SegmentMarker = {line: 0, column: 20, position: 20, next: marker3};
+           const marker1: SegmentMarker = {line: 0, column: 10, position: 10, next: marker2};
+           const mappings: Mapping[] = [marker1, marker2, marker3, marker4, marker5].map(
+               marker => ({ generatedSegment: marker } as Mapping));
+
+           const marker: SegmentMarker = {line: 0, column: 35, position: 35, next: undefined};
+           const index = findLastMappingIndexBefore(mappings, marker, /* exclusive */ false, 0);
+           expect(index).toEqual(3);
+         });
+
+      it('should find the last mapping if the segment marker is higher than all of them', () => {
+        const marker5: SegmentMarker = {line: 0, column: 50, position: 50, next: undefined};
+        const marker4: SegmentMarker = {line: 0, column: 40, position: 40, next: marker5};
+        const marker3: SegmentMarker = {line: 0, column: 30, position: 30, next: marker4};
+        const marker2: SegmentMarker = {line: 0, column: 20, position: 20, next: marker3};
+        const marker1: SegmentMarker = {line: 0, column: 10, position: 10, next: marker2};
+        const mappings: Mapping[] = [marker1, marker2, marker3, marker4, marker5].map(
+            marker => ({ generatedSegment: marker } as Mapping));
+
+        const marker: SegmentMarker = {line: 0, column: 60, position: 60, next: undefined};
+
+        const index = findLastMappingIndexBefore(mappings, marker, /* exclusive */ false, 0);
+        expect(index).toEqual(4);
+      });
+
+      it('should return -1 if the segment marker is lower than all of them', () => {
+        const marker5: SegmentMarker = {line: 0, column: 50, position: 50, next: undefined};
+        const marker4: SegmentMarker = {line: 0, column: 40, position: 40, next: marker5};
+        const marker3: SegmentMarker = {line: 0, column: 30, position: 30, next: marker4};
+        const marker2: SegmentMarker = {line: 0, column: 20, position: 20, next: marker3};
+        const marker1: SegmentMarker = {line: 0, column: 10, position: 10, next: marker2};
+        const mappings: Mapping[] = [marker1, marker2, marker3, marker4, marker5].map(
+            marker => ({ generatedSegment: marker } as Mapping));
+
+        const marker: SegmentMarker = {line: 0, column: 5, position: 5, next: undefined};
+
+        const index = findLastMappingIndexBefore(mappings, marker, /* exclusive */ false, 0);
+        expect(index).toEqual(-1);
+      });
+
+      describe('[exact match inclusive]', () => {
+        it('should find the matching segment marker mapping index if there is only one of them',
+           () => {
+             const marker5: SegmentMarker = {line: 0, column: 50, position: 50, next: undefined};
+             const marker4: SegmentMarker = {line: 0, column: 40, position: 40, next: marker5};
+             const marker3: SegmentMarker = {line: 0, column: 30, position: 30, next: marker4};
+             const marker2: SegmentMarker = {line: 0, column: 20, position: 20, next: marker3};
+             const marker1: SegmentMarker = {line: 0, column: 10, position: 10, next: marker2};
+
+             const mappings: Mapping[] = [marker1, marker2, marker3, marker4, marker5].map(
+                 marker => ({ generatedSegment: marker } as Mapping));
+             const index = findLastMappingIndexBefore(mappings, marker3, /* exclusive */ false, 0);
+             expect(index).toEqual(2);
+           });
+
+        it('should find the highest matching segment marker mapping index if there is more than one of them',
+           () => {
+             const marker5: SegmentMarker = {line: 0, column: 50, position: 50, next: undefined};
+             const marker4: SegmentMarker = {line: 0, column: 30, position: 30, next: marker5};
+             const marker3: SegmentMarker = {line: 0, column: 30, position: 30, next: marker4};
+             const marker2: SegmentMarker = {line: 0, column: 20, position: 20, next: marker3};
+             const marker1: SegmentMarker = {line: 0, column: 10, position: 10, next: marker2};
+
+             const mappings: Mapping[] = [marker1, marker2, marker3, marker4, marker5].map(
+                 marker => ({ generatedSegment: marker } as Mapping));
+             const index = findLastMappingIndexBefore(mappings, marker3, /* exclusive */ false, 0);
+             expect(index).toEqual(3);
+           });
+      });
+
+      describe('[exact match exclusive]', () => {
+        it('should find the preceding mapping index if there is a matching segment marker', () => {
+          const marker5: SegmentMarker = {line: 0, column: 50, position: 50, next: undefined};
+          const marker4: SegmentMarker = {line: 0, column: 40, position: 40, next: marker5};
+          const marker3: SegmentMarker = {line: 0, column: 30, position: 30, next: marker4};
+          const marker2: SegmentMarker = {line: 0, column: 20, position: 20, next: marker3};
+          const marker1: SegmentMarker = {line: 0, column: 10, position: 10, next: marker2};
+
+          const mappings: Mapping[] = [marker1, marker2, marker3, marker4, marker5].map(
+              marker => ({ generatedSegment: marker } as Mapping));
+          const index = findLastMappingIndexBefore(mappings, marker3, /* exclusive */ true, 0);
+          expect(index).toEqual(1);
+        });
+
+        it('should find the highest preceding mapping index if there is more than one matching segment marker',
+           () => {
+             const marker5: SegmentMarker = {line: 0, column: 50, position: 50, next: undefined};
+             const marker4: SegmentMarker = {line: 0, column: 30, position: 30, next: marker5};
+             const marker3: SegmentMarker = {line: 0, column: 30, position: 30, next: marker4};
+             const marker2: SegmentMarker = {line: 0, column: 20, position: 20, next: marker3};
+             const marker1: SegmentMarker = {line: 0, column: 10, position: 10, next: marker2};
+
+             const mappings: Mapping[] = [marker1, marker2, marker3, marker4, marker5].map(
+                 marker => ({ generatedSegment: marker } as Mapping));
+             const index = findLastMappingIndexBefore(mappings, marker3, /* exclusive */ false, 0);
+             expect(index).toEqual(3);
+           });
+      });
+
+      describe('[with lowerIndex hint', () => {
+        it('should find the highest mapping index above the lowerIndex hint that has a segment marker below the given one if there is not an exact match',
+           () => {
+             const marker5: SegmentMarker = {line: 0, column: 50, position: 50, next: undefined};
+             const marker4: SegmentMarker = {line: 0, column: 40, position: 40, next: marker5};
+             const marker3: SegmentMarker = {line: 0, column: 30, position: 30, next: marker4};
+             const marker2: SegmentMarker = {line: 0, column: 20, position: 20, next: marker3};
+             const marker1: SegmentMarker = {line: 0, column: 10, position: 10, next: marker2};
+             const mappings: Mapping[] = [marker1, marker2, marker3, marker4, marker5].map(
+                 marker => ({ generatedSegment: marker } as Mapping));
+
+             const marker: SegmentMarker = {line: 0, column: 35, position: 35, next: undefined};
+             const index = findLastMappingIndexBefore(mappings, marker, /* exclusive */ false, 1);
+             expect(index).toEqual(2);
+           });
+
+        it('should return the lowerIndex mapping index if there is a single exact match and we are not exclusive',
+           () => {
+             const marker5: SegmentMarker = {line: 0, column: 50, position: 50, next: undefined};
+             const marker4: SegmentMarker = {line: 0, column: 40, position: 40, next: marker5};
+             const marker3: SegmentMarker = {line: 0, column: 30, position: 30, next: marker4};
+             const marker2: SegmentMarker = {line: 0, column: 20, position: 20, next: marker3};
+             const marker1: SegmentMarker = {line: 0, column: 10, position: 10, next: marker2};
+             const mappings: Mapping[] = [marker1, marker2, marker3, marker4, marker5].map(
+                 marker => ({ generatedSegment: marker } as Mapping));
+
+             const marker: SegmentMarker = {line: 0, column: 30, position: 30, next: undefined};
+             const index = findLastMappingIndexBefore(mappings, marker, /* exclusive */ false, 2);
+             expect(index).toEqual(2);
+           });
+
+        it('should return the lowerIndex mapping index if there are multiple exact matches and we are not exclusive',
+           () => {
+             const marker5: SegmentMarker = {line: 0, column: 50, position: 50, next: undefined};
+             const marker4: SegmentMarker = {line: 0, column: 30, position: 30, next: marker5};
+             const marker3: SegmentMarker = {line: 0, column: 30, position: 30, next: marker4};
+             const marker2: SegmentMarker = {line: 0, column: 20, position: 20, next: marker3};
+             const marker1: SegmentMarker = {line: 0, column: 10, position: 10, next: marker2};
+             const mappings: Mapping[] = [marker1, marker2, marker3, marker4, marker5].map(
+                 marker => ({ generatedSegment: marker } as Mapping));
+
+             const marker: SegmentMarker = {line: 0, column: 30, position: 30, next: undefined};
+             const index = findLastMappingIndexBefore(mappings, marker, /* exclusive */ false, 3);
+             expect(index).toEqual(3);
+           });
+
+        it('should return -1 if the segment marker is lower than the lowerIndex hint', () => {
+          const marker5: SegmentMarker = {line: 0, column: 50, position: 50, next: undefined};
+          const marker4: SegmentMarker = {line: 0, column: 40, position: 40, next: marker5};
+          const marker3: SegmentMarker = {line: 0, column: 30, position: 30, next: marker4};
+          const marker2: SegmentMarker = {line: 0, column: 20, position: 20, next: marker3};
+          const marker1: SegmentMarker = {line: 0, column: 10, position: 10, next: marker2};
+          const mappings: Mapping[] = [marker1, marker2, marker3, marker4, marker5].map(
+              marker => ({ generatedSegment: marker } as Mapping));
+
+          const marker: SegmentMarker = {line: 0, column: 25, position: 25, next: undefined};
+
+          const index = findLastMappingIndexBefore(mappings, marker, /* exclusive */ false, 2);
+          expect(index).toEqual(-1);
+        });
+
+        it('should return -1 if the segment marker is equal to the lowerIndex hint and we are exclusive',
+           () => {
+             const marker5: SegmentMarker = {line: 0, column: 50, position: 50, next: undefined};
+             const marker4: SegmentMarker = {line: 0, column: 40, position: 40, next: marker5};
+             const marker3: SegmentMarker = {line: 0, column: 30, position: 30, next: marker4};
+             const marker2: SegmentMarker = {line: 0, column: 20, position: 20, next: marker3};
+             const marker1: SegmentMarker = {line: 0, column: 10, position: 10, next: marker2};
+             const mappings: Mapping[] = [marker1, marker2, marker3, marker4, marker5].map(
+                 marker => ({ generatedSegment: marker } as Mapping));
+
+             const marker: SegmentMarker = {line: 0, column: 30, position: 30, next: undefined};
+
+             const index = findLastMappingIndexBefore(mappings, marker, /* exclusive */ true, 2);
+             expect(index).toEqual(-1);
+           });
+      });
+    });
+
+    describe('ensureOriginalSegmentLinks', () => {
+      it('should add `next` properties to each segment that point to the next segment in the same source file',
+         () => {
+           const sourceA = new SourceFile(_('/foo/src/a.js'), 'abcdefg', null, false, []);
+           const sourceB = new SourceFile(_('/foo/src/b.js'), '1234567', null, false, []);
+           const rawSourceMap: RawSourceMap = {
+             mappings:
+                 encode([[[0, 0, 0, 0], [2, 1, 0, 3], [4, 0, 0, 2], [5, 1, 0, 5], [6, 1, 0, 2]]]),
+             names: [],
+             sources: ['a.js', 'b.js'],
+             version: 3
+           };
+           const mappings = parseMappings(rawSourceMap, [sourceA, sourceB], [0, 8]);
+           ensureOriginalSegmentLinks(mappings);
+           expect(mappings[0].originalSegment.next).toBe(mappings[2].originalSegment);
+           expect(mappings[1].originalSegment.next).toBe(mappings[3].originalSegment);
+           expect(mappings[2].originalSegment.next).toBeUndefined();
+           expect(mappings[3].originalSegment.next).toBeUndefined();
+           expect(mappings[4].originalSegment.next).toBe(mappings[1].originalSegment);
          });
     });
 
@@ -112,20 +356,23 @@ runInEachFileSystem(() => {
              const originalSource = new SourceFile(_('/foo/src/a.js'), 'abcdefg', null, false, []);
              const sourceFile = new SourceFile(
                  _('/foo/src/index.js'), 'abc123defg', rawSourceMap, false, [originalSource]);
-             expect(sourceFile.flattenedMappings)
-                 .toEqual(parseMappings(rawSourceMap, [originalSource]));
+             expect(removeOriginalSegmentLinks(sourceFile.flattenedMappings))
+                 .toEqual(parseMappings(rawSourceMap, [originalSource], [0, 11]));
            });
 
         it('should merge mappings from flattened original source files', () => {
-          const cSource = new SourceFile(_('/foo/src/c.js'), 'bcd123e', null, false, []);
+          const cSource = new SourceFile(_('/foo/src/c.js'), 'bcd123', null, false, []);
+          const dSource = new SourceFile(_('/foo/src/d.js'), 'aef', null, false, []);
+
           const bSourceMap: RawSourceMap = {
-            mappings: encode([[[1, 0, 0, 0], [4, 0, 0, 3], [4, 0, 0, 6], [5, 0, 0, 7]]]),
+            mappings: encode([[[0, 1, 0, 0], [1, 0, 0, 0], [4, 1, 0, 1]]]),
             names: [],
-            sources: ['c.js'],
+            sources: ['c.js', 'd.js'],
             version: 3
           };
           const bSource =
-              new SourceFile(_('/foo/src/b.js'), 'abcdef', bSourceMap, false, [cSource]);
+              new SourceFile(_('/foo/src/b.js'), 'abcdef', bSourceMap, false, [cSource, dSource]);
+
           const aSourceMap: RawSourceMap = {
             mappings: encode([[[0, 0, 0, 0], [2, 0, 0, 3], [4, 0, 0, 2], [5, 0, 0, 5]]]),
             names: [],
@@ -135,41 +382,41 @@ runInEachFileSystem(() => {
           const aSource =
               new SourceFile(_('/foo/src/a.js'), 'abdecf', aSourceMap, false, [bSource]);
 
-          expect(aSource.flattenedMappings).toEqual([
+          expect(removeOriginalSegmentLinks(aSource.flattenedMappings)).toEqual([
             {
-              generatedSegment: {line: 0, column: 1},
-              originalSource: cSource,
-              originalSegment: {line: 0, column: 0},
+              generatedSegment: {line: 0, column: 0, position: 0, next: undefined},
+              originalSource: dSource,
+              originalSegment: {line: 0, column: 0, position: 0, next: undefined},
               name: undefined
             },
             {
-              generatedSegment: {line: 0, column: 2},
+              generatedSegment: {line: 0, column: 1, position: 1, next: undefined},
               originalSource: cSource,
-              originalSegment: {line: 0, column: 2},
+              originalSegment: {line: 0, column: 0, position: 0, next: undefined},
               name: undefined
             },
             {
-              generatedSegment: {line: 0, column: 3},
+              generatedSegment: {line: 0, column: 2, position: 2, next: undefined},
               originalSource: cSource,
-              originalSegment: {line: 0, column: 3},
+              originalSegment: {line: 0, column: 2, position: 2, next: undefined},
               name: undefined
             },
             {
-              generatedSegment: {line: 0, column: 3},
-              originalSource: cSource,
-              originalSegment: {line: 0, column: 6},
+              generatedSegment: {line: 0, column: 3, position: 3, next: undefined},
+              originalSource: dSource,
+              originalSegment: {line: 0, column: 1, position: 1, next: undefined},
               name: undefined
             },
             {
-              generatedSegment: {line: 0, column: 4},
+              generatedSegment: {line: 0, column: 4, position: 4, next: undefined},
               originalSource: cSource,
-              originalSegment: {line: 0, column: 1},
+              originalSegment: {line: 0, column: 1, position: 1, next: undefined},
               name: undefined
             },
             {
-              generatedSegment: {line: 0, column: 5},
-              originalSource: cSource,
-              originalSegment: {line: 0, column: 7},
+              generatedSegment: {line: 0, column: 5, position: 5, next: undefined},
+              originalSource: dSource,
+              originalSegment: {line: 0, column: 2, position: 2, next: undefined},
               name: undefined
             },
           ]);
@@ -194,8 +441,21 @@ runInEachFileSystem(() => {
 
           // These flattened mappings are just the mappings from a to b.
           // (The mappings to c are dropped since there is no source file to map to.)
-          expect(aSource.flattenedMappings).toEqual(parseMappings(aSourceMap, [bSource]));
+          expect(removeOriginalSegmentLinks(aSource.flattenedMappings))
+              .toEqual(parseMappings(aSourceMap, [bSource], [0, 7]));
         });
+
+        /**
+         * Clean out the links between original segments of each of the given `mappings`.
+         *
+         * @param mappings the mappings whose segments are to be cleaned.
+         */
+        function removeOriginalSegmentLinks(mappings: Mapping[]) {
+          for (const mapping of mappings) {
+            mapping.originalSegment.next = undefined;
+          }
+          return mappings;
+        }
       });
 
       describe('renderFlattenedSourceMap()', () => {
@@ -258,17 +518,17 @@ runInEachFileSystem(() => {
       });
     });
 
-    describe('computeLineLengths()', () => {
-      it('should compute the length of each line in the given string', () => {
-        expect(computeLineLengths('')).toEqual([0]);
-        expect(computeLineLengths('abc')).toEqual([3]);
-        expect(computeLineLengths('\n')).toEqual([0, 0]);
-        expect(computeLineLengths('\n\n')).toEqual([0, 0, 0]);
-        expect(computeLineLengths('abc\n')).toEqual([3, 0]);
-        expect(computeLineLengths('\nabc')).toEqual([0, 3]);
-        expect(computeLineLengths('abc\ndefg')).toEqual([3, 4]);
-        expect(computeLineLengths('abc\r\n')).toEqual([3, 0]);
-        expect(computeLineLengths('abc\r\ndefg')).toEqual([3, 4]);
+    describe('computeStartOfLinePositions()', () => {
+      it('should compute the cumulative length of each line in the given string', () => {
+        expect(computeStartOfLinePositions('')).toEqual([0]);
+        expect(computeStartOfLinePositions('abc')).toEqual([0]);
+        expect(computeStartOfLinePositions('\n')).toEqual([0, 1]);
+        expect(computeStartOfLinePositions('\n\n')).toEqual([0, 1, 2]);
+        expect(computeStartOfLinePositions('abc\n')).toEqual([0, 4]);
+        expect(computeStartOfLinePositions('\nabc')).toEqual([0, 1]);
+        expect(computeStartOfLinePositions('abc\ndefg')).toEqual([0, 4]);
+        expect(computeStartOfLinePositions('abc\r\n')).toEqual([0, 4]);
+        expect(computeStartOfLinePositions('abc\r\ndefg')).toEqual([0, 4]);
       });
     });
   });

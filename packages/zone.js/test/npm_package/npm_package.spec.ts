@@ -53,6 +53,13 @@ describe('Zone.js npm_package', () => {
          () => { expect(shx.cat('zone_externs.js')).toContain('Externs for zone.js'); });
     });
 
+    describe('rxjs patch', () => {
+      it('should not contain rxjs source', () => {
+        expect(shx.cat('zone-patch-rxjs.js'))
+            .not.toContain('_enable_super_gross_mode_that_will_cause_bad_things');
+      });
+    });
+
     describe('es5', () => {
       it('zone.js(es5) should not contain es6 spread code',
          () => { expect(shx.cat('zone.js')).not.toContain('let value of values'); });
@@ -123,6 +130,8 @@ describe('Zone.js npm_package', () => {
           'zone-patch-fetch.min.js',
           'zone-patch-jsonp.js',
           'zone-patch-jsonp.min.js',
+          'zone-patch-message-port.js',
+          'zone-patch-message-port.min.js',
           'zone-patch-promise-test.js',
           'zone-patch-promise-test.min.js',
           'zone-patch-resize-observer.js',

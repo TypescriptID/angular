@@ -144,6 +144,44 @@ describe('diagnostics', () => {
     });
   });
 
+  describe('diagnostics for ngIf exported values', () => {
+    it('should infer the type of an implicit value in an NgIf context', () => {
+      mockHost.override(TEST_TEMPLATE, `
+        <div *ngIf="title; let titleProxy;">
+            'titleProxy' is a string
+          {{~{start-err}titleProxy.notAProperty~{end-err}}}
+        </div>
+      `);
+      const diags = ngLS.getSemanticDiagnostics(TEST_TEMPLATE);
+      expect(diags.length).toBe(1);
+      const {messageText, start, length} = diags[0];
+      expect(messageText)
+          .toBe(
+              `Identifier 'notAProperty' is not defined. 'string' does not contain such a member`);
+      const span = mockHost.getLocationMarkerFor(TEST_TEMPLATE, 'err');
+      expect(start).toBe(span.start);
+      expect(length).toBe(span.length);
+    });
+
+    it('should infer the type of an ngIf value in an NgIf context', () => {
+      mockHost.override(TEST_TEMPLATE, `
+        <div *ngIf="title as titleProxy">
+            'titleProxy' is a string
+          {{~{start-err}titleProxy.notAProperty~{end-err}}}
+        </div>
+      `);
+      const diags = ngLS.getSemanticDiagnostics(TEST_TEMPLATE);
+      expect(diags.length).toBe(1);
+      const {messageText, start, length} = diags[0];
+      expect(messageText)
+          .toBe(
+              `Identifier 'notAProperty' is not defined. 'string' does not contain such a member`);
+      const span = mockHost.getLocationMarkerFor(TEST_TEMPLATE, 'err');
+      expect(start).toBe(span.start);
+      expect(length).toBe(span.length);
+    });
+  });
+
   describe('diagnostics for invalid indexed type property access', () => {
     it('should work with numeric index signatures (arrays)', () => {
       mockHost.override(TEST_TEMPLATE, `
@@ -254,7 +292,7 @@ describe('diagnostics', () => {
     it('should suggest refining a template context missing a property', () => {
       mockHost.override(
           TEST_TEMPLATE,
-          `<button type="button" ~{start-emb}*counter="let hero of heroes"~{end-emb}></button>`);
+          `<button type="button" *counter="~{start-emb}let hero ~{end-emb}of heroes"></button>`);
       const diags = ngLS.getSemanticDiagnostics(TEST_TEMPLATE);
       expect(diags.length).toBe(1);
       const {messageText, start, length, category} = diags[0];
@@ -272,7 +310,7 @@ describe('diagnostics', () => {
     it('should report an unknown context reference', () => {
       mockHost.override(
           TEST_TEMPLATE,
-          `<div ~{start-emb}*ngFor="let hero of heroes; let e = even_1"~{end-emb}></div>`);
+          `<div *ngFor="let hero of heroes; ~{start-emb}let e = even_1~{end-emb}"></div>`);
       const diags = ngLS.getSemanticDiagnostics(TEST_TEMPLATE);
       expect(diags.length).toBe(1);
       const {messageText, start, length, category} = diags[0];
