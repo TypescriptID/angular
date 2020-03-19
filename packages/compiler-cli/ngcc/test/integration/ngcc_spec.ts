@@ -132,7 +132,7 @@ runInEachFileSystem(() => {
       mainNgcc({
         basePath: '/node_modules',
         targetEntryPointPath: 'test-package',
-        propertiesToConsider: ['main'],
+        propertiesToConsider: ['module'],
       });
 
       const jsContents = fs.readFile(_(`/node_modules/test-package/index.js`)).replace(/\s+/g, ' ');
@@ -242,11 +242,75 @@ runInEachFileSystem(() => {
       mainNgcc({
         basePath: '/node_modules',
         targetEntryPointPath: 'test-package',
-        propertiesToConsider: ['main'],
+        propertiesToConsider: ['module'],
       });
 
       const jsContents = fs.readFile(_(`/node_modules/test-package/index.js`));
       expect(jsContents).not.toMatch(/\bconst \w+\s*=/);
+    });
+
+    it('should be able to reflect into external libraries', () => {
+      compileIntoApf('lib', {
+        '/index.ts': `
+          export * from './constants';
+          export * from './module';
+        `,
+        '/constants.ts': `
+          export const selectorA = '[selector-a]';
+
+          export class Selectors {
+            static readonly B = '[selector-b]';
+          }
+        `,
+        '/module.ts': `
+          import {NgModule, ModuleWithProviders} from '@angular/core';
+
+          @NgModule()
+          export class MyOtherModule {}
+
+          export class MyModule {
+            static forRoot(): ModuleWithProviders<MyOtherModule> {
+              return {ngModule: MyOtherModule};
+            }
+          }
+        `
+      });
+
+      compileIntoFlatEs5Package('test-package', {
+        '/index.ts': `
+          import {Directive, Input, NgModule} from '@angular/core';
+          import * as lib from 'lib';
+
+          @Directive({
+            selector: lib.selectorA,
+          })
+          export class DirectiveA {
+          }
+
+          @Directive({
+            selector: lib.Selectors.B,
+          })
+          export class DirectiveB {
+          }
+
+          @NgModule({
+            imports: [lib.MyModule.forRoot()],
+            declarations: [DirectiveA, DirectiveB],
+          })
+          export class FooModule {}
+        `,
+      });
+
+      mainNgcc({
+        basePath: '/node_modules',
+        targetEntryPointPath: 'test-package',
+        propertiesToConsider: ['module'],
+      });
+
+      const jsContents = fs.readFile(_(`/node_modules/test-package/index.js`));
+      expect(jsContents).toContain('"selector-a"');
+      expect(jsContents).toContain('"selector-b"');
+      expect(jsContents).toContain('imports: [ɵngcc1.MyOtherModule]');
     });
 
     it('should add ɵfac but not duplicate ɵprov properties on injectables', () => {
@@ -266,7 +330,7 @@ runInEachFileSystem(() => {
       mainNgcc({
         basePath: '/node_modules',
         targetEntryPointPath: 'test-package',
-        propertiesToConsider: ['main'],
+        propertiesToConsider: ['module'],
       });
       const after = fs.readFile(_(`/node_modules/test-package/index.js`));
 
@@ -298,7 +362,7 @@ runInEachFileSystem(() => {
       mainNgcc({
         basePath: '/node_modules',
         targetEntryPointPath: 'test-package',
-        propertiesToConsider: ['main'],
+        propertiesToConsider: ['module'],
       });
 
       const jsContents = fs.readFile(_(`/node_modules/test-package/index.js`));
@@ -408,7 +472,7 @@ runInEachFileSystem(() => {
       mainNgcc({
         basePath: '/node_modules',
         targetEntryPointPath: 'test-package',
-        propertiesToConsider: ['main'],
+        propertiesToConsider: ['module'],
       });
 
       const jsContents = fs.readFile(_(`/node_modules/test-package/index.js`));
@@ -669,7 +733,7 @@ runInEachFileSystem(() => {
       });
       mainNgcc({
         basePath: '/node_modules',
-        propertiesToConsider: ['main'],
+        propertiesToConsider: ['module'],
         logger: new MockLogger(),
       });
 
@@ -685,15 +749,15 @@ runInEachFileSystem(() => {
       // Now run ngcc again to see that it cleans out the outdated artifacts
       mainNgcc({
         basePath: '/node_modules',
-        propertiesToConsider: ['main'],
+        propertiesToConsider: ['module'],
         logger: new MockLogger(),
       });
       const newPackageJson = loadPackage('test-package', _('/node_modules'));
       expect(newPackageJson.__processed_by_ivy_ngcc__).toEqual({
-        main: '0.0.0-PLACEHOLDER',
+        module: '0.0.0-PLACEHOLDER',
         typings: '0.0.0-PLACEHOLDER',
       });
-      expect(newPackageJson.main_ivy_ngcc).toBeUndefined();
+      expect(newPackageJson.module_ivy_ngcc).toBeUndefined();
       expect(fs.exists(_('/node_modules/test-package/x.js'))).toBe(true);
       expect(fs.exists(_('/node_modules/test-package/x.js.__ivy_ngcc_bak'))).toBe(false);
       expect(fs.readFile(_('/node_modules/test-package/x.js'))).toEqual('original content');
@@ -1021,45 +1085,130 @@ runInEachFileSystem(() => {
     });
 
     describe('diagnostics', () => {
-      it('should fail with formatted diagnostics when an error diagnostic is produced', () => {
-        loadTestFiles([
-          {
-            name: _('/node_modules/fatal-error/package.json'),
-            contents: '{"name": "fatal-error", "es2015": "./index.js", "typings": "./index.d.ts"}',
-          },
-          {name: _('/node_modules/fatal-error/index.metadata.json'), contents: 'DUMMY DATA'},
-          {
-            name: _('/node_modules/fatal-error/index.js'),
-            contents: `
+      it('should fail with formatted diagnostics when an error diagnostic is produced, if targetEntryPointPath is provided',
+         () => {
+           loadTestFiles([
+             {
+               name: _('/node_modules/fatal-error/package.json'),
+               contents:
+                   '{"name": "fatal-error", "es2015": "./index.js", "typings": "./index.d.ts"}',
+             },
+             {name: _('/node_modules/fatal-error/index.metadata.json'), contents: 'DUMMY DATA'},
+             {
+               name: _('/node_modules/fatal-error/index.js'),
+               contents: `
               import {Component} from '@angular/core';
               export class FatalError {}
               FatalError.decorators = [
                 {type: Component, args: [{selector: 'fatal-error'}]}
               ];
             `,
-          },
-          {
-            name: _('/node_modules/fatal-error/index.d.ts'),
-            contents: `
+             },
+             {
+               name: _('/node_modules/fatal-error/index.d.ts'),
+               contents: `
               export declare class FatalError {}
             `,
-          },
-        ]);
+             },
+           ]);
 
-        try {
-          mainNgcc({
-            basePath: '/node_modules',
-            targetEntryPointPath: 'fatal-error',
-            propertiesToConsider: ['es2015']
-          });
-          fail('should have thrown');
-        } catch (e) {
-          expect(e.message).toContain(
-              'Failed to compile entry-point fatal-error (es2015 as esm2015) due to compilation errors:');
-          expect(e.message).toContain('NG2001');
-          expect(e.message).toContain('component is missing a template');
-        }
-      });
+           try {
+             mainNgcc({
+               basePath: '/node_modules',
+               targetEntryPointPath: 'fatal-error',
+               propertiesToConsider: ['es2015']
+             });
+             fail('should have thrown');
+           } catch (e) {
+             expect(e.message).toContain(
+                 'Failed to compile entry-point fatal-error (es2015 as esm2015) due to compilation errors:');
+             expect(e.message).toContain('NG2001');
+             expect(e.message).toContain('component is missing a template');
+           }
+         });
+
+      it('should not fail but log an error with formatted diagnostics when an error diagnostic is produced, if targetEntryPoint is not provided and errorOnFailedEntryPoint is false',
+         () => {
+           loadTestFiles([
+             {
+               name: _('/node_modules/fatal-error/package.json'),
+               contents:
+                   '{"name": "fatal-error", "es2015": "./index.js", "typings": "./index.d.ts"}',
+             },
+             {name: _('/node_modules/fatal-error/index.metadata.json'), contents: 'DUMMY DATA'},
+             {
+               name: _('/node_modules/fatal-error/index.js'),
+               contents: `
+             import {Component} from '@angular/core';
+             export class FatalError {}
+             FatalError.decorators = [
+               {type: Component, args: [{selector: 'fatal-error'}]}
+             ];`,
+             },
+             {
+               name: _('/node_modules/fatal-error/index.d.ts'),
+               contents: `export declare class FatalError {}`,
+             },
+             {
+               name: _('/node_modules/dependent/package.json'),
+               contents: '{"name": "dependent", "es2015": "./index.js", "typings": "./index.d.ts"}',
+             },
+             {name: _('/node_modules/dependent/index.metadata.json'), contents: 'DUMMY DATA'},
+             {
+               name: _('/node_modules/dependent/index.js'),
+               contents: `
+             import {Component} from '@angular/core';
+             import {FatalError} from 'fatal-error';
+             export class Dependent {}
+             Dependent.decorators = [
+               {type: Component, args: [{selector: 'dependent', template: ''}]}
+             ];`,
+             },
+             {
+               name: _('/node_modules/dependent/index.d.ts'),
+               contents: `export declare class Dependent {}`,
+             },
+             {
+               name: _('/node_modules/independent/package.json'),
+               contents:
+                   '{"name": "independent", "es2015": "./index.js", "typings": "./index.d.ts"}',
+             },
+             {name: _('/node_modules/independent/index.metadata.json'), contents: 'DUMMY DATA'},
+             {
+               name: _('/node_modules/independent/index.js'),
+               contents: `
+             import {Component} from '@angular/core';
+             export class Independent {}
+             Independent.decorators = [
+               {type: Component, args: [{selector: 'independent', template: ''}]}
+             ];`,
+             },
+             {
+               name: _('/node_modules/independent/index.d.ts'),
+               contents: `export declare class Independent {}`,
+             },
+           ]);
+
+           const logger = new MockLogger();
+           mainNgcc({
+             basePath: '/node_modules',
+             propertiesToConsider: ['es2015'],
+             errorOnFailedEntryPoint: false, logger,
+           });
+           expect(logger.logs.error.length).toEqual(1);
+           const message = logger.logs.error[0][0];
+           expect(message).toContain(
+               'Failed to compile entry-point fatal-error (es2015 as esm2015) due to compilation errors:');
+           expect(message).toContain('NG2001');
+           expect(message).toContain('component is missing a template');
+
+           expect(hasBeenProcessed(loadPackage('fatal-error', _('/node_modules')), 'es2015'))
+               .toBe(false);
+           expect(hasBeenProcessed(loadPackage('dependent', _('/node_modules')), 'es2015'))
+               .toBe(false);
+           expect(hasBeenProcessed(loadPackage('independent', _('/node_modules')), 'es2015'))
+               .toBe(true);
+         });
     });
 
     describe('logger', () => {
@@ -1274,7 +1423,7 @@ runInEachFileSystem(() => {
            mainNgcc({
              basePath: '/node_modules',
              targetEntryPointPath: 'test-package',
-             propertiesToConsider: ['main'],
+             propertiesToConsider: ['module'],
            });
 
 
@@ -1315,7 +1464,7 @@ runInEachFileSystem(() => {
            mainNgcc({
              basePath: '/node_modules',
              targetEntryPointPath: 'test-package',
-             propertiesToConsider: ['main'],
+             propertiesToConsider: ['module'],
            });
 
 
@@ -1358,7 +1507,7 @@ runInEachFileSystem(() => {
            mainNgcc({
              basePath: '/node_modules',
              targetEntryPointPath: 'test-package',
-             propertiesToConsider: ['main'],
+             propertiesToConsider: ['module'],
            });
 
            const dtsContents = fs.readFile(_(`/node_modules/test-package/index.d.ts`));

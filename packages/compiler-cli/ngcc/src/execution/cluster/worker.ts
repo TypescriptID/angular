@@ -12,7 +12,7 @@ import * as cluster from 'cluster';
 
 import {Logger} from '../../logging/logger';
 import {CompileFn, CreateCompileFn} from '../api';
-import {stringifyTask} from '../utils';
+import {stringifyTask} from '../tasks/utils';
 
 import {MessageToWorker} from './api';
 import {sendMessageToMaster} from './utils';
@@ -30,8 +30,9 @@ export class ClusterWorker {
       throw new Error('Tried to instantiate `ClusterWorker` on the master process.');
     }
 
-    this.compile =
-        createCompileFn((_task, outcome) => sendMessageToMaster({type: 'task-completed', outcome}));
+    this.compile = createCompileFn(
+        (_task, outcome, message) =>
+            sendMessageToMaster({type: 'task-completed', outcome, message}));
   }
 
   run(): Promise<void> {
