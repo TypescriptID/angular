@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * @license
  * Copyright Google Inc. All Rights Reserved.
@@ -17,7 +18,9 @@ import {Analyzer, ReferenceChain} from './analyzer';
 import {compareGoldens, convertReferenceChainToGolden, Golden} from './golden';
 import {convertPathToForwardSlash} from './file_system';
 
-const projectDir = join(__dirname, '../../');
+import {getRepoBaseDir} from '../utils/config';
+
+const projectDir = getRepoBaseDir();
 const packagesDir = join(projectDir, 'packages/');
 // The default glob does not capture deprecated packages such as http, or the webworker platform.
 const defaultGlob =
@@ -26,10 +29,9 @@ const defaultGlob =
 if (require.main === module) {
   const {_: command, goldenFile, glob, baseDir, warnings} =
       yargs.help()
-          .version(false)
           .strict()
-          .command('check <golden-file>', 'Checks if the circular dependencies have changed.')
-          .command('approve <golden-file>', 'Approves the current circular dependencies.')
+          .command('check <goldenFile>', 'Checks if the circular dependencies have changed.')
+          .command('approve <goldenFile>', 'Approves the current circular dependencies.')
           .demandCommand()
           .option(
               'approve',

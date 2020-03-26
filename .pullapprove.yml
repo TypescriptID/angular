@@ -952,12 +952,12 @@ groups:
           'tools/build/**',
           'tools/circular_dependency_test/**',
           'tools/contributing-stats/**',
+          'tools/components/**'
           'tools/gulp-tasks/**',
           'tools/ng_rollup_bundle/**',
           'tools/ngcontainer/**',
           'tools/npm/**',
           'tools/npm_integration_test/**',
-          'tools/pullapprove/**',
           'tools/rxjs/**',
           'tools/saucelabs/**',
           'tools/size-tracking/**',
