@@ -10,8 +10,11 @@ ts_library(
     deps = [
         "//dev-infra/commit-message",
         "//dev-infra/pullapprove",
+        "//dev-infra/ts-circular-dependencies",
         "//dev-infra/utils:config",
         "@npm//@types/node",
+        "@npm//@types/yargs",
+        "@npm//yargs",
     ],
 )
 
@@ -23,8 +26,8 @@ genrule(
     ],
     outs = ["package.json"],
     cmd = """
-        $(location //tools:inline-package-json-deps) $(location tmpl-package.json) \
-            $(location //:package.json) $@
+        $(execpath //tools:inline-package-json-deps) $(execpath tmpl-package.json) \
+            $(execpath //:package.json) $@
     """,
     tools = ["//tools:inline-package-json-deps"],
 )

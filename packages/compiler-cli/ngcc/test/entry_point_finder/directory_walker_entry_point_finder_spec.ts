@@ -230,7 +230,7 @@ runInEachFileSystem(() => {
         const finder = new DirectoryWalkerEntryPointFinder(
             fs, config, logger, resolver, manifest, _Abs('/nested_node_modules/node_modules'),
             undefined);
-        const spy = spyOn(finder, 'walkDirectoryForEntryPoints').and.callThrough();
+        const spy = spyOn(finder, 'walkDirectoryForPackages').and.callThrough();
         const {entryPoints} = finder.findEntryPoints();
         expect(spy.calls.allArgs()).toEqual([
           [_Abs(basePath)],
@@ -252,7 +252,7 @@ runInEachFileSystem(() => {
 
         const finder = new DirectoryWalkerEntryPointFinder(
             fs, config, logger, resolver, manifest, basePath, undefined);
-        const spy = spyOn(finder, 'walkDirectoryForEntryPoints').and.callThrough();
+        const spy = spyOn(finder, 'walkDirectoryForPackages').and.callThrough();
         const {entryPoints} = finder.findEntryPoints();
         expect(spy.calls.allArgs()).toEqual([
           [_Abs(basePath)],
@@ -276,7 +276,7 @@ runInEachFileSystem(() => {
 
         const finder = new DirectoryWalkerEntryPointFinder(
             fs, config, logger, resolver, manifest, basePath, undefined);
-        const spy = spyOn(finder, 'walkDirectoryForEntryPoints').and.callThrough();
+        const spy = spyOn(finder, 'walkDirectoryForPackages').and.callThrough();
         const {entryPoints} = finder.findEntryPoints();
         expect(spy.calls.allArgs()).toEqual([
           [_Abs(basePath)],
@@ -286,6 +286,22 @@ runInEachFileSystem(() => {
 
         expect(entryPoints).toEqual([]);
       });
+
+      it('should process sub-entry-points within a non-entry-point containing folder in a package',
+         () => {
+           const basePath = _Abs('/containing_folders/node_modules');
+           loadTestFiles([
+             ...createPackage(basePath, 'package'),
+             ...createPackage(fs.resolve(basePath, 'package/container'), 'entry-point-1'),
+           ]);
+           const finder = new DirectoryWalkerEntryPointFinder(
+               fs, config, logger, resolver, manifest, basePath, undefined);
+           const {entryPoints} = finder.findEntryPoints();
+           expect(dumpEntryPointPaths(basePath, entryPoints)).toEqual([
+             ['package', 'package'],
+             ['package', 'package/container/entry-point-1'],
+           ]);
+         });
 
       it('should handle dependencies via pathMappings', () => {
         const basePath = _Abs('/path_mapped/node_modules');
@@ -324,7 +340,7 @@ runInEachFileSystem(() => {
         const pathMappings: PathMappings = {
           baseUrl: '/path_mapped/dist',
           paths: {
-            '@test': ['pkg2/fesm2015/pkg2.js'],
+            '@test': ['pkg2/pkg2.d.ts'],
             '@missing': ['pkg3'],
           }
         };
@@ -354,6 +370,10 @@ runInEachFileSystem(() => {
               typings: `./${packageName}.d.ts`,
               fesm2015: `./fesm2015/${packageName}.js`,
             })
+          },
+          {
+            name: _Abs(`${basePath}/${packageName}/${packageName}.d.ts`),
+            contents: deps.map((dep, i) => `import * as i${i} from '${dep}';`).join('\n'),
           },
           {
             name: _Abs(`${basePath}/${packageName}/fesm2015/${packageName}.js`),
