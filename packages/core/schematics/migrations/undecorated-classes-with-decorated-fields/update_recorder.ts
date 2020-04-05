@@ -1,4 +1,3 @@
-
 /**
  * @license
  * Copyright Google Inc. All Rights Reserved.
@@ -11,12 +10,10 @@ import * as ts from 'typescript';
 import {ImportManagerUpdateRecorder} from '../../utils/import_manager';
 
 /**
- * Update recorder interface that is used to transform source files in a non-colliding
- * way. Also this indirection makes it possible to re-use transformation logic with
- * different replacement tools (e.g. TSLint or CLI devkit).
+ * Update recorder interface that is used to transform source files
+ * in a non-colliding way.
  */
 export interface UpdateRecorder extends ImportManagerUpdateRecorder {
   addClassDecorator(node: ts.ClassDeclaration, text: string): void;
-  addClassComment(node: ts.ClassDeclaration, text: string): void;
   commitUpdate(): void;
 }
