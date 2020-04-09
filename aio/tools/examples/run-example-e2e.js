@@ -9,6 +9,9 @@ const findFreePort = require('find-free-port');
 
 shelljs.set('-e');
 
+// Set `CHROME_BIN` as an environment variable for Karma to pick up in unit tests.
+process.env.CHROME_BIN = require('puppeteer').executablePath();
+
 const AIO_PATH = path.join(__dirname, '../../');
 const SHARED_PATH = path.join(__dirname, '/shared');
 const EXAMPLES_PATH = path.join(AIO_PATH, './content/examples/');
@@ -28,7 +31,7 @@ const fixmeIvyExamples = [
   'i18n',
 ];
 
-if (argv.ivy) {
+if (!argv.viewengine) {
   IGNORED_EXAMPLES.push(...fixmeIvyExamples);
 }
 
@@ -46,7 +49,7 @@ if (argv.ivy) {
  *    Must be used in conjunction with --setup as this is when the packages are copied.
  *    e.g. --setup --local
  *
- *  --ivy to turn on `ivy` mode
+ *  --viewengine to turn on `ViewEngine` mode
  *
  *  --shard to shard the specs into groups to allow you to run them in parallel
  *    e.g. --shard=0/2 // the even specs: 0, 2, 4, etc
@@ -64,7 +67,7 @@ function runE2e() {
     // Run setup.
     console.log('runE2e: setup boilerplate');
     const installPackagesCommand = `example-use-${argv.local ? 'local' : 'npm'}`;
-    const addBoilerplateCommand = `boilerplate:add${argv.ivy ? ':ivy' : ''}`;
+    const addBoilerplateCommand = `boilerplate:add${argv.viewengine ? ':viewengine' : ''}`;
     shelljs.exec(`yarn ${installPackagesCommand}`, {cwd: AIO_PATH});
     shelljs.exec(`yarn ${addBoilerplateCommand}`, {cwd: AIO_PATH});
   }
@@ -185,7 +188,7 @@ function runE2eTestsSystemJS(appDir, outputFile) {
 
   // Only run AOT tests in ViewEngine mode. The current AOT setup does not work in Ivy.
   // See https://github.com/angular/angular/issues/35989.
-  if (!argv.ivy && fs.existsSync(appDir + '/aot/index.html')) {
+  if (argv.viewengine && fs.existsSync(appDir + '/aot/index.html')) {
     run = run.then((ok) => ok && runProtractorAoT(appDir, outputFile));
   }
   return run;
@@ -262,7 +265,7 @@ function runE2eTestsCLI(appDir, outputFile, bufferOutput, port) {
 
   // `--no-webdriver-update` is needed to preserve the ChromeDriver version already installed.
   const config = loadExampleConfig(appDir);
-  const commands = config.e2e || [{
+  const testCommands = config.tests || [{
     cmd: 'yarn',
     args: [
       'e2e',
@@ -274,7 +277,7 @@ function runE2eTestsCLI(appDir, outputFile, bufferOutput, port) {
   }];
   let bufferedOutput = `\n\n============== AIO example output for: ${appDir}\n\n`;
 
-  const e2eSpawnPromise = commands.reduce((prevSpawnPromise, {cmd, args}) => {
+  const e2eSpawnPromise = testCommands.reduce((prevSpawnPromise, {cmd, args}) => {
     // Replace the port placeholder with the specified port if present. Specs that
     // define their e2e test commands in the example config are able to use the
     // given available port. This ensures that the CLI tests can be run concurrently.
@@ -311,7 +314,7 @@ function reportStatus(status, outputFile) {
   IGNORED_EXAMPLES.filter(example => !fixmeIvyExamples.find(ex => ex.startsWith(example)))
       .forEach(function(val) { log.push('  ' + val); });
 
-  if (argv.ivy) {
+  if (!argv.viewengine) {
     log.push('');
     log.push('Suites ignored due to breakage with Ivy:');
     fixmeIvyExamples.forEach(function(val) { log.push('  ' + val); });

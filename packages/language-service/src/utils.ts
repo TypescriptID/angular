@@ -6,11 +6,10 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {AstPath, BoundEventAst, CompileDirectiveSummary, CompileTypeMetadata, CssSelector, DirectiveAst, ElementAst, EmbeddedTemplateAst, HtmlAstPath, Identifiers, Node, ParseSourceSpan, RecursiveTemplateAstVisitor, RecursiveVisitor, TemplateAst, TemplateAstPath, identifierName, templateVisitAll, visitAll} from '@angular/compiler';
+import {AstPath, BoundEventAst, CompileDirectiveSummary, CompileTypeMetadata, CssSelector, DirectiveAst, ElementAst, EmbeddedTemplateAst, HtmlAstPath, identifierName, Identifiers, Node, ParseSourceSpan, RecursiveTemplateAstVisitor, RecursiveVisitor, TemplateAst, TemplateAstPath, templateVisitAll, visitAll} from '@angular/compiler';
 import * as ts from 'typescript';
 
 import {AstResult, SelectorInfo} from './common';
-import {DiagnosticTemplateInfo} from './expression_diagnostics';
 import {Span, Symbol, SymbolQuery} from './types';
 
 export interface SpanHolder {
@@ -25,8 +24,8 @@ export function isParseSourceSpan(value: any): value is ParseSourceSpan {
 
 export function spanOf(span: SpanHolder): Span;
 export function spanOf(span: ParseSourceSpan): Span;
-export function spanOf(span: SpanHolder | ParseSourceSpan | undefined): Span|undefined;
-export function spanOf(span?: SpanHolder | ParseSourceSpan): Span|undefined {
+export function spanOf(span: SpanHolder|ParseSourceSpan|undefined): Span|undefined;
+export function spanOf(span?: SpanHolder|ParseSourceSpan): Span|undefined {
   if (!span) return undefined;
   if (isParseSourceSpan(span)) {
     return {start: span.start.offset, end: span.end.offset};
@@ -36,7 +35,7 @@ export function spanOf(span?: SpanHolder | ParseSourceSpan): Span|undefined {
     } else if (span.children && span.children.length) {
       return {
         start: span.sourceSpan.start.offset,
-        end: spanOf(span.children[span.children.length - 1]) !.end
+        end: spanOf(span.children[span.children.length - 1])!.end
       };
     }
     return {start: span.sourceSpan.start.offset, end: span.sourceSpan.end.offset};
@@ -44,8 +43,9 @@ export function spanOf(span?: SpanHolder | ParseSourceSpan): Span|undefined {
 }
 
 export function inSpan(position: number, span?: Span, exclusive?: boolean): boolean {
-  return span != null && (exclusive ? position >= span.start && position < span.end :
-                                      position >= span.start && position <= span.end);
+  return span != null &&
+      (exclusive ? position >= span.start && position < span.end :
+                   position >= span.start && position <= span.end);
 }
 
 export function offsetSpan(span: Span, amount: number): Span {
@@ -71,7 +71,7 @@ export function getSelectors(info: AstResult): SelectorInfo {
   const map = new Map<CssSelector, CompileDirectiveSummary>();
   const results: CssSelector[] = [];
   for (const directive of info.directives) {
-    const selectors: CssSelector[] = CssSelector.parse(directive.selector !);
+    const selectors: CssSelector[] = CssSelector.parse(directive.selector!);
     for (const selector of selectors) {
       results.push(selector);
       map.set(selector, directive);
@@ -88,18 +88,6 @@ export function isTypescriptVersion(low: string, high?: string) {
   if (high && (version.substring(0, high.length) > high)) return false;
 
   return true;
-}
-
-export function diagnosticInfoFromTemplateInfo(info: AstResult): DiagnosticTemplateInfo {
-  return {
-    fileName: info.template.fileName,
-    offset: info.template.span.start,
-    query: info.template.query,
-    members: info.template.members,
-    htmlAst: info.htmlAst,
-    templateAst: info.templateAst,
-    source: info.template.source,
-  };
 }
 
 export function findTemplateAstAt(ast: TemplateAst[], position: number): TemplateAstPath {
@@ -141,7 +129,9 @@ export function findTemplateAstAt(ast: TemplateAst[], position: number): Templat
 
     visitDirective(ast: DirectiveAst, context: any): any {
       // Ignore the host properties of a directive
-      const result = this.visitChildren(context, visit => { visit(ast.inputs); });
+      const result = this.visitChildren(context, visit => {
+        visit(ast.inputs);
+      });
       // We never care about the diretive itself, just its inputs.
       if (path[path.length - 1] === ast) {
         path.pop();

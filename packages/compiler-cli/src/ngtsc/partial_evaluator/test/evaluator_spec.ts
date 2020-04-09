@@ -42,11 +42,13 @@ runInEachFileSystem(() => {
       expect(value).toEqual('test');
     });
 
-    it('map access works',
-       () => { expect(evaluate('const obj = {a: "test"};', 'obj.a')).toEqual('test'); });
+    it('map access works', () => {
+      expect(evaluate('const obj = {a: "test"};', 'obj.a')).toEqual('test');
+    });
 
-    it('resolves undefined property access',
-       () => { expect(evaluate('const obj: any = {}', 'obj.bar')).toEqual(undefined); });
+    it('resolves undefined property access', () => {
+      expect(evaluate('const obj: any = {}', 'obj.bar')).toEqual(undefined);
+    });
 
     it('function calls work', () => {
       expect(evaluate(`function foo(bar) { return bar; }`, 'foo("test")')).toEqual('test');
@@ -68,7 +70,9 @@ runInEachFileSystem(() => {
       expect(evaluate(`const x = false; const y = x ? 'true' : 'false';`, 'y')).toEqual('false');
     });
 
-    it('addition works', () => { expect(evaluate(`const x = 1 + 2;`, 'x')).toEqual(3); });
+    it('addition works', () => {
+      expect(evaluate(`const x = 1 + 2;`, 'x')).toEqual(3);
+    });
 
     it('static property on class works', () => {
       expect(evaluate(`class Foo { static bar = 'test'; }`, 'Foo.bar')).toEqual('test');
@@ -148,19 +152,22 @@ runInEachFileSystem(() => {
       expect(evaluate('const a: any = 3, b = 3;', 'a !== b')).toEqual(false);
     });
 
-    it('parentheticals work',
-       () => { expect(evaluate(`const a = 3, b = 4;`, 'a * (a + b)')).toEqual(21); });
+    it('parentheticals work', () => {
+      expect(evaluate(`const a = 3, b = 4;`, 'a * (a + b)')).toEqual(21);
+    });
 
-    it('array access works',
-       () => { expect(evaluate(`const a = [1, 2, 3];`, 'a[1] + a[0]')).toEqual(3); });
+    it('array access works', () => {
+      expect(evaluate(`const a = [1, 2, 3];`, 'a[1] + a[0]')).toEqual(3);
+    });
 
     it('array access out of bounds is `undefined`', () => {
       expect(evaluate(`const a = [1, 2, 3];`, 'a[-1]')).toEqual(undefined);
       expect(evaluate(`const a = [1, 2, 3];`, 'a[3]')).toEqual(undefined);
     });
 
-    it('array `length` property access works',
-       () => { expect(evaluate(`const a = [1, 2, 3];`, 'a[\'length\'] + 1')).toEqual(4); });
+    it('array `length` property access works', () => {
+      expect(evaluate(`const a = [1, 2, 3];`, 'a[\'length\'] + 1')).toEqual(4);
+    });
 
     it('array `slice` function works', () => {
       expect(evaluate(`const a = [1, 2, 3];`, 'a[\'slice\']()')).toEqual([1, 2, 3]);
@@ -185,10 +192,13 @@ runInEachFileSystem(() => {
       expect(evaluate('const a = false;', 'a')).toEqual(false);
     });
 
-    it('supports undefined',
-       () => { expect(evaluate('const a = undefined;', 'a')).toEqual(undefined); });
+    it('supports undefined', () => {
+      expect(evaluate('const a = undefined;', 'a')).toEqual(undefined);
+    });
 
-    it('supports null', () => { expect(evaluate('const a = null;', 'a')).toEqual(null); });
+    it('supports null', () => {
+      expect(evaluate('const a = null;', 'a')).toEqual(null);
+    });
 
     it('resolves unknown binary operators as dynamic value', () => {
       const value = evaluate('declare const window: any;', '"location" in window');
@@ -308,7 +318,7 @@ runInEachFileSystem(() => {
       ]);
       const checker = program.getTypeChecker();
       const result = getDeclaration(program, _('/entry.ts'), 'target$', ts.isVariableDeclaration);
-      const expr = result.initializer !;
+      const expr = result.initializer!;
       const evaluator = makeEvaluator(checker);
       const resolved = evaluator.evaluate(expr);
       if (!(resolved instanceof Reference)) {
@@ -338,7 +348,7 @@ runInEachFileSystem(() => {
       ]);
       const checker = program.getTypeChecker();
       const result = getDeclaration(program, _('/entry.ts'), 'target$', ts.isVariableDeclaration);
-      const expr = result.initializer !;
+      const expr = result.initializer!;
       const evaluator = makeEvaluator(checker);
       const resolved = evaluator.evaluate(expr);
       if (!(resolved instanceof Reference)) {
@@ -348,7 +358,7 @@ runInEachFileSystem(() => {
       expect(ts.isFunctionDeclaration(resolved.node)).toBe(true);
       const reference = resolved.getIdentityIn(getSourceFileOrError(program, _('/entry.ts')));
       expect(reference).not.toBeNull();
-      expect(reference !.getSourceFile()).toEqual(getSourceFileOrError(program, _('/entry.ts')));
+      expect(reference!.getSourceFile()).toEqual(getSourceFileOrError(program, _('/entry.ts')));
     });
 
     it('reads values from default exports', () => {
@@ -434,8 +444,34 @@ runInEachFileSystem(() => {
           .toEqual('test');
     });
 
-    it('template expressions work',
-       () => { expect(evaluate('const a = 2, b = 4;', '`1${a}3${b}5`')).toEqual('12345'); });
+    it('template expressions work', () => {
+      expect(evaluate('const a = 2, b = 4;', '`1${a}3${b}5`')).toEqual('12345');
+    });
+
+    it('template expressions should resolve enums', () => {
+      expect(evaluate('enum Test { VALUE = "test" };', '`a.${Test.VALUE}.b`')).toBe('a.test.b');
+    });
+
+    it('string concatenation should resolve enums', () => {
+      expect(evaluate('enum Test { VALUE = "test" };', '"a." + Test.VALUE + ".b"'))
+          .toBe('a.test.b');
+    });
+
+    it('should resolve non-literals as dynamic string', () => {
+      const value = evaluate(`const a: any = [];`, '`a.${a}.b`');
+
+      if (!(value instanceof DynamicValue)) {
+        return fail(`Should have resolved to a DynamicValue`);
+      }
+      expect(value.node.getText()).toEqual('`a.${a}.b`');
+
+      if (!value.isFromDynamicInput()) {
+        return fail('Should originate from dynamic input');
+      } else if (!value.reason.isFromDynamicString()) {
+        return fail('Should refer to a dynamic string part');
+      }
+      expect(value.reason.node.getText()).toEqual('a');
+    });
 
     it('enum resolution works', () => {
       const result = evaluate(
@@ -469,7 +505,7 @@ runInEachFileSystem(() => {
       ]);
       const checker = program.getTypeChecker();
       const result = getDeclaration(program, _('/entry.ts'), 'target$', ts.isVariableDeclaration);
-      const expr = result.initializer !as ts.ObjectLiteralExpression;
+      const expr = result.initializer! as ts.ObjectLiteralExpression;
       const prop = expr.properties[0] as ts.ShorthandPropertyAssignment;
       const evaluator = makeEvaluator(checker);
       const resolved = evaluator.evaluate(prop.name);
@@ -487,24 +523,18 @@ runInEachFileSystem(() => {
       ]);
       const checker = program.getTypeChecker();
       const result = getDeclaration(program, _('/entry.ts'), 'target$', ts.isVariableDeclaration);
-      const expr = result.initializer !as ts.ObjectLiteralExpression;
+      const expr = result.initializer! as ts.ObjectLiteralExpression;
       const evaluator = makeEvaluator(checker);
       const resolved = evaluator.evaluate(expr);
       if (!(resolved instanceof Map)) {
         return fail('Should have resolved to a Map');
       }
-      const value = resolved.get('value') !;
+      const value = resolved.get('value')!;
       if (!(value instanceof DynamicValue)) {
         return fail(`Should have resolved 'value' to a DynamicValue`);
       }
       const prop = expr.properties[0] as ts.PropertyAssignment;
       expect(value.node).toBe(prop.initializer);
-    });
-
-    it('should resolve enums in template expressions', () => {
-      const value =
-          evaluate(`enum Test { VALUE = 'test', } const value = \`a.\${Test.VALUE}.b\`;`, 'value');
-      expect(value).toBe('a.test.b');
     });
 
     it('should not attach identifiers to FFR-resolved values', () => {
@@ -745,18 +775,22 @@ runInEachFileSystem(() => {
 
     describe('(visited file tracking)', () => {
       it('should track each time a source file is visited', () => {
-        const addDependency = jasmine.createSpy('DependencyTracker');
+        const addDependency =
+            jasmine.createSpy<DependencyTracker['addDependency']>('DependencyTracker');
         const {expression, checker} = makeExpression(
             `class A { static foo = 42; } function bar() { return A.foo; }`, 'bar()');
         const evaluator = makeEvaluator(checker, {...fakeDepTracker, addDependency});
         evaluator.evaluate(expression);
         expect(addDependency).toHaveBeenCalledTimes(2);  // two declaration visited
-        expect(addDependency.calls.allArgs().map(args => [args[0].fileName, args[1].fileName]))
+        expect(
+            addDependency.calls.allArgs().map(
+                (args: Parameters<typeof addDependency>) => [args[0].fileName, args[1].fileName]))
             .toEqual([[_('/entry.ts'), _('/entry.ts')], [_('/entry.ts'), _('/entry.ts')]]);
       });
 
       it('should track imported source files', () => {
-        const addDependency = jasmine.createSpy('DependencyTracker');
+        const addDependency =
+            jasmine.createSpy<DependencyTracker['addDependency']>('DependencyTracker');
         const {expression, checker} =
             makeExpression(`import {Y} from './other'; const A = Y;`, 'A', [
               {name: _('/other.ts'), contents: `export const Y = 'test';`},
@@ -765,7 +799,9 @@ runInEachFileSystem(() => {
         const evaluator = makeEvaluator(checker, {...fakeDepTracker, addDependency});
         evaluator.evaluate(expression);
         expect(addDependency).toHaveBeenCalledTimes(2);
-        expect(addDependency.calls.allArgs().map(args => [args[0].fileName, args[1].fileName]))
+        expect(
+            addDependency.calls.allArgs().map(
+                (args: Parameters<typeof addDependency>) => [args[0].fileName, args[1].fileName]))
             .toEqual([
               [_('/entry.ts'), _('/entry.ts')],
               [_('/entry.ts'), _('/other.ts')],
@@ -773,7 +809,8 @@ runInEachFileSystem(() => {
       });
 
       it('should track files passed through during re-exports', () => {
-        const addDependency = jasmine.createSpy('DependencyTracker');
+        const addDependency =
+            jasmine.createSpy<DependencyTracker['addDependency']>('DependencyTracker');
         const {expression, checker} =
             makeExpression(`import * as mod from './direct-reexport';`, 'mod.value.property', [
               {name: _('/const.ts'), contents: 'export const value = {property: "test"};'},
@@ -793,7 +830,9 @@ runInEachFileSystem(() => {
         const evaluator = makeEvaluator(checker, {...fakeDepTracker, addDependency});
         evaluator.evaluate(expression);
         expect(addDependency).toHaveBeenCalledTimes(2);
-        expect(addDependency.calls.allArgs().map(args => [args[0].fileName, args[1].fileName]))
+        expect(
+            addDependency.calls.allArgs().map(
+                (args: Parameters<typeof addDependency>) => [args[0].fileName, args[1].fileName]))
             .toEqual([
               [_('/entry.ts'), _('/direct-reexport.ts')],
               // Not '/indirect-reexport.ts' or '/def.ts'.

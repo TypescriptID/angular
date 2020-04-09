@@ -8,7 +8,9 @@
 import {createHash} from 'crypto';
 import {satisfies} from 'semver';
 import * as vm from 'vm';
-import {AbsoluteFsPath, FileSystem, dirname, join, resolve} from '../../../src/ngtsc/file_system';
+
+import {AbsoluteFsPath, dirname, FileSystem, join, resolve} from '../../../src/ngtsc/file_system';
+
 import {PackageJsonFormatPropertiesMap} from './entry_point';
 
 /**
@@ -178,7 +180,7 @@ export class NgccConfiguration {
   getConfig(packagePath: AbsoluteFsPath, version: string|null): VersionedPackageConfig {
     const cacheKey = packagePath + (version !== null ? `@${version}` : '');
     if (this.cache.has(cacheKey)) {
-      return this.cache.get(cacheKey) !;
+      return this.cache.get(cacheKey)!;
     }
 
     const projectLevelConfig =
@@ -239,9 +241,11 @@ export class NgccConfiguration {
     const configFilePath = join(packagePath, NGCC_CONFIG_FILENAME);
     if (this.fs.exists(configFilePath)) {
       try {
+        const packageConfig = this.evalSrcFile(configFilePath);
         return {
+          ...packageConfig,
           versionRange: version || '*',
-          entryPoints: this.processEntryPoints(packagePath, this.evalSrcFile(configFilePath)),
+          entryPoints: this.processEntryPoints(packagePath, packageConfig),
         };
       } catch (e) {
         throw new Error(`Invalid package configuration file at "${configFilePath}": ` + e.message);
@@ -256,7 +260,8 @@ export class NgccConfiguration {
     const theExports = {};
     const sandbox = {
       module: {exports: theExports},
-      exports: theExports, require,
+      exports: theExports,
+      require,
       __dirname: dirname(srcPath),
       __filename: srcPath
     };
@@ -292,9 +297,8 @@ export class NgccConfiguration {
   }
 }
 
-function findSatisfactoryVersion(
-    configs: VersionedPackageConfig[] | undefined, version: string | null): VersionedPackageConfig|
-    null {
+function findSatisfactoryVersion(configs: VersionedPackageConfig[]|undefined, version: string|null):
+    VersionedPackageConfig|null {
   if (configs === undefined) {
     return null;
   }

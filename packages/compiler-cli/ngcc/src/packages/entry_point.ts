@@ -17,7 +17,7 @@ import {NgccConfiguration, NgccEntryPointConfig} from './configuration';
 /**
  * The possible values for the format of an entry-point.
  */
-export type EntryPointFormat = 'esm5' | 'esm2015' | 'umd' | 'commonjs';
+export type EntryPointFormat = 'esm5'|'esm2015'|'umd'|'commonjs';
 
 /**
  * An object containing information about an entry-point, including paths
@@ -42,12 +42,15 @@ export interface EntryPoint extends JsonObject {
   generateDeepReexports: boolean;
 }
 
-export type JsonPrimitive = string | number | boolean | null;
-export type JsonValue = JsonPrimitive | JsonArray | JsonObject | undefined;
+export type JsonPrimitive = string|number|boolean|null;
+export type JsonValue = JsonPrimitive|JsonArray|JsonObject|undefined;
 export interface JsonArray extends Array<JsonValue> {}
-export interface JsonObject { [key: string]: JsonValue; }
+export interface JsonObject {
+  [key: string]: JsonValue;
+}
 
 export interface PackageJsonFormatPropertiesMap {
+  browser?: string;
   fesm2015?: string;
   fesm5?: string;
   es2015?: string;  // if exists then it is actually FESM2015
@@ -73,7 +76,7 @@ export interface EntryPointPackageJson extends JsonObject, PackageJsonFormatProp
 export type EntryPointJsonProperty = Exclude<PackageJsonFormatProperties, 'types'|'typings'>;
 // We need to keep the elements of this const and the `EntryPointJsonProperty` type in sync.
 export const SUPPORTED_FORMAT_PROPERTIES: EntryPointJsonProperty[] =
-    ['fesm2015', 'fesm5', 'es2015', 'esm2015', 'esm5', 'main', 'module'];
+    ['fesm2015', 'fesm5', 'es2015', 'esm2015', 'esm5', 'main', 'module', 'browser'];
 
 
 /**
@@ -97,8 +100,7 @@ export const INCOMPATIBLE_ENTRY_POINT = 'incompatible-entry-point';
  * * INCOMPATIBLE_ENTRY_POINT - the path was a non-processable entry-point that should be searched
  * for sub-entry-points
  */
-export type GetEntryPointResult =
-    EntryPoint | typeof INCOMPATIBLE_ENTRY_POINT | typeof NO_ENTRY_POINT;
+export type GetEntryPointResult = EntryPoint|typeof INCOMPATIBLE_ENTRY_POINT|typeof NO_ENTRY_POINT;
 
 
 /**
@@ -161,7 +163,8 @@ export function getEntryPointInfo(
     packageJson: entryPointPackageJson,
     package: packagePath,
     path: entryPointPath,
-    typings: resolve(entryPointPath, typings), compiledByAngular,
+    typings: resolve(entryPointPath, typings),
+    compiledByAngular,
     ignoreMissingDependencies:
         entryPointConfig !== undefined ? !!entryPointConfig.ignoreMissingDependencies : false,
     generateDeepReexports:
@@ -191,13 +194,18 @@ export function getEntryPointFormat(
       return 'esm2015';
     case 'esm5':
       return 'esm5';
+    case 'browser':
+      const browserFile = entryPoint.packageJson['browser'];
+      if (typeof browserFile !== 'string') {
+        return undefined;
+      }
+      return sniffModuleFormat(fs, join(entryPoint.path, browserFile));
     case 'main':
       const mainFile = entryPoint.packageJson['main'];
       if (mainFile === undefined) {
         return undefined;
       }
-      const pathToMain = join(entryPoint.path, mainFile);
-      return isUmdModule(fs, pathToMain) ? 'umd' : 'commonjs';
+      return sniffModuleFormat(fs, join(entryPoint.path, mainFile));
     case 'module':
       return 'esm5';
     default:
@@ -224,19 +232,29 @@ function loadEntryPointPackage(
   }
 }
 
-function isUmdModule(fs: FileSystem, sourceFilePath: AbsoluteFsPath): boolean {
+function sniffModuleFormat(fs: FileSystem, sourceFilePath: AbsoluteFsPath): EntryPointFormat|
+    undefined {
   const resolvedPath = resolveFileWithPostfixes(fs, sourceFilePath, ['', '.js', '/index.js']);
   if (resolvedPath === null) {
-    return false;
+    return undefined;
   }
+
   const sourceFile =
       ts.createSourceFile(sourceFilePath, fs.readFile(resolvedPath), ts.ScriptTarget.ES5);
-  return sourceFile.statements.length > 0 &&
-      parseStatementForUmdModule(sourceFile.statements[0]) !== null;
+  if (sourceFile.statements.length === 0) {
+    return undefined;
+  }
+  if (ts.isExternalModule(sourceFile)) {
+    return 'esm5';
+  } else if (parseStatementForUmdModule(sourceFile.statements[0]) !== null) {
+    return 'umd';
+  } else {
+    return 'commonjs';
+  }
 }
 
 function mergeConfigAndPackageJson(
-    entryPointPackageJson: EntryPointPackageJson | null, entryPointConfig: NgccEntryPointConfig,
+    entryPointPackageJson: EntryPointPackageJson|null, entryPointConfig: NgccEntryPointConfig,
     packagePath: AbsoluteFsPath, entryPointPath: AbsoluteFsPath): EntryPointPackageJson {
   if (entryPointPackageJson !== null) {
     return {...entryPointPackageJson, ...entryPointConfig.override};
