@@ -9,7 +9,7 @@
   "//engines-comment": "Keep this in sync with /aio/package.json and /aio/tools/examples/shared/package.json",
   "engines": {
     "node": ">=10.9.0 <13.0.0",
-    "yarn": ">=1.21.1 <2"
+    "yarn": ">=1.22.4 <2"
   },
   "repository": {
     "type": "git",
@@ -51,12 +51,12 @@
     "@babel/template": "^7.8.6",
     "@babel/traverse": "^7.8.6",
     "@babel/types": "^7.8.6",
-    "@bazel/jasmine": "1.5.0",
-    "@bazel/karma": "1.5.0",
-    "@bazel/protractor": "1.5.0",
-    "@bazel/rollup": "1.5.0",
-    "@bazel/terser": "1.5.0",
-    "@bazel/typescript": "1.5.0",
+    "@bazel/jasmine": "1.6.0",
+    "@bazel/karma": "1.6.0",
+    "@bazel/protractor": "1.6.0",
+    "@bazel/rollup": "1.6.0",
+    "@bazel/terser": "1.6.0",
+    "@bazel/typescript": "1.6.0",
     "@microsoft/api-extractor": "~7.6.0",
     "@schematics/angular": "9.0.3",
     "@types/angular": "^1.6.47",
