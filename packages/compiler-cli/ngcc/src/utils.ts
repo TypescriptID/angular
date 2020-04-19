@@ -77,11 +77,6 @@ export function hasNameIdentifier(declaration: ts.Declaration): declaration is t
   return namedDeclaration.name !== undefined && ts.isIdentifier(namedDeclaration.name);
 }
 
-export type PathMappings = {
-  baseUrl: string,
-  paths: {[key: string]: string[]}
-};
-
 /**
  * Test whether a path is "relative".
  *

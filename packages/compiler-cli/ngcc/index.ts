@@ -5,19 +5,18 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-import {CachedFileSystem, NodeJSFileSystem, setFileSystem} from '../src/ngtsc/file_system';
+import {NodeJSFileSystem, setFileSystem} from '../src/ngtsc/file_system';
 
-import {AsyncNgccOptions, mainNgcc, NgccOptions, SyncNgccOptions} from './src/main';
+import {mainNgcc} from './src/main';
+import {AsyncNgccOptions, NgccOptions, SyncNgccOptions} from './src/ngcc_options';
 
 export {ConsoleLogger} from './src/logging/console_logger';
 export {Logger, LogLevel} from './src/logging/logger';
-export {AsyncNgccOptions, NgccOptions, SyncNgccOptions} from './src/main';
-export {PathMappings} from './src/utils';
+export {AsyncNgccOptions, NgccOptions, PathMappings, SyncNgccOptions} from './src/ngcc_options';
 
 export function process(options: AsyncNgccOptions): Promise<void>;
 export function process(options: SyncNgccOptions): void;
 export function process(options: NgccOptions): void|Promise<void> {
-  // Recreate the file system on each call to reset the cache
-  setFileSystem(new CachedFileSystem(new NodeJSFileSystem()));
+  setFileSystem(new NodeJSFileSystem());
   return mainNgcc(options);
 }
