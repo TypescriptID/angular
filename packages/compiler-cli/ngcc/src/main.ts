@@ -32,10 +32,12 @@ import {AsyncLocker} from './locking/async_locker';
 import {LockFileWithChildProcess} from './locking/lock_file_with_child_process';
 import {SyncLocker} from './locking/sync_locker';
 import {Logger} from './logging/logger';
-import {AsyncNgccOptions, getSharedSetup, NgccOptions, PathMappings, SyncNgccOptions} from './ngcc_options';
+import {AsyncNgccOptions, getSharedSetup, NgccOptions, SyncNgccOptions} from './ngcc_options';
 import {NgccConfiguration} from './packages/configuration';
 import {EntryPointJsonProperty, SUPPORTED_FORMAT_PROPERTIES} from './packages/entry_point';
 import {EntryPointManifest, InvalidatingEntryPointManifest} from './packages/entry_point_manifest';
+import {PathMappings} from './path_mappings';
+import {FileWriter} from './writing/file_writer';
 import {DirectPackageJsonUpdater, PackageJsonUpdater} from './writing/package_json_updater';
 
 /**
@@ -54,7 +56,6 @@ export function mainNgcc(options: NgccOptions): void|Promise<void> {
     targetEntryPointPath,
     propertiesToConsider,
     compileAllFormats,
-    createNewEntryPointFormats,
     logger,
     pathMappings,
     async,
@@ -64,7 +65,8 @@ export function mainNgcc(options: NgccOptions): void|Promise<void> {
     fileSystem,
     absBasePath,
     projectPath,
-    tsConfig
+    tsConfig,
+    getFileWriter,
   } = getSharedSetup(options);
 
   const config = new NgccConfiguration(fileSystem, projectPath);
@@ -86,26 +88,29 @@ export function mainNgcc(options: NgccOptions): void|Promise<void> {
     return;
   }
 
-  // Execute in parallel, if async execution is acceptable and there are more than 1 CPU cores.
-  const inParallel = async && (os.cpus().length > 1);
+  // Execute in parallel, if async execution is acceptable and there are more than 2 CPU cores.
+  // (One CPU core is always reserved for the master process and we need at least 2 worker processes
+  // in order to run tasks in parallel.)
+  const inParallel = async && (os.cpus().length > 2);
 
   const analyzeEntryPoints = getAnalyzeEntryPointsFn(
       logger, finder, fileSystem, supportedPropertiesToConsider, compileAllFormats,
       propertiesToConsider, inParallel);
 
-  // Create an updater that will actually write to disk. In
+  // Create an updater that will actually write to disk.
   const pkgJsonUpdater = new DirectPackageJsonUpdater(fileSystem);
+  const fileWriter = getFileWriter(pkgJsonUpdater);
 
   // The function for creating the `compile()` function.
   const createCompileFn = getCreateCompileFn(
-      fileSystem, logger, pkgJsonUpdater, createNewEntryPointFormats, errorOnFailedEntryPoint,
-      enableI18nLegacyMessageIdFormat, tsConfig, pathMappings);
+      fileSystem, logger, fileWriter, enableI18nLegacyMessageIdFormat, tsConfig, pathMappings);
 
   // The executor for actually planning and getting the work done.
   const createTaskCompletedCallback =
       getCreateTaskCompletedCallback(pkgJsonUpdater, errorOnFailedEntryPoint, logger, fileSystem);
   const executor = getExecutor(
-      async, inParallel, logger, pkgJsonUpdater, fileSystem, createTaskCompletedCallback);
+      async, inParallel, logger, fileWriter, pkgJsonUpdater, fileSystem, config,
+      createTaskCompletedCallback);
 
   return executor.execute(analyzeEntryPoints, createCompileFn);
 }
@@ -144,17 +149,20 @@ function getCreateTaskCompletedCallback(
 }
 
 function getExecutor(
-    async: boolean, inParallel: boolean, logger: Logger, pkgJsonUpdater: PackageJsonUpdater,
-    fileSystem: FileSystem, createTaskCompletedCallback: CreateTaskCompletedCallback): Executor {
+    async: boolean, inParallel: boolean, logger: Logger, fileWriter: FileWriter,
+    pkgJsonUpdater: PackageJsonUpdater, fileSystem: FileSystem, config: NgccConfiguration,
+    createTaskCompletedCallback: CreateTaskCompletedCallback): Executor {
   const lockFile = new LockFileWithChildProcess(fileSystem, logger);
   if (async) {
     // Execute asynchronously (either serially or in parallel)
-    const locker = new AsyncLocker(lockFile, logger, 500, 50);
+    const {retryAttempts, retryDelay} = config.getLockingConfig();
+    const locker = new AsyncLocker(lockFile, logger, retryDelay, retryAttempts);
     if (inParallel) {
       // Execute in parallel. Use up to 8 CPU cores for workers, always reserving one for master.
       const workerCount = Math.min(8, os.cpus().length - 1);
       return new ClusterExecutor(
-          workerCount, fileSystem, logger, pkgJsonUpdater, locker, createTaskCompletedCallback);
+          workerCount, fileSystem, logger, fileWriter, pkgJsonUpdater, locker,
+          createTaskCompletedCallback);
     } else {
       // Execute serially, on a single thread (async).
       return new SingleProcessExecutorAsync(logger, locker, createTaskCompletedCallback);

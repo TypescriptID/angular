@@ -9,6 +9,7 @@
 import {CacheDatabase} from '../src/db-cache';
 import {Driver} from '../src/driver';
 import {Manifest} from '../src/manifest';
+import {MockCache} from '../testing/cache';
 import {MockRequest} from '../testing/fetch';
 import {MockFileSystemBuilder, MockServerStateBuilder, tmpHashTableForFs} from '../testing/mock';
 import {SwTestHarness, SwTestHarnessBuilder} from '../testing/scope';
@@ -55,6 +56,7 @@ const manifest: Manifest = {
         '/bar.txt',
       ],
       patterns: [],
+      cacheQueryOptions: {ignoreVary: true},
     },
   ],
   dataGroups: [
@@ -66,6 +68,7 @@ const manifest: Manifest = {
       timeoutMs: 1000,
       maxAge: 5000,
       version: 1,
+      cacheQueryOptions: {ignoreVary: true, ignoreSearch: true},
     },
     {
       name: 'testRefresh',
@@ -76,6 +79,7 @@ const manifest: Manifest = {
       refreshAheadMs: 1000,
       maxAge: 5000,
       version: 1,
+      cacheQueryOptions: {ignoreVary: true},
     },
     {
       name: 'testFresh',
@@ -85,6 +89,7 @@ const manifest: Manifest = {
       timeoutMs: 1000,
       maxAge: 5000,
       version: 1,
+      cacheQueryOptions: {ignoreVary: true},
     },
   ],
   navigationUrls: [],
@@ -191,6 +196,28 @@ describe('data cache', () => {
       await driver.updateClient(await scope.clients.get('default'));
       expect(await makeRequest(scope, '/api/test')).toEqual('version 2');
     });
+
+    it('CacheQueryOptions are passed through', async () => {
+      await driver.initialized;
+      const matchSpy = spyOn(MockCache.prototype, 'match').and.callThrough();
+      // the first request fetches the resource from the server
+      await makeRequest(scope, '/api/a');
+      // the second one will be loaded from the cache
+      await makeRequest(scope, '/api/a');
+      expect(matchSpy).toHaveBeenCalledWith(
+          new MockRequest('/api/a'), {ignoreVary: true, ignoreSearch: true});
+    });
+
+    it('still matches if search differs but ignoreSearch is enabled', async () => {
+      await driver.initialized;
+      const matchSpy = spyOn(MockCache.prototype, 'match').and.callThrough();
+      // the first request fetches the resource from the server
+      await makeRequest(scope, '/api/a?v=1');
+      // the second one will be loaded from the cache
+      server.clearRequests();
+      await makeRequest(scope, '/api/a?v=2');
+      server.assertNoOtherRequests();
+    });
   });
 
   describe('in freshness mode', () => {
@@ -288,6 +315,27 @@ describe('data cache', () => {
       scope.advance(2000);
 
       expect(await res2).toBe('');
+    });
+
+    it('CacheQueryOptions are passed through when falling back to cache', async () => {
+      const matchSpy = spyOn(MockCache.prototype, 'match').and.callThrough();
+      await makeRequest(scope, '/fresh/data');
+      server.clearRequests();
+      scope.updateServerState(serverUpdate);
+      serverUpdate.pause();
+      const [res, done] = makePendingRequest(scope, '/fresh/data');
+
+      await serverUpdate.nextRequest;
+
+      // Since the network request doesn't return within the timeout of 1,000ms,
+      // this should return cached data.
+      scope.advance(2000);
+      await res;
+      expect(matchSpy).toHaveBeenCalledWith(new MockRequest('/fresh/data'), {ignoreVary: true});
+
+      // Unpausing allows the worker to continue with caching.
+      serverUpdate.unpause();
+      await done;
     });
   });
 });

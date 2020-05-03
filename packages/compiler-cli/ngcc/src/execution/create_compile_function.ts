@@ -12,13 +12,10 @@ import {replaceTsWithNgInErrors} from '../../../src/ngtsc/diagnostics';
 import {FileSystem} from '../../../src/ngtsc/file_system';
 import {ParsedConfiguration} from '../../../src/perform_compile';
 import {Logger} from '../logging/logger';
-import {PathMappings} from '../ngcc_options';
 import {getEntryPointFormat} from '../packages/entry_point';
 import {makeEntryPointBundle} from '../packages/entry_point_bundle';
+import {PathMappings} from '../path_mappings';
 import {FileWriter} from '../writing/file_writer';
-import {InPlaceFileWriter} from '../writing/in_place_file_writer';
-import {NewEntryPointFileWriter} from '../writing/new_entry_point_file_writer';
-import {PackageJsonUpdater} from '../writing/package_json_updater';
 
 import {CreateCompileFn} from './api';
 import {Task, TaskProcessingOutcome} from './tasks/api';
@@ -27,13 +24,10 @@ import {Task, TaskProcessingOutcome} from './tasks/api';
  * The function for creating the `compile()` function.
  */
 export function getCreateCompileFn(
-    fileSystem: FileSystem, logger: Logger, pkgJsonUpdater: PackageJsonUpdater,
-    createNewEntryPointFormats: boolean, errorOnFailedEntryPoint: boolean,
+    fileSystem: FileSystem, logger: Logger, fileWriter: FileWriter,
     enableI18nLegacyMessageIdFormat: boolean, tsConfig: ParsedConfiguration|null,
     pathMappings: PathMappings|undefined): CreateCompileFn {
-  return onTaskCompleted => {
-    const fileWriter = getFileWriter(
-        fileSystem, logger, pkgJsonUpdater, createNewEntryPointFormats, errorOnFailedEntryPoint);
+  return (beforeWritingFiles, onTaskCompleted) => {
     const {Transformer} = require('../packages/transformer');
     const transformer = new Transformer(fileSystem, logger, tsConfig);
 
@@ -57,11 +51,11 @@ export function getCreateCompileFn(
             `${formatProperty} (formatPath: ${formatPath} | format: ${format})`);
       }
 
+      logger.info(`Compiling ${entryPoint.name} : ${formatProperty} as ${format}`);
+
       const bundle = makeEntryPointBundle(
           fileSystem, entryPoint, formatPath, isCore, format, processDts, pathMappings, true,
           enableI18nLegacyMessageIdFormat);
-
-      logger.info(`Compiling ${entryPoint.name} : ${formatProperty} as ${format}`);
 
       const result = transformer.transform(bundle);
       if (result.success) {
@@ -69,11 +63,20 @@ export function getCreateCompileFn(
           logger.warn(replaceTsWithNgInErrors(
               ts.formatDiagnosticsWithColorAndContext(result.diagnostics, bundle.src.host)));
         }
-        fileWriter.writeBundle(bundle, result.transformedFiles, formatPropertiesToMarkAsProcessed);
 
-        logger.debug(`  Successfully compiled ${entryPoint.name} : ${formatProperty}`);
+        const writeBundle = () => {
+          fileWriter.writeBundle(
+              bundle, result.transformedFiles, formatPropertiesToMarkAsProcessed);
 
-        onTaskCompleted(task, TaskProcessingOutcome.Processed, null);
+          logger.debug(`  Successfully compiled ${entryPoint.name} : ${formatProperty}`);
+          onTaskCompleted(task, TaskProcessingOutcome.Processed, null);
+        };
+
+        const beforeWritingResult = beforeWritingFiles(result.transformedFiles);
+
+        return (beforeWritingResult instanceof Promise) ?
+            beforeWritingResult.then(writeBundle) as ReturnType<typeof beforeWritingFiles>:
+            writeBundle();
       } else {
         const errors = replaceTsWithNgInErrors(
             ts.formatDiagnosticsWithColorAndContext(result.diagnostics, bundle.src.host));
@@ -81,12 +84,4 @@ export function getCreateCompileFn(
       }
     };
   };
-}
-
-function getFileWriter(
-    fs: FileSystem, logger: Logger, pkgJsonUpdater: PackageJsonUpdater,
-    createNewEntryPointFormats: boolean, errorOnFailedEntryPoint: boolean): FileWriter {
-  return createNewEntryPointFormats ?
-      new NewEntryPointFileWriter(fs, logger, errorOnFailedEntryPoint, pkgJsonUpdater) :
-      new InPlaceFileWriter(fs, logger, errorOnFailedEntryPoint);
 }

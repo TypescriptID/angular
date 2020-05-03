@@ -23,7 +23,7 @@ export abstract class SingleProcessorExecutorBase {
 
     const taskQueue = analyzeEntryPoints();
     const onTaskCompleted = this.createTaskCompletedCallback(taskQueue);
-    const compile = createCompileFn(onTaskCompleted);
+    const compile = createCompileFn(() => {}, onTaskCompleted);
 
     // Process all tasks.
     this.logger.debug('Processing tasks...');
@@ -32,7 +32,7 @@ export abstract class SingleProcessorExecutorBase {
     while (!taskQueue.allTasksCompleted) {
       const task = taskQueue.getNextTask()!;
       compile(task);
-      taskQueue.markTaskCompleted(task);
+      taskQueue.markAsCompleted(task);
     }
 
     const duration = Math.round((Date.now() - startTime) / 1000);

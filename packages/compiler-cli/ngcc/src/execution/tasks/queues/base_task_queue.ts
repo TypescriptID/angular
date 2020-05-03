@@ -37,7 +37,7 @@ export abstract class BaseTaskQueue implements TaskQueue {
         break;
       }
       // We are skipping this task so mark it as complete
-      this.markTaskCompleted(nextTask);
+      this.markAsCompleted(nextTask);
       const failedTask = this.tasksToSkip.get(nextTask)!;
       this.logger.warn(`Skipping processing of ${nextTask.entryPoint.name} because its dependency ${
           failedTask.entryPoint.name} failed to compile.`);
@@ -46,7 +46,16 @@ export abstract class BaseTaskQueue implements TaskQueue {
     return nextTask;
   }
 
-  markAsFailed(task: Task) {
+  markAsCompleted(task: Task): void {
+    if (!this.inProgressTasks.has(task)) {
+      throw new Error(
+          `Trying to mark task that was not in progress as completed: ${stringifyTask(task)}`);
+    }
+
+    this.inProgressTasks.delete(task);
+  }
+
+  markAsFailed(task: Task): void {
     if (this.dependencies.has(task)) {
       for (const dependentTask of this.dependencies.get(task)!) {
         this.skipDependentTasks(dependentTask, task);
@@ -54,13 +63,14 @@ export abstract class BaseTaskQueue implements TaskQueue {
     }
   }
 
-  markTaskCompleted(task: Task): void {
+  markAsUnprocessed(task: Task): void {
     if (!this.inProgressTasks.has(task)) {
       throw new Error(
-          `Trying to mark task that was not in progress as completed: ${stringifyTask(task)}`);
+          `Trying to mark task that was not in progress as unprocessed: ${stringifyTask(task)}`);
     }
 
     this.inProgressTasks.delete(task);
+    this.tasks.unshift(task);
   }
 
   toString(): string {
