@@ -57,6 +57,7 @@ export class NgtscTestEnvironment {
         "noEmitOnError": true,
         "strictNullChecks": true,
         "outDir": "built",
+        "rootDir": ".",
         "baseUrl": ".",
         "declaration": true,
         "target": "es5",
@@ -119,6 +120,13 @@ export class NgtscTestEnvironment {
     this.multiCompileHostExt.flushWrittenFileTracking();
   }
 
+  getTsProgram(): ts.Program {
+    if (this.oldProgram === null) {
+      throw new Error('No ts.Program has been created yet.');
+    }
+    return this.oldProgram.getTsProgram();
+  }
+
   /**
    * Older versions of the CLI do not provide the `CompilerHost.getModifiedResourceFiles()` method.
    * This results in the `changedResources` set being `null`.
@@ -158,11 +166,16 @@ export class NgtscTestEnvironment {
     this.multiCompileHostExt.invalidate(absFilePath);
   }
 
-  tsconfig(extraOpts: {[key: string]: string|boolean|null} = {}, extraRootDirs?: string[]): void {
+  tsconfig(
+      extraOpts: {[key: string]: string|boolean|null} = {}, extraRootDirs?: string[],
+      files?: string[]): void {
     const tsconfig: {[key: string]: any} = {
       extends: './tsconfig-base.json',
       angularCompilerOptions: {...extraOpts, enableIvy: true},
     };
+    if (files !== undefined) {
+      tsconfig['files'] = files;
+    }
     if (extraRootDirs !== undefined) {
       tsconfig.compilerOptions = {
         rootDirs: ['.', ...extraRootDirs],

@@ -366,7 +366,6 @@ groups:
       - >
         contains_any_globs(files, [
           'packages/common/http/**',
-          'packages/http/**',
           'packages/examples/http/**',
           'aio/content/guide/http.md',
           'aio/content/examples/http/**',
@@ -507,7 +506,7 @@ groups:
   # =========================================================
   #  Framework: Service Worker
   # =========================================================
-  fw-server-worker:
+  fw-service-worker:
     conditions:
       - *can-be-global-approved
       - *can-be-global-docs-approved

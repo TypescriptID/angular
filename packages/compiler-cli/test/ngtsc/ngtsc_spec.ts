@@ -545,6 +545,7 @@ runInEachFileSystem(os => {
         Output as AngularOutput
       } from '@angular/core';
 
+      @AngularDirective()
       export class TestBase {
         @AngularInput() input: any;
         @AngularOutput() output: any;
@@ -884,10 +885,11 @@ runInEachFileSystem(os => {
       expect(jsContents).toContain('background-color: blue');
     });
 
-    it('should include generic type for undecorated class declarations', () => {
+    it('should include generic type in directive definition', () => {
       env.write('test.ts', `
-        import {Component, Input, NgModule} from '@angular/core';
+        import {Directive, Input, NgModule} from '@angular/core';
 
+        @Directive()
         export class TestBase {
           @Input() input: any;
         }
@@ -903,6 +905,76 @@ runInEachFileSystem(os => {
       expect(dtsContents)
           .toContain(
               `static ɵdir: i0.ɵɵDirectiveDefWithMeta<TestBase, never, never, { "input": "input"; }, {}, never>;`);
+    });
+
+    describe('undecorated classes using Angular features', () => {
+      it('should error if @Input has been discovered',
+         () => assertErrorUndecoratedClassWithField('Input'));
+      it('should error if @Output has been discovered',
+         () => assertErrorUndecoratedClassWithField('Output'));
+      it('should error if @ViewChild has been discovered',
+         () => assertErrorUndecoratedClassWithField('ViewChild'));
+      it('should error if @ViewChildren has been discovered',
+         () => assertErrorUndecoratedClassWithField('ViewChildren'));
+      it('should error if @ContentChild has been discovered',
+         () => assertErrorUndecoratedClassWithField('ContentChildren'));
+      it('should error if @HostBinding has been discovered',
+         () => assertErrorUndecoratedClassWithField('HostBinding'));
+      it('should error if @HostListener has been discovered',
+         () => assertErrorUndecoratedClassWithField('HostListener'));
+
+      it(`should error if ngOnChanges lifecycle hook has been discovered`,
+         () => assertErrorUndecoratedClassWithLifecycleHook('ngOnChanges'));
+      it(`should error if ngOnInit lifecycle hook has been discovered`,
+         () => assertErrorUndecoratedClassWithLifecycleHook('ngOnInit'));
+      it(`should error if ngOnDestroy lifecycle hook has been discovered`,
+         () => assertErrorUndecoratedClassWithLifecycleHook('ngOnDestroy'));
+      it(`should error if ngDoCheck lifecycle hook has been discovered`,
+         () => assertErrorUndecoratedClassWithLifecycleHook('ngDoCheck'));
+      it(`should error if ngAfterViewInit lifecycle hook has been discovered`,
+         () => assertErrorUndecoratedClassWithLifecycleHook('ngAfterViewInit'));
+      it(`should error if ngAfterViewChecked lifecycle hook has been discovered`,
+         () => assertErrorUndecoratedClassWithLifecycleHook('ngAfterViewChecked'));
+      it(`should error if ngAfterContentInit lifecycle hook has been discovered`,
+         () => assertErrorUndecoratedClassWithLifecycleHook('ngAfterContentInit'));
+      it(`should error if ngAfterContentChecked lifecycle hook has been discovered`,
+         () => assertErrorUndecoratedClassWithLifecycleHook('ngAfterContentChecked'));
+
+      function assertErrorUndecoratedClassWithField(fieldDecoratorName: string) {
+        env.write('test.ts', `
+          import {Component, ${fieldDecoratorName}, NgModule} from '@angular/core';
+
+          export class SomeBaseClass {
+            @${fieldDecoratorName}() someMember: any;
+          }
+        `);
+
+        const errors = env.driveDiagnostics();
+        expect(errors.length).toBe(1);
+        expect(trim(errors[0].messageText as string))
+            .toContain(
+                'Class is using Angular features but is not decorated. Please add an explicit ' +
+                'Angular decorator.');
+      }
+
+      function assertErrorUndecoratedClassWithLifecycleHook(lifecycleName: string) {
+        env.write('test.ts', `
+            import {Component, NgModule} from '@angular/core';
+
+            export class SomeBaseClass {
+              ${lifecycleName}() {
+                // empty
+              }
+            }
+          `);
+
+        const errors = env.driveDiagnostics();
+        expect(errors.length).toBe(1);
+        expect(trim(errors[0].messageText as string))
+            .toContain(
+                'Class is using Angular features but is not decorated. Please add an explicit ' +
+                'Angular decorator.');
+      }
     });
 
     it('should compile NgModules without errors', () => {
@@ -3468,6 +3540,56 @@ runInEachFileSystem(os => {
         env.tsconfig({'generateNgFactoryShims': true});
       });
 
+      it('should be able to depend on an existing factory shim', () => {
+        // This test verifies that ngfactory files from the compilations of dependencies are
+        // available to import in a fresh compilation. It is derived from a bug observed in g3 where
+        // the shim system accidentally caused TypeScript to think that *.ngfactory.ts files always
+        // exist.
+        env.write('other.ngfactory.d.ts', `
+          export class OtherNgFactory {}
+        `);
+        env.write('test.ts', `
+          import {OtherNgFactory} from './other.ngfactory';
+
+          class DoSomethingWith extends OtherNgFactory {}
+        `);
+        expect(env.driveDiagnostics()).toEqual([]);
+      });
+
+      it('should generate factory shims for files not listed in root files', () => {
+        // This test verifies that shims are generated for all files in the user's program, even if
+        // only a subset of those files are listed in the tsconfig as root files.
+
+        env.tsconfig({'generateNgFactoryShims': true}, /* extraRootDirs */ undefined, [
+          absoluteFrom('/test.ts'),
+        ]);
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          import {OtherCmp} from './other';
+
+          @Component({
+            selector: 'test',
+            template: '...',
+          })
+          export class TestCmp {
+            constructor(other: OtherCmp) {}
+          }
+        `);
+        env.write('other.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            selector: 'other',
+            template: '...',
+          })
+          export class OtherCmp {}
+        `);
+        env.driveMain();
+
+        expect(env.getContents('other.ngfactory.js')).toContain('OtherCmp');
+      });
+
       it('should generate correct type annotation for NgModuleFactory calls in ngfactories', () => {
         env.write('test.ts', `
         import {Component} from '@angular/core';
@@ -5097,6 +5219,7 @@ runInEachFileSystem(os => {
           const fileoverview = `
         /**
          * @fileoverview added by tsickle
+         * Generated from: test.ts
          * @suppress {checkTypes,constantProperty,extraRequire,missingOverride,missingReturn,unusedPrivateMembers,uselessCode} checked by tsc
          */
       `;
@@ -5114,6 +5237,7 @@ runInEachFileSystem(os => {
           const fileoverview = `
         /**
          * @fileoverview added by tsickle
+         * Generated from: test.ts
          * @suppress {checkTypes,constantProperty,extraRequire,missingOverride,missingReturn,unusedPrivateMembers,uselessCode} checked by tsc
          */
       `;
@@ -5139,6 +5263,7 @@ runInEachFileSystem(os => {
           const fileoverview = `
         /**
          * @fileoverview added by tsickle
+         * Generated from: test.ngfactory.ts
          * @suppress {checkTypes,constantProperty,extraRequire,missingOverride,missingReturn,unusedPrivateMembers,uselessCode} checked by tsc
          */
       `;
@@ -5169,6 +5294,7 @@ runInEachFileSystem(os => {
         /**
          *
          * @fileoverview Some Comp overview
+         * Generated from: test.ts
          * @modName {some_comp}
          *
          * @suppress {checkTypes,constantProperty,extraRequire,missingOverride,missingReturn,unusedPrivateMembers,uselessCode} checked by tsc
@@ -5198,6 +5324,7 @@ runInEachFileSystem(os => {
         /**
          *
          * @fileoverview Some Comp overview
+         * Generated from: test.ts
          * @modName {some_comp}
          *
          * @suppress {checkTypes,constantProperty,extraRequire,missingOverride,missingReturn,unusedPrivateMembers,uselessCode} checked by tsc

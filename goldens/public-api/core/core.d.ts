@@ -559,7 +559,7 @@ export declare class ModuleWithComponentFactories<T> {
     constructor(ngModuleFactory: NgModuleFactory<T>, componentFactories: ComponentFactory<any>[]);
 }
 
-export declare interface ModuleWithProviders<T = any /** TODO(alxhub): remove default when callers pass explicit type param */> {
+export declare interface ModuleWithProviders<T> {
     ngModule: Type<T>;
     providers?: Provider[];
 }
@@ -1443,6 +1443,7 @@ export declare abstract class ViewRef extends ChangeDetectorRef {
     abstract onDestroy(callback: Function): any /** TODO #9100 */;
 }
 
+/** @deprecated */
 export declare class WrappedValue {
     /** @deprecated */ wrapped: any;
     constructor(value: any);

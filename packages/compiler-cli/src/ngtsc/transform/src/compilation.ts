@@ -14,7 +14,7 @@ import {IncrementalBuild} from '../../incremental/api';
 import {IndexingContext} from '../../indexer';
 import {PerfRecorder} from '../../perf';
 import {ClassDeclaration, Decorator, ReflectionHost} from '../../reflection';
-import {TypeCheckContext} from '../../typecheck';
+import {ProgramTypeCheckAdapter, TypeCheckContext} from '../../typecheck';
 import {getSourceFile, isExported} from '../../util/src/typescript';
 
 import {AnalysisOutput, CompileResult, DecoratorHandler, HandlerFlags, HandlerPrecedence, ResolveResult} from './api';
@@ -67,7 +67,7 @@ export interface ClassRecord {
  * in the production of `CompileResult`s instructing the compiler to apply various mutations to the
  * class (like adding fields or type declarations).
  */
-export class TraitCompiler {
+export class TraitCompiler implements ProgramTypeCheckAdapter {
   /**
    * Maps class declarations to their `ClassRecord`, which tracks the Ivy traits being applied to
    * those classes.
@@ -87,7 +87,7 @@ export class TraitCompiler {
   constructor(
       private handlers: DecoratorHandler<unknown, unknown, unknown>[],
       private reflector: ReflectionHost, private perf: PerfRecorder,
-      private incrementalBuild: IncrementalBuild<ClassRecord>,
+      private incrementalBuild: IncrementalBuild<ClassRecord, unknown>,
       private compileNonExportedClasses: boolean, private dtsTransforms: DtsTransformRegistry) {
     for (const handler of handlers) {
       this.handlersByName.set(handler.name, handler);
@@ -423,8 +423,16 @@ export class TraitCompiler {
     }
   }
 
-  typeCheck(ctx: TypeCheckContext): void {
-    for (const clazz of this.classes.keys()) {
+  /**
+   * Generate type-checking code into the `TypeCheckContext` for any components within the given
+   * `ts.SourceFile`.
+   */
+  typeCheck(sf: ts.SourceFile, ctx: TypeCheckContext): void {
+    if (!this.fileToClasses.has(sf)) {
+      return;
+    }
+
+    for (const clazz of this.fileToClasses.get(sf)!) {
       const record = this.classes.get(clazz)!;
       for (const trait of record.traits) {
         if (trait.state !== TraitState.RESOLVED) {

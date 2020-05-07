@@ -42,6 +42,7 @@ v9 - v12
 | `@angular/core`               | [`ReflectiveKey`](#core)                                                      | <!--v8--> v11 |
 | `@angular/core`               | [`RenderComponentType`](#core)                                                | <!--v7--> v11 |
 | `@angular/core`               | [`ViewEncapsulation.Native`](#core)                                           | <!--v6--> v11 |
+| `@angular/core`               | [`WrappedValue`](#core)                                                       | <!--v10--> v12 |
 | `@angular/forms`              | [`ngModel` with reactive forms](#ngmodel-reactive)                            | <!--v6--> v11 |
 | `@angular/router`             | [`preserveQueryParams`](#router)                                              | <!--v7--> v11 |
 | `@angular/upgrade`            | [`@angular/upgrade`](#upgrade)                                                | <!--v8--> v11 |
@@ -95,7 +96,7 @@ Tip: In the [API reference section](api) of this doc site, deprecated APIs are i
 | [`defineInjectable`](api/core/defineInjectable) | `ɵɵdefineInjectable` | v8 | Used only in generated code. No source code should depend on this API. |
 | [`entryComponents`](api/core/NgModule#entryComponents) | none | v9 | See [`entryComponents`](#entryComponents) |
 | [`ANALYZE_FOR_ENTRY_COMPONENTS`](api/core/ANALYZE_FOR_ENTRY_COMPONENTS) | none | v9 | See [`ANALYZE_FOR_ENTRY_COMPONENTS`](#entryComponents) |
-
+| [`WrappedValue`](api/core/WrappedValue) | none | v10 | See [removing `WrappedValue`](#wrapped-value) |
 
 
 
@@ -457,13 +458,54 @@ export class MyModule {
 }
 ```
 
+
+{@a ie-9-10}
+### IE 9 and 10 support
+
+Support for IE 9 and 10 has been deprecated and will be removed in a future version.
+Supporting outdated browsers like these increases bundle size, code complexity, and test load, and also requires time and effort that could be spent on improvements to the framework.
+For example, fixing issues can be more difficult, as a straightforward fix for modern browsers could break old ones that have quirks due to not receiving updates from vendors.
+
+The final decision was made on three key points:
+* __Vendor support__: Microsoft dropped support of IE 9 and 10 on 1/12/16, meaning they no longer provide security updates or technical support.
+* __Usage statistics__: We looked at usage trends for IE 9 and 10 from various sources and all indicated that usage percentages were extremely small (fractions of 1%).
+* __Feedback from partners__: We also reached out to some of our Angular customers and none expressed concern about dropping IE 9 and 10 support.
+
+
+{@a wrapped-value}
+###  `WrappedValue` 
+
+The purpose of `WrappedValue` is to allow the same object instance to be treated as different for the purposes of change detection.
+It is commonly used with the `async` pipe in the case where the `Observable` produces the same instance of the value.
+
+Given that this use case is relatively rare and special handling impacts application performance, we have deprecated it in v10.
+No replacement is planned for this deprecation.
+
+If you rely on the behavior that the same object instance should cause change detection, you have two options:
+- Clone the resulting value so that it has a new identity.
+- Explicitly call [`ChangeDetectorRef.detectChanges()`](api/core/ChangeDetectorRef#detectchanges) to force the update. 
+
+{@a removed}
+## Removed APIs
+
+The following APIs have been removed starting with version 10.0.0*:
+
+| Package          | API            | Replacement | Notes |
+| ---------------- | -------------- | ----------- | ----- |
+| `@angular/core`  | Undecorated base classes that use Angular features | Add Angular decorator | See [migration guide](guide/migration-undecorated-classes) for more info |
+| `@angular/core`  | `ModuleWithProviders` without a generic             | `ModuleWithProviders` with a generic | See [migration guide](guide/migration-module-with-providers) for more info |
+| `@angular/core`  | Style Sanitization | no action needed | See [style sanitization API removal](#style-sanitization) for more info
+
+*To see APIs removed in version 9, check out this guide on the [version 9 docs site](https://v9.angular.io/guide/deprecations#removed).
+
+
 {@a esm5-fesm5}
 ### `esm5` and `fesm5` code formats in @angular/* npm packages
 
 As of Angular v8, the CLI primarily consumes the `fesm2015` variant of the code distributed via `@angular/*` npm packages.
 This renders the `esm5` and `fesm5` distributions obsolete and unnecessary, adding bloat to the package size and slowing down npm installations.
 
-The future removal of this distribution will have no impact on CLI users, unless they modified their build configuration to explicitly consume these code distributions.
+This removal has no impact on CLI users, unless they modified their build configuration to explicitly consume these code distributions.
 
 Any application still relying on the `esm5` and `fesm5` as the input to its build system will need to ensure that the build pipeline is capable of accepting JavaScript code conforming to ECMAScript 2015 (ES2015) language specification.
 
@@ -471,7 +513,7 @@ Note that this change doesn't make existing libraries distributed in this format
 The CLI will fall back and consume libraries in less desirable formats if others are not available.
 However, we do recommend that libraries ship their code in ES2015 format in order to make builds faster and build output smaller.
 
-In practical terms, the `package.json` of all `@angular` packages will change in the following way:
+In practical terms, the `package.json` of all `@angular` packages has changed in the following way:
 
 **Before**:
 ```
@@ -590,3 +632,7 @@ For more information about using `@angular/common/http`, see the [HttpClient gui
 | --------------------- | ------------------------------------------- |
 | `MockBackend` | [`HttpTestingController`](/api/common/http/testing/HttpTestingController) |
 | `MockConnection` | [`HttpTestingController`](/api/common/http/testing/HttpTestingController) |
+
+{@a style-sanitization}
+### Style Sanitization for `[style]` and `[style.prop]` bindings
+Angular used to sanitize `[style]` and `[style.prop]` bindings to prevent malicious code from being inserted through `javascript:` expressions in CSS `url()` entries. However, most modern browsers no longer support the usage of these expressions, so sanitization was only maintained for the sake of IE 6 and 7. Given that Angular does not support either IE 6 or 7 and sanitization has a performance cost, we will no longer sanitize style bindings as of version 10 of Angular.

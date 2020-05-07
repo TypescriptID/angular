@@ -12,11 +12,11 @@ import * as ts from 'typescript';
 import * as api from '../transformers/api';
 import {verifySupportedTypeScriptVersion} from '../typescript_support';
 
-import {NgCompilerHost} from './core';
+import {NgCompiler, NgCompilerHost} from './core';
 import {NgCompilerOptions} from './core/api';
-import {NgCompiler} from './core/src/compiler';
 import {IndexedComponent} from './indexer';
 import {NOOP_PERF_RECORDER, PerfRecorder, PerfTracker} from './perf';
+import {ReusedProgramStrategy} from './typecheck';
 
 
 
@@ -66,15 +66,20 @@ export class NgtscProgram implements api.Program {
     }
     this.closureCompilerEnabled = !!options.annotateForClosureCompiler;
 
-    this.host = NgCompilerHost.wrap(delegateHost, rootNames, options);
-
     const reuseProgram = oldProgram && oldProgram.reuseTsProgram;
+    this.host = NgCompilerHost.wrap(delegateHost, rootNames, options, reuseProgram ?? null);
+
     this.tsProgram = ts.createProgram(this.host.inputFiles, options, this.host, reuseProgram);
     this.reuseTsProgram = this.tsProgram;
 
+    this.host.postProgramCreationCleanup();
+
+    const reusedProgramStrategy = new ReusedProgramStrategy(
+        this.tsProgram, this.host, this.options, this.host.shimExtensionPrefixes);
+
     // Create the NgCompiler which will drive the rest of the compilation.
-    this.compiler =
-        new NgCompiler(this.host, options, this.tsProgram, reuseProgram, this.perfRecorder);
+    this.compiler = new NgCompiler(
+        this.host, options, this.tsProgram, reusedProgramStrategy, reuseProgram, this.perfRecorder);
   }
 
   getTsProgram(): ts.Program {

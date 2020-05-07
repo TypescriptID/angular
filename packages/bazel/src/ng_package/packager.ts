@@ -102,6 +102,13 @@ function main(args: string[]): number {
   const modulesManifest = JSON.parse(modulesManifestArg);
   const dtsBundles: string[] = dtsBundleArg.split(',').filter(s => !!s);
 
+  /**
+   * List of known `package.json` fields which provide information about
+   * supported package formats and their associated entry paths.
+   */
+  const knownFormatPackageJsonFields =
+      ['main', 'fesm2015', 'esm2015', 'typings', 'module', 'es2015'];
+
   if (readmeMd) {
     copyFile(readmeMd, out);
   }
@@ -164,16 +171,12 @@ function main(args: string[]): number {
   }
 
   esm2015.forEach(file => writeEsmFile(file, '', 'esm2015'));
-  esm5.forEach(file => writeEsmFile(file, '.esm5', 'esm5'));
 
   bundles.forEach(bundle => {
     copyFile(bundle, out, 'bundles');
   });
   fesm2015.forEach(file => {
     copyFile(file, out, 'fesm2015');
-  });
-  fesm5.forEach(file => {
-    copyFile(file, out, 'fesm5');
   });
 
   // Copy all type definitions into the package. This is necessary so that developers can use
@@ -328,11 +331,10 @@ function main(args: string[]): number {
     const packageName = parsedPackage['name'];
     const moduleData = modulesManifest[packageName];
 
-    // We don't want to modify the "package.json" if we guessed the entry-point
-    // paths and there is a custom "package.json" for that package already. Module
-    // data will be only undefined if the package name comes from a non-generated
-    // "package.json". In that case we want to leave the file untouched as well.
-    if (!moduleData || moduleData.guessedPaths && !isGeneratedPackageJson) {
+    // If a package json file has been discovered that does not match any
+    // module in the manifest, we report a warning as most likely the target
+    // is configured incorrectly (e.g. missing `module_name` attribute).
+    if (!moduleData) {
       // Ideally we should throw here, as we got an entry point that doesn't
       // have flat module metadata / bundle index, so it may have been an
       // ng_module that's missing a module_name attribute.
@@ -346,21 +348,31 @@ function main(args: string[]): number {
       return JSON.stringify(parsedPackage, null, 2);
     }
 
+    // If we guessed the index paths for a module, and it contains an explicit `package.json`
+    // file that already sets format properties, we skip automatic insertion of format
+    // properties but report a warning in case properties have been set by accident.
+    if (moduleData.guessedPaths && !isGeneratedPackageJson &&
+        hasExplicitFormatProperties(parsedPackage)) {
+      console.error('WARNING: `package.json` explicitly sets format properties (like `main`).');
+      console.error(
+          '    Skipping automatic insertion of format properties as explicit ' +
+          'format properties are set.');
+      console.error('    Ignore this warning if explicit properties are set intentionally.');
+      return JSON.stringify(parsedPackage, null, 2);
+    }
+
     // Derive the paths to the files from the hard-coded names we gave them.
     // TODO(alexeagle): it would be better to transfer this information from the place
     // where we created the filenames, via the modulesManifestArg
     parsedPackage['main'] = getBundleName(packageName, 'bundles');
-    parsedPackage['fesm5'] = getBundleName(packageName, 'fesm5');
     parsedPackage['fesm2015'] = getBundleName(packageName, 'fesm2015');
 
-    parsedPackage['esm5'] = srcDirRelative(packageJson, moduleData['esm5_index']);
     parsedPackage['esm2015'] = srcDirRelative(packageJson, moduleData['esm2015_index']);
     parsedPackage['typings'] = srcDirRelative(packageJson, moduleData['typings']);
 
     // For now, we point the primary entry points at the fesm files, because of Webpack
     // performance issues with a large number of individual files.
-    // TODO(iminar): resolve performance issues with the toolchain and point these to esm
-    parsedPackage['module'] = parsedPackage['fesm5'];
+    parsedPackage['module'] = parsedPackage['fesm2015'];
     parsedPackage['es2015'] = parsedPackage['fesm2015'];
 
     return JSON.stringify(parsedPackage, null, 2);
@@ -382,6 +394,12 @@ function main(args: string[]): number {
       basename = nameParts.slice(1).join('/');
     }
     return [relativePath, dir, basename + '.js'].join('/');
+  }
+
+  /** Whether the package explicitly sets any of the format properties (like `main`). */
+  function hasExplicitFormatProperties(parsedPackage: {[key: string]: string}): boolean {
+    return Object.keys(parsedPackage)
+        .some(propertyName => knownFormatPackageJsonFields.includes(propertyName));
   }
 
   /** Creates metadata re-export file for a secondary entry-point. */
