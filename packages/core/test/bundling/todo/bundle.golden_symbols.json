@@ -1,8 +1,5 @@
 [
   {
-    "name": "ACTIVE_INDEX"
-  },
-  {
     "name": "BLOOM_MASK"
   },
   {
@@ -70,6 +67,9 @@
   },
   {
     "name": "FLAGS"
+  },
+  {
+    "name": "HAS_TRANSPLANTED_VIEWS"
   },
   {
     "name": "HEADER_OFFSET"
@@ -597,9 +597,6 @@
     "name": "getCurrentDirectiveIndex"
   },
   {
-    "name": "getCurrentStyleSanitizer"
-  },
-  {
     "name": "getDebugContext"
   },
   {
@@ -658,6 +655,9 @@
   },
   {
     "name": "getNativeByTNode"
+  },
+  {
+    "name": "getNearestLContainer"
   },
   {
     "name": "getNextLContainer"
@@ -1017,7 +1017,7 @@
     "name": "noSideEffects"
   },
   {
-    "name": "normalizeAndApplySuffixOrSanitizer"
+    "name": "normalizeSuffix"
   },
   {
     "name": "readPatchedData"
@@ -1138,9 +1138,6 @@
   },
   {
     "name": "setIsNotParent"
-  },
-  {
-    "name": "setLContainerActiveIndex"
   },
   {
     "name": "setPreviousOrParentTNode"

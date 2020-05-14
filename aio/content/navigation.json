@@ -215,7 +215,7 @@
             },
             {
               "url": "guide/lifecycle-hooks",
-              "title": "Lifecycle Hooks",
+              "title": "Hook into the Component Lifecycle",
               "tooltip": "Angular calls lifecycle hook methods on directives and components as it creates, changes, and destroys them."
             },
             {
@@ -261,13 +261,13 @@
             },
             {
               "url": "guide/form-validation",
-              "title": "Form Validation",
+              "title": "Validate form input",
               "tooltip": "Validate user's form entries."
             },
             {
               "url": "guide/dynamic-form",
-              "title": "Dynamic Forms",
-              "tooltip": "Render dynamic forms with FormGroup."
+              "title": "Building Dynamic Forms",
+              "tooltip": "Create dynamic form templates using FormGroup."
             }
           ]
         },
