@@ -46,15 +46,20 @@ INTEGRATION_TESTS = {
     "cli-hello-world-ivy-compat": {"commands": "payload_size_tracking"},
     "cli-hello-world-ivy-i18n": {
         "commands": "payload_size_tracking",
-        "tags": ["no-ivy-aot"],
+        # TODO: (FW-2165) cli-hello-world-ivy-i18n fails on a bundle size check with Ivy bundles
+        "tags": ["fixme-ivy-aot"],
     },
     "cli-hello-world-ivy-minimal": {"commands": "payload_size_tracking"},
     "cli-hello-world-lazy": {
         "commands": "payload_size_tracking",
-        # TODO: cli-hello-world-lazy fails on a bundle size check with Ivy bundles
+        # TODO: (FW-2165) cli-hello-world-lazy fails on a bundle size check with Ivy bundles
+        "tags": ["fixme-ivy-aot"],
+    },
+    "cli-hello-world-lazy-rollup": {
+        "commands": "payload_size_tracking",
+        # TODO: cli-hello-world-lazy-rollup fails on a bundle size check because Ivy and VE sizes are different
         "tags": ["no-ivy-aot"],
     },
-    "cli-hello-world-lazy-rollup": {"commands": "payload_size_tracking"},
     "dynamic-compiler": {"tags": ["no-ivy-aot"]},
     "hello_world__closure": {
         "commands": "payload_size_tracking",
@@ -80,6 +85,12 @@ INTEGRATION_TESTS = {
     "service-worker-schema": {},
     "side-effects": {"tags": ["no-ivy-aot"]},
     "terser": {},
+    "typings_test_ts39": {
+        # Special case for `typings_test_ts39` test as we want to pin
+        # `typescript` at version 3.9.x for that test and not link to the
+        # root @npm//typescript package.
+        "pinned_npm_packages": ["typescript"],
+    },
 }
 
 [
