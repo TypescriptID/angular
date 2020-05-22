@@ -16,6 +16,7 @@
     "inquirer": "<from-root>",
     "minimatch": "<from-root>",
     "multimatch": "<from-root>",
+    "semver": "<from-root>",
     "shelljs": "<from-root>",
     "typed-graphqlify": "<from-root>",
     "yaml": "<from-root>",
@@ -24,7 +25,13 @@
   "peerDependencies": {
     "@bazel/buildifier": "<from-root>",
     "clang-format": "<from-root>",
+    "ts-node": "<from-root>",
     "tslib": "<from-root>",
     "typescript": "<from-root>"
+  },
+  "peerDependenciesMeta": {
+    "ts-node": {
+      "optional": true
+    }
   }
 }
