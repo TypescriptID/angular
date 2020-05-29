@@ -35,6 +35,7 @@ v9 - v12
 
 | Area                          | API or Feature                                                                | May be removed in |
 | ----------------------------- | ---------------------------------------------------------------------------   | ----------------- |
+| `@angular/bazel`              | [`Bazel builder and schematics`](#bazelbuilder)                               | v10 |
 | `@angular/common`             | [`ReflectiveInjector`](#reflectiveinjector)                                   | <!--v8--> v11 |
 | `@angular/common`             | [`CurrencyPipe` - `DEFAULT_CURRENCY_CODE`](api/common/CurrencyPipe#currency-code-deprecation) | <!--v9--> v11 |
 | `@angular/core`               | [`CollectionChangeRecord`](#core)                                             | <!--v7--> v11 |
@@ -59,7 +60,7 @@ v9 - v12
 | `@angular/core/testing`       | [`TestBed.get`](#testing)                                                     | <!--v9--> v12 |
 | `@angular/router`             | [`ActivatedRoute` params and `queryParams` properties](#activatedroute-props) | unspecified |
 | template syntax               | [`/deep/`, `>>>`, and `::ng-deep`](#deep-component-style-selector)            | <!--v7--> unspecified |
-| browser support               | [`IE 9 and 10`](#ie-9-10)                                                     | <!--v10--> v11 |
+| browser support               | [`IE 9 and 10, IE mobile`](#ie-9-10-and-mobile)                               | <!--v10--> v11 |
 
 
 
@@ -160,7 +161,11 @@ Tip: In the [API reference section](api) of this doc site, deprecated APIs are i
 
 This section lists all of the currently-deprecated features, which includes template syntax, configuration options, and any other deprecations not listed in the [Deprecated APIs](#deprecated-apis) section above. It also includes deprecated API usage scenarios or API combinations, to augment the information above.
 
+{@a bazelbuilder}
+### Bazel builder and schematics
 
+Bazel builder and schematics were introduced in Angular Labs to let users try out Bazel without having to manage Bazel version and BUILD files.
+This feature has been deprecated. For more information, please refer to the [migration doc](https://github.com/angular/angular/blob/master/packages/bazel/src/schematics/README.md).
 
 {@a wtf}
 ### Web Tracing Framework integration
@@ -459,17 +464,17 @@ export class MyModule {
 ```
 
 
-{@a ie-9-10}
-### IE 9 and 10 support
+{@a ie-9-10-and-mobile}
+### IE 9, 10, and IE mobile support
 
-Support for IE 9 and 10 has been deprecated and will be removed in a future version.
+Support for IE 9 and 10 has been deprecated, as well as support for IE Mobile. These will be dropped in a future version.
 Supporting outdated browsers like these increases bundle size, code complexity, and test load, and also requires time and effort that could be spent on improvements to the framework.
 For example, fixing issues can be more difficult, as a straightforward fix for modern browsers could break old ones that have quirks due to not receiving updates from vendors.
 
 The final decision was made on three key points:
-* __Vendor support__: Microsoft dropped support of IE 9 and 10 on 1/12/16, meaning they no longer provide security updates or technical support.
-* __Usage statistics__: We looked at usage trends for IE 9 and 10 from various sources and all indicated that usage percentages were extremely small (fractions of 1%).
-* __Feedback from partners__: We also reached out to some of our Angular customers and none expressed concern about dropping IE 9 and 10 support.
+* __Vendor support__: Microsoft dropped support of IE 9 and 10 on 1/12/16, meaning they no longer provide security updates or technical support. Additionally, Microsoft dropped support for of Windows 10 Mobile in December 2019.
+* __Usage statistics__: We looked at usage trends for IE 9 and 10 (as well as IE Mobile) from various sources and all indicated that usage percentages were extremely small (fractions of 1%).
+* __Feedback from partners__: We also reached out to some of our Angular customers and none expressed concern about dropping IE 9, 10, nor IE Mobile support.
 
 
 {@a wrapped-value}
