@@ -9,9 +9,9 @@
 
 import {getRepoBaseDir} from '../../utils/config';
 import {error, green, info, promptConfirm, red, yellow} from '../../utils/console';
+import {GithubApiRequestError} from '../../utils/git';
 
 import {loadAndValidateConfig, MergeConfigWithRemote} from './config';
-import {GithubApiRequestError} from './git';
 import {MergeResult, MergeStatus, PullRequestMergeTask} from './task';
 
 /** URL to the Github page where personal access tokens can be generated. */
@@ -109,6 +109,10 @@ export async function mergePullRequest(
         error(
             red('An unknown Git error has been thrown. Please check the output ' +
                 'above for details.'));
+        return false;
+      case MergeStatus.GITHUB_ERROR:
+        error(red('An error related to interacting with Github has been discovered.'));
+        error(failure!.message);
         return false;
       case MergeStatus.FAILED:
         error(yellow(`Could not merge the specified pull request.`));

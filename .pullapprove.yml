@@ -80,8 +80,8 @@
 #  Used for approving minor changes, large-scale refactorings, and in emergency situations.
 #
 # IgorMinar
+# jelbourn
 # josephperrott
-# kara
 # mhevery
 #
 # =========================================================
@@ -203,7 +203,6 @@ groups:
         - alxhub
         - AndrewKushnir
         - JoostK
-        - kara
 
 
   # =========================================================
@@ -235,7 +234,6 @@ groups:
         - alxhub
         - crisbeto
         - devversion
-        - kara
 
 
   # =========================================================
@@ -352,7 +350,7 @@ groups:
         - alxhub
         - AndrewKushnir
         - atscott
-        - kara
+        - ~kara  # do not request reviews from Kara, but allow her to approve PRs
         - mhevery
         - pkozlowski-opensource
 
@@ -579,7 +577,6 @@ groups:
       users:
         - AndrewKushnir
         - IgorMinar
-        - kara
         - pkozlowski-opensource
 
 
@@ -596,7 +593,6 @@ groups:
     reviewers:
       users:
         - IgorMinar
-        - kara
         - pkozlowski-opensource
 
 
@@ -613,7 +609,8 @@ groups:
     reviewers:
       users:
         - IgorMinar
-        - kara
+        - jelbourn
+        - pkozlowski-opensource
 
 
   # =========================================================
@@ -637,6 +634,13 @@ groups:
       users:
         - IgorMinar
         - mhevery
+        - jelbourn
+        - pkozlowski-opensource
+    reviews:
+      request: -1   # request reviews from everyone
+      required: 2   # require at least 2 approvals
+      reviewed_for: required
+
 
   # =========================================================
   #  Bazel
@@ -707,6 +711,7 @@ groups:
     reviewers:
       users:
         - alxhub
+        - josephperrott
 
 
   # =========================================================
@@ -723,7 +728,6 @@ groups:
       users:
         - IgorMinar
         - josephperrott
-        - kara
         - mhevery
 
 
@@ -836,7 +840,33 @@ groups:
     reviewers:
       users:
         - IgorMinar
-        - kara
+        - jelbourn
+
+
+  # =========================================================
+  #  Tooling: Compiler API shared with Angular CLI
+  #
+  #  Changing this API might break Angular CLI, so we require
+  #  the CLI team to approve changes here.
+  # =========================================================
+  tooling-cli-shared-api:
+    conditions:
+      - *can-be-global-approved
+      - *can-be-global-docs-approved
+      - >
+        contains_any_globs(files, [
+          'packages/compiler-cli/src/tooling.ts'
+        ])
+    reviewers:
+      users:
+        - alan-agius4
+        - clydin
+        - kyliau
+        - IgorMinar
+    reviews:
+      request: -1   # request reviews from everyone
+      required: 2   # require at least 2 approvals
+      reviewed_for: required
 
 
   # =========================================================
@@ -968,8 +998,6 @@ groups:
           'docs/TOOLS.md',
           'docs/TRIAGE_AND_LABELS.md',
           'goldens/*',
-          'modules/e2e_util/e2e_util.ts',
-          'modules/e2e_util/perf_util.ts',
           'modules/*',
           'packages/*',
           'packages/examples/test-utils/**',
@@ -977,14 +1005,10 @@ groups:
           'packages/examples/*',
           'scripts/**',
           'third_party/**',
-          'tools/brotli-cli/**',
-          'tools/browsers/**',
           'tools/build/**',
           'tools/circular_dependency_test/**',
           'tools/contributing-stats/**',
-          'tools/components/**',
           'tools/gulp-tasks/**',
-          'tools/ng_rollup_bundle/**',
           'tools/ngcontainer/**',
           'tools/npm/**',
           'tools/npm_integration_test/**',
@@ -1029,8 +1053,14 @@ groups:
           ])
     reviewers:
       users:
+        - alxhub
         - IgorMinar
-        - kara
+        - jelbourn
+        - pkozlowski-opensource
+    reviews:
+      request: -1   # request reviews from everyone
+      required: 3   # require at least 3 approvals
+      reviewed_for: required
 
 
   # ================================================
@@ -1045,8 +1075,14 @@ groups:
           ])
     reviewers:
       users:
+        - alxhub
         - IgorMinar
-        - kara
+        - jelbourn
+        - pkozlowski-opensource
+    reviews:
+      request: -1   # request reviews from everyone
+      required: 2   # require at least 2 approvals
+      reviewed_for: required
 
 
   # ================================================
@@ -1062,8 +1098,9 @@ groups:
     reviewers:
       users:
         - IgorMinar
+        - jelbourn
         - josephperrott
-        - kara
+        - pkozlowski-opensource
 
 
 ####################################################################################

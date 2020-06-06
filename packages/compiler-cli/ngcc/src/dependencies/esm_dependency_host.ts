@@ -8,77 +8,209 @@
 import * as ts from 'typescript';
 import {AbsoluteFsPath} from '../../../src/ngtsc/file_system';
 import {DependencyHostBase} from './dependency_host';
-import {ResolvedDeepImport, ResolvedRelativeModule} from './module_resolver';
 
 /**
  * Helper functions for computing dependencies.
  */
 export class EsmDependencyHost extends DependencyHostBase {
-  /**
-   * Compute the dependencies of the given file.
-   *
-   * @param file An absolute path to the file whose dependencies we want to get.
-   * @param dependencies A set that will have the absolute paths of resolved entry points added to
-   * it.
-   * @param missing A set that will have the dependencies that could not be found added to it.
-   * @param deepImports A set that will have the import paths that exist but cannot be mapped to
-   * entry-points, i.e. deep-imports.
-   * @param alreadySeen A set that is used to track internal dependencies to prevent getting stuck
-   * in a circular dependency loop.
-   */
-  protected recursivelyCollectDependencies(
-      file: AbsoluteFsPath, dependencies: Set<AbsoluteFsPath>, missing: Set<string>,
-      deepImports: Set<string>, alreadySeen: Set<AbsoluteFsPath>): void {
-    const fromContents = this.fs.readFile(file);
+  // By skipping trivia here we don't have to account for it in the processing below
+  // It has no relevance to capturing imports.
+  private scanner = ts.createScanner(ts.ScriptTarget.Latest, /* skipTrivia */ true);
 
-    if (!hasImportOrReexportStatements(fromContents)) {
-      // Avoid parsing the source file as there are no imports.
-      return;
+  protected canSkipFile(fileContents: string): boolean {
+    return !hasImportOrReexportStatements(fileContents);
+  }
+
+  protected extractImports(file: AbsoluteFsPath, fileContents: string): Set<string> {
+    const imports = new Set<string>();
+    const templateStack: ts.SyntaxKind[] = [];
+    let lastToken: ts.SyntaxKind = ts.SyntaxKind.Unknown;
+    let currentToken: ts.SyntaxKind = ts.SyntaxKind.Unknown;
+
+    this.scanner.setText(fileContents);
+
+    while ((currentToken = this.scanner.scan()) !== ts.SyntaxKind.EndOfFileToken) {
+      switch (currentToken) {
+        case ts.SyntaxKind.TemplateHead:
+          templateStack.push(currentToken);
+          break;
+        case ts.SyntaxKind.OpenBraceToken:
+          if (templateStack.length > 0) {
+            templateStack.push(currentToken);
+          }
+          break;
+        case ts.SyntaxKind.CloseBraceToken:
+          if (templateStack.length > 0) {
+            const templateToken = templateStack[templateStack.length - 1];
+            if (templateToken === ts.SyntaxKind.TemplateHead) {
+              currentToken = this.scanner.reScanTemplateToken(/* isTaggedTemplate */ false);
+              if (currentToken === ts.SyntaxKind.TemplateTail) {
+                templateStack.pop();
+              }
+            } else {
+              templateStack.pop();
+            }
+          }
+          break;
+        case ts.SyntaxKind.SlashToken:
+        case ts.SyntaxKind.SlashEqualsToken:
+          if (canPrecedeARegex(lastToken)) {
+            currentToken = this.scanner.reScanSlashToken();
+          }
+          break;
+        case ts.SyntaxKind.ImportKeyword:
+          const importPath = this.extractImportPath();
+          if (importPath !== null) {
+            imports.add(importPath);
+          }
+          break;
+        case ts.SyntaxKind.ExportKeyword:
+          const reexportPath = this.extractReexportPath();
+          if (reexportPath !== null) {
+            imports.add(reexportPath);
+          }
+          break;
+      }
+      lastToken = currentToken;
     }
 
-    // Parse the source into a TypeScript AST and then walk it looking for imports and re-exports.
-    const sf =
-        ts.createSourceFile(file, fromContents, ts.ScriptTarget.ES2015, false, ts.ScriptKind.JS);
-    sf.statements
-        // filter out statements that are not imports or reexports
-        .filter(isStringImportOrReexport)
-        // Grab the id of the module that is being imported
-        .map(stmt => stmt.moduleSpecifier.text)
-        .forEach(importPath => {
-          const resolved =
-              this.processImport(importPath, file, dependencies, missing, deepImports, alreadySeen);
-          if (!resolved) {
-            missing.add(importPath);
-          }
-        });
+    // Clear the text from the scanner.
+    this.scanner.setText('');
+
+    return imports;
+  }
+
+
+  /**
+   * We have found an `import` token so now try to identify the import path.
+   *
+   * This method will use the current state of `this.scanner` to extract a string literal module
+   * specifier. It expects that the current state of the scanner is that an `import` token has just
+   * been scanned.
+   *
+   * The following forms of import are matched:
+   *
+   * * `import "module-specifier";`
+   * * `import("module-specifier")`
+   * * `import defaultBinding from "module-specifier";`
+   * * `import defaultBinding, * as identifier from "module-specifier";`
+   * * `import defaultBinding, {...} from "module-specifier";`
+   * * `import * as identifier from "module-specifier";`
+   * * `import {...} from "module-specifier";`
+   *
+   * @returns the import path or null if there is no import or it is not a string literal.
+   */
+  protected extractImportPath(): string|null {
+    // Check for side-effect import
+    let sideEffectImportPath = this.tryStringLiteral();
+    if (sideEffectImportPath !== null) {
+      return sideEffectImportPath;
+    }
+
+    let kind: ts.SyntaxKind|null = this.scanner.getToken();
+
+    // Check for dynamic import expression
+    if (kind === ts.SyntaxKind.OpenParenToken) {
+      return this.tryStringLiteral();
+    }
+
+    // Check for defaultBinding
+    if (kind === ts.SyntaxKind.Identifier) {
+      // Skip default binding
+      kind = this.scanner.scan();
+      if (kind === ts.SyntaxKind.CommaToken) {
+        // Skip comma that indicates additional import bindings
+        kind = this.scanner.scan();
+      }
+    }
+
+    // Check for namespace import clause
+    if (kind === ts.SyntaxKind.AsteriskToken) {
+      kind = this.skipNamespacedClause();
+      if (kind === null) {
+        return null;
+      }
+    }
+    // Check for named imports clause
+    else if (kind === ts.SyntaxKind.OpenBraceToken) {
+      kind = this.skipNamedClause();
+    }
+
+    // Expect a `from` clause, if not bail out
+    if (kind !== ts.SyntaxKind.FromKeyword) {
+      return null;
+    }
+
+    return this.tryStringLiteral();
   }
 
   /**
-   * Resolve the given `importPath` from `file` and add it to the appropriate set.
+   * We have found an `export` token so now try to identify a re-export path.
    *
-   * @returns `true` if the import was resolved (to an entry-point, a local import, or a
-   * deep-import).
+   * This method will use the current state of `this.scanner` to extract a string literal module
+   * specifier. It expects that the current state of the scanner is that an `export` token has
+   * just been scanned.
+   *
+   * There are three forms of re-export that are matched:
+   *
+   * * `export * from '...';
+   * * `export * as alias from '...';
+   * * `export {...} from '...';
    */
-  protected processImport(
-      importPath: string, file: AbsoluteFsPath, dependencies: Set<AbsoluteFsPath>,
-      missing: Set<string>, deepImports: Set<string>, alreadySeen: Set<AbsoluteFsPath>): boolean {
-    const resolvedModule = this.moduleResolver.resolveModuleImport(importPath, file);
-    if (resolvedModule === null) {
-      return false;
-    }
-    if (resolvedModule instanceof ResolvedRelativeModule) {
-      const internalDependency = resolvedModule.modulePath;
-      if (!alreadySeen.has(internalDependency)) {
-        alreadySeen.add(internalDependency);
-        this.recursivelyCollectDependencies(
-            internalDependency, dependencies, missing, deepImports, alreadySeen);
+  protected extractReexportPath(): string|null {
+    // Skip the `export` keyword
+    let token: ts.SyntaxKind|null = this.scanner.scan();
+    if (token === ts.SyntaxKind.AsteriskToken) {
+      token = this.skipNamespacedClause();
+      if (token === null) {
+        return null;
       }
-    } else if (resolvedModule instanceof ResolvedDeepImport) {
-      deepImports.add(resolvedModule.importPath);
-    } else {
-      dependencies.add(resolvedModule.entryPointPath);
+    } else if (token === ts.SyntaxKind.OpenBraceToken) {
+      token = this.skipNamedClause();
     }
-    return true;
+    // Expect a `from` clause, if not bail out
+    if (token !== ts.SyntaxKind.FromKeyword) {
+      return null;
+    }
+    return this.tryStringLiteral();
+  }
+
+  protected skipNamespacedClause(): ts.SyntaxKind|null {
+    // Skip past the `*`
+    let token = this.scanner.scan();
+    // Check for a `* as identifier` alias clause
+    if (token === ts.SyntaxKind.AsKeyword) {
+      // Skip past the `as` keyword
+      token = this.scanner.scan();
+      // Expect an identifier, if not bail out
+      if (token !== ts.SyntaxKind.Identifier) {
+        return null;
+      }
+      // Skip past the identifier
+      token = this.scanner.scan();
+    }
+    return token;
+  }
+
+  protected skipNamedClause(): ts.SyntaxKind {
+    let braceCount = 1;
+    // Skip past the initial opening brace `{`
+    let token = this.scanner.scan();
+    // Search for the matching closing brace `}`
+    while (braceCount > 0 && token !== ts.SyntaxKind.EndOfFileToken) {
+      if (token === ts.SyntaxKind.OpenBraceToken) {
+        braceCount++;
+      } else if (token === ts.SyntaxKind.CloseBraceToken) {
+        braceCount--;
+      }
+      token = this.scanner.scan();
+    }
+    return token;
+  }
+
+  protected tryStringLiteral(): string|null {
+    return this.scanner.scan() === ts.SyntaxKind.StringLiteral ? this.scanner.getTokenValue() :
+                                                                 null;
   }
 }
 
@@ -93,7 +225,7 @@ export class EsmDependencyHost extends DependencyHostBase {
  * in this file, true otherwise.
  */
 export function hasImportOrReexportStatements(source: string): boolean {
-  return /(import|export)\s.+from/.test(source);
+  return /(?:import|export)[\s\S]+?(["'])(?:(?:\\\1|.)*?)\1/.test(source);
 }
 
 
@@ -107,4 +239,26 @@ export function isStringImportOrReexport(stmt: ts.Statement): stmt is ts.ImportD
   return ts.isImportDeclaration(stmt) ||
       ts.isExportDeclaration(stmt) && !!stmt.moduleSpecifier &&
       ts.isStringLiteral(stmt.moduleSpecifier);
+}
+
+
+function canPrecedeARegex(kind: ts.SyntaxKind): boolean {
+  switch (kind) {
+    case ts.SyntaxKind.Identifier:
+    case ts.SyntaxKind.StringLiteral:
+    case ts.SyntaxKind.NumericLiteral:
+    case ts.SyntaxKind.BigIntLiteral:
+    case ts.SyntaxKind.RegularExpressionLiteral:
+    case ts.SyntaxKind.ThisKeyword:
+    case ts.SyntaxKind.PlusPlusToken:
+    case ts.SyntaxKind.MinusMinusToken:
+    case ts.SyntaxKind.CloseParenToken:
+    case ts.SyntaxKind.CloseBracketToken:
+    case ts.SyntaxKind.CloseBraceToken:
+    case ts.SyntaxKind.TrueKeyword:
+    case ts.SyntaxKind.FalseKeyword:
+      return false;
+    default:
+      return true;
+  }
 }
