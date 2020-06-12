@@ -94,7 +94,8 @@ export class Transformer {
     // Transform the source files and source maps.
     const srcFormatter = this.getRenderingFormatter(ngccReflectionHost, bundle);
 
-    const renderer = new Renderer(reflectionHost, srcFormatter, this.fs, this.logger, bundle);
+    const renderer =
+        new Renderer(reflectionHost, srcFormatter, this.fs, this.logger, bundle, this.tsConfig);
     let renderedFiles = renderer.renderProgram(
         decorationAnalyses, switchMarkerAnalyses, privateDeclarationsAnalyses);
 
@@ -147,7 +148,7 @@ export class Transformer {
     const referencesRegistry = new NgccReferencesRegistry(reflectionHost);
 
     const switchMarkerAnalyzer =
-        new SwitchMarkerAnalyzer(reflectionHost, bundle.entryPoint.package);
+        new SwitchMarkerAnalyzer(reflectionHost, bundle.entryPoint.packagePath);
     const switchMarkerAnalyses = switchMarkerAnalyzer.analyzeProgram(bundle.src.program);
 
     const diagnostics: ts.Diagnostic[] = [];
