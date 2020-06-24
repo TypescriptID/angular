@@ -315,6 +315,7 @@ groups:
           'aio/content/images/guide/dependency-injection-in-action/**',
           'aio/content/guide/dependency-injection-navtree.md',
           'aio/content/guide/dependency-injection-providers.md',
+          'aio/content/guide/lightweight-injection-tokens.md',
           'aio/content/guide/displaying-data.md',
           'aio/content/examples/displaying-data/**',
           'aio/content/images/guide/displaying-data/**',
@@ -901,7 +902,7 @@ groups:
           'aio/content/guide/migration-localize.md',
           'aio/content/guide/migration-module-with-providers.md',
           'aio/content/guide/static-query-migration.md',
-          'aio/content/guide/updating-to-version-9.md',
+          'aio/content/guide/updating-to-version-10.md',
           'aio/content/guide/ivy-compatibility.md',
           'aio/content/guide/ivy-compatibility-examples.md'
           ])
@@ -958,8 +959,12 @@ groups:
           'aio/content/images/guide/deployment/**',
           'aio/content/guide/file-structure.md',
           'aio/content/guide/ivy.md',
+          'aio/content/guide/strict-mode.md',
           'aio/content/guide/web-worker.md',
           'aio/content/guide/workspace-config.md',
+          'aio/content/guide/migration-solution-style-tsconfig.md',
+          'aio/content/guide/migration-update-module-and-target-compiler-options.md',
+          'aio/content/guide/migration-update-libraries-tslib.md',
           ])
     reviewers:
       users:
