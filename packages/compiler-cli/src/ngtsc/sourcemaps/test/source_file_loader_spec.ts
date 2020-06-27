@@ -23,7 +23,7 @@ runInEachFileSystem(() => {
       fs = getFileSystem();
       logger = new MockLogger();
       _ = absoluteFrom;
-      registry = new SourceFileLoader(fs, logger);
+      registry = new SourceFileLoader(fs, logger, {webpack: _('/foo')});
     });
 
     describe('loadSourceFile', () => {
@@ -62,6 +62,44 @@ runInEachFileSystem(() => {
         }
         expect(sourceFile.rawMap).toEqual(sourceMap);
       });
+
+      it('should only read source-map comments from the last line of a file', () => {
+        fs.ensureDir(_('/foo/src'));
+        const sourceMap = createRawSourceMap({file: 'index.js'});
+        fs.writeFile(_('/foo/src/external.js.map'), JSON.stringify(sourceMap));
+        const sourceFile = registry.loadSourceFile(_('/foo/src/index.js'), [
+          'some content',
+          '//# sourceMappingURL=bad.js.map',
+          'some more content',
+          '//# sourceMappingURL=external.js.map',
+        ].join('\n'));
+        if (sourceFile === null) {
+          return fail('Expected source file to be defined');
+        }
+        expect(sourceFile.rawMap).toEqual(sourceMap);
+      });
+
+      for (const eolMarker of ['\n', '\r\n']) {
+        it(`should only read source-map comments from the last non-blank line of a file [EOL marker: ${
+               eolMarker === '\n' ? '\\n' : '\\r\\n'}]`,
+           () => {
+             fs.ensureDir(_('/foo/src'));
+             const sourceMap = createRawSourceMap({file: 'index.js'});
+             fs.writeFile(_('/foo/src/external.js.map'), JSON.stringify(sourceMap));
+             const sourceFile = registry.loadSourceFile(_('/foo/src/index.js'), [
+               'some content',
+               '//# sourceMappingURL=bad.js.map',
+               'some more content',
+               '//# sourceMappingURL=external.js.map',
+               '',
+               '',
+             ].join(eolMarker));
+             if (sourceFile === null) {
+               return fail('Expected source file to be defined');
+             }
+             expect(sourceFile.rawMap).toEqual(sourceMap);
+           });
+      }
 
       it('should handle a missing external source map', () => {
         fs.ensureDir(_('/foo/src'));
@@ -279,6 +317,59 @@ runInEachFileSystem(() => {
 
       expect(() => registry.loadSourceFile(aPath)).not.toThrow();
     });
+
+    for (const {scheme, mappedPath} of
+             [{scheme: 'WEBPACK://', mappedPath: '/foo/src/index.ts'},
+              {scheme: 'webpack://', mappedPath: '/foo/src/index.ts'},
+              {scheme: 'missing://', mappedPath: '/src/index.ts'},
+    ]) {
+      it(`should handle source paths that are protocol mapped [scheme:"${scheme}"]`, () => {
+        fs.ensureDir(_('/foo/src'));
+
+        const indexSourceMap = createRawSourceMap({
+          file: 'index.js',
+          sources: [`${scheme}/src/index.ts`],
+          'sourcesContent': ['original content']
+        });
+        fs.writeFile(_('/foo/src/index.js.map'), JSON.stringify(indexSourceMap));
+        const sourceFile = registry.loadSourceFile(_('/foo/src/index.js'), 'generated content');
+        if (sourceFile === null) {
+          return fail('Expected source file to be defined');
+        }
+        const originalSource = sourceFile.sources[0];
+        if (originalSource === null) {
+          return fail('Expected source file to be defined');
+        }
+        expect(originalSource.contents).toEqual('original content');
+        expect(originalSource.sourcePath).toEqual(_(mappedPath));
+        expect(originalSource.rawMap).toEqual(null);
+        expect(originalSource.sources).toEqual([]);
+      });
+
+      it(`should handle source roots that are protocol mapped [scheme:"${scheme}"]`, () => {
+        fs.ensureDir(_('/foo/src'));
+
+        const indexSourceMap = createRawSourceMap({
+          file: 'index.js',
+          sources: ['index.ts'],
+          'sourcesContent': ['original content'],
+          sourceRoot: `${scheme}/src`,
+        });
+        fs.writeFile(_('/foo/src/index.js.map'), JSON.stringify(indexSourceMap));
+        const sourceFile = registry.loadSourceFile(_('/foo/src/index.js'), 'generated content');
+        if (sourceFile === null) {
+          return fail('Expected source file to be defined');
+        }
+        const originalSource = sourceFile.sources[0];
+        if (originalSource === null) {
+          return fail('Expected source file to be defined');
+        }
+        expect(originalSource.contents).toEqual('original content');
+        expect(originalSource.sourcePath).toEqual(_(mappedPath));
+        expect(originalSource.rawMap).toEqual(null);
+        expect(originalSource.sources).toEqual([]);
+      });
+    }
   });
 });
 
