@@ -366,6 +366,7 @@ groups:
           'aio/content/images/guide/pipes/**',
           'aio/content/guide/providers.md',
           'aio/content/examples/providers/**',
+          'aio/content/images/guide/providers/**',
           'aio/content/guide/singleton-services.md',
           'aio/content/guide/set-document-title.md',
           'aio/content/examples/set-document-title/**',
@@ -532,6 +533,7 @@ groups:
           'packages/examples/router/**',
           'aio/content/guide/router.md',
           'aio/content/guide/router-tutorial.md',
+          'aio/content/guide/router-tutorial-toh.md',
           'aio/content/examples/router-tutorial/**',
           'aio/content/examples/router/**',
           'aio/content/images/guide/router/**'
