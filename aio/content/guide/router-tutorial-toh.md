@@ -178,7 +178,7 @@ Replace the contents of each component with the sample HTML below.
 
 In order to use the `Router`, you must first register the `RouterModule` from the `@angular/router` package.
 Define an array of routes, `appRoutes`, and pass them to the `RouterModule.forRoot()` method.
-The `RouterModule.forRoot()` method returns a module that containa the configured `Router` service provider, plus other providers that the routing library requires.
+The `RouterModule.forRoot()` method returns a module that contains the configured `Router` service provider, plus other providers that the routing library requires.
 Once the application is bootstrapped, the `Router` performs the initial navigation based on the current browser URL.
 
 <div class="alert is-important">
@@ -579,7 +579,7 @@ The application continues to work just the same, and you can use `AppRoutingModu
 
 {@a why-routing-module}
 
-### Benfits of a routing module
+### Benefits of a routing module
 
 The routing module, often called the `AppRoutingModule`, replaces the routing configuration in the root or feature module.
 
