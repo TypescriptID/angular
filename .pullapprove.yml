@@ -75,12 +75,14 @@ meta:
   # By checking the number of active/pending/rejected groups when these are excluded, we can determine
   # if any other groups are matched.
   #
+  # Note: Because all inactive groups start as pending, we are only checking pending and rejected active groups.
+  #
   # Also note that the ordering of groups matters in this file. The only groups visible to the current
   # one are those that appear above it.
   no-groups-above-this-pending: &no-groups-above-this-pending
-    len(groups.pending.exclude("required-minimum-review").exclude("global-approvers").exclude("global-docs-approvers")) == 0
+    len(groups.active.pending.exclude("required-minimum-review").exclude("global-approvers").exclude("global-docs-approvers")) == 0
   no-groups-above-this-rejected: &no-groups-above-this-rejected
-    len(groups.rejected.exclude("required-minimum-review").exclude("global-approvers").exclude("global-docs-approvers")) == 0
+    len(groups.active.rejected.exclude("required-minimum-review").exclude("global-approvers").exclude("global-docs-approvers")) == 0
   no-groups-above-this-active: &no-groups-above-this-active
     len(groups.active.exclude("required-minimum-review").exclude("global-approvers").exclude("global-docs-approvers")) == 0
 
@@ -1175,14 +1177,16 @@ groups:
           ])
     reviewers:
       users:
+        - AndrewKushnir
         - IgorMinar
         - alxhub
+        - atscott
         - jelbourn
         - petebacondarwin
         - pkozlowski-opensource
     reviews:
-      request: -1   # request reviews from everyone
-      required: 3   # require at least 3 approvals
+      request: 4 # Request reviews from four people
+      required: 3 # Require that three people approve
       reviewed_for: required
 
 
@@ -1201,14 +1205,16 @@ groups:
           ])
     reviewers:
       users:
+        - AndrewKushnir
         - IgorMinar
         - alxhub
+        - atscott
         - jelbourn
         - petebacondarwin
         - pkozlowski-opensource
     reviews:
-      request: -1   # request reviews from everyone
-      required: 2   # require at least 2 approvals
+      request: 4 # Request reviews from four people
+      required: 2 # Require that two people approve
       reviewed_for: required
 
 
@@ -1227,9 +1233,11 @@ groups:
         ])
     reviewers:
       users:
+        - AndrewKushnir
         - IgorMinar
+        - alxhub
+        - atscott
         - jelbourn
-        - josephperrott
         - petebacondarwin
         - pkozlowski-opensource
 
@@ -1251,7 +1259,10 @@ groups:
           ])
     reviewers:
       users:
+        - AndrewKushnir
         - IgorMinar
+        - alxhub
+        - atscott
         - jelbourn
         - josephperrott
         - mhevery
