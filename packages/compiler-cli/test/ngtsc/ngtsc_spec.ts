@@ -3538,9 +3538,7 @@ runInEachFileSystem(os => {
       expect(factoryContents).toContain(`import * as i0 from '@angular/core';`);
       expect(factoryContents).toContain(`import { NotAModule, TestModule } from './test';`);
       expect(factoryContents)
-          .toContain(
-              'export var TestModuleNgFactory = ' +
-              'i0.ɵnoSideEffects(function () { return new i0.\u0275NgModuleFactory(TestModule); });');
+          .toContain(`export var TestModuleNgFactory = new i0.\u0275NgModuleFactory(TestModule);`);
       expect(factoryContents).not.toContain(`NotAModuleNgFactory`);
       expect(factoryContents).not.toContain('\u0275NonEmptyModule');
 
@@ -3679,14 +3677,11 @@ runInEachFileSystem(os => {
         env.driveMain();
 
         const factoryContents = env.getContents('test.ngfactory.js');
-        expect(normalize(factoryContents))
-            .toBe(
-                'import * as i0 from "./r3_symbols"; ' +
-                'import { TestModule } from \'./test\'; ' +
-                'export var TestModuleNgFactory = ' +
-                'i0.\u0275noSideEffects(function () { ' +
-                'return new i0.NgModuleFactory(TestModule); ' +
-                '});');
+        expect(normalize(factoryContents)).toBe(normalize(`
+        import * as i0 from "./r3_symbols";
+        import { TestModule } from './test';
+        export var TestModuleNgFactory = new i0.NgModuleFactory(TestModule);
+      `));
       });
 
       describe('file-level comments', () => {
@@ -3827,7 +3822,8 @@ runInEachFileSystem(os => {
 
       expect(jsContents)
           .toContain('function Base_Factory(t) { return new (t || Base)(i0.ɵɵinject(Dep)); }');
-      expect(jsContents).toContain('var \u0275Child_BaseFactory = i0.ɵɵgetInheritedFactory(Child)');
+      expect(jsContents)
+          .toContain('var \u0275Child_BaseFactory = /*@__PURE__*/ i0.ɵɵgetInheritedFactory(Child)');
       expect(jsContents)
           .toContain('function Child_Factory(t) { return \u0275Child_BaseFactory(t || Child); }');
       expect(jsContents)
@@ -3854,7 +3850,8 @@ runInEachFileSystem(os => {
       env.driveMain();
       const jsContents = env.getContents('test.js');
 
-      expect(jsContents).toContain('var \u0275Dir_BaseFactory = i0.ɵɵgetInheritedFactory(Dir)');
+      expect(jsContents)
+          .toContain('var \u0275Dir_BaseFactory = /*@__PURE__*/ i0.ɵɵgetInheritedFactory(Dir)');
     });
 
     it('should wrap "directives" in component metadata in a closure when forward references are present',
