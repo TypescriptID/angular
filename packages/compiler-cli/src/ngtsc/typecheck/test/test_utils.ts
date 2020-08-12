@@ -120,8 +120,9 @@ export function ngForDeclaration(): TestDeclaration {
     file: absoluteFrom('/ngfor.d.ts'),
     selector: '[ngForOf]',
     name: 'NgForOf',
-    inputs: {ngForOf: 'ngForOf'},
+    inputs: {ngForOf: 'ngForOf', ngForTrackBy: 'ngForTrackBy', ngForTemplate: 'ngForTemplate'},
     hasNgTemplateContextGuard: true,
+    isGeneric: true,
   };
 }
 
@@ -156,6 +157,7 @@ export const ALL_ENABLED_CONFIG: TypeCheckingConfig = {
   checkQueries: false,
   checkTemplateBodies: true,
   checkTypeOfInputBindings: true,
+  honorAccessModifiersForInputBindings: true,
   strictNullInputBindings: true,
   checkTypeOfAttributes: true,
   // Feature is still in development.
@@ -175,11 +177,13 @@ export const ALL_ENABLED_CONFIG: TypeCheckingConfig = {
 // Remove 'ref' from TypeCheckableDirectiveMeta and add a 'selector' instead.
 export type TestDirective = Partial<Pick<
     TypeCheckableDirectiveMeta,
-    Exclude<keyof TypeCheckableDirectiveMeta, 'ref'|'coercedInputFields'>>>&{
-  selector: string,
-  name: string,
-  file?: AbsoluteFsPath, type: 'directive',
-  coercedInputFields?: string[],
+    Exclude<
+        keyof TypeCheckableDirectiveMeta,
+        'ref'|'coercedInputFields'|'restrictedInputFields'|'stringLiteralInputFields'|
+        'undeclaredInputFields'>>>&{
+  selector: string, name: string, file?: AbsoluteFsPath, type: 'directive',
+      coercedInputFields?: string[], restrictedInputFields?: string[],
+      stringLiteralInputFields?: string[], undeclaredInputFields?: string[], isGeneric?: boolean;
 };
 export type TestPipe = {
   name: string,
@@ -210,6 +214,7 @@ export function tcb(
     applyTemplateContextGuards: true,
     checkQueries: false,
     checkTypeOfInputBindings: true,
+    honorAccessModifiersForInputBindings: false,
     strictNullInputBindings: true,
     checkTypeOfAttributes: true,
     checkTypeOfDomBindings: false,
@@ -417,6 +422,10 @@ function prepareDeclarations(
       isComponent: decl.isComponent || false,
       ngTemplateGuards: decl.ngTemplateGuards || [],
       coercedInputFields: new Set<string>(decl.coercedInputFields || []),
+      restrictedInputFields: new Set<string>(decl.restrictedInputFields || []),
+      stringLiteralInputFields: new Set<string>(decl.stringLiteralInputFields || []),
+      undeclaredInputFields: new Set<string>(decl.undeclaredInputFields || []),
+      isGeneric: decl.isGeneric ?? false,
       outputs: decl.outputs || {},
       queries: decl.queries || [],
     };
