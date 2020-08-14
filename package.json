@@ -1,6 +1,6 @@
 {
   "name": "angular-srcs",
-  "version": "10.1.0-next.4",
+  "version": "10.1.0-next.5",
   "private": true,
   "description": "Angular - a web framework for modern web apps",
   "homepage": "https://github.com/angular/angular",
@@ -210,7 +210,8 @@
   "husky": {
     "hooks": {
       "pre-commit": "yarn -s ng-dev format staged",
-      "commit-msg": "yarn -s ng-dev commit-message pre-commit-validate --file-env-variable HUSKY_GIT_PARAMS"
+      "commit-msg": "yarn -s ng-dev commit-message pre-commit-validate --file-env-variable HUSKY_GIT_PARAMS",
+      "prepare-commit-msg": "yarn -s ng-dev commit-message restore-commit-message-draft --file-env-variable HUSKY_GIT_PARAMS"
     }
   }
 }
