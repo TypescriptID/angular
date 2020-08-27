@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 import {AbsoluteFsPath, relative} from '@angular/compiler-cli/src/ngtsc/file_system';
-import {ɵParsedMessage} from '@angular/localize';
+import {ɵParsedMessage, ɵSourceLocation} from '@angular/localize';
 
 import {extractIcuPlaceholders} from './icu_parsing';
 import {TranslationSerializer} from './translation_serializer';
@@ -36,7 +36,13 @@ export class Xliff2TranslationSerializer implements TranslationSerializer {
       'xmlns': 'urn:oasis:names:tc:xliff:document:2.0',
       'srcLang': this.sourceLocale
     });
-    xml.startTag('file');
+    // NOTE: the `original` property is set to the legacy `ng.template` value for backward
+    // compatibility.
+    // We could compute the file from the `message.location` property, but there could
+    // be multiple values for this in the collection of `messages`. In that case we would probably
+    // need to change the serializer to output a new `<file>` element for each collection of
+    // messages that come from a particular original file, and the translation file parsers may not
+    xml.startTag('file', {'id': 'ngi18n', 'original': 'ng.template'});
     for (const message of messages) {
       const id = this.getMessageId(message);
       if (ids.has(id)) {
@@ -80,7 +86,7 @@ export class Xliff2TranslationSerializer implements TranslationSerializer {
     const length = message.messageParts.length - 1;
     for (let i = 0; i < length; i++) {
       this.serializeTextPart(xml, message.messageParts[i]);
-      this.serializePlaceholder(xml, message.placeholderNames[i]);
+      this.serializePlaceholder(xml, message.placeholderNames[i], message.substitutionLocations);
     }
     this.serializeTextPart(xml, message.messageParts[length]);
   }
@@ -90,24 +96,40 @@ export class Xliff2TranslationSerializer implements TranslationSerializer {
     const length = pieces.length - 1;
     for (let i = 0; i < length; i += 2) {
       xml.text(pieces[i]);
-      this.serializePlaceholder(xml, pieces[i + 1]);
+      this.serializePlaceholder(xml, pieces[i + 1], undefined);
     }
     xml.text(pieces[length]);
   }
 
-  private serializePlaceholder(xml: XmlFile, placeholderName: string): void {
+  private serializePlaceholder(
+      xml: XmlFile, placeholderName: string,
+      substitutionLocations: Record<string, ɵSourceLocation|undefined>|undefined): void {
+    const text = substitutionLocations?.[placeholderName]?.text;
+
     if (placeholderName.startsWith('START_')) {
-      xml.startTag('pc', {
+      const closingPlaceholderName = placeholderName.replace(/^START/, 'CLOSE');
+      const closingText = substitutionLocations?.[closingPlaceholderName]?.text;
+      const attrs: Record<string, string> = {
         id: `${this.currentPlaceholderId++}`,
         equivStart: placeholderName,
-        equivEnd: placeholderName.replace(/^START/, 'CLOSE')
-      });
+        equivEnd: closingPlaceholderName,
+      };
+      if (text !== undefined) {
+        attrs.dispStart = text;
+      }
+      if (closingText !== undefined) {
+        attrs.dispEnd = closingText;
+      }
+      xml.startTag('pc', attrs);
     } else if (placeholderName.startsWith('CLOSE_')) {
       xml.endTag('pc');
     } else {
-      xml.startTag(
-          'ph', {id: `${this.currentPlaceholderId++}`, equiv: placeholderName},
-          {selfClosing: true});
+      const attrs:
+          Record<string, string> = {id: `${this.currentPlaceholderId++}`, equiv: placeholderName};
+      if (text !== undefined) {
+        attrs.disp = text;
+      }
+      xml.startTag('ph', attrs, {selfClosing: true});
     }
   }
 
