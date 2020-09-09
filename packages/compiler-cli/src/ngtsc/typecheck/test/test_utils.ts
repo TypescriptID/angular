@@ -13,6 +13,7 @@ import {absoluteFrom, AbsoluteFsPath, getSourceFileOrError, LogicalFileSystem} f
 import {TestFile} from '../../file_system/testing';
 import {AbsoluteModuleStrategy, LocalIdentifierStrategy, LogicalProjectStrategy, ModuleResolver, Reference, ReferenceEmitter} from '../../imports';
 import {NOOP_INCREMENTAL_BUILD} from '../../incremental';
+import {ClassPropertyMapping} from '../../metadata';
 import {ClassDeclaration, isNamedClassDeclaration, TypeScriptReflectionHost} from '../../reflection';
 import {makeProgram} from '../../testing';
 import {getRootDirs} from '../../util/src/typescript';
@@ -180,8 +181,9 @@ export type TestDirective = Partial<Pick<
     Exclude<
         keyof TypeCheckableDirectiveMeta,
         'ref'|'coercedInputFields'|'restrictedInputFields'|'stringLiteralInputFields'|
-        'undeclaredInputFields'>>>&{
+        'undeclaredInputFields'|'inputs'|'outputs'>>>&{
   selector: string, name: string, file?: AbsoluteFsPath, type: 'directive',
+      inputs?: {[fieldName: string]: string}, outputs?: {[fieldName: string]: string},
       coercedInputFields?: string[], restrictedInputFields?: string[],
       stringLiteralInputFields?: string[], undeclaredInputFields?: string[], isGeneric?: boolean;
 };
@@ -352,7 +354,7 @@ export function setup(targets: TypeCheckingTarget[], overrides: {
         const templateUrl = `${className}.html`;
         const templateFile = new ParseSourceFile(template, templateUrl);
         const {nodes, errors} = parseTemplate(template, templateUrl);
-        if (errors !== undefined) {
+        if (errors !== null) {
           throw new Error('Template parse errors: \n' + errors.join('\n'));
         }
 
@@ -418,7 +420,7 @@ function prepareDeclarations(
       ref: new Reference(resolveDeclaration(decl)),
       exportAs: decl.exportAs || null,
       hasNgTemplateContextGuard: decl.hasNgTemplateContextGuard || false,
-      inputs: decl.inputs || {},
+      inputs: ClassPropertyMapping.fromMappedObject(decl.inputs || {}),
       isComponent: decl.isComponent || false,
       ngTemplateGuards: decl.ngTemplateGuards || [],
       coercedInputFields: new Set<string>(decl.coercedInputFields || []),
@@ -426,7 +428,7 @@ function prepareDeclarations(
       stringLiteralInputFields: new Set<string>(decl.stringLiteralInputFields || []),
       undeclaredInputFields: new Set<string>(decl.undeclaredInputFields || []),
       isGeneric: decl.isGeneric ?? false,
-      outputs: decl.outputs || {},
+      outputs: ClassPropertyMapping.fromMappedObject(decl.outputs || {}),
       queries: decl.queries || [],
     };
     matcher.addSelectables(selector, meta);

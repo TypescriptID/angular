@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {compileComponentFromMetadata, ConstantPool, CssSelector, DEFAULT_INTERPOLATION_CONFIG, DomElementSchemaRegistry, Expression, ExternalExpr, Identifiers, InterpolationConfig, LexerRange, makeBindingParser, ParseError, ParseSourceFile, parseTemplate, ParseTemplateOptions, R3ComponentMetadata, R3FactoryTarget, R3TargetBinder, SchemaMetadata, SelectorMatcher, Statement, TmplAstNode, WrappedNodeExpr} from '@angular/compiler';
+import {compileComponentFromMetadata, ConstantPool, CssSelector, DEFAULT_INTERPOLATION_CONFIG, DomElementSchemaRegistry, Expression, ExternalExpr, Identifiers, InterpolationConfig, LexerRange, makeBindingParser, ParsedTemplate, ParseSourceFile, parseTemplate, R3ComponentMetadata, R3FactoryTarget, R3TargetBinder, SchemaMetadata, SelectorMatcher, Statement, TmplAstNode, WrappedNodeExpr} from '@angular/compiler';
 import * as ts from 'typescript';
 
 import {CycleAnalyzer} from '../../cycles';
@@ -15,8 +15,7 @@ import {absoluteFrom, relative} from '../../file_system';
 import {DefaultImportRecorder, ModuleResolver, Reference, ReferenceEmitter} from '../../imports';
 import {DependencyTracker} from '../../incremental/api';
 import {IndexingContext} from '../../indexer';
-import {DirectiveMeta, DirectiveTypeCheckMeta, extractDirectiveTypeCheckMeta, InjectableClassRegistry, MetadataReader, MetadataRegistry} from '../../metadata';
-import {flattenInheritedDirectiveMetadata} from '../../metadata/src/inheritance';
+import {ClassPropertyMapping, DirectiveMeta, DirectiveTypeCheckMeta, extractDirectiveTypeCheckMeta, InjectableClassRegistry, MetadataReader, MetadataRegistry} from '../../metadata';
 import {EnumValue, PartialEvaluator} from '../../partial_evaluator';
 import {ClassDeclaration, Decorator, ReflectionHost, reflectObjectLiteral} from '../../reflection';
 import {ComponentScopeReader, LocalModuleScopeRegistry} from '../../scope';
@@ -31,7 +30,8 @@ import {createValueHasWrongTypeError, getDirectiveDiagnostics, getProviderDiagno
 import {extractDirectiveMetadata, parseFieldArrayValue} from './directive';
 import {compileNgFactoryDefField} from './factory';
 import {generateSetClassMetadataCall} from './metadata';
-import {findAngularDecorator, isAngularCoreReference, isExpressionForwardReference, makeDuplicateDeclarationError, readBaseClass, resolveProvidersRequiringFactory, unwrapExpression, wrapFunctionExpressionsInParens} from './util';
+import {TypeCheckScopes} from './typecheck_scopes';
+import {findAngularDecorator, isAngularCoreReference, isExpressionForwardReference, readBaseClass, resolveProvidersRequiringFactory, unwrapExpression, wrapFunctionExpressionsInParens} from './util';
 
 const EMPTY_MAP = new Map<string, Expression>();
 const EMPTY_ARRAY: any[] = [];
@@ -55,6 +55,9 @@ export interface ComponentAnalysisData {
   typeCheckMeta: DirectiveTypeCheckMeta;
   template: ParsedTemplateWithSource;
   metadataStmt: Statement|null;
+
+  inputs: ClassPropertyMapping;
+  outputs: ClassPropertyMapping;
 
   /**
    * Providers extracted from the `providers` field of the component annotation which will require
@@ -92,6 +95,7 @@ export class ComponentDecoratorHandler implements
 
   private literalCache = new Map<Decorator, ts.ObjectLiteralExpression>();
   private elementSchemaRegistry = new DomElementSchemaRegistry();
+  private typeCheckScopes = new TypeCheckScopes(this.scopeReader, this.metaReader);
 
   /**
    * During the asynchronous preanalyze phase, it's necessary to parse the template to extract
@@ -191,7 +195,7 @@ export class ComponentDecoratorHandler implements
     }
 
     // Next, read the `@Component`-specific fields.
-    const {decorator: component, metadata} = directiveResult;
+    const {decorator: component, metadata, inputs, outputs} = directiveResult;
 
     // Go through the root directories for this project, and select the one with the smallest
     // relative path representation.
@@ -257,7 +261,7 @@ export class ComponentDecoratorHandler implements
 
     let diagnostics: ts.Diagnostic[]|undefined = undefined;
 
-    if (template.errors !== undefined) {
+    if (template.errors !== null) {
       // If there are any template parsing errors, convert them to `ts.Diagnostic`s for display.
       const id = getTemplateId(node);
       diagnostics = template.errors.map(error => {
@@ -328,14 +332,16 @@ export class ComponentDecoratorHandler implements
     const output: AnalysisOutput<ComponentAnalysisData> = {
       analysis: {
         baseClass: readBaseClass(node, this.reflector, this.evaluator),
+        inputs,
+        outputs,
         meta: {
           ...metadata,
           template: {
-            nodes: template.emitNodes,
+            nodes: template.nodes,
             ngContentSelectors: template.ngContentSelectors,
           },
           encapsulation,
-          interpolation: template.interpolation,
+          interpolation: template.interpolationConfig ?? DEFAULT_INTERPOLATION_CONFIG,
           styles: styles || [],
 
           // These will be replaced during the compilation step, after all `NgModule`s have been
@@ -345,7 +351,7 @@ export class ComponentDecoratorHandler implements
           i18nUseExternalIds: this.i18nUseExternalIds,
           relativeContextFilePath,
         },
-        typeCheckMeta: extractDirectiveTypeCheckMeta(node, metadata.inputs, this.reflector),
+        typeCheckMeta: extractDirectiveTypeCheckMeta(node, inputs, this.reflector),
         metadataStmt: generateSetClassMetadataCall(
             node, this.reflector, this.defaultImportRecorder, this.isCore,
             this.annotateForClosureCompiler),
@@ -370,8 +376,8 @@ export class ComponentDecoratorHandler implements
       name: node.name.text,
       selector: analysis.meta.selector,
       exportAs: analysis.meta.exportAs,
-      inputs: analysis.meta.inputs,
-      outputs: analysis.meta.outputs,
+      inputs: analysis.inputs,
+      outputs: analysis.outputs,
       queries: analysis.meta.queries.map(query => query.propertyName),
       isComponent: true,
       baseClass: analysis.baseClass,
@@ -418,36 +424,15 @@ export class ComponentDecoratorHandler implements
       return;
     }
 
-    const matcher = new SelectorMatcher<DirectiveMeta>();
-    const pipes = new Map<string, Reference<ClassDeclaration<ts.ClassDeclaration>>>();
-    let schemas: SchemaMetadata[] = [];
-
-    const scope = this.scopeReader.getScopeForComponent(node);
+    const scope = this.typeCheckScopes.getTypeCheckScope(node);
     if (scope === 'error') {
       // Don't type-check components that had errors in their scopes.
       return;
     }
 
-    if (scope !== null) {
-      for (const meta of scope.compilation.directives) {
-        if (meta.selector !== null) {
-          const extMeta = flattenInheritedDirectiveMetadata(this.metaReader, meta.ref);
-          matcher.addSelectables(CssSelector.parse(meta.selector), extMeta);
-        }
-      }
-      for (const {name, ref} of scope.compilation.pipes) {
-        if (!ts.isClassDeclaration(ref.node)) {
-          throw new Error(`Unexpected non-class declaration ${
-              ts.SyntaxKind[ref.node.kind]} for pipe ${ref.debugName}`);
-        }
-        pipes.set(name, ref as Reference<ClassDeclaration<ts.ClassDeclaration>>);
-      }
-      schemas = scope.schemas;
-    }
-
-    const binder = new R3TargetBinder(matcher);
+    const binder = new R3TargetBinder(scope.matcher);
     ctx.addTemplate(
-        new Reference(node), binder, meta.template.diagNodes, pipes, schemas,
+        new Reference(node), binder, meta.template.diagNodes, scope.pipes, scope.schemas,
         meta.template.sourceMapping, meta.template.file);
   }
 
@@ -490,36 +475,49 @@ export class ComponentDecoratorHandler implements
       // Set up the R3TargetBinder, as well as a 'directives' array and a 'pipes' map that are later
       // fed to the TemplateDefinitionBuilder. First, a SelectorMatcher is constructed to match
       // directives that are in scope.
-      const matcher = new SelectorMatcher<DirectiveMeta&{expression: Expression}>();
-      const directives: {selector: string, expression: Expression}[] = [];
+      type MatchedDirective = DirectiveMeta&{selector: string};
+      const matcher = new SelectorMatcher<MatchedDirective>();
 
       for (const dir of scope.compilation.directives) {
-        const {ref, selector} = dir;
-        if (selector !== null) {
-          const expression = this.refEmitter.emit(ref, context);
-          directives.push({selector, expression});
-          matcher.addSelectables(CssSelector.parse(selector), {...dir, expression});
+        if (dir.selector !== null) {
+          matcher.addSelectables(CssSelector.parse(dir.selector), dir as MatchedDirective);
         }
       }
-      const pipes = new Map<string, Expression>();
+      const pipes = new Map<string, Reference<ClassDeclaration>>();
       for (const pipe of scope.compilation.pipes) {
-        pipes.set(pipe.name, this.refEmitter.emit(pipe.ref, context));
+        pipes.set(pipe.name, pipe.ref);
       }
 
-      // Next, the component template AST is bound using the R3TargetBinder. This produces an
+      // Next, the component template AST is bound using the R3TargetBinder. This produces a
       // BoundTarget, which is similar to a ts.TypeChecker.
       const binder = new R3TargetBinder(matcher);
       const bound = binder.bind({template: metadata.template.nodes});
 
       // The BoundTarget knows which directives and pipes matched the template.
-      const usedDirectives = bound.getUsedDirectives();
-      const usedPipes = bound.getUsedPipes().map(name => pipes.get(name)!);
+      const usedDirectives = bound.getUsedDirectives().map(directive => {
+        return {
+          selector: directive.selector,
+          expression: this.refEmitter.emit(directive.ref, context),
+        };
+      });
+
+      const usedPipes: {pipeName: string, expression: Expression}[] = [];
+      for (const pipeName of bound.getUsedPipes()) {
+        if (!pipes.has(pipeName)) {
+          continue;
+        }
+        const pipe = pipes.get(pipeName)!;
+        usedPipes.push({
+          pipeName,
+          expression: this.refEmitter.emit(pipe, context),
+        });
+      }
 
       // Scan through the directives/pipes actually used in the template and check whether any
       // import which needs to be generated would create a cycle.
       const cycleDetected =
           usedDirectives.some(dir => this._isCyclicImport(dir.expression, context)) ||
-          usedPipes.some(pipe => this._isCyclicImport(pipe, context));
+          usedPipes.some(pipe => this._isCyclicImport(pipe.expression, context));
 
       if (!cycleDetected) {
         // No cycle was detected. Record the imports that need to be created in the cycle detector
@@ -527,8 +525,8 @@ export class ComponentDecoratorHandler implements
         for (const {expression} of usedDirectives) {
           this._recordSyntheticImport(expression, context);
         }
-        for (const pipe of usedPipes) {
-          this._recordSyntheticImport(pipe, context);
+        for (const {expression} of usedPipes) {
+          this._recordSyntheticImport(expression, context);
         }
 
         // Check whether the directive/pipe arrays in ɵcmp need to be wrapped in closures.
@@ -537,16 +535,11 @@ export class ComponentDecoratorHandler implements
         const wrapDirectivesAndPipesInClosure =
             usedDirectives.some(
                 dir => isExpressionForwardReference(dir.expression, node.name, context)) ||
-            usedPipes.some(pipe => isExpressionForwardReference(pipe, node.name, context));
+            usedPipes.some(
+                pipe => isExpressionForwardReference(pipe.expression, node.name, context));
 
-        // Actual compilation still uses the full scope, not the narrowed scope determined by
-        // R3TargetBinder. This is a hedge against potential issues with the R3TargetBinder - right
-        // now the TemplateDefinitionBuilder is the "source of truth" for which directives/pipes are
-        // actually used (though the two should agree perfectly).
-        //
-        // TODO(alxhub): switch TemplateDefinitionBuilder over to using R3TargetBinder directly.
-        data.directives = directives;
-        data.pipes = pipes;
+        data.directives = usedDirectives;
+        data.pipes = new Map(usedPipes.map(pipe => [pipe.pipeName, pipe.expression]));
         data.wrapDirectivesAndPipesInClosure = wrapDirectivesAndPipesInClosure;
       } else {
         // Declaring the directiveDefs/pipeDefs arrays directly would require imports that would
@@ -767,7 +760,7 @@ export class ComponentDecoratorHandler implements
 
   private _parseTemplate(
       component: Map<string, ts.Expression>, templateStr: string, templateUrl: string,
-      templateRange: LexerRange|undefined, escapedString: boolean): ParsedTemplate {
+      templateRange: LexerRange|undefined, escapedString: boolean): ParsedComponentTemplate {
     let preserveWhitespaces: boolean = this.defaultPreserveWhitespaces;
     if (component.has('preserveWhitespaces')) {
       const expr = component.get('preserveWhitespaces')!;
@@ -778,7 +771,7 @@ export class ComponentDecoratorHandler implements
       preserveWhitespaces = value;
     }
 
-    let interpolation: InterpolationConfig = DEFAULT_INTERPOLATION_CONFIG;
+    let interpolationConfig = DEFAULT_INTERPOLATION_CONFIG;
     if (component.has('interpolation')) {
       const expr = component.get('interpolation')!;
       const value = this.evaluator.evaluate(expr);
@@ -787,21 +780,20 @@ export class ComponentDecoratorHandler implements
         throw createValueHasWrongTypeError(
             expr, value, 'interpolation must be an array with 2 elements of string type');
       }
-      interpolation = InterpolationConfig.fromArray(value as [string, string]);
+      interpolationConfig = InterpolationConfig.fromArray(value as [string, string]);
     }
 
     // We always normalize line endings if the template has been escaped (i.e. is inline).
     const i18nNormalizeLineEndingsInICUs = escapedString || this.i18nNormalizeLineEndingsInICUs;
 
-    const {errors, nodes: emitNodes, styleUrls, styles, ngContentSelectors} =
-        parseTemplate(templateStr, templateUrl, {
-          preserveWhitespaces,
-          interpolationConfig: interpolation,
-          range: templateRange,
-          escapedString,
-          enableI18nLegacyMessageIdFormat: this.enableI18nLegacyMessageIdFormat,
-          i18nNormalizeLineEndingsInICUs,
-        });
+    const parsedTemplate = parseTemplate(templateStr, templateUrl, {
+      preserveWhitespaces,
+      interpolationConfig,
+      range: templateRange,
+      escapedString,
+      enableI18nLegacyMessageIdFormat: this.enableI18nLegacyMessageIdFormat,
+      i18nNormalizeLineEndingsInICUs,
+    });
 
     // Unfortunately, the primary parse of the template above may not contain accurate source map
     // information. If used directly, it would result in incorrect code locations in template
@@ -818,7 +810,7 @@ export class ComponentDecoratorHandler implements
 
     const {nodes: diagNodes} = parseTemplate(templateStr, templateUrl, {
       preserveWhitespaces: true,
-      interpolationConfig: interpolation,
+      interpolationConfig,
       range: templateRange,
       escapedString,
       enableI18nLegacyMessageIdFormat: this.enableI18nLegacyMessageIdFormat,
@@ -827,13 +819,8 @@ export class ComponentDecoratorHandler implements
     });
 
     return {
-      interpolation,
-      emitNodes,
+      ...parsedTemplate,
       diagNodes,
-      styleUrls,
-      styles,
-      ngContentSelectors,
-      errors,
       template: templateStr,
       templateUrl,
       isInline: component.has('template'),
@@ -900,12 +887,7 @@ function sourceMapUrl(resourceUrl: string): string {
  * This contains the actual parsed template as well as any metadata collected during its parsing,
  * some of which might be useful for re-parsing the template with different options.
  */
-export interface ParsedTemplate {
-  /**
-   * The `InterpolationConfig` specified by the user.
-   */
-  interpolation: InterpolationConfig;
-
+export interface ParsedComponentTemplate extends ParsedTemplate {
   /**
    * A full path to the file which contains the template.
    *
@@ -915,22 +897,10 @@ export interface ParsedTemplate {
   templateUrl: string;
 
   /**
-   * The string contents of the template.
-   *
-   * This is the "logical" template string, after expansion of any escaped characters (for inline
-   * templates). This may differ from the actual template bytes as they appear in the .ts file.
+   * True if the original template was stored inline;
+   * False if the template was in an external file.
    */
-  template: string;
-
-  /**
-   * Any errors from parsing the template the first time.
-   */
-  errors?: ParseError[]|undefined;
-
-  /**
-   * The template AST, parsed according to the user's specifications.
-   */
-  emitNodes: TmplAstNode[];
+  isInline: boolean;
 
   /**
    * The template AST, parsed in a manner which preserves source map information for diagnostics.
@@ -940,35 +910,11 @@ export interface ParsedTemplate {
   diagNodes: TmplAstNode[];
 
   /**
-   *
-   */
-
-  /**
-   * Any styleUrls extracted from the metadata.
-   */
-  styleUrls: string[];
-
-  /**
-   * Any inline styles extracted from the metadata.
-   */
-  styles: string[];
-
-  /**
-   * Any ng-content selectors extracted from the template.
-   */
-  ngContentSelectors: string[];
-
-  /**
-   * Whether the template was inline.
-   */
-  isInline: boolean;
-
-  /**
    * The `ParseSourceFile` for the template.
    */
   file: ParseSourceFile;
 }
 
-export interface ParsedTemplateWithSource extends ParsedTemplate {
+export interface ParsedTemplateWithSource extends ParsedComponentTemplate {
   sourceMapping: TemplateSourceMapping;
 }
