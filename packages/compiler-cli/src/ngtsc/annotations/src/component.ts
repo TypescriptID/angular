@@ -16,6 +16,7 @@ import {DefaultImportRecorder, ModuleResolver, Reference, ReferenceEmitter} from
 import {DependencyTracker} from '../../incremental/api';
 import {IndexingContext} from '../../indexer';
 import {ClassPropertyMapping, DirectiveMeta, DirectiveTypeCheckMeta, extractDirectiveTypeCheckMeta, InjectableClassRegistry, MetadataReader, MetadataRegistry} from '../../metadata';
+import {flattenInheritedDirectiveMetadata} from '../../metadata/src/inheritance';
 import {EnumValue, PartialEvaluator} from '../../partial_evaluator';
 import {ClassDeclaration, Decorator, ReflectionHost, reflectObjectLiteral} from '../../reflection';
 import {ComponentScopeReader, LocalModuleScopeRegistry} from '../../scope';
@@ -30,7 +31,6 @@ import {createValueHasWrongTypeError, getDirectiveDiagnostics, getProviderDiagno
 import {extractDirectiveMetadata, parseFieldArrayValue} from './directive';
 import {compileNgFactoryDefField} from './factory';
 import {generateSetClassMetadataCall} from './metadata';
-import {TypeCheckScopes} from './typecheck_scopes';
 import {findAngularDecorator, isAngularCoreReference, isExpressionForwardReference, readBaseClass, resolveProvidersRequiringFactory, unwrapExpression, wrapFunctionExpressionsInParens} from './util';
 
 const EMPTY_MAP = new Map<string, Expression>();
@@ -95,7 +95,6 @@ export class ComponentDecoratorHandler implements
 
   private literalCache = new Map<Decorator, ts.ObjectLiteralExpression>();
   private elementSchemaRegistry = new DomElementSchemaRegistry();
-  private typeCheckScopes = new TypeCheckScopes(this.scopeReader, this.metaReader);
 
   /**
    * During the asynchronous preanalyze phase, it's necessary to parse the template to extract
@@ -424,15 +423,36 @@ export class ComponentDecoratorHandler implements
       return;
     }
 
-    const scope = this.typeCheckScopes.getTypeCheckScope(node);
+    const matcher = new SelectorMatcher<DirectiveMeta>();
+    const pipes = new Map<string, Reference<ClassDeclaration<ts.ClassDeclaration>>>();
+    let schemas: SchemaMetadata[] = [];
+
+    const scope = this.scopeReader.getScopeForComponent(node);
     if (scope === 'error') {
       // Don't type-check components that had errors in their scopes.
       return;
     }
 
-    const binder = new R3TargetBinder(scope.matcher);
+    if (scope !== null) {
+      for (const meta of scope.compilation.directives) {
+        if (meta.selector !== null) {
+          const extMeta = flattenInheritedDirectiveMetadata(this.metaReader, meta.ref);
+          matcher.addSelectables(CssSelector.parse(meta.selector), extMeta);
+        }
+      }
+      for (const {name, ref} of scope.compilation.pipes) {
+        if (!ts.isClassDeclaration(ref.node)) {
+          throw new Error(`Unexpected non-class declaration ${
+              ts.SyntaxKind[ref.node.kind]} for pipe ${ref.debugName}`);
+        }
+        pipes.set(name, ref as Reference<ClassDeclaration<ts.ClassDeclaration>>);
+      }
+      schemas = scope.schemas;
+    }
+
+    const binder = new R3TargetBinder(matcher);
     ctx.addTemplate(
-        new Reference(node), binder, meta.template.diagNodes, scope.pipes, scope.schemas,
+        new Reference(node), binder, meta.template.diagNodes, pipes, schemas,
         meta.template.sourceMapping, meta.template.file);
   }
 
@@ -475,49 +495,36 @@ export class ComponentDecoratorHandler implements
       // Set up the R3TargetBinder, as well as a 'directives' array and a 'pipes' map that are later
       // fed to the TemplateDefinitionBuilder. First, a SelectorMatcher is constructed to match
       // directives that are in scope.
-      type MatchedDirective = DirectiveMeta&{selector: string};
-      const matcher = new SelectorMatcher<MatchedDirective>();
+      const matcher = new SelectorMatcher<DirectiveMeta&{expression: Expression}>();
+      const directives: {selector: string, expression: Expression}[] = [];
 
       for (const dir of scope.compilation.directives) {
-        if (dir.selector !== null) {
-          matcher.addSelectables(CssSelector.parse(dir.selector), dir as MatchedDirective);
+        const {ref, selector} = dir;
+        if (selector !== null) {
+          const expression = this.refEmitter.emit(ref, context);
+          directives.push({selector, expression});
+          matcher.addSelectables(CssSelector.parse(selector), {...dir, expression});
         }
       }
-      const pipes = new Map<string, Reference<ClassDeclaration>>();
+      const pipes = new Map<string, Expression>();
       for (const pipe of scope.compilation.pipes) {
-        pipes.set(pipe.name, pipe.ref);
+        pipes.set(pipe.name, this.refEmitter.emit(pipe.ref, context));
       }
 
-      // Next, the component template AST is bound using the R3TargetBinder. This produces a
+      // Next, the component template AST is bound using the R3TargetBinder. This produces an
       // BoundTarget, which is similar to a ts.TypeChecker.
       const binder = new R3TargetBinder(matcher);
       const bound = binder.bind({template: metadata.template.nodes});
 
       // The BoundTarget knows which directives and pipes matched the template.
-      const usedDirectives = bound.getUsedDirectives().map(directive => {
-        return {
-          selector: directive.selector,
-          expression: this.refEmitter.emit(directive.ref, context),
-        };
-      });
-
-      const usedPipes: {pipeName: string, expression: Expression}[] = [];
-      for (const pipeName of bound.getUsedPipes()) {
-        if (!pipes.has(pipeName)) {
-          continue;
-        }
-        const pipe = pipes.get(pipeName)!;
-        usedPipes.push({
-          pipeName,
-          expression: this.refEmitter.emit(pipe, context),
-        });
-      }
+      const usedDirectives = bound.getUsedDirectives();
+      const usedPipes = bound.getUsedPipes().map(name => pipes.get(name)!);
 
       // Scan through the directives/pipes actually used in the template and check whether any
       // import which needs to be generated would create a cycle.
       const cycleDetected =
           usedDirectives.some(dir => this._isCyclicImport(dir.expression, context)) ||
-          usedPipes.some(pipe => this._isCyclicImport(pipe.expression, context));
+          usedPipes.some(pipe => this._isCyclicImport(pipe, context));
 
       if (!cycleDetected) {
         // No cycle was detected. Record the imports that need to be created in the cycle detector
@@ -525,8 +532,8 @@ export class ComponentDecoratorHandler implements
         for (const {expression} of usedDirectives) {
           this._recordSyntheticImport(expression, context);
         }
-        for (const {expression} of usedPipes) {
-          this._recordSyntheticImport(expression, context);
+        for (const pipe of usedPipes) {
+          this._recordSyntheticImport(pipe, context);
         }
 
         // Check whether the directive/pipe arrays in ɵcmp need to be wrapped in closures.
@@ -535,11 +542,16 @@ export class ComponentDecoratorHandler implements
         const wrapDirectivesAndPipesInClosure =
             usedDirectives.some(
                 dir => isExpressionForwardReference(dir.expression, node.name, context)) ||
-            usedPipes.some(
-                pipe => isExpressionForwardReference(pipe.expression, node.name, context));
+            usedPipes.some(pipe => isExpressionForwardReference(pipe, node.name, context));
 
-        data.directives = usedDirectives;
-        data.pipes = new Map(usedPipes.map(pipe => [pipe.pipeName, pipe.expression]));
+        // Actual compilation still uses the full scope, not the narrowed scope determined by
+        // R3TargetBinder. This is a hedge against potential issues with the R3TargetBinder - right
+        // now the TemplateDefinitionBuilder is the "source of truth" for which directives/pipes are
+        // actually used (though the two should agree perfectly).
+        //
+        // TODO(alxhub): switch TemplateDefinitionBuilder over to using R3TargetBinder directly.
+        data.directives = directives;
+        data.pipes = pipes;
         data.wrapDirectivesAndPipesInClosure = wrapDirectivesAndPipesInClosure;
       } else {
         // Declaring the directiveDefs/pipeDefs arrays directly would require imports that would
