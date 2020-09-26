@@ -60,7 +60,6 @@ v9 - v12
 | `@angular/core/testing`       | [`async`](#testing)                                                     | <!--v9--> v12 |
 | `@angular/router`             | [`ActivatedRoute` params and `queryParams` properties](#activatedroute-props) | unspecified |
 | template syntax               | [`/deep/`, `>>>`, and `::ng-deep`](#deep-component-style-selector)            | <!--v7--> unspecified |
-| browser support               | [`IE 9 and 10, IE mobile`](#ie-9-10-and-mobile)                               | <!--v10--> v11 |
 
 For information about Angular CDK and Angular Material deprecations, see the [changelog](https://github.com/angular/components/blob/master/CHANGELOG.md).
 
@@ -122,7 +121,7 @@ Tip: In the [API reference section](api) of this doc site, deprecated APIs are i
 
 | API | Replacement | Deprecation announced | Notes |
 | --- | ----------- | --------------------- | ----- |
-| [`preserveQueryParams`](api/router/NavigationExtras#preserveQueryParams) | [`queryParamsHandling`](api/router/NavigationExtras#queryParamsHandling) | v4 | none |
+| [`preserveQueryParams`](api/router/UrlCreationOptions#preserveQueryParams) | [`queryParamsHandling`](api/router/UrlCreationOptions#queryParamsHandling) | v4 | none |
 
 {@a platform-webworker}
 ### @angular/platform-webworker
@@ -462,20 +461,6 @@ export class MyModule {
 }
 ```
 
-
-{@a ie-9-10-and-mobile}
-### IE 9, 10, and IE mobile support
-
-Support for IE 9 and 10 has been deprecated, as well as support for IE Mobile. These will be dropped in a future version.
-Supporting outdated browsers like these increases bundle size, code complexity, and test load, and also requires time and effort that could be spent on improvements to the framework.
-For example, fixing issues can be more difficult, as a straightforward fix for modern browsers could break old ones that have quirks due to not receiving updates from vendors.
-
-The final decision was made on three key points:
-* __Vendor support__: Microsoft dropped support of IE 9 and 10 on 1/12/16, meaning they no longer provide security updates or technical support. Additionally, Microsoft dropped support for Windows 10 Mobile in December 2019.
-* __Usage statistics__: We looked at usage trends for IE 9 and 10 (as well as IE Mobile) from various sources and all indicated that usage percentages were extremely small (fractions of 1%).
-* __Feedback from partners__: We also reached out to some of our Angular customers and none expressed concern about dropping IE 9, 10, nor IE Mobile support.
-
-
 {@a wrapped-value}
 ###  `WrappedValue`
 
@@ -600,18 +585,6 @@ In practical terms, the `package.json` of all `@angular` packages has changed in
 ```
 
 For more information about the npm package format, see the [Angular Package Format spec](https://goo.gl/jB3GVv).
-
-{@a removed}
-## Removed APIs
-
-The following APIs have been removed starting with version 10.0.0*:
-
-| Package          | API            | Replacement | Notes |
-| ---------------- | -------------- | ----------- | ----- |
-| `@angular/core`  | Undecorated base classes that use Angular features | Add Angular decorator | See [migration guide](guide/migration-undecorated-classes) for more info |
-| `@angular/core`  | `ModuleWithProviders` without a generic             | `ModuleWithProviders` with a generic | See [migration guide](guide/migration-module-with-providers) for more info |
-
-*To see APIs removed in version 9, check out this guide on the [version 9 docs site](https://v9.angular.io/guide/deprecations#removed).
 
 {@a style-sanitization}
 ### Style Sanitization for `[style]` and `[style.prop]` bindings
