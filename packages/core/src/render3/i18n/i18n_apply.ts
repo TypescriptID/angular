@@ -18,9 +18,10 @@ import {SanitizerFn} from '../interfaces/sanitization';
 import {isLContainer} from '../interfaces/type_checks';
 import {HEADER_OFFSET, LView, RENDERER, T_HOST, TView} from '../interfaces/view';
 import {appendChild, applyProjection, createTextNode, nativeRemoveNode} from '../node_manipulation';
-import {getBindingIndex, getLView, getPreviousOrParentTNode, getTView, setIsNotParent, setPreviousOrParentTNode} from '../state';
+import {getBindingIndex, getCurrentTNode, getLView, getTView, setCurrentTNode, setCurrentTNodeAsNotParent} from '../state';
 import {renderStringify} from '../util/misc_utils';
 import {getNativeByIndex, getNativeByTNode, getTNode, load} from '../util/view_utils';
+
 import {getLocaleId} from './i18n_locale_id';
 
 
@@ -90,7 +91,7 @@ export function applyCreateOpCodes(
       currentTNode =
           createDynamicNodeAtIndex(tView, lView, textNodeIndex, TNodeType.Element, textRNode, null);
       visitedNodes.push(textNodeIndex);
-      setIsNotParent();
+      setCurrentTNodeAsNotParent();
     } else if (typeof opCode == 'number') {
       switch (opCode & I18nMutateOpCode.MASK_INSTRUCTION) {
         case I18nMutateOpCode.AppendChild:
@@ -120,13 +121,13 @@ export function applyCreateOpCodes(
           previousTNode = currentTNode;
           currentTNode = getTNode(tView, nodeIndex);
           if (currentTNode) {
-            setPreviousOrParentTNode(currentTNode, isParent);
+            setCurrentTNode(currentTNode, isParent);
           }
           break;
         case I18nMutateOpCode.ElementEnd:
           const elementIndex = opCode >>> I18nMutateOpCode.SHIFT_REF;
           previousTNode = currentTNode = getTNode(tView, elementIndex);
-          setPreviousOrParentTNode(currentTNode, false);
+          setCurrentTNode(currentTNode, false);
           break;
         case I18nMutateOpCode.Attr:
           const elementNodeIndex = opCode >>> I18nMutateOpCode.SHIFT_REF;
@@ -157,7 +158,7 @@ export function applyCreateOpCodes(
           visitedNodes.push(commentNodeIndex);
           attachPatchData(commentRNode, lView);
           // We will add the case nodes later, during the update phase
-          setIsNotParent();
+          setCurrentTNodeAsNotParent();
           break;
         case ELEMENT_MARKER:
           const tagNameValue = createOpCodes[++i] as string;
@@ -179,7 +180,7 @@ export function applyCreateOpCodes(
     }
   }
 
-  setIsNotParent();
+  setCurrentTNodeAsNotParent();
 
   return visitedNodes;
 }
@@ -354,7 +355,13 @@ function appendI18nNode(
   // Re-organize node tree to put this node in the correct position.
   if (previousTNode === parentTNode && tNode !== parentTNode.child) {
     tNode.next = parentTNode.child;
-    parentTNode.child = tNode;
+    // FIXME(misko): Checking `tNode.parent` is a temporary workaround until we properly
+    // refactor the i18n code in #38707 and this code will be deleted.
+    if (tNode.parent === null) {
+      tView.firstChild = tNode;
+    } else {
+      parentTNode.child = tNode;
+    }
   } else if (previousTNode !== parentTNode && tNode !== previousTNode.next) {
     tNode.next = previousTNode.next;
     previousTNode.next = tNode;
@@ -405,14 +412,14 @@ export function i18nEndFirstPass(tView: TView, lView: LView) {
   ngDevMode && assertDefined(tI18n, `You should call i18nStart before i18nEnd`);
 
   // Find the last node that was added before `i18nEnd`
-  const lastCreatedNode = getPreviousOrParentTNode();
+  const lastCreatedNode = getCurrentTNode();
 
   // Read the instructions to insert/move/remove DOM elements
   const visitedNodes = applyCreateOpCodes(tView, rootIndex, tI18n.create, lView);
 
   // Remove deleted nodes
   let index = rootIndex + 1;
-  while (index <= lastCreatedNode.index - HEADER_OFFSET) {
+  while (lastCreatedNode !== null && index <= lastCreatedNode.index - HEADER_OFFSET) {
     if (visitedNodes.indexOf(index) === -1) {
       removeNode(tView, lView, index, /* markAsDetached */ true);
     }
@@ -446,7 +453,7 @@ function removeNode(tView: TView, lView: LView, index: number, markAsDetached: b
     }
   }
 
-  if (markAsDetached) {
+  if (markAsDetached && removedPhTNode) {
     // Define this node as detached to avoid projecting it later
     removedPhTNode.flags |= TNodeFlags.isDetached;
   }
@@ -459,16 +466,16 @@ function removeNode(tView: TView, lView: LView, index: number, markAsDetached: b
 function createDynamicNodeAtIndex(
     tView: TView, lView: LView, index: number, type: TNodeType, native: RElement|RText|null,
     name: string|null): TElementNode|TIcuContainerNode {
-  const previousOrParentTNode = getPreviousOrParentTNode();
+  const currentTNode = getCurrentTNode();
   ngDevMode && assertIndexInRange(lView, index + HEADER_OFFSET);
   lView[index + HEADER_OFFSET] = native;
   // FIXME(misko): Why does this create A TNode??? I would not expect this to be here.
-  const tNode = getOrCreateTNode(tView, lView[T_HOST], index, type as any, name, null);
+  const tNode = getOrCreateTNode(tView, index, type as any, name, null);
 
   // We are creating a dynamic node, the previous tNode might not be pointing at this node.
   // We will link ourselves into the tree later with `appendI18nNode`.
-  if (previousOrParentTNode && previousOrParentTNode.next === tNode) {
-    previousOrParentTNode.next = null;
+  if (currentTNode && currentTNode.next === tNode) {
+    currentTNode.next = null;
   }
 
   return tNode;

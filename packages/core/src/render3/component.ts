@@ -11,7 +11,7 @@
 import {Type} from '../core';
 import {Injector} from '../di/injector';
 import {Sanitizer} from '../sanitization/sanitizer';
-import {assertIndexInRange} from '../util/assert';
+import {assertDefined, assertIndexInRange} from '../util/assert';
 
 import {assertComponentType} from './assert';
 import {getComponentDef} from './definition';
@@ -24,7 +24,7 @@ import {PlayerHandler} from './interfaces/player';
 import {domRendererFactory3, RElement, Renderer3, RendererFactory3} from './interfaces/renderer';
 import {CONTEXT, HEADER_OFFSET, LView, LViewFlags, RootContext, RootContextFlags, TVIEW, TViewType} from './interfaces/view';
 import {writeDirectClass, writeDirectStyle} from './node_manipulation';
-import {enterView, getPreviousOrParentTNode, leaveView, setSelectedIndex} from './state';
+import {enterView, getCurrentTNode, leaveView, setSelectedIndex} from './state';
 import {computeStaticStyling} from './styling/static_styling';
 import {setUpAttributes} from './util/attrs_utils';
 import {publishDefaultGlobalUtils} from './util/global_utils';
@@ -129,12 +129,12 @@ export function renderComponent<T>(
   const rootContext = createRootContext(opts.scheduler, opts.playerHandler);
 
   const renderer = rendererFactory.createRenderer(hostRNode, componentDef);
-  const rootTView = createTView(TViewType.Root, -1, null, 1, 0, null, null, null, null, null);
+  const rootTView = createTView(TViewType.Root, null, null, 1, 0, null, null, null, null, null);
   const rootView: LView = createLView(
-      null, rootTView, rootContext, rootFlags, null, null, rendererFactory, renderer, undefined,
+      null, rootTView, rootContext, rootFlags, null, null, rendererFactory, renderer, null,
       opts.injector || null);
 
-  enterView(rootView, null);
+  enterView(rootView);
   let component: T;
 
   try {
@@ -174,7 +174,7 @@ export function createRootComponentView(
   const tView = rootView[TVIEW];
   ngDevMode && assertIndexInRange(rootView, 0 + HEADER_OFFSET);
   rootView[0 + HEADER_OFFSET] = rNode;
-  const tNode: TElementNode = getOrCreateTNode(tView, null, 0, TNodeType.Element, null, null);
+  const tNode: TElementNode = getOrCreateTNode(tView, 0, TNodeType.Element, null, null);
   const mergedAttrs = tNode.mergedAttrs = def.hostAttrs;
   if (mergedAttrs !== null) {
     computeStaticStyling(tNode, mergedAttrs, true);
@@ -193,7 +193,7 @@ export function createRootComponentView(
   const componentView = createLView(
       rootView, getOrCreateTComponentView(def), null,
       def.onPush ? LViewFlags.Dirty : LViewFlags.CheckAlways, rootView[HEADER_OFFSET], tNode,
-      rendererFactory, viewRenderer, sanitizer);
+      rendererFactory, viewRenderer, sanitizer || null, null);
 
   if (tView.firstCreatePass) {
     diPublicInInjector(getOrCreateNodeInjectorForNode(tNode, rootView), tView, def.type);
@@ -229,7 +229,8 @@ export function createRootComponent<T>(
     componentDef.contentQueries(RenderFlags.Create, component, rootLView.length - 1);
   }
 
-  const rootTNode = getPreviousOrParentTNode();
+  const rootTNode = getCurrentTNode()!;
+  ngDevMode && assertDefined(rootTNode, 'tNode should have been already created');
   if (tView.firstCreatePass &&
       (componentDef.hostBindings !== null || componentDef.hostAttrs !== null)) {
     const elementIndex = rootTNode.index - HEADER_OFFSET;

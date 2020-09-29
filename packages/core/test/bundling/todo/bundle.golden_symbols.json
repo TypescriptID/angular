@@ -180,9 +180,6 @@
     "name": "addHostBindingsToExpandoInstructions"
   },
   {
-    "name": "addRemoveViewFromContainer"
-  },
-  {
     "name": "addToArray"
   },
   {
@@ -261,9 +258,6 @@
     "name": "createLView"
   },
   {
-    "name": "createTNode"
-  },
-  {
     "name": "createTView"
   },
   {
@@ -336,9 +330,6 @@
     "name": "generatePropertyAliases"
   },
   {
-    "name": "getBeforeNodeForView"
-  },
-  {
     "name": "getCheckNoChangesMode"
   },
   {
@@ -354,7 +345,7 @@
     "name": "getConstant"
   },
   {
-    "name": "getContainerRenderParent"
+    "name": "getCurrentTNode"
   },
   {
     "name": "getDebugContext"
@@ -366,13 +357,7 @@
     "name": "getInjectorIndex"
   },
   {
-    "name": "getIsParent"
-  },
-  {
     "name": "getLCleanup"
-  },
-  {
-    "name": "getLContainer"
   },
   {
     "name": "getLView"
@@ -423,16 +408,7 @@
     "name": "getParentInjectorView"
   },
   {
-    "name": "getParentInjectorViewOffset"
-  },
-  {
-    "name": "getParentState"
-  },
-  {
     "name": "getPreviousIndex"
-  },
-  {
-    "name": "getPreviousOrParentTNode"
   },
   {
     "name": "getSelectedIndex"
@@ -502,6 +478,9 @@
   },
   {
     "name": "isCssClassMatching"
+  },
+  {
+    "name": "isCurrentTNodeParent"
   },
   {
     "name": "isDirectiveHost"
@@ -672,6 +651,9 @@
     "name": "setCurrentQueryIndex"
   },
   {
+    "name": "setCurrentTNode"
+  },
+  {
     "name": "setDirectiveInputsWhichShadowsStyling"
   },
   {
@@ -685,9 +667,6 @@
   },
   {
     "name": "setInputsFromAttrs"
-  },
-  {
-    "name": "setPreviousOrParentTNode"
   },
   {
     "name": "setSelectedIndex"

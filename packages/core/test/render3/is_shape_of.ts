@@ -91,11 +91,10 @@ export function isTView(obj: any): obj is TView {
 }
 const ShapeOfTView: ShapeOf<TView> = {
   type: true,
-  id: true,
   blueprint: true,
   template: true,
   viewQuery: true,
-  node: true,
+  declTNode: true,
   firstCreatePass: true,
   firstUpdatePass: true,
   data: true,

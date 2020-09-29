@@ -927,9 +927,6 @@
     "name": "addHostBindingsToExpandoInstructions"
   },
   {
-    "name": "addRemoveViewFromContainer"
-  },
-  {
     "name": "addToArray"
   },
   {
@@ -1069,9 +1066,6 @@
   },
   {
     "name": "createRouterScroller"
-  },
-  {
-    "name": "createTNode"
   },
   {
     "name": "createTView"
@@ -1266,9 +1260,6 @@
     "name": "getAppInitializer"
   },
   {
-    "name": "getBeforeNodeForView"
-  },
-  {
     "name": "getBootstrapListener"
   },
   {
@@ -1287,10 +1278,10 @@
     "name": "getConstant"
   },
   {
-    "name": "getContainerRenderParent"
+    "name": "getCurrentQueryIndex"
   },
   {
-    "name": "getCurrentQueryIndex"
+    "name": "getCurrentTNode"
   },
   {
     "name": "getDOM"
@@ -1323,13 +1314,7 @@
     "name": "getInjectorIndex"
   },
   {
-    "name": "getIsParent"
-  },
-  {
     "name": "getLCleanup"
-  },
-  {
-    "name": "getLContainer"
   },
   {
     "name": "getLView"
@@ -1392,12 +1377,6 @@
     "name": "getParentInjectorView"
   },
   {
-    "name": "getParentInjectorViewOffset"
-  },
-  {
-    "name": "getParentState"
-  },
-  {
     "name": "getPath"
   },
   {
@@ -1408,9 +1387,6 @@
   },
   {
     "name": "getPreviousIndex"
-  },
-  {
-    "name": "getPreviousOrParentTNode"
   },
   {
     "name": "getPromiseCtor"
@@ -1528,6 +1504,9 @@
   },
   {
     "name": "isCssClassMatching"
+  },
+  {
+    "name": "isCurrentTNodeParent"
   },
   {
     "name": "isDirectiveHost"
@@ -1854,6 +1833,9 @@
     "name": "setCurrentQueryIndex"
   },
   {
+    "name": "setCurrentTNode"
+  },
+  {
     "name": "setDirectiveInputsWhichShadowsStyling"
   },
   {
@@ -1870,9 +1852,6 @@
   },
   {
     "name": "setLocaleId"
-  },
-  {
-    "name": "setPreviousOrParentTNode"
   },
   {
     "name": "setRouterState"

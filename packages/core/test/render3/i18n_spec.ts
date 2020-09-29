@@ -112,13 +112,13 @@ describe('Runtime i18n', () => {
           '(lView[1] as Element).appendChild(lView[2])',
           'lView[5] = document.createTextNode("world")',
           '(lView[2] as Element).appendChild(lView[5])',
-          'setPreviousOrParentTNode(tView.data[2] as TNode)',
+          'setCurrentTNode(tView.data[2] as TNode)',
           'lView[6] = document.createTextNode(" and ")',
           '(lView[1] as Element).appendChild(lView[6])',
           '(lView[1] as Element).appendChild(lView[3])',
           'lView[7] = document.createTextNode("universe")',
           '(lView[3] as Element).appendChild(lView[7])',
-          'setPreviousOrParentTNode(tView.data[3] as TNode)',
+          'setCurrentTNode(tView.data[3] as TNode)',
           'lView[8] = document.createTextNode("!")',
           '(lView[1] as Element).appendChild(lView[8])',
         ]),
@@ -221,8 +221,7 @@ describe('Runtime i18n', () => {
           '(lView[1] as Element).appendChild(lView[3])',
           '(lView[1] as Element).appendChild(lView[16381])',
           'lView[4] = document.createTextNode("after")',
-          '(lView[1] as Element).appendChild(lView[4])',
-          'setPreviousOrParentTNode(tView.data[1] as TNode)'
+          '(lView[1] as Element).appendChild(lView[4])', 'setCurrentTNode(tView.data[1] as TNode)'
         ]),
         update: [],
         icus: null
@@ -242,8 +241,7 @@ describe('Runtime i18n', () => {
         create: debugMatch([
           '(lView[0] as Element).appendChild(lView[1])',
           'lView[2] = document.createTextNode("middle")',
-          '(lView[1] as Element).appendChild(lView[2])',
-          'setPreviousOrParentTNode(tView.data[1] as TNode)'
+          '(lView[1] as Element).appendChild(lView[2])', 'setCurrentTNode(tView.data[1] as TNode)'
         ]),
         update: [],
         icus: null
@@ -459,7 +457,9 @@ describe('Runtime i18n', () => {
       const nbConsts = 2;
       const index = 1;
       const opCodes = getOpCodes(attrs, () => {
+        ɵɵelementStart(0, 'div');
         ɵɵi18nAttributes(index, 0);
+        ɵɵelementEnd();
       }, null, nbConsts, index);
 
       expect(opCodes).toEqual(debugMatch([
@@ -473,7 +473,9 @@ describe('Runtime i18n', () => {
       const nbConsts = 2;
       const index = 1;
       const opCodes = getOpCodes(attrs, () => {
+        ɵɵelementStart(0, 'div');
         ɵɵi18nAttributes(index, 0);
+        ɵɵelementEnd();
       }, null, nbConsts, index);
 
       expect(opCodes).toEqual(debugMatch([
@@ -487,7 +489,9 @@ describe('Runtime i18n', () => {
       const nbConsts = 2;
       const index = 1;
       const opCodes = getOpCodes(attrs, () => {
+        ɵɵelementStart(0, 'div');
         ɵɵi18nAttributes(index, 0);
+        ɵɵelementEnd();
       }, null, nbConsts, index);
 
       expect(opCodes).toEqual(debugMatch([

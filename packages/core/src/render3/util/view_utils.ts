@@ -10,7 +10,7 @@ import {assertDefined, assertDomNode, assertGreaterThan, assertIndexInRange, ass
 import {assertTNodeForLView} from '../assert';
 import {LContainer, TYPE} from '../interfaces/container';
 import {LContext, MONKEY_PATCH_KEY_NAME} from '../interfaces/context';
-import {TConstants, TNode} from '../interfaces/node';
+import {TConstants, TNode, TNodeType} from '../interfaces/node';
 import {isProceduralRenderer, RNode} from '../interfaces/renderer';
 import {isLContainer, isLView} from '../interfaces/type_checks';
 import {FLAGS, HEADER_OFFSET, HOST, LView, LViewFlags, PARENT, PREORDER_HOOK_FLAGS, RENDERER, TData, TRANSPLANTED_VIEWS_TO_REFRESH, TView} from '../interfaces/view';
@@ -105,10 +105,10 @@ export function getNativeByTNode(tNode: TNode, lView: LView): RNode {
  * @param tNode
  * @param lView
  */
-export function getNativeByTNodeOrNull(tNode: TNode, lView: LView): RNode|null {
-  const index = tNode.index;
+export function getNativeByTNodeOrNull(tNode: TNode|null, lView: LView): RNode|null {
+  const index = tNode === null ? -1 : tNode.index;
   if (index !== -1) {
-    ngDevMode && assertTNodeForLView(tNode, lView);
+    ngDevMode && assertTNodeForLView(tNode!, lView);
     const node: RNode|null = unwrapRNode(lView[index]);
     ngDevMode && node !== null && !isProceduralRenderer(lView[RENDERER]) && assertDomNode(node);
     return node;

@@ -13,7 +13,7 @@ import {EmbeddedViewRef as viewEngine_EmbeddedViewRef, InternalViewRef as viewEn
 import {assertDefined} from '../util/assert';
 import {checkNoChangesInRootView, checkNoChangesInternal, detectChangesInRootView, detectChangesInternal, markViewDirty, storeCleanupWithContext} from './instructions/shared';
 import {CONTAINER_HEADER_OFFSET} from './interfaces/container';
-import {TElementNode, TNode, TNodeType, TViewNode} from './interfaces/node';
+import {TElementNode, TNode, TNodeType} from './interfaces/node';
 import {isLContainer} from './interfaces/type_checks';
 import {CONTEXT, DECLARATION_COMPONENT_VIEW, FLAGS, HOST, LView, LViewFlags, T_HOST, TVIEW, TView} from './interfaces/view';
 import {assertNodeOfPossibleTypes} from './node_assert';
@@ -35,11 +35,8 @@ export class ViewRef<T> implements viewEngine_EmbeddedViewRef<T>, viewEngine_Int
 
   get rootNodes(): any[] {
     const lView = this._lView;
-    if (lView[HOST] == null) {
-      const hostTView = lView[T_HOST] as TViewNode;
-      return collectNativeNodes(lView[TVIEW], lView, hostTView.child, []);
-    }
-    return [];
+    const tView = lView[TVIEW];
+    return collectNativeNodes(tView, lView, tView.firstChild, []);
   }
 
   constructor(

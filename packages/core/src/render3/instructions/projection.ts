@@ -11,7 +11,7 @@ import {ProjectionSlots} from '../interfaces/projection';
 import {DECLARATION_COMPONENT_VIEW, T_HOST} from '../interfaces/view';
 import {applyProjection} from '../node_manipulation';
 import {getProjectAsAttrValue, isNodeMatchingSelectorList, isSelectorInSelectorList} from '../node_selector_matcher';
-import {getLView, getTView, setIsNotParent} from '../state';
+import {getLView, getTView, setCurrentTNodeAsNotParent} from '../state';
 import {getOrCreateTNode} from './shared';
 
 
@@ -125,13 +125,13 @@ export function ɵɵprojection(
   const lView = getLView();
   const tView = getTView();
   const tProjectionNode =
-      getOrCreateTNode(tView, lView[T_HOST], nodeIndex, TNodeType.Projection, null, attrs || null);
+      getOrCreateTNode(tView, nodeIndex, TNodeType.Projection, null, attrs || null);
 
   // We can't use viewData[HOST_NODE] because projection nodes can be nested in embedded views.
   if (tProjectionNode.projection === null) tProjectionNode.projection = selectorIndex;
 
   // `<ng-content>` has no content
-  setIsNotParent();
+  setCurrentTNodeAsNotParent();
 
   // We might need to delay the projection of nodes if they are in the middle of an i18n block
   if (!delayProjection) {

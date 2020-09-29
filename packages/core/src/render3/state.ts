@@ -7,7 +7,7 @@
  */
 
 import {assertDefined, assertEqual} from '../util/assert';
-import {assertLViewOrUndefined} from './assert';
+import {assertLViewOrUndefined, assertTNodeForTView} from './assert';
 import {DirectiveDef} from './interfaces/definition';
 import {TNode} from './interfaces/node';
 import {CONTEXT, DECLARATION_VIEW, LView, OpaqueViewState, TData, TVIEW, TView} from './interfaces/view';
@@ -54,12 +54,12 @@ interface LFrame {
    *
    * This is used in conjunction with `isParent`.
    */
-  previousOrParentTNode: TNode;
+  currentTNode: TNode|null;
 
   /**
    * If `isParent` is:
-   *  - `true`: then `previousOrParentTNode` points to a parent node.
-   *  - `false`: then `previousOrParentTNode` points to previous node (sibling).
+   *  - `true`: then `currentTNode` points to a parent node.
+   *  - `false`: then `currentTNode` points to previous node (sibling).
    */
   isParent: boolean;
 
@@ -262,23 +262,24 @@ export function ɵɵrestoreView(viewToRestore: OpaqueViewState) {
   instructionState.lFrame.contextLView = viewToRestore as any as LView;
 }
 
-export function getPreviousOrParentTNode(): TNode {
-  return instructionState.lFrame.previousOrParentTNode;
+export function getCurrentTNode(): TNode|null {
+  return instructionState.lFrame.currentTNode;
 }
 
-export function setPreviousOrParentTNode(tNode: TNode, isParent: boolean) {
-  instructionState.lFrame.previousOrParentTNode = tNode;
+export function setCurrentTNode(tNode: TNode, isParent: boolean) {
+  ngDevMode && assertTNodeForTView(tNode, instructionState.lFrame.tView);
+  instructionState.lFrame.currentTNode = tNode;
   instructionState.lFrame.isParent = isParent;
 }
 
-export function getIsParent(): boolean {
+export function isCurrentTNodeParent(): boolean {
   return instructionState.lFrame.isParent;
 }
 
-export function setIsNotParent(): void {
+export function setCurrentTNodeAsNotParent(): void {
   instructionState.lFrame.isParent = false;
 }
-export function setIsParent(): void {
+export function setCurrentTNodeAsParent(): void {
   instructionState.lFrame.isParent = true;
 }
 
@@ -388,7 +389,7 @@ export function enterDI(newView: LView, tNode: TNode) {
   ngDevMode && assertLViewOrUndefined(newView);
   const newLFrame = allocLFrame();
   instructionState.lFrame = newLFrame;
-  newLFrame.previousOrParentTNode = tNode!;
+  newLFrame.currentTNode = tNode!;
   newLFrame.lView = newView;
 }
 
@@ -401,10 +402,9 @@ export function enterDI(newView: LView, tNode: TNode) {
  * exited the state has to be restored
  *
  * @param newView New lView to become active
- * @param tNode Element to which the View is a child of
  * @returns the previously active lView;
  */
-export function enterView(newView: LView, tNode: TNode|null): void {
+export function enterView(newView: LView): void {
   ngDevMode && assertLViewOrUndefined(newView);
   const newLFrame = allocLFrame();
   if (ngDevMode) {
@@ -420,7 +420,8 @@ export function enterView(newView: LView, tNode: TNode|null): void {
   }
   const tView = newView[TVIEW];
   instructionState.lFrame = newLFrame;
-  newLFrame.previousOrParentTNode = tNode!;
+  ngDevMode && tView.firstChild && assertTNodeForTView(tView.firstChild, tView);
+  newLFrame.currentTNode = tView.firstChild!;
   newLFrame.lView = newView;
   newLFrame.tView = tView;
   newLFrame.contextLView = newView!;
@@ -439,20 +440,20 @@ function allocLFrame() {
 
 function createLFrame(parent: LFrame|null): LFrame {
   const lFrame: LFrame = {
-    previousOrParentTNode: null!,  //
-    isParent: true,                //
-    lView: null!,                  //
-    tView: null!,                  //
-    selectedIndex: 0,              //
-    contextLView: null!,           //
-    elementDepthCount: 0,          //
-    currentNamespace: null,        //
-    currentDirectiveIndex: -1,     //
-    bindingRootIndex: -1,          //
-    bindingIndex: -1,              //
-    currentQueryIndex: 0,          //
-    parent: parent!,               //
-    child: null,                   //
+    currentTNode: null,         //
+    isParent: true,             //
+    lView: null!,               //
+    tView: null!,               //
+    selectedIndex: 0,           //
+    contextLView: null!,        //
+    elementDepthCount: 0,       //
+    currentNamespace: null,     //
+    currentDirectiveIndex: -1,  //
+    bindingRootIndex: -1,       //
+    bindingIndex: -1,           //
+    currentQueryIndex: 0,       //
+    parent: parent!,            //
+    child: null,                //
   };
   parent !== null && (parent.child = lFrame);  // link the new LFrame for reuse.
   return lFrame;
@@ -461,7 +462,7 @@ function createLFrame(parent: LFrame|null): LFrame {
 /**
  * A lightweight version of leave which is used with DI.
  *
- * This function only resets `previousOrParentTNode` and `LView` as those are the only properties
+ * This function only resets `currentTNode` and `LView` as those are the only properties
  * used with DI (`enterDI()`).
  *
  * NOTE: This function is reexported as `leaveDI`. However `leaveDI` has return type of `void` where
@@ -470,7 +471,7 @@ function createLFrame(parent: LFrame|null): LFrame {
 function leaveViewLight(): LFrame {
   const oldLFrame = instructionState.lFrame;
   instructionState.lFrame = oldLFrame.parent;
-  oldLFrame.previousOrParentTNode = null!;
+  oldLFrame.currentTNode = null!;
   oldLFrame.lView = null!;
   return oldLFrame;
 }

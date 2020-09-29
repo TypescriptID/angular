@@ -236,7 +236,7 @@ export function resetDOM() {
   containerEl.setAttribute('host', '');
   document.body.appendChild(containerEl);
   hostView = null;
-  // TODO: assert that the global state is clean (e.g. ngData, previousOrParentNode, etc)
+  // TODO: assert that the global state is clean (e.g. ngData, currentTNode, etc)
 }
 
 
@@ -261,11 +261,11 @@ export function renderTemplate<T>(
     const renderer = providedRendererFactory.createRenderer(null, null);
 
     // We need to create a root view so it's possible to look up the host element through its index
-    const tView = createTView(TViewType.Root, -1, null, 1, 0, null, null, null, null, null);
+    const tView = createTView(TViewType.Root, null, null, 1, 0, null, null, null, null, null);
     const hostLView = createLView(
         null, tView, {}, LViewFlags.CheckAlways | LViewFlags.IsRoot, null, null,
-        providedRendererFactory, renderer);
-    enterView(hostLView, null);
+        providedRendererFactory, renderer, null, null);
+    enterView(hostLView);
 
     const def: ComponentDef<any> = ɵɵdefineComponent({
       type: Object,
@@ -278,11 +278,11 @@ export function renderTemplate<T>(
     def.pipeDefs = pipes || null;
 
     const componentTView = getOrCreateTComponentView(def);
-    const hostTNode = getOrCreateTNode(tView, hostLView[T_HOST], 0, TNodeType.Element, null, null);
+    const hostTNode = getOrCreateTNode(tView, 0, TNodeType.Element, null, null);
     hostLView[hostTNode.index] = hostNode;
     componentView = createLView(
         hostLView, componentTView, context, LViewFlags.CheckAlways, hostNode, hostTNode,
-        providedRendererFactory, renderer, sanitizer);
+        providedRendererFactory, renderer, sanitizer || null, null);
   }
   renderComponentOrTemplate(componentView[TVIEW], componentView, templateFn, context);
   return componentView;

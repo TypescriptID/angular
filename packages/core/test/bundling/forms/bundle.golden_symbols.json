@@ -705,9 +705,6 @@
     "name": "addHostBindingsToExpandoInstructions"
   },
   {
-    "name": "addRemoveViewFromContainer"
-  },
-  {
     "name": "addToArray"
   },
   {
@@ -820,9 +817,6 @@
   },
   {
     "name": "createPlatformFactory"
-  },
-  {
-    "name": "createTNode"
   },
   {
     "name": "createTView"
@@ -957,9 +951,6 @@
     "name": "generatePropertyAliases"
   },
   {
-    "name": "getBeforeNodeForView"
-  },
-  {
     "name": "getCheckNoChangesMode"
   },
   {
@@ -975,7 +966,7 @@
     "name": "getConstant"
   },
   {
-    "name": "getContainerRenderParent"
+    "name": "getCurrentTNode"
   },
   {
     "name": "getDOM"
@@ -999,13 +990,7 @@
     "name": "getInjectorIndex"
   },
   {
-    "name": "getIsParent"
-  },
-  {
     "name": "getLCleanup"
-  },
-  {
-    "name": "getLContainer"
   },
   {
     "name": "getLView"
@@ -1062,19 +1047,10 @@
     "name": "getParentInjectorView"
   },
   {
-    "name": "getParentInjectorViewOffset"
-  },
-  {
-    "name": "getParentState"
-  },
-  {
     "name": "getPlatform"
   },
   {
     "name": "getPreviousIndex"
-  },
-  {
-    "name": "getPreviousOrParentTNode"
   },
   {
     "name": "getPromiseCtor"
@@ -1192,6 +1168,9 @@
   },
   {
     "name": "isCssClassMatching"
+  },
+  {
+    "name": "isCurrentTNodeParent"
   },
   {
     "name": "isDirectiveHost"
@@ -1521,6 +1500,9 @@
     "name": "setCurrentQueryIndex"
   },
   {
+    "name": "setCurrentTNode"
+  },
+  {
     "name": "setDirectiveInputsWhichShadowsStyling"
   },
   {
@@ -1537,9 +1519,6 @@
   },
   {
     "name": "setLocaleId"
-  },
-  {
-    "name": "setPreviousOrParentTNode"
   },
   {
     "name": "setSelectedIndex"
