@@ -13,11 +13,11 @@ import {ComponentDecoratorHandler, DirectiveDecoratorHandler, InjectableDecorato
 import {CycleAnalyzer, ImportGraph} from '../../cycles';
 import {ErrorCode, ngErrorCode} from '../../diagnostics';
 import {checkForPrivateExports, ReferenceGraph} from '../../entry_point';
-import {LogicalFileSystem} from '../../file_system';
+import {LogicalFileSystem, resolve} from '../../file_system';
 import {AbsoluteModuleStrategy, AliasingHost, AliasStrategy, DefaultImportTracker, ImportRewriter, LocalIdentifierStrategy, LogicalProjectStrategy, ModuleResolver, NoopImportRewriter, PrivateExportAliasingHost, R3SymbolsImportRewriter, Reference, ReferenceEmitStrategy, ReferenceEmitter, RelativePathStrategy, UnifiedModulesAliasingHost, UnifiedModulesStrategy} from '../../imports';
 import {IncrementalBuildStrategy, IncrementalDriver} from '../../incremental';
 import {generateAnalysis, IndexedComponent, IndexingContext} from '../../indexer';
-import {CompoundMetadataReader, CompoundMetadataRegistry, DtsMetadataReader, InjectableClassRegistry, LocalMetadataRegistry, MetadataReader} from '../../metadata';
+import {CompoundMetadataReader, CompoundMetadataRegistry, DtsMetadataReader, InjectableClassRegistry, LocalMetadataRegistry, MetadataReader, TemplateMapping} from '../../metadata';
 import {ModuleWithProvidersScanner} from '../../modulewithproviders';
 import {PartialEvaluator} from '../../partial_evaluator';
 import {NOOP_PERF_RECORDER, PerfRecorder} from '../../perf';
@@ -27,7 +27,7 @@ import {entryPointKeyFor, NgModuleRouteAnalyzer} from '../../routing';
 import {ComponentScopeReader, LocalModuleScopeRegistry, MetadataDtsModuleScopeResolver} from '../../scope';
 import {generatedFactoryTransform} from '../../shims';
 import {ivySwitchTransform} from '../../switch';
-import {aliasTransformFactory, declarationTransformFactory, DecoratorHandler, DtsTransformRegistry, ivyTransformFactory, TraitCompiler} from '../../transform';
+import {aliasTransformFactory, CompilationMode, declarationTransformFactory, DecoratorHandler, DtsTransformRegistry, ivyTransformFactory, TraitCompiler} from '../../transform';
 import {TemplateTypeCheckerImpl} from '../../typecheck';
 import {OptimizeFor, TemplateTypeChecker, TypeCheckingConfig, TypeCheckingProgramStrategy} from '../../typecheck/api';
 import {isTemplateDiagnostic} from '../../typecheck/diagnostics';
@@ -52,6 +52,7 @@ interface LazyCompilationState {
   aliasingHost: AliasingHost|null;
   refEmitter: ReferenceEmitter;
   templateTypeChecker: TemplateTypeChecker;
+  templateMapping: TemplateMapping;
 }
 
 /**
@@ -221,6 +222,14 @@ export class NgCompiler {
           'The `TemplateTypeChecker` does not work without `enableTemplateTypeChecker`.');
     }
     return this.ensureAnalyzed().templateTypeChecker;
+  }
+
+  /**
+   * Retrieves the `ts.Declaration`s for any component(s) which use the given template file.
+   */
+  getComponentsWithTemplateFile(templateFilePath: string): ReadonlySet<ts.Declaration> {
+    const {templateMapping} = this.ensureAnalyzed();
+    return templateMapping.getComponentsWithTemplate(resolve(templateFilePath));
   }
 
   /**
@@ -714,13 +723,14 @@ export class NgCompiler {
     const isCore = isAngularCorePackage(this.tsProgram);
 
     const defaultImportTracker = new DefaultImportTracker();
+    const templateMapping = new TemplateMapping();
 
     // Set up the IvyCompilation, which manages state for the Ivy transformer.
     const handlers: DecoratorHandler<unknown, unknown, unknown>[] = [
       new ComponentDecoratorHandler(
-          reflector, evaluator, metaRegistry, metaReader, scopeReader, scopeRegistry, isCore,
-          this.resourceManager, this.adapter.rootDirs, this.options.preserveWhitespaces || false,
-          this.options.i18nUseExternalIds !== false,
+          reflector, evaluator, metaRegistry, metaReader, scopeReader, scopeRegistry,
+          templateMapping, isCore, this.resourceManager, this.adapter.rootDirs,
+          this.options.preserveWhitespaces || false, this.options.i18nUseExternalIds !== false,
           this.options.enableI18nLegacyMessageIdFormat !== false,
           this.options.i18nNormalizeLineEndingsInICUs, this.moduleResolver, this.cycleAnalyzer,
           refEmitter, defaultImportTracker, this.incrementalDriver.depGraph, injectableRegistry,
@@ -751,9 +761,11 @@ export class NgCompiler {
           this.closureCompilerEnabled, injectableRegistry, this.options.i18nInLocale),
     ];
 
+    const compilationMode =
+        this.options.compilationMode === 'partial' ? CompilationMode.PARTIAL : CompilationMode.FULL;
     const traitCompiler = new TraitCompiler(
         handlers, reflector, this.perfRecorder, this.incrementalDriver,
-        this.options.compileNonExportedClasses !== false, dtsTransforms);
+        this.options.compileNonExportedClasses !== false, compilationMode, dtsTransforms);
 
     const templateTypeChecker = new TemplateTypeCheckerImpl(
         this.tsProgram, this.typeCheckingProgramStrategy, traitCompiler,
@@ -773,6 +785,7 @@ export class NgCompiler {
       aliasingHost,
       refEmitter,
       templateTypeChecker,
+      templateMapping,
     };
   }
 }
