@@ -44,7 +44,8 @@ export async function printG3Comparison(git: GitClient) {
   /** Url of the ref for fetching master and g3 branches. */
   const refUrl = `https://github.com/${git.remoteConfig.owner}/${git.remoteConfig.name}.git`;
   /** The result fo the fetch command. */
-  const fetchResult = git.runGraceful(['fetch', refUrl, `master:${masterRef}`, `g3:${g3Ref}`]);
+  const fetchResult =
+      git.runGraceful(['fetch', '-q', refUrl, `master:${masterRef}`, `g3:${g3Ref}`]);
 
   // If the upstream repository does not have a g3 branch to compare to, skip the comparison.
   if (fetchResult.status !== 0) {
@@ -118,6 +119,6 @@ export async function printG3Comparison(git: GitClient) {
   /** Determine whether the file name passes both include and exclude checks. */
   function checkMatchAgainstIncludeAndExclude(
       file: string, includes: string[], excludes: string[]) {
-    return multimatch(multimatch(file, includes), excludes, {flipNegate: true}).length !== 0;
+    return multimatch(file, includes).length >= 1 && multimatch(file, excludes).length === 0;
   }
 }
