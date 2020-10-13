@@ -10,11 +10,11 @@ import * as ts from 'typescript';
 
 import {absoluteFrom} from '../../../src/ngtsc/file_system';
 import {Logger} from '../../../src/ngtsc/logging';
-import {Declaration, Import} from '../../../src/ngtsc/reflection';
+import {Declaration, DeclarationKind, Import} from '../../../src/ngtsc/reflection';
 import {BundleProgram} from '../packages/bundle_program';
 import {FactoryMap, isDefined} from '../utils';
 
-import {DefinePropertyReexportStatement, ExportDeclaration, ExportStatement, extractGetterFnExpression, findNamespaceOfIdentifier, findRequireCallReference, isDefinePropertyReexportStatement, isExportStatement, isExternalImport, isRequireCall, isWildcardReexportStatement, RequireCall, WildcardReexportStatement} from './commonjs_umd_utils';
+import {DefinePropertyReexportStatement, ExportDeclaration, ExportsStatement, extractGetterFnExpression, findNamespaceOfIdentifier, findRequireCallReference, isDefinePropertyReexportStatement, isExportsStatement, isExternalImport, isRequireCall, isWildcardReexportStatement, RequireCall, WildcardReexportStatement} from './commonjs_umd_utils';
 import {Esm5ReflectionHost} from './esm5_host';
 import {NgccClassSymbol} from './ngcc_host';
 
@@ -98,7 +98,7 @@ export class CommonJsReflectionHost extends Esm5ReflectionHost {
   private computeExportsOfCommonJsModule(sourceFile: ts.SourceFile): Map<string, Declaration> {
     const moduleMap = new Map<string, Declaration>();
     for (const statement of this.getModuleStatements(sourceFile)) {
-      if (isExportStatement(statement)) {
+      if (isExportsStatement(statement)) {
         const exportDeclaration = this.extractBasicCommonJsExportDeclaration(statement);
         moduleMap.set(exportDeclaration.name, exportDeclaration.declaration);
       } else if (isWildcardReexportStatement(statement)) {
@@ -116,7 +116,7 @@ export class CommonJsReflectionHost extends Esm5ReflectionHost {
     return moduleMap;
   }
 
-  private extractBasicCommonJsExportDeclaration(statement: ExportStatement): ExportDeclaration {
+  private extractBasicCommonJsExportDeclaration(statement: ExportsStatement): ExportDeclaration {
     const exportExpression = statement.expression.right;
     const name = statement.expression.left.name.text;
     return this.extractCommonJsExportDeclaration(name, exportExpression);
@@ -181,7 +181,7 @@ export class CommonJsReflectionHost extends Esm5ReflectionHost {
     } else {
       return {
         name,
-        declaration: {node: null, known: null, expression, viaModule: null},
+        declaration: {node: expression, known: null, kind: DeclarationKind.Inline, viaModule: null},
       };
     }
   }
@@ -204,7 +204,7 @@ export class CommonJsReflectionHost extends Esm5ReflectionHost {
       return null;
     }
     const viaModule = isExternalImport(importPath) ? importPath : null;
-    return {node: module, known: null, viaModule, identity: null};
+    return {node: module, known: null, viaModule, identity: null, kind: DeclarationKind.Concrete};
   }
 
   private resolveModuleName(moduleName: string, containingFile: ts.SourceFile): ts.SourceFile
