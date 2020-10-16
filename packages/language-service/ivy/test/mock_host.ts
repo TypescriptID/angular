@@ -8,7 +8,8 @@
 
 import {join} from 'path';
 import * as ts from 'typescript/lib/tsserverlibrary';
-import {isTypeScriptFile} from '../language_service_adapter';
+
+import {isTypeScriptFile} from '../utils';
 
 const logger: ts.server.Logger = {
   close(): void{},
@@ -69,23 +70,31 @@ export const host: ts.server.ServerHost = {
 };
 
 /**
+ * Constructing a project service is expensive (~2.5s on MacBook Pro), so it
+ * should be a singleton service shared throughout all tests.
+ */
+let projectService: ts.server.ProjectService;
+
+/**
  * Create a ConfiguredProject and an actual program for the test project located
  * in packages/language-service/test/project. Project creation exercises the
  * actual code path, but a mock host is used for the filesystem to intercept
  * and modify test files.
  */
 export function setup() {
-  const projectService = new ts.server.ProjectService({
-    host,
-    logger,
-    cancellationToken: ts.server.nullCancellationToken,
-    useSingleInferredProject: true,
-    useInferredProjectPerProjectRoot: true,
-    typingsInstaller: ts.server.nullTypingsInstaller,
-  });
-  // Opening APP_COMPONENT forces a new ConfiguredProject to be created based
-  // on the tsconfig.json in the test project.
-  projectService.openClientFile(APP_COMPONENT);
+  if (!projectService) {
+    projectService = new ts.server.ProjectService({
+      host,
+      logger,
+      cancellationToken: ts.server.nullCancellationToken,
+      useSingleInferredProject: true,
+      useInferredProjectPerProjectRoot: true,
+      typingsInstaller: ts.server.nullTypingsInstaller,
+    });
+    // Opening APP_COMPONENT forces a new ConfiguredProject to be created based
+    // on the tsconfig.json in the test project.
+    projectService.openClientFile(APP_COMPONENT);
+  }
   const project = projectService.findProject(TSCONFIG);
   if (!project) {
     throw new Error(`Failed to create project for ${TSCONFIG}`);
@@ -158,6 +167,8 @@ export class MockService {
       }
     }
     this.overwritten.clear();
+    // updateGraph() will clear the internal dirty flag.
+    this.project.updateGraph();
   }
 
   getScriptInfo(fileName: string): ts.server.ScriptInfo {
@@ -179,6 +190,7 @@ export class MockService {
     if (!newScriptInfo) {
       throw new Error(`Failed to create new script info for ${fileName}`);
     }
+    newScriptInfo.attachToProject(this.project);
     return newScriptInfo;
   }
 

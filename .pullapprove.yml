@@ -186,6 +186,7 @@ groups:
          - IgorMinar               # Igor Minar
          - jbogarthyde             # Judy Bogart
          - jelbourn                # Jeremy Elbourn
+         - jessicajaniuk           # Jessica Janiuk
          - JiaLiPassion            # Jia Li
          - JoostK                  # Joost Koehoorn
          - josephperrott           # Joey Perrott
@@ -405,6 +406,7 @@ groups:
           'aio/content/guide/structural-directives.md',
           'aio/content/examples/structural-directives/**',
           'aio/content/guide/svg-in-templates.md',
+          'aio/content/guide/style-precedence.md',
           'aio/content/images/guide/structural-directives/**',
           'aio/content/guide/template-statements.md',
           'aio/content/guide/user-input.md',
@@ -1120,6 +1122,7 @@ groups:
           'docs/SAVED_REPLIES.md',
           'docs/TOOLS.md',
           'docs/TRIAGE_AND_LABELS.md',
+          'docs/images/**',
           'goldens/*',
           'modules/*',
           'packages/*',

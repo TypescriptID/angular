@@ -6,16 +6,20 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import * as ts from 'typescript/lib/tsserverlibrary';
-
 import {LanguageService} from '../language_service';
 
-import {APP_COMPONENT, setup} from './mock_host';
+import {APP_COMPONENT, MockService, setup} from './mock_host';
 import {humanizeDefinitionInfo} from './test_utils';
 
 describe('definitions', () => {
-  const {project, service, tsLS} = setup();
-  const ngLS = new LanguageService(project, tsLS);
+  let service: MockService;
+  let ngLS: LanguageService;
+
+  beforeAll(() => {
+    const {project, service: _service, tsLS} = setup();
+    service = _service;
+    ngLS = new LanguageService(project, tsLS);
+  });
 
   beforeEach(() => {
     service.reset();
@@ -88,11 +92,14 @@ describe('definitions', () => {
         templateOverride: `<div *ng¦If="anyValue"></div>`,
         expectedSpanText: 'ngIf',
       });
-      expect(definitions!.length).toEqual(1);
+      // Because the input is also part of the selector, the directive is also returned.
+      expect(definitions!.length).toEqual(2);
+      const [inputDef, directiveDef] = definitions;
 
-      const [def] = definitions;
-      expect(def.textSpan).toEqual('ngIf');
-      expect(def.contextSpan).toEqual('set ngIf(condition: T);');
+      expect(inputDef.textSpan).toEqual('ngIf');
+      expect(inputDef.contextSpan).toEqual('set ngIf(condition: T);');
+      expect(directiveDef.textSpan).toEqual('NgIf');
+      expect(directiveDef.contextSpan).toContain('export declare class NgIf');
     });
 
     it('should work for directives with compound selectors', () => {
@@ -125,6 +132,18 @@ describe('definitions', () => {
         expect(def.contextSpan).toEqual(`@Input('tcName') name = 'test';`);
       });
 
+      it('should work for text inputs', () => {
+        const definitions = getDefinitionsAndAssertBoundSpan({
+          templateOverride: `<test-comp tcN¦ame="name"></test-comp>`,
+          expectedSpanText: 'tcName="name"',
+        });
+        expect(definitions!.length).toEqual(1);
+
+        const [def] = definitions;
+        expect(def.textSpan).toEqual('name');
+        expect(def.contextSpan).toEqual(`@Input('tcName') name = 'test';`);
+      });
+
       it('should work for structural directive inputs ngForTrackBy', () => {
         const definitions = getDefinitionsAndAssertBoundSpan({
           templateOverride: `<div *ngFor="let item of heroes; tr¦ackBy: test;"></div>`,
@@ -145,12 +164,16 @@ describe('definitions', () => {
           templateOverride: `<div *ngFor="let item o¦f heroes"></div>`,
           expectedSpanText: 'of',
         });
-        expect(definitions!.length).toEqual(1);
+        // Because the input is also part of the selector ([ngFor][ngForOf]), the directive is also
+        // returned.
+        expect(definitions!.length).toEqual(2);
+        const [inputDef, directiveDef] = definitions;
 
-        const [def] = definitions;
-        expect(def.textSpan).toEqual('ngForOf');
-        expect(def.contextSpan)
+        expect(inputDef.textSpan).toEqual('ngForOf');
+        expect(inputDef.contextSpan)
             .toEqual('set ngForOf(ngForOf: U & NgIterable<T> | undefined | null);');
+        expect(directiveDef.textSpan).toEqual('NgForOf');
+        expect(directiveDef.contextSpan).toContain('export declare class NgForOf');
       });
 
       it('should work for two-way binding providers', () => {
@@ -190,6 +213,20 @@ describe('definitions', () => {
             APP_COMPONENT, `<div string-model (modelChange)="myClick($e¦vent)"></div>`);
         const definitionAndBoundSpan = ngLS.getDefinitionAndBoundSpan(APP_COMPONENT, position);
         expect(definitionAndBoundSpan).toBeUndefined();
+      });
+
+      it('should return the directive when the event is part of the selector', () => {
+        const definitions = getDefinitionsAndAssertBoundSpan({
+          templateOverride: `<div (eventSelect¦or)="title = ''"></div>`,
+          expectedSpanText: `(eventSelector)="title = ''"`,
+        });
+        expect(definitions!.length).toEqual(2);
+
+        const [inputDef, directiveDef] = definitions;
+        expect(inputDef.textSpan).toEqual('eventSelector');
+        expect(inputDef.contextSpan).toEqual('@Output() eventSelector = new EventEmitter<void>();');
+        expect(directiveDef.textSpan).toEqual('EventSelectorDirective');
+        expect(directiveDef.contextSpan).toContain('export class EventSelectorDirective');
       });
     });
   });
@@ -412,6 +449,53 @@ describe('definitions', () => {
           service.overwriteInlineTemplate(APP_COMPONENT, `<div>{{$an¦y(title)}}</div>`);
       const definitionAndBoundSpan = ngLS.getDefinitionAndBoundSpan(APP_COMPONENT, position);
       expect(definitionAndBoundSpan).toBeUndefined();
+    });
+  });
+
+  describe('external resources', () => {
+    it('should be able to find a template from a url', () => {
+      const {position, text} = service.overwrite(APP_COMPONENT, `
+        import {Component} from '@angular/core';
+	      @Component({
+	        templateUrl: './tes¦t.ng',
+	      })
+	      export class MyComponent {}`);
+      const result = ngLS.getDefinitionAndBoundSpan(APP_COMPONENT, position);
+
+      expect(result).toBeDefined();
+      const {textSpan, definitions} = result!;
+
+      expect(text.substring(textSpan.start, textSpan.start + textSpan.length)).toEqual('./test.ng');
+
+      expect(definitions).toBeDefined();
+      expect(definitions!.length).toBe(1);
+      const [def] = definitions!;
+      expect(def.fileName).toContain('/app/test.ng');
+      expect(def.textSpan).toEqual({start: 0, length: 0});
+    });
+
+    it('should be able to find a stylesheet from a url', () => {
+      const {position, text} = service.overwrite(APP_COMPONENT, `
+        import {Component} from '@angular/core';
+	      @Component({
+	        template: 'empty',
+	        styleUrls: ['./te¦st.css']
+	      })
+	      export class MyComponent {}`);
+      const result = ngLS.getDefinitionAndBoundSpan(APP_COMPONENT, position);
+
+
+      expect(result).toBeDefined();
+      const {textSpan, definitions} = result!;
+
+      expect(text.substring(textSpan.start, textSpan.start + textSpan.length))
+          .toEqual('./test.css');
+
+      expect(definitions).toBeDefined();
+      expect(definitions!.length).toBe(1);
+      const [def] = definitions!;
+      expect(def.fileName).toContain('/app/test.css');
+      expect(def.textSpan).toEqual({start: 0, length: 0});
     });
   });
 

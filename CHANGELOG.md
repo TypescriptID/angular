@@ -1,3 +1,80 @@
+<a name="11.0.0-next.6"></a>
+# 11.0.0-next.6 (2020-10-14)
+
+
+### Bug Fixes
+
+* **compiler-cli:** type checking of expressions within ICUs ([#39072](https://github.com/angular/angular/issues/39072)) ([0a16e60](https://github.com/angular/angular/commit/0a16e60)), closes [#39064](https://github.com/angular/angular/issues/39064)
+* **core:** migrate relative link resolution with single quotes ([#39102](https://github.com/angular/angular/issues/39102)) ([049b453](https://github.com/angular/angular/commit/049b453)), closes [#39082](https://github.com/angular/angular/issues/39082)
+* **core:** use Trusted Types policy in inert DOM builder ([#39208](https://github.com/angular/angular/issues/39208)) ([7d49299](https://github.com/angular/angular/commit/7d49299))
+* **core:** use Trusted Types policy in named_array_type ([#39209](https://github.com/angular/angular/issues/39209)) ([f6d5cdf](https://github.com/angular/angular/commit/f6d5cdf))
+* **router:** Allow undefined inputs on routerLink ([#39151](https://github.com/angular/angular/issues/39151)) ([b0b4953](https://github.com/angular/angular/commit/b0b4953))
+* **router:** create schematic for preserveQueryParams ([#38762](https://github.com/angular/angular/issues/38762)) ([93ee05d](https://github.com/angular/angular/commit/93ee05d))
+* **router:** remove preserveQueryParams symbol ([#38762](https://github.com/angular/angular/issues/38762)) ([783a5bd](https://github.com/angular/angular/commit/783a5bd))
+
+
+### Features
+
+* **core:** add automated migration to replace async with waitForAsync ([#39212](https://github.com/angular/angular/issues/39212)) ([5ce71e0](https://github.com/angular/angular/commit/5ce71e0))
+* **core:** add automated migration to replace ViewEncapsulation.Native ([#38882](https://github.com/angular/angular/issues/38882)) ([0e733f3](https://github.com/angular/angular/commit/0e733f3))
+* **core:** add initialNavigation schematic ([#36926](https://github.com/angular/angular/issues/36926)) ([0ec7043](https://github.com/angular/angular/commit/0ec7043))
+* **core:** add Trusted Types workaround for Function constructor ([#39209](https://github.com/angular/angular/issues/39209)) ([5913e5c](https://github.com/angular/angular/commit/5913e5c))
+* **core:** create internal Trusted Types module ([#39207](https://github.com/angular/angular/issues/39207)) ([0875fd2](https://github.com/angular/angular/commit/0875fd2))
+* **core:** depend on type definitions for Trusted Types ([#39207](https://github.com/angular/angular/issues/39207)) ([c4266fb](https://github.com/angular/angular/commit/c4266fb))
+* **core:** remove ViewEncapsulation.Native ([#38882](https://github.com/angular/angular/issues/38882)) ([4a1c12c](https://github.com/angular/angular/commit/4a1c12c))
+* **language-service:** [Ivy] getSemanticDiagnostics for external templates ([#39065](https://github.com/angular/angular/issues/39065)) ([63624a2](https://github.com/angular/angular/commit/63624a2))
+* **language-service:** Add getTypeDefinitionAtPosition (go to type definition) ([#39145](https://github.com/angular/angular/issues/39145)) ([a84976f](https://github.com/angular/angular/commit/a84976f))
+* **language-service:** Add module name to directive quick info ([#39121](https://github.com/angular/angular/issues/39121)) ([4604fe9](https://github.com/angular/angular/commit/4604fe9))
+* **router:** add new initialNavigation options to replace legacy ([#37480](https://github.com/angular/angular/issues/37480)) ([c4becca](https://github.com/angular/angular/commit/c4becca))
+
+
+### BREAKING CHANGES
+
+* **router:** * The `initialNavigation` property for the options in
+  `RouterModule.forRoot` no longer supports `legacy_disabled`,
+  `legacy_enabled`, `true`, or `false` as valid values.
+  `legacy_enabled` (the old default) is instead `enabledNonBlocking`
+* `enabled` is deprecated as a valid value for the
+  `RouterModule.forRoot` `initialNavigation` option. `enabledBlocking`
+  has been introduced to replace it
+* **router:** preserveQueryParams has been removed, use
+queryParamsHandling="preserve" instead
+* **router:**  If you were accessing the `RouterLink` values of `queryParams`,
+`fragment` or `queryParamsHandling` you might need to relax the typing to also
+accept `undefined` and `null`. ([#39151](https://github.com/angular/angular/issues/39151))
+* **core:** * `ViewEncapsulation.Native` has been removed. Use `ViewEncapsulation.ShadowDom` instead. Existing
+usages will be updated automatically by `ng update`.
+* **compiler-cli:** Expressions within ICUs are now type-checked again, fixing a regression
+in Ivy. This may cause compilation failures if errors are found in
+expressions that appear within an ICU. Please correct these expressions
+to resolve the type-check errors.
+
+
+<a name="10.1.6"></a>
+## 10.1.6 (2020-10-14)
+
+
+### Bug Fixes
+
+* **compiler:** incorrectly encapsulating [@import](https://github.com/import) containing colons and semicolons ([#38716](https://github.com/angular/angular/issues/38716)) ([52a0c6b](https://github.com/angular/angular/commit/52a0c6b)), closes [#38587](https://github.com/angular/angular/issues/38587)
+* **compiler-cli:** support namespaced query types in directives ([#38959](https://github.com/angular/angular/issues/38959)) ([#39272](https://github.com/angular/angular/issues/39272)) ([f752ab9](https://github.com/angular/angular/commit/f752ab9))
+* **elements:** detect matchesSelector prototype without IIFE ([#37799](https://github.com/angular/angular/issues/37799)) ([952fd86](https://github.com/angular/angular/commit/952fd86)), closes [#24551](https://github.com/angular/angular/issues/24551)
+* **ngcc:** ensure that "inline exports" can be interpreted correctly ([#39272](https://github.com/angular/angular/issues/39272)) ([e08d021](https://github.com/angular/angular/commit/e08d021))
+* **ngcc:** handle aliases in UMD export declarations ([#38959](https://github.com/angular/angular/issues/38959)) ([#39272](https://github.com/angular/angular/issues/39272)) ([9963c5d](https://github.com/angular/angular/commit/9963c5d)), closes [#38947](https://github.com/angular/angular/issues/38947)
+* **ngcc:** map `exports` to the current module in UMD files ([#38959](https://github.com/angular/angular/issues/38959)) ([#39272](https://github.com/angular/angular/issues/39272)) ([13c4a7b](https://github.com/angular/angular/commit/13c4a7b))
+* **ngcc:** support inline export declarations in UMD files ([#38959](https://github.com/angular/angular/issues/38959)) ([#39272](https://github.com/angular/angular/issues/39272)) ([9c875b3](https://github.com/angular/angular/commit/9c875b3)), closes [#38947](https://github.com/angular/angular/issues/38947)
+
+
+### build
+
+* upgrade angular build, integration/bazel and [@angular](https://github.com/angular)/bazel package to rule_nodejs 2.2.0 ([#39182](https://github.com/angular/angular/issues/39182)) ([7628c36](https://github.com/angular/angular/commit/7628c36))
+
+
+### Performance Improvements
+
+* **ngcc:** do not rescan program source files when referenced from multiple root files ([#39254](https://github.com/angular/angular/issues/39254)) ([5221df8](https://github.com/angular/angular/commit/5221df8)), closes [#39240](https://github.com/angular/angular/issues/39240)
+
+
 <a name="11.0.0-next.5"></a>
 # 11.0.0-next.5 (2020-10-07)
 

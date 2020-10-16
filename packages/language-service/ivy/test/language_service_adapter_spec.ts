@@ -6,44 +6,36 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {LanguageServiceAdapter} from '../language_service_adapter';
-import {setup, TEST_TEMPLATE} from './mock_host';
+import * as ts from 'typescript/lib/tsserverlibrary';
 
-const {project, service} = setup();
+import {LanguageServiceAdapter} from '../language_service_adapter';
+
+import {MockService, setup, TEST_TEMPLATE} from './mock_host';
 
 describe('Language service adapter', () => {
-  it('should register update if it has not seen the template before', () => {
-    const adapter = new LanguageServiceAdapter(project);
-    // Note that readResource() has never been called, so the adapter has no
-    // knowledge of the template at all.
-    const isRegistered = adapter.registerTemplateUpdate(TEST_TEMPLATE);
-    expect(isRegistered).toBeTrue();
-    expect(adapter.getModifiedResourceFiles().size).toBe(1);
+  let project: ts.server.Project;
+  let service: MockService;
+
+  beforeAll(() => {
+    const {project: _project, service: _service} = setup();
+    project = _project;
+    service = _service;
   });
 
-  it('should not register update if template has not changed', () => {
+  it('should mark template dirty if it has not seen the template before', () => {
     const adapter = new LanguageServiceAdapter(project);
-    adapter.readResource(TEST_TEMPLATE);
-    const isRegistered = adapter.registerTemplateUpdate(TEST_TEMPLATE);
-    expect(isRegistered).toBeFalse();
-    expect(adapter.getModifiedResourceFiles().size).toBe(0);
+    expect(adapter.isTemplateDirty(TEST_TEMPLATE)).toBeTrue();
   });
 
-  it('should register update if template has changed', () => {
+  it('should not mark template dirty if template has not changed', () => {
     const adapter = new LanguageServiceAdapter(project);
     adapter.readResource(TEST_TEMPLATE);
+    expect(adapter.isTemplateDirty(TEST_TEMPLATE)).toBeFalse();
+  });
+
+  it('should mark template dirty if template has changed', () => {
+    const adapter = new LanguageServiceAdapter(project);
     service.overwrite(TEST_TEMPLATE, '<p>Hello World</p>');
-    const isRegistered = adapter.registerTemplateUpdate(TEST_TEMPLATE);
-    expect(isRegistered).toBe(true);
-    expect(adapter.getModifiedResourceFiles().size).toBe(1);
-  });
-
-  it('should clear template updates on read', () => {
-    const adapter = new LanguageServiceAdapter(project);
-    const isRegistered = adapter.registerTemplateUpdate(TEST_TEMPLATE);
-    expect(isRegistered).toBeTrue();
-    expect(adapter.getModifiedResourceFiles().size).toBe(1);
-    adapter.readResource(TEST_TEMPLATE);
-    expect(adapter.getModifiedResourceFiles().size).toBe(0);
+    expect(adapter.isTemplateDirty(TEST_TEMPLATE)).toBeTrue();
   });
 });
