@@ -8,11 +8,8 @@ ts_library(
         "src/**/*.ts",
     ]),
     deps = [
+        "//packages/compiler",
         "//packages/compiler-cli/src/ngtsc/translator",
-        "@npm//@babel/core",
-        "@npm//@babel/types",
-        "@npm//@types/babel__core",
-        "@npm//@types/babel__traverse",
         "@npm//typescript",
     ],
 )

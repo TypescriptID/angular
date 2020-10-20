@@ -829,5 +829,30 @@
     "website": "https://thekiba.io",
     "bio": "Andrew is a software engineer using Angular and .NET. He spends most of his spare time staying up-to-date, helping other people, and experimenting with web tech.",
     "groups": ["GDE"]
+  },
+  "fmalcher": {
+    "name": "Ferdinand Malcher",
+    "picture": "fmalcher.jpg",
+    "twitter": "fmalcher01",
+    "website": "https://angular.schule",
+    "bio": "Ferdinand is a developer, trainer, and international speaker from Leipzig, Germany. He is co-author of the German Angular book and loves to share knowledge – that's why he writes books and blog posts, speaks at meetups and conferences, does Angular training and works as a consultant in his company \"Angular.Schule\".",
+    "groups": ["GDE"]
+  },
+  "johanneshoppe": {
+    "name": "Johannes Hoppe",
+    "picture": "johanneshoppe.jpg",
+    "twitter": "johanneshoppe",
+    "website": "https://angular.schule",
+    "bio": "Johannes works as a software architect and consultant for Angular. He is co-author of the German Angular book and a passionate speaker. With his company \"Angular.Schule\" he offers public Angular training and consulting. Johannes is head of the Angular Meetup in Heidelberg, Germany, and is engaged in a couple of open source projects.",
+    "groups": ["GDE"]
+  },
+  "jessicajaniuk": {
+    "name": "Jessica Janiuk",
+    "picture": "jessicajaniuk.jpg",
+    "twitter": "thepunderwoman",
+    "website": "https://github.com/jessicajaniuk",
+    "bio": "Jessica is a software engineer at Google. In her free time she is a historical fencer, astromech droid builder, photographer, pun purveyor, occasional cosplayer, and full time cat mom.",
+    "groups": ["Angular"],
+    "lead": "jelbourn"
   }
 }
