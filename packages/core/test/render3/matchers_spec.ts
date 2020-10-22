@@ -41,13 +41,8 @@ describe('render3 matchers', () => {
     it('should produce human readable errors', () => {
       const matcher = matchMyShape({propA: 'different'});
       expect(matcher.asymmetricMatch(myShape, [])).toEqual(false);
-      expect(matcher.jasmineToString!()).toEqual(dedent`
-        MyShape({
-          propA: "value",
-          ...
-        }) != MyShape({
-          propA: "different"
-        }))`);
+      expect(matcher.jasmineToString!())
+          .toEqual('\n  property obj.propA to equal different but got value');
     });
   });
 
@@ -61,11 +56,11 @@ describe('render3 matchers', () => {
   });
   describe('matchTNode', () => {
     const tView = createTView(TViewType.Root, null, null, 2, 3, null, null, null, null, null);
-    const tNode = createTNode(tView, null, TNodeType.Element, 1, 'tagName', []);
+    const tNode = createTNode(tView, null, TNodeType.Element, 0, 'tagName', []);
 
     it('should match', () => {
       expect(tNode).toEqual(matchTNode());
-      expect(tNode).toEqual(matchTNode({type: TNodeType.Element, tagName: 'tagName'}));
+      expect(tNode).toEqual(matchTNode({type: TNodeType.Element, value: 'tagName'}));
       expect({node: tNode}).toEqual({node: matchTNode({type: TNodeType.Element})});
     });
   });

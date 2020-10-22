@@ -14,8 +14,8 @@ import {Sanitizer} from '../../sanitization/sanitizer';
 
 import {LContainer} from './container';
 import {ComponentDef, ComponentTemplate, DirectiveDef, DirectiveDefList, HostBindingsFunction, PipeDef, PipeDefList, ViewQueriesFunction} from './definition';
-import {I18nUpdateOpCodes, TI18n} from './i18n';
-import {TConstants, TNode, TNodeTypeAsString} from './node';
+import {I18nUpdateOpCodes, TI18n, TIcu} from './i18n';
+import {TConstants, TNode} from './node';
 import {PlayerHandler} from './player';
 import {LQueries, TQueries} from './query';
 import {RComment, RElement, Renderer3, RendererFactory3} from './renderer';
@@ -47,7 +47,13 @@ export const DECLARATION_COMPONENT_VIEW = 16;
 export const DECLARATION_LCONTAINER = 17;
 export const PREORDER_HOOK_FLAGS = 18;
 export const QUERIES = 19;
-/** Size of LView's header. Necessary to adjust for it when setting slots.  */
+/**
+ * Size of LView's header. Necessary to adjust for it when setting slots.
+ *
+ * IMPORTANT: `HEADER_OFFSET` should only be referred to the in the `ɵɵ*` instructions to translate
+ * instruction index into `LView` index. All other indexes should be in the `LView` index space and
+ * there should be no need to refer to `HEADER_OFFSET` anywhere else.
+ */
 export const HEADER_OFFSET = 20;
 
 
@@ -839,7 +845,7 @@ export type DestroyHookData = (HookEntry|HookData)[];
  */
 export type TData =
     (TNode|PipeDef<any>|DirectiveDef<any>|ComponentDef<any>|number|TStylingRange|TStylingKey|
-     Type<any>|InjectionToken<any>|TI18n|I18nUpdateOpCodes|null|string)[];
+     Type<any>|InjectionToken<any>|TI18n|I18nUpdateOpCodes|TIcu|null|string)[];
 
 // Note: This hack is necessary so we don't erroneously get a circular dependency
 // failure based on types.
@@ -873,6 +879,11 @@ export interface LViewDebug {
   };
 
   /**
+   * Associated TView
+   */
+  readonly tView: TView;
+
+  /**
    * Parent view (or container)
    */
   readonly parent: LViewDebug|LContainerDebug|null;
@@ -893,6 +904,12 @@ export interface LViewDebug {
    * Hierarchical tree of nodes.
    */
   readonly nodes: DebugNode[];
+
+  /**
+   * Template structure (no instance data).
+   * (Shows how TNodes are connected)
+   */
+  readonly template: string;
 
   /**
    * HTML representation of the `LView`.
@@ -920,11 +937,6 @@ export interface LViewDebug {
    * Sub range of `LView` containing vars (bindings).
    */
   readonly vars: LViewDebugRange;
-
-  /**
-   * Sub range of `LView` containing i18n (translated DOM elements).
-   */
-  readonly i18n: LViewDebugRange;
 
   /**
    * Sub range of `LView` containing expando (used by DI).
@@ -1019,7 +1031,7 @@ export interface DebugNode {
   /**
    * Human readable node type.
    */
-  type: typeof TNodeTypeAsString[number];
+  type: string;
 
   /**
    * DOM native node.

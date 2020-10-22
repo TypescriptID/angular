@@ -35,10 +35,10 @@ export function ɵɵtext(index: number, value: string = ''): void {
   ngDevMode && assertIndexInRange(lView, adjustedIndex);
 
   const tNode = tView.firstCreatePass ?
-      getOrCreateTNode(tView, index, TNodeType.Element, null, null) :
+      getOrCreateTNode(tView, adjustedIndex, TNodeType.Text, value, null) :
       tView.data[adjustedIndex] as TElementNode;
 
-  const textNative = lView[adjustedIndex] = createTextNode(value, lView[RENDERER]);
+  const textNative = lView[adjustedIndex] = createTextNode(lView[RENDERER], value);
   appendChild(tView, lView, textNative, tNode);
 
   // Text nodes are self closing.
