@@ -108,7 +108,7 @@ runInEachFileSystem(() => {
               `        <note category="description">some description</note>`,
               `      </notes>`,
               `      <segment>`,
-              `        <source>a<pc id="0" equivStart="START_TAG_SPAN" equivEnd="CLOSE_TAG_SPAN"></pc>c</source>`,
+              `        <source>a<pc id="0" equivStart="START_TAG_SPAN" equivEnd="CLOSE_TAG_SPAN" type="other"></pc>c</source>`,
               `      </segment>`,
               `    </unit>`,
               `    <unit id="location-only">`,
@@ -116,12 +116,12 @@ runInEachFileSystem(() => {
               `        <note category="location">file.ts:3,4</note>`,
               `      </notes>`,
               `      <segment>`,
-              `        <source>a<pc id="0" equivStart="START_TAG_SPAN" equivEnd="CLOSE_TAG_SPAN"></pc>c</source>`,
+              `        <source>a<pc id="0" equivStart="START_TAG_SPAN" equivEnd="CLOSE_TAG_SPAN" type="other"></pc>c</source>`,
               `      </segment>`,
               `    </unit>`,
               `    <unit id="13579">`,
               `      <segment>`,
-              `        <source><pc id="0" equivStart="START_BOLD_TEXT" equivEnd="CLOSE_BOLD_TEXT">b</pc></source>`,
+              `        <source><pc id="0" equivStart="START_BOLD_TEXT" equivEnd="CLOSE_BOLD_TEXT" type="fmt">b</pc></source>`,
               `      </segment>`,
               `    </unit>`,
               `    <unit id="24680">`,
@@ -151,12 +151,155 @@ runInEachFileSystem(() => {
               `    </unit>`,
               `    <unit id="100001">`,
               `      <segment>`,
-              `        <source>{VAR_PLURAL, plural, one {<pc id="0" equivStart="START_BOLD_TEXT" equivEnd="CLOSE_BOLD_TEXT">something bold</pc>} other {pre <pc id="1" equivStart="START_TAG_SPAN" equivEnd="CLOSE_TAG_SPAN">middle</pc> post}}</source>`,
+              `        <source>{VAR_PLURAL, plural, one {<pc id="0" equivStart="START_BOLD_TEXT" equivEnd="CLOSE_BOLD_TEXT" type="fmt">something bold</pc>} other {pre <pc id="1" equivStart="START_TAG_SPAN" equivEnd="CLOSE_TAG_SPAN" type="other">middle</pc> post}}</source>`,
               `      </segment>`,
               `    </unit>`,
               `  </file>`,
               `</xliff>\n`,
             ].join('\n'));
+          });
+
+          it('should convert a set of parsed messages into an XML string', () => {
+            const messageLocation1: ɵSourceLocation = {
+              start: {line: 0, column: 5},
+              end: {line: 0, column: 10},
+              file: absoluteFrom('/project/file-1.ts'),
+              text: 'message text'
+            };
+
+            const messageLocation2: ɵSourceLocation = {
+              start: {line: 3, column: 2},
+              end: {line: 4, column: 7},
+              file: absoluteFrom('/project/file-2.ts'),
+              text: 'message text'
+            };
+
+            const messageLocation3: ɵSourceLocation = {
+              start: {line: 0, column: 5},
+              end: {line: 0, column: 10},
+              file: absoluteFrom('/project/file-3.ts'),
+              text: 'message text'
+            };
+
+            const messageLocation4: ɵSourceLocation = {
+              start: {line: 3, column: 2},
+              end: {line: 4, column: 7},
+              file: absoluteFrom('/project/file-4.ts'),
+              text: 'message text'
+            };
+
+            const messages: ɵParsedMessage[] = [
+              mockMessage('1234', ['message text'], [], {location: messageLocation1}),
+              mockMessage('1234', ['message text'], [], {location: messageLocation2}),
+              mockMessage('1234', ['message text'], [], {
+                location: messageLocation3,
+                legacyIds: ['87654321FEDCBA0987654321FEDCBA0987654321', '563965274788097516']
+              }),
+              mockMessage(
+                  '1234', ['message text'], [], {location: messageLocation4, customId: 'other'}),
+            ];
+            const serializer = new Xliff2TranslationSerializer(
+                'xx', absoluteFrom('/project'), useLegacyIds, options);
+            const output = serializer.serialize(messages);
+
+            // Note that in this test the third message will match the first two if legacyIds is
+            // false. Otherwise it will be a separate message on its own.
+
+            expect(output).toEqual([
+              `<?xml version="1.0" encoding="UTF-8" ?>`,
+              `<xliff version="2.0" xmlns="urn:oasis:names:tc:xliff:document:2.0" srcLang="xx">`,
+              `  <file id="ngi18n" original="ng.template"${toAttributes(options)}>`,
+              `    <unit id="1234">`,
+              `      <notes>`,
+              `        <note category="location">file-1.ts:1</note>`,
+              `        <note category="location">file-2.ts:4,5</note>`,
+              ...useLegacyIds ? [] : ['        <note category="location">file-3.ts:1</note>'],
+              `      </notes>`,
+              `      <segment>`,
+              `        <source>message text</source>`,
+              `      </segment>`,
+              `    </unit>`,
+              ...useLegacyIds ?
+                  [
+                    `    <unit id="563965274788097516">`,
+                    `      <notes>`,
+                    `        <note category="location">file-3.ts:1</note>`,
+                    `      </notes>`,
+                    `      <segment>`,
+                    `        <source>message text</source>`,
+                    `      </segment>`,
+                    `    </unit>`,
+                  ] :
+                  [],
+              `    <unit id="other">`,
+              `      <notes>`,
+              `        <note category="location">file-4.ts:4,5</note>`,
+              `      </notes>`,
+              `      <segment>`,
+              `        <source>message text</source>`,
+              `      </segment>`,
+              `    </unit>`,
+              `  </file>`,
+              `</xliff>\n`,
+            ].join('\n'));
+          });
+
+          it('should render the "type" for line breaks', () => {
+            const serializer = new Xliff2TranslationSerializer(
+                'xx', absoluteFrom('/project'), useLegacyIds, options);
+            const output = serializer.serialize([mockMessage('1', ['a', 'b'], ['LINE_BREAK'], {})]);
+            expect(output).toContain(
+                '<source>a<ph id="0" equiv="LINE_BREAK" type="fmt"/>b</source>',
+            );
+          });
+
+          it('should render the "type" for images', () => {
+            const serializer = new Xliff2TranslationSerializer(
+                'xx', absoluteFrom('/project'), useLegacyIds, options);
+            const output = serializer.serialize([mockMessage('2', ['a', 'b'], ['TAG_IMG'], {})]);
+            expect(output).toContain(
+                '<source>a<ph id="0" equiv="TAG_IMG" type="image"/>b</source>',
+            );
+          });
+
+          it('should render the "type" for bold elements', () => {
+            const serializer = new Xliff2TranslationSerializer(
+                'xx', absoluteFrom('/project'), useLegacyIds, options);
+            const output = serializer.serialize(
+                [mockMessage('3', ['a', 'b', 'c'], ['START_BOLD_TEXT', 'CLOSE_BOLD_TEXT'], {})]);
+            expect(output).toContain(
+                '<source>a<pc id="0" equivStart="START_BOLD_TEXT" equivEnd="CLOSE_BOLD_TEXT" type="fmt">b</pc>c</source>',
+            );
+          });
+
+          it('should render the "type" for heading elements', () => {
+            const serializer = new Xliff2TranslationSerializer(
+                'xx', absoluteFrom('/project'), useLegacyIds, options);
+            const output = serializer.serialize([mockMessage(
+                '4', ['a', 'b', 'c'], ['START_HEADING_LEVEL1', 'CLOSE_HEADING_LEVEL1'], {})]);
+            expect(output).toContain(
+                '<source>a<pc id="0" equivStart="START_HEADING_LEVEL1" equivEnd="CLOSE_HEADING_LEVEL1" type="other">b</pc>c</source>',
+            );
+          });
+
+          it('should render the "type" for span elements', () => {
+            const serializer = new Xliff2TranslationSerializer(
+                'xx', absoluteFrom('/project'), useLegacyIds, options);
+            const output = serializer.serialize(
+                [mockMessage('5', ['a', 'b', 'c'], ['START_TAG_SPAN', 'CLOSE_TAG_SPAN'], {})]);
+            expect(output).toContain(
+                '<source>a<pc id="0" equivStart="START_TAG_SPAN" equivEnd="CLOSE_TAG_SPAN" type="other">b</pc>c</source>',
+            );
+          });
+
+          it('should render the "type" for div elements', () => {
+            const serializer = new Xliff2TranslationSerializer(
+                'xx', absoluteFrom('/project'), useLegacyIds, options);
+            const output = serializer.serialize(
+                [mockMessage('6', ['a', 'b', 'c'], ['START_TAG_DIV', 'CLOSE_TAG_DIV'], {})]);
+            expect(output).toContain(
+                '<source>a<pc id="0" equivStart="START_TAG_DIV" equivEnd="CLOSE_TAG_DIV" type="other">b</pc>c</source>',
+            );
           });
         });
       });

@@ -11,6 +11,7 @@ import {ɵParsedMessage, ɵSourceLocation} from '@angular/localize';
 import {FormatOptions, validateOptions} from './format_options';
 import {extractIcuPlaceholders} from './icu_parsing';
 import {TranslationSerializer} from './translation_serializer';
+import {consolidateMessages, hasLocation} from './utils';
 import {XmlFile} from './xml_file';
 
 /** This is the maximum number of characters that can appear in a legacy XLIFF 2.0 message id. */
@@ -33,7 +34,7 @@ export class Xliff2TranslationSerializer implements TranslationSerializer {
   }
 
   serialize(messages: ɵParsedMessage[]): string {
-    const ids = new Set<string>();
+    const messageMap = consolidateMessages(messages, message => this.getMessageId(message));
     const xml = new XmlFile();
     xml.startTag('xliff', {
       'version': '2.0',
@@ -48,24 +49,23 @@ export class Xliff2TranslationSerializer implements TranslationSerializer {
     // messages that come from a particular original file, and the translation file parsers may
     // not
     xml.startTag('file', {'id': 'ngi18n', 'original': 'ng.template', ...this.formatOptions});
-    for (const message of messages) {
-      const id = this.getMessageId(message);
-      if (ids.has(id)) {
-        // Do not render the same message more than once
-        continue;
-      }
-      ids.add(id);
+    for (const [id, duplicateMessages] of messageMap.entries()) {
+      const message = duplicateMessages[0];
+
       xml.startTag('unit', {id});
-      if (message.meaning || message.description || message.location) {
+      const messagesWithLocations = duplicateMessages.filter(hasLocation);
+      if (message.meaning || message.description || messagesWithLocations.length) {
         xml.startTag('notes');
-        if (message.location) {
-          const {file, start, end} = message.location;
+
+        // Write all the locations
+        for (const {location: {file, start, end}} of messagesWithLocations) {
           const endLineString =
               end !== undefined && end.line !== start.line ? `,${end.line + 1}` : '';
           this.serializeNote(
               xml, 'location',
               `${this.fs.relative(this.basePath, file)}:${start.line + 1}${endLineString}`);
         }
+
         if (message.description) {
           this.serializeNote(xml, 'description', message.description);
         }
@@ -119,6 +119,10 @@ export class Xliff2TranslationSerializer implements TranslationSerializer {
         equivStart: placeholderName,
         equivEnd: closingPlaceholderName,
       };
+      const type = getTypeForPlaceholder(placeholderName);
+      if (type !== null) {
+        attrs.type = type;
+      }
       if (text !== undefined) {
         attrs.dispStart = text;
       }
@@ -129,8 +133,14 @@ export class Xliff2TranslationSerializer implements TranslationSerializer {
     } else if (placeholderName.startsWith('CLOSE_')) {
       xml.endTag('pc');
     } else {
-      const attrs:
-          Record<string, string> = {id: `${this.currentPlaceholderId++}`, equiv: placeholderName};
+      const attrs: Record<string, string> = {
+        id: `${this.currentPlaceholderId++}`,
+        equiv: placeholderName,
+      };
+      const type = getTypeForPlaceholder(placeholderName);
+      if (type !== null) {
+        attrs.type = type;
+      }
       if (text !== undefined) {
         attrs.disp = text;
       }
@@ -164,5 +174,31 @@ export class Xliff2TranslationSerializer implements TranslationSerializer {
         message.legacyIds.find(
             id => id.length <= MAX_LEGACY_XLIFF_2_MESSAGE_LENGTH && !/[^0-9]/.test(id)) ||
         message.id;
+  }
+}
+
+/**
+ * Compute the value of the `type` attribute from the `placeholder` name.
+ *
+ * If the tag is not known but starts with `TAG_`, `START_TAG_` or `CLOSE_TAG_` then the type is
+ * `other`. Certain formatting tags (e.g. bold, italic, etc) have type `fmt`. Line-breaks, images
+ * and links are special cases.
+ */
+function getTypeForPlaceholder(placeholder: string): string|null {
+  const tag = placeholder.replace(/^(START_|CLOSE_)/, '');
+  switch (tag) {
+    case 'BOLD_TEXT':
+    case 'EMPHASISED_TEXT':
+    case 'ITALIC_TEXT':
+    case 'LINE_BREAK':
+    case 'STRIKETHROUGH_TEXT':
+    case 'UNDERLINED_TEXT':
+      return 'fmt';
+    case 'TAG_IMG':
+      return 'image';
+    case 'LINK':
+      return 'link';
+    default:
+      return /^(START_|CLOSE_)/.test(placeholder) ? 'other' : null;
   }
 }
