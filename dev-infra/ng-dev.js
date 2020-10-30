@@ -647,12 +647,11 @@ var GitClient = /** @class */ (function () {
     GitClient.prototype.runGraceful = function (args, options) {
         if (options === void 0) { options = {}; }
         // To improve the debugging experience in case something fails, we print all executed Git
-        // commands unless the `stdio` is explicitly set to `ignore` (which is equivalent to silent).
+        // commands to better understand the git actions occuring. Depending on the command being
+        // executed, this debugging information should be logged at different logging levels.
+        var printFn = (!GitClient.LOG_COMMANDS || options.stdio === 'ignore') ? debug : info;
         // Note that we do not want to print the token if it is contained in the command. It's common
         // to share errors with others if the tool failed, and we do not want to leak tokens.
-        // TODO: Add support for configuring this on a per-client basis. Some tools do not want
-        // to print the Git command messages to the console at all (e.g. to maintain clean output).
-        var printFn = options.stdio !== 'ignore' ? info : debug;
         printFn('Executing: git', this.omitGithubTokenFromMessage(args.join(' ')));
         var result = child_process.spawnSync('git', args, tslib.__assign(tslib.__assign({ cwd: this._projectRoot, stdio: 'pipe' }, options), { 
             // Encoding is always `utf8` and not overridable. This ensures that this method
@@ -761,6 +760,8 @@ var GitClient = /** @class */ (function () {
             return scopes.split(',').map(function (scope) { return scope.trim(); });
         });
     };
+    /** Whether verbose logging of Git actions should be used. */
+    GitClient.LOG_COMMANDS = true;
     return GitClient;
 }());
 
@@ -1409,6 +1410,8 @@ function checkServiceStatuses(githubToken) {
         const config = getCaretakerConfig();
         /** The GitClient for interacting with git and Github. */
         const git = new GitClient(githubToken, config);
+        // Prevent logging of the git commands being executed during the check.
+        GitClient.LOG_COMMANDS = false;
         // TODO(josephperrott): Allow these checks to be loaded in parallel.
         yield printServiceStatuses();
         yield printGithubTasks(git, config.caretaker);
