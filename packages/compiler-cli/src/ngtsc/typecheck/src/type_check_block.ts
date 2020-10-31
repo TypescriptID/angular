@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {AST, BindingPipe, BindingType, BoundTarget, DYNAMIC_TYPE, ImplicitReceiver, MethodCall, ParsedEventType, ParseSourceSpan, PropertyRead, PropertyWrite, SchemaMetadata, TmplAstBoundAttribute, TmplAstBoundEvent, TmplAstBoundText, TmplAstElement, TmplAstIcu, TmplAstNode, TmplAstReference, TmplAstTemplate, TmplAstTextAttribute, TmplAstVariable} from '@angular/compiler';
+import {AST, BindingPipe, BindingType, BoundTarget, DYNAMIC_TYPE, ImplicitReceiver, MethodCall, ParsedEventType, ParseSourceSpan, PropertyRead, PropertyWrite, SchemaMetadata, ThisReceiver, TmplAstBoundAttribute, TmplAstBoundEvent, TmplAstBoundText, TmplAstElement, TmplAstIcu, TmplAstNode, TmplAstReference, TmplAstTemplate, TmplAstTextAttribute, TmplAstVariable} from '@angular/compiler';
 import * as ts from 'typescript';
 
 import {Reference} from '../../imports';
@@ -1022,11 +1022,11 @@ export class Context {
     return ts.createIdentifier(`_t${this.nextId++}`);
   }
 
-  getPipeByName(name: string): ts.Expression|null {
+  getPipeByName(name: string): Reference<ClassDeclaration<ts.ClassDeclaration>>|null {
     if (!this.pipes.has(name)) {
       return null;
     }
-    return this.env.pipeInst(this.pipes.get(name)!);
+    return this.pipes.get(name)!;
   }
 }
 
@@ -1568,25 +1568,28 @@ class TcbExpressionTranslator {
       return ts.createIdentifier('ctx');
     } else if (ast instanceof BindingPipe) {
       const expr = this.translate(ast.exp);
+      const pipeRef = this.tcb.getPipeByName(ast.name);
       let pipe: ts.Expression|null;
-      if (this.tcb.env.config.checkTypeOfPipes) {
-        pipe = this.tcb.getPipeByName(ast.name);
-        if (pipe === null) {
-          // No pipe by that name exists in scope. Record this as an error.
-          this.tcb.oobRecorder.missingPipe(this.tcb.id, ast);
+      if (pipeRef === null) {
+        // No pipe by that name exists in scope. Record this as an error.
+        this.tcb.oobRecorder.missingPipe(this.tcb.id, ast);
 
-          // Return an 'any' value to at least allow the rest of the expression to be checked.
-          pipe = NULL_AS_ANY;
-        }
+        // Use an 'any' value to at least allow the rest of the expression to be checked.
+        pipe = NULL_AS_ANY;
+      } else if (this.tcb.env.config.checkTypeOfPipes) {
+        // Use a variable declared as the pipe's type.
+        pipe = this.tcb.env.pipeInst(pipeRef);
       } else {
-        pipe = ts.createParen(ts.createAsExpression(
-            ts.createNull(), ts.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)));
+        // Use an 'any' value when not checking the type of the pipe.
+        pipe = NULL_AS_ANY;
       }
       const args = ast.args.map(arg => this.translate(arg));
       const result = tsCallMethod(pipe, 'transform', [expr, ...args]);
       addParseSpanInfo(result, ast.sourceSpan);
       return result;
-    } else if (ast instanceof MethodCall && ast.receiver instanceof ImplicitReceiver) {
+    } else if (
+        ast instanceof MethodCall && ast.receiver instanceof ImplicitReceiver &&
+        !(ast.receiver instanceof ThisReceiver)) {
       // Resolve the special `$any(expr)` syntax to insert a cast of the argument to type `any`.
       // `$any(expr)` -> `expr as any`
       if (ast.name === '$any' && ast.args.length === 1) {
@@ -1843,7 +1846,7 @@ class TcbEventHandlerTranslator extends TcbExpressionTranslator {
     // function that the converted expression becomes a child of, just create a reference to the
     // parameter by its name.
     if (ast instanceof PropertyRead && ast.receiver instanceof ImplicitReceiver &&
-        ast.name === EVENT_PARAMETER) {
+        !(ast.receiver instanceof ThisReceiver) && ast.name === EVENT_PARAMETER) {
       const event = ts.createIdentifier(EVENT_PARAMETER);
       addParseSpanInfo(event, ast.nameSpan);
       return event;
