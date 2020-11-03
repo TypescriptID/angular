@@ -10,85 +10,60 @@ import {NgCompiler} from '@angular/compiler-cli/src/ngtsc/core';
 import {DirectiveSymbol, DomBindingSymbol, ElementSymbol, ExpressionSymbol, InputBindingSymbol, OutputBindingSymbol, ReferenceSymbol, ShimLocation, Symbol, SymbolKind, VariableSymbol} from '@angular/compiler-cli/src/ngtsc/typecheck/api';
 import * as ts from 'typescript';
 
-import {createQuickInfo, SYMBOL_PUNC, SYMBOL_SPACE, SYMBOL_TEXT} from '../common/quick_info';
-
-import {findNodeAtPosition} from './hybrid_visitor';
+import {createDisplayParts, DisplayInfoKind, SYMBOL_PUNC, SYMBOL_SPACE, SYMBOL_TEXT, unsafeCastDisplayInfoKindToScriptElementKind} from './display_parts';
 import {filterAliasImports, getDirectiveMatchesForAttribute, getDirectiveMatchesForElementTag, getTemplateInfoAtPosition, getTextSpanOfNode} from './utils';
-
-/**
- * The type of Angular directive. Used for QuickInfo in template.
- */
-export enum QuickInfoKind {
-  COMPONENT = 'component',
-  DIRECTIVE = 'directive',
-  EVENT = 'event',
-  REFERENCE = 'reference',
-  ELEMENT = 'element',
-  VARIABLE = 'variable',
-  PIPE = 'pipe',
-  PROPERTY = 'property',
-  METHOD = 'method',
-  TEMPLATE = 'template',
-}
 
 export class QuickInfoBuilder {
   private readonly typeChecker = this.compiler.getNextProgram().getTypeChecker();
-  constructor(private readonly tsLS: ts.LanguageService, private readonly compiler: NgCompiler) {}
 
-  get(fileName: string, position: number): ts.QuickInfo|undefined {
-    const templateInfo = getTemplateInfoAtPosition(fileName, position, this.compiler);
-    if (templateInfo === undefined) {
-      return undefined;
-    }
-    const {template, component} = templateInfo;
+  constructor(
+      private readonly tsLS: ts.LanguageService, private readonly compiler: NgCompiler,
+      private readonly component: ts.ClassDeclaration, private node: TmplAstNode|AST) {}
 
-    const node = findNodeAtPosition(template, position);
-    if (node === undefined) {
-      return undefined;
-    }
-
-    const symbol = this.compiler.getTemplateTypeChecker().getSymbolOfNode(node, component);
+  get(): ts.QuickInfo|undefined {
+    const symbol =
+        this.compiler.getTemplateTypeChecker().getSymbolOfNode(this.node, this.component);
     if (symbol === null) {
-      return isDollarAny(node) ? createDollarAnyQuickInfo(node) : undefined;
+      return isDollarAny(this.node) ? createDollarAnyQuickInfo(this.node) : undefined;
     }
 
-    return this.getQuickInfoForSymbol(symbol, node);
+    return this.getQuickInfoForSymbol(symbol);
   }
 
-  private getQuickInfoForSymbol(symbol: Symbol, node: TmplAstNode|AST): ts.QuickInfo|undefined {
+  private getQuickInfoForSymbol(symbol: Symbol): ts.QuickInfo|undefined {
     switch (symbol.kind) {
       case SymbolKind.Input:
       case SymbolKind.Output:
-        return this.getQuickInfoForBindingSymbol(symbol, node);
+        return this.getQuickInfoForBindingSymbol(symbol);
       case SymbolKind.Template:
-        return createNgTemplateQuickInfo(node);
+        return createNgTemplateQuickInfo(this.node);
       case SymbolKind.Element:
         return this.getQuickInfoForElementSymbol(symbol);
       case SymbolKind.Variable:
-        return this.getQuickInfoForVariableSymbol(symbol, node);
+        return this.getQuickInfoForVariableSymbol(symbol);
       case SymbolKind.Reference:
-        return this.getQuickInfoForReferenceSymbol(symbol, node);
+        return this.getQuickInfoForReferenceSymbol(symbol);
       case SymbolKind.DomBinding:
-        return this.getQuickInfoForDomBinding(node, symbol);
+        return this.getQuickInfoForDomBinding(symbol);
       case SymbolKind.Directive:
-        return this.getQuickInfoAtShimLocation(symbol.shimLocation, node);
+        return this.getQuickInfoAtShimLocation(symbol.shimLocation);
       case SymbolKind.Expression:
-        return node instanceof BindingPipe ?
-            this.getQuickInfoForPipeSymbol(symbol, node) :
-            this.getQuickInfoAtShimLocation(symbol.shimLocation, node);
+        return this.node instanceof BindingPipe ?
+            this.getQuickInfoForPipeSymbol(symbol) :
+            this.getQuickInfoAtShimLocation(symbol.shimLocation);
     }
   }
 
-  private getQuickInfoForBindingSymbol(
-      symbol: InputBindingSymbol|OutputBindingSymbol, node: TmplAstNode|AST): ts.QuickInfo
+  private getQuickInfoForBindingSymbol(symbol: InputBindingSymbol|OutputBindingSymbol): ts.QuickInfo
       |undefined {
     if (symbol.bindings.length === 0) {
       return undefined;
     }
 
-    const kind = symbol.kind === SymbolKind.Input ? QuickInfoKind.PROPERTY : QuickInfoKind.EVENT;
+    const kind =
+        symbol.kind === SymbolKind.Input ? DisplayInfoKind.PROPERTY : DisplayInfoKind.EVENT;
 
-    const quickInfo = this.getQuickInfoAtShimLocation(symbol.bindings[0].shimLocation, node);
+    const quickInfo = this.getQuickInfoAtShimLocation(symbol.bindings[0].shimLocation);
     return quickInfo === undefined ? undefined : updateQuickInfoKind(quickInfo, kind);
   }
 
@@ -100,48 +75,47 @@ export class QuickInfoBuilder {
     }
 
     return createQuickInfo(
-        templateNode.name, QuickInfoKind.ELEMENT, getTextSpanOfNode(templateNode),
+        templateNode.name, DisplayInfoKind.ELEMENT, getTextSpanOfNode(templateNode),
         undefined /* containerName */, this.typeChecker.typeToString(symbol.tsType));
   }
 
-  private getQuickInfoForVariableSymbol(symbol: VariableSymbol, node: TmplAstNode|AST):
-      ts.QuickInfo {
+  private getQuickInfoForVariableSymbol(symbol: VariableSymbol): ts.QuickInfo {
     const documentation = this.getDocumentationFromTypeDefAtLocation(symbol.shimLocation);
     return createQuickInfo(
-        symbol.declaration.name, QuickInfoKind.VARIABLE, getTextSpanOfNode(node),
+        symbol.declaration.name, DisplayInfoKind.VARIABLE, getTextSpanOfNode(this.node),
         undefined /* containerName */, this.typeChecker.typeToString(symbol.tsType), documentation);
   }
 
-  private getQuickInfoForReferenceSymbol(symbol: ReferenceSymbol, node: TmplAstNode|AST):
-      ts.QuickInfo {
+  private getQuickInfoForReferenceSymbol(symbol: ReferenceSymbol): ts.QuickInfo {
     const documentation = this.getDocumentationFromTypeDefAtLocation(symbol.shimLocation);
     return createQuickInfo(
-        symbol.declaration.name, QuickInfoKind.REFERENCE, getTextSpanOfNode(node),
+        symbol.declaration.name, DisplayInfoKind.REFERENCE, getTextSpanOfNode(this.node),
         undefined /* containerName */, this.typeChecker.typeToString(symbol.tsType), documentation);
   }
 
-  private getQuickInfoForPipeSymbol(symbol: ExpressionSymbol, node: TmplAstNode|AST): ts.QuickInfo
-      |undefined {
-    const quickInfo = this.getQuickInfoAtShimLocation(symbol.shimLocation, node);
-    return quickInfo === undefined ? undefined : updateQuickInfoKind(quickInfo, QuickInfoKind.PIPE);
+  private getQuickInfoForPipeSymbol(symbol: ExpressionSymbol): ts.QuickInfo|undefined {
+    const quickInfo = this.getQuickInfoAtShimLocation(symbol.shimLocation);
+    return quickInfo === undefined ? undefined :
+                                     updateQuickInfoKind(quickInfo, DisplayInfoKind.PIPE);
   }
 
-  private getQuickInfoForDomBinding(node: TmplAstNode|AST, symbol: DomBindingSymbol) {
-    if (!(node instanceof TmplAstTextAttribute) && !(node instanceof TmplAstBoundAttribute)) {
+  private getQuickInfoForDomBinding(symbol: DomBindingSymbol) {
+    if (!(this.node instanceof TmplAstTextAttribute) &&
+        !(this.node instanceof TmplAstBoundAttribute)) {
       return undefined;
     }
     const directives = getDirectiveMatchesForAttribute(
-        node.name, symbol.host.templateNode, symbol.host.directives);
+        this.node.name, symbol.host.templateNode, symbol.host.directives);
     if (directives.size === 0) {
       return undefined;
     }
 
-    return this.getQuickInfoForDirectiveSymbol(directives.values().next().value, node);
+    return this.getQuickInfoForDirectiveSymbol(directives.values().next().value);
   }
 
-  private getQuickInfoForDirectiveSymbol(dir: DirectiveSymbol, node: TmplAstNode|AST):
+  private getQuickInfoForDirectiveSymbol(dir: DirectiveSymbol, node: TmplAstNode|AST = this.node):
       ts.QuickInfo {
-    const kind = dir.isComponent ? QuickInfoKind.COMPONENT : QuickInfoKind.DIRECTIVE;
+    const kind = dir.isComponent ? DisplayInfoKind.COMPONENT : DisplayInfoKind.DIRECTIVE;
     const documentation = this.getDocumentationFromTypeDefAtLocation(dir.shimLocation);
     let containerName: string|undefined;
     if (ts.isClassDeclaration(dir.tsSymbol.valueDeclaration) && dir.ngModule !== null) {
@@ -149,8 +123,8 @@ export class QuickInfoBuilder {
     }
 
     return createQuickInfo(
-        this.typeChecker.typeToString(dir.tsType), kind, getTextSpanOfNode(node), containerName,
-        undefined, documentation);
+        this.typeChecker.typeToString(dir.tsType), kind, getTextSpanOfNode(this.node),
+        containerName, undefined, documentation);
   }
 
   private getDocumentationFromTypeDefAtLocation(shimLocation: ShimLocation):
@@ -164,8 +138,7 @@ export class QuickInfoBuilder {
         ?.documentation;
   }
 
-  private getQuickInfoAtShimLocation(location: ShimLocation, node: TmplAstNode|AST): ts.QuickInfo
-      |undefined {
+  private getQuickInfoAtShimLocation(location: ShimLocation): ts.QuickInfo|undefined {
     const quickInfo =
         this.tsLS.getQuickInfoAtPosition(location.shimPath, location.positionInShimFile);
     if (quickInfo === undefined || quickInfo.displayParts === undefined) {
@@ -174,12 +147,12 @@ export class QuickInfoBuilder {
 
     quickInfo.displayParts = filterAliasImports(quickInfo.displayParts);
 
-    const textSpan = getTextSpanOfNode(node);
+    const textSpan = getTextSpanOfNode(this.node);
     return {...quickInfo, textSpan};
   }
 }
 
-function updateQuickInfoKind(quickInfo: ts.QuickInfo, kind: QuickInfoKind): ts.QuickInfo {
+function updateQuickInfoKind(quickInfo: ts.QuickInfo, kind: DisplayInfoKind): ts.QuickInfo {
   if (quickInfo.displayParts === undefined) {
     return quickInfo;
   }
@@ -214,7 +187,7 @@ function isDollarAny(node: TmplAstNode|AST): node is MethodCall {
 function createDollarAnyQuickInfo(node: MethodCall): ts.QuickInfo {
   return createQuickInfo(
       '$any',
-      QuickInfoKind.METHOD,
+      DisplayInfoKind.METHOD,
       getTextSpanOfNode(node),
       /** containerName */ undefined,
       'any',
@@ -229,7 +202,7 @@ function createDollarAnyQuickInfo(node: MethodCall): ts.QuickInfo {
 function createNgTemplateQuickInfo(node: TmplAstNode|AST): ts.QuickInfo {
   return createQuickInfo(
       'ng-template',
-      QuickInfoKind.TEMPLATE,
+      DisplayInfoKind.TEMPLATE,
       getTextSpanOfNode(node),
       /** containerName */ undefined,
       /** type */ undefined,
@@ -239,4 +212,27 @@ function createNgTemplateQuickInfo(node: TmplAstNode|AST): ts.QuickInfo {
             'The `<ng-template>` is an Angular element for rendering HTML. It is never displayed directly.',
       }],
   );
+}
+
+/**
+ * Construct a QuickInfo object taking into account its container and type.
+ * @param name Name of the QuickInfo target
+ * @param kind component, directive, pipe, etc.
+ * @param textSpan span of the target
+ * @param containerName either the Symbol's container or the NgModule that contains the directive
+ * @param type user-friendly name of the type
+ * @param documentation docstring or comment
+ */
+export function createQuickInfo(
+    name: string, kind: DisplayInfoKind, textSpan: ts.TextSpan, containerName?: string,
+    type?: string, documentation?: ts.SymbolDisplayPart[]): ts.QuickInfo {
+  const displayParts = createDisplayParts(name, kind, containerName, type);
+
+  return {
+    kind: unsafeCastDisplayInfoKindToScriptElementKind(kind),
+    kindModifiers: ts.ScriptElementKindModifier.none,
+    textSpan: textSpan,
+    displayParts,
+    documentation,
+  };
 }
