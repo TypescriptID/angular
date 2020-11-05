@@ -1,3 +1,42 @@
+<a name="11.0.0-rc.2"></a>
+# 11.0.0-rc.2 (2020-11-04)
+
+
+### Bug Fixes
+
+* **common:** change the week-numbering year format from `r` -> `Y` ([#39495](https://github.com/angular/angular/issues/39495)) ([feda78e](https://github.com/angular/angular/commit/feda78e))
+* **compiler:** preserve this.$event and this.$any accesses in expressions ([#39323](https://github.com/angular/angular/issues/39323)) ([a8e0db7](https://github.com/angular/angular/commit/a8e0db7)), closes [#30278](https://github.com/angular/angular/issues/30278)
+* **compiler-cli:** generating invalid setClassMetadata call in ES5 for class with custom decorator ([#39527](https://github.com/angular/angular/issues/39527)) ([b0bbc1f](https://github.com/angular/angular/commit/b0bbc1f)), closes [#39509](https://github.com/angular/angular/issues/39509)
+* **compiler-cli:** report missing pipes when `fullTemplateTypeCheck` is disabled ([#39320](https://github.com/angular/angular/issues/39320)) ([67ea7b6](https://github.com/angular/angular/commit/67ea7b6)), closes [#38195](https://github.com/angular/angular/issues/38195)
+* **core:** markDirty() should only mark flags when really scheduling tick. ([#39316](https://github.com/angular/angular/issues/39316)) ([3b6497b](https://github.com/angular/angular/commit/3b6497b)), closes [#39296](https://github.com/angular/angular/issues/39296)
+* **forms:** remove validators while cleaning up a control ([#39234](https://github.com/angular/angular/issues/39234)) ([43b4940](https://github.com/angular/angular/commit/43b4940))
+* **router:** Ensure all outlets are used when commands have a prefix ([#39456](https://github.com/angular/angular/issues/39456)) ([b2f3952](https://github.com/angular/angular/commit/b2f3952))
+
+
+### Performance Improvements
+
+* **compiler-cli:** only generate template context declaration when used ([#39321](https://github.com/angular/angular/issues/39321)) ([1ac0500](https://github.com/angular/angular/commit/1ac0500))
+* **core:** do not recurse into modules that have already been registered ([#39514](https://github.com/angular/angular/issues/39514)) ([5c13c67](https://github.com/angular/angular/commit/5c13c67)), closes [#39487](https://github.com/angular/angular/issues/39487)
+
+
+
+<a name="10.2.2"></a>
+## 10.2.2 (2020-11-04)
+
+
+### Bug Fixes
+
+* **compiler-cli:** report missing pipes when `fullTemplateTypeCheck` is disabled ([#39320](https://github.com/angular/angular/issues/39320)) ([71d0063](https://github.com/angular/angular/commit/71d0063)), closes [#38195](https://github.com/angular/angular/issues/38195)
+* **core:** markDirty() should only mark flags when really scheduling tick. ([#39316](https://github.com/angular/angular/issues/39316)) ([8c82106](https://github.com/angular/angular/commit/8c82106)), closes [#39296](https://github.com/angular/angular/issues/39296)
+* **router:** Ensure all outlets are used when commands have a prefix ([#39456](https://github.com/angular/angular/issues/39456)) ([85d5242](https://github.com/angular/angular/commit/85d5242))
+
+
+### Performance Improvements
+
+* **core:** do not recurse into modules that have already been registered ([#39514](https://github.com/angular/angular/issues/39514)) ([812355c](https://github.com/angular/angular/commit/812355c)), closes [#39487](https://github.com/angular/angular/issues/39487)
+
+
+
 <a name="11.0.0-rc.1"></a>
 # 11.0.0-rc.1 (2020-10-28)
 
@@ -187,13 +226,9 @@ to resolve the type-check errors.
 * **forms:** Directives in the `@angular/forms` package used to have `any[]` as a type of `validators` and
 `asyncValidators` arguments in constructors. Now these arguments are properly typed, so if your
 code relies on directive constructor types it may require some updates to improve type safety.
-* **forms:** Type of AbstractFormControl.parent now includes null
-
-`null` is now included in the types of .parent. If you don't already have a check for this case,
+* **forms:** Type of AbstractFormControl.parent now includes null. `null` is now included in the types of .parent. If you don't already have a check for this case,
 the TypeScript compiler might complain. A v11 migration exists which adds the non-null assertion
-operator where necessary.
-
-In an unlikely case your code was testing the parent against undefined with strict equality,
+operator where necessary. In an unlikely case your code was testing the parent against undefined with strict equality,
 you'll need to change this to `=== null` instead, since the parent is now explicitly initialized
 with `null` instead of being left `undefined`.
 
@@ -397,9 +432,7 @@ then your code will not longer compile. If you need to mutate the array, you
 should now take a copy (e.g. by calling `slice()`) and mutate the copy.
 * **common:** When passing a date-time formatted string to the `DatePipe` in a format that contains
 fractions of a millisecond, the milliseconds will now always be rounded down rather than
-to the nearest millisecond.
-
-Most applications will not be affected by this change. If this is not the desired behaviour
+to the nearest millisecond. Most applications will not be affected by this change. If this is not the desired behaviour
 then consider pre-processing the string to round the millisecond part before passing
 it to the `DatePipe`.
 
