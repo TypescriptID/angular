@@ -573,6 +573,12 @@
     "name": "R3Injector"
   },
   {
+    "name": "R3TemplateRef"
+  },
+  {
+    "name": "R3ViewContainerRef"
+  },
+  {
     "name": "ROUTER_CONFIGURATION"
   },
   {
@@ -840,6 +846,12 @@
     "name": "VERSION"
   },
   {
+    "name": "ViewEngineTemplateRef"
+  },
+  {
+    "name": "VE_ViewContainerRef"
+  },
+  {
     "name": "Version"
   },
   {
@@ -1060,6 +1072,9 @@
   },
   {
     "name": "createNewSegmentGroup"
+  },
+  {
+    "name": "createNodeInjector"
   },
   {
     "name": "createPlatformFactory"
@@ -1356,6 +1371,9 @@
     "name": "getOrCreateTNode"
   },
   {
+    "name": "getOrCreateViewRefs"
+  },
+  {
     "name": "getOriginalError"
   },
   {
@@ -1423,6 +1441,9 @@
   },
   {
     "name": "getToken"
+  },
+  {
+    "name": "getViewRefs"
   },
   {
     "name": "handleError"
