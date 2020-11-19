@@ -1604,33 +1604,42 @@ function restoreCommitMessage(filePath, source) {
  */
 /** Builds the command. */
 function builder$1(yargs) {
-    return yargs.option('file-env-variable', {
+    return yargs
+        .option('file-env-variable', {
         type: 'string',
-        array: true,
-        demandOption: true,
         description: 'The key for the environment variable which holds the arguments for the\n' +
             'prepare-commit-msg hook as described here:\n' +
-            'https://git-scm.com/docs/githooks#_prepare_commit_msg',
-        coerce: arg => {
-            const [file, source] = (process.env[arg] || '').split(' ');
-            if (!file) {
-                throw new Error(`Provided environment variable "${arg}" was not found.`);
-            }
-            return [file, source];
-        },
-    });
+            'https://git-scm.com/docs/githooks#_prepare_commit_msg'
+    })
+        .positional('file', { type: 'string' })
+        .positional('source', { type: 'string' });
 }
 /** Handles the command. */
-function handler$1({ fileEnvVariable }) {
+function handler$1({ fileEnvVariable, file, source }) {
     return tslib.__awaiter(this, void 0, void 0, function* () {
-        restoreCommitMessage(fileEnvVariable[0], fileEnvVariable[1]);
+        // File and source are provided as command line parameters
+        if (file !== undefined) {
+            restoreCommitMessage(file, source);
+            return;
+        }
+        // File and source are provided as values held in an environment variable.
+        if (fileEnvVariable !== undefined) {
+            const [fileFromEnv, sourceFromEnv] = (process.env[fileEnvVariable] || '').split(' ');
+            if (!fileFromEnv) {
+                throw new Error(`Provided environment variable "${fileEnvVariable}" was not found.`);
+            }
+            restoreCommitMessage(fileFromEnv, sourceFromEnv);
+            return;
+        }
+        throw new Error('No file path and commit message source provide.  Provide values via positional command ' +
+            'arguments, or via the --file-env-variable flag');
     });
 }
 /** yargs command module describing the command.  */
 const RestoreCommitMessageModule = {
     handler: handler$1,
     builder: builder$1,
-    command: 'restore-commit-message-draft',
+    command: 'restore-commit-message-draft [file] [source]',
     // Description: Restore a commit message draft if one has been saved from a failed commit attempt.
     // No describe is defiend to hide the command from the --help.
     describe: false,
@@ -1783,7 +1792,7 @@ const COMMIT_BODY_URL_LINE_RE = /^https?:\/\/.*$/;
 /** Validate a commit message against using the local repo's config. */
 function validateCommitMessage(commitMsg, options = {}) {
     const config = getCommitMessageConfig().commitMessage;
-    const commit = parseCommitMessage(commitMsg);
+    const commit = typeof commitMsg === 'string' ? parseCommitMessage(commitMsg) : commitMsg;
     const errors = [];
     /** Perform the validation checks against the parsed commit. */
     function validateCommitAndCollectErrors() {
@@ -1978,44 +1987,61 @@ const ValidateFileModule = {
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-// Whether the provided commit is a fixup commit.
-const isNonFixup = (m) => !parseCommitMessage(m).isFixup;
-// Extracts commit header (first line of commit message).
-const extractCommitHeader = (m) => parseCommitMessage(m).header;
-/** Validate all commits in a provided git commit range. */
-function validateCommitRange(range) {
-    /**
-     * A random value is used as a string to allow for a definite split point in the git log result.
-     */
+/** Retrieve and parse each commit message in a provide range. */
+function parseCommitMessagesForRange(range) {
+    /** A random number used as a split point in the git log result. */
     const randomValueSeparator = `${Math.random()}`;
     /**
      * Custom git log format that provides the commit header and body, separated as expected with the
      * custom separator as the trailing value.
      */
     const gitLogFormat = `%s%n%n%b${randomValueSeparator}`;
-    /**
-     * A list of tuples containing a commit header string and the list of error messages for the
-     * commit.
-     */
-    const errors = [];
     // Retrieve the commits in the provided range.
     const result = exec(`git log --reverse --format=${gitLogFormat} ${range}`);
     if (result.code) {
-        throw new Error(`Failed to get all commits in the range: \n  ${result.stderr}`);
+        throw new Error(`Failed to get all commits in the range:\n  ${result.stderr}`);
     }
-    // Separate the commits from a single string into individual commits
-    const commits = result.split(randomValueSeparator).map(l => l.trim()).filter(line => !!line);
+    return result
+        // Separate the commits from a single string into individual commits.
+        .split(randomValueSeparator)
+        // Remove extra space before and after each commit message.
+        .map(l => l.trim())
+        // Remove any superfluous lines which remain from the split.
+        .filter(line => !!line)
+        // Parse each commit message.
+        .map(commit => parseCommitMessage(commit));
+}
+
+/**
+ * @license
+ * Copyright Google LLC All Rights Reserved.
+ *
+ * Use of this source code is governed by an MIT-style license that can be
+ * found in the LICENSE file at https://angular.io/license
+ */
+// Whether the provided commit is a fixup commit.
+const isNonFixup = (commit) => !commit.isFixup;
+// Extracts commit header (first line of commit message).
+const extractCommitHeader = (commit) => commit.header;
+/** Validate all commits in a provided git commit range. */
+function validateCommitRange(range) {
+    /** A list of tuples of the commit header string and a list of error messages for the commit. */
+    const errors = [];
+    /** A list of parsed commit messages from the range. */
+    const commits = parseCommitMessagesForRange(range);
     info(`Examining ${commits.length} commit(s) in the provided range: ${range}`);
-    // Check each commit in the commit range.  Commits are allowed to be fixup commits for other
-    // commits in the provided commit range.
-    const allCommitsInRangeValid = commits.every((m, i) => {
+    /**
+     * Whether all commits in the range are valid, commits are allowed to be fixup commits for other
+     * commits in the provided commit range.
+     */
+    const allCommitsInRangeValid = commits.every((commit, i) => {
         const options = {
             disallowSquash: true,
-            nonFixupCommitHeaders: isNonFixup(m) ?
+            nonFixupCommitHeaders: isNonFixup(commit) ?
                 undefined :
                 commits.slice(0, i).filter(isNonFixup).map(extractCommitHeader)
         };
-        const { valid, errors: localErrors, commit } = validateCommitMessage(m, options);
+        const { valid, errors: localErrors } = validateCommitMessage(commit, options);
         if (localErrors.length) {
             errors.push([commit.header, localErrors]);
         }

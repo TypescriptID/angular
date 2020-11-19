@@ -2,27 +2,27 @@
   "aio": {
     "master": {
       "uncompressed": {
-        "runtime-es2015": 3037,
-        "main-es2015": 448243,
-        "polyfills-es2015": 52685
+        "runtime-es2015": 3033,
+        "main-es2015": 448327,
+        "polyfills-es2015": 52343
       }
     }
   },
   "aio-local": {
     "master": {
       "uncompressed": {
-        "runtime-es2015": 3037,
-        "main-es2015": 448796,
-        "polyfills-es2015": 52415
+        "runtime-es2015": 3033,
+        "main-es2015": 448538,
+        "polyfills-es2015": 52493
       }
     }
   },
   "aio-local-viewengine": {
     "master": {
       "uncompressed": {
-        "runtime-es2015": 3157,
-        "main-es2015": 432199,
-        "polyfills-es2015": 52415
+        "runtime-es2015": 3153,
+        "main-es2015": 431696,
+        "polyfills-es2015": 52493
       }
     }
   }

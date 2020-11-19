@@ -238,11 +238,6 @@
               "url": "guide/dependency-injection-providers",
               "title": "DI Providers",
               "tooltip": "More about the different kinds of providers."
-            },
-            {
-              "url": "guide/dependency-injection-in-action",
-              "title": "DI in Action",
-              "tooltip": "Techniques for dependency injection."
             }
           ]
         }
@@ -883,9 +878,20 @@
               ]
             },
             {
-              "url": "guide/hierarchical-dependency-injection",
-              "title": "Hierarchical Injectors",
-              "tooltip": "An injector tree parallels the component tree and supports nested dependencies."
+              "title": "Dependency injection",
+              "tooltip": "Using dependency injection in Angular.",
+              "children": [
+                {
+                  "url": "guide/hierarchical-dependency-injection",
+                  "title": "Hierarchical Injectors",
+                  "tooltip": "An injector tree parallels the component tree and supports nested dependencies."
+                },
+                {
+                  "url": "guide/dependency-injection-in-action",
+                  "title": "DI in Action",
+                  "tooltip": "Techniques for dependency injection."
+                }
+              ]
             }
           ]
         },
@@ -1014,7 +1020,7 @@
           "tooltip": "Angular events around the world."
         },
         {
-          "url": "http://www.meetup.com/topics/angularjs/",
+          "url": "https://www.meetup.com/topics/angularjs/",
           "title": "Meetups",
           "tooltip": "Attend a meetup and learn from fellow developers."
         },
@@ -1059,36 +1065,6 @@
           "url": "https://angular.kr/"
         }
       ]
-    }
-  ],
-  "docVersions": [
-    {
-      "title": "v9",
-      "url": "https://v9.angular.io/"
-    },
-    {
-      "title": "v8",
-      "url": "https://v8.angular.io/"
-    },
-    {
-      "title": "v7",
-      "url": "https://v7.angular.io/"
-    },
-    {
-      "title": "v6",
-      "url": "https://v6.angular.io/"
-    },
-    {
-      "title": "v5",
-      "url": "https://v5.angular.io/"
-    },
-    {
-      "title": "v4",
-      "url": "https://v4.angular.io/"
-    },
-    {
-      "title": "v2",
-      "url": "https://v2.angular.io/"
     }
   ]
 }
