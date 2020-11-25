@@ -165,6 +165,7 @@ export {
   ɵɵnamespaceMathML,
   ɵɵnamespaceSVG,
   ɵɵnextContext,
+  ɵɵngDeclareComponent,
   ɵɵngDeclareDirective,
   ɵɵNgOnChangesFeature,
   ɵɵpipe,
@@ -296,7 +297,6 @@ export {
   ɵɵsanitizeUrlOrResourceUrl,
   ɵɵtrustConstantHtml,
   ɵɵtrustConstantResourceUrl,
-  ɵɵtrustConstantScript,
 } from './sanitization/sanitization';
 export {
   noSideEffects as ɵnoSideEffects,
