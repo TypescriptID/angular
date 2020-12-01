@@ -8,6 +8,7 @@
 import {FileSystem} from '../../../src/ngtsc/file_system';
 
 import {getBuildOutputDirectory, getRootDirectory} from './compile_test';
+import {verifyUniqueFactory} from './di_checks';
 import {expectEmit} from './expect_emit';
 import {replaceMacros} from './expected_file_macros';
 import {ExpectedFile, ExtraCheck} from './get_compliance_tests';
@@ -17,6 +18,7 @@ type ExtraCheckFunction = (generated: string, ...extraArgs: any[]) => boolean;
 const EXTRA_CHECK_FUNCTIONS: Record<string, ExtraCheckFunction> = {
   verifyPlaceholdersIntegrity,
   verifyUniqueConsts,
+  verifyUniqueFactory,
 };
 
 /**
@@ -79,6 +81,10 @@ function runExtraChecks(
           `Unknown extra-check function: "${fnName}" in ${testPath}.\n` +
           `Possible choices are: ${Object.keys(EXTRA_CHECK_FUNCTIONS).map(f => `\n - ${f}`)}.`);
     }
-    expect(fn(generated, ...args)).toBe(true);
+    if (!fn(generated, ...args)) {
+      throw new Error(
+          `Extra check ${fnName}(${args.map(arg => JSON.stringify(arg)).join(',')}) in ${
+              testPath} failed for generated code:\n\n${generated}`);
+    }
   }
 }
