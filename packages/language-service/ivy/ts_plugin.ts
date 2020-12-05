@@ -56,9 +56,55 @@ export function create(info: ts.server.PluginCreateInfo): ts.LanguageService {
     }
   }
 
-  function getReferencesAtPosition(fileName: string, position: number) {
-    // TODO(atscott): implement references
+  function getReferencesAtPosition(fileName: string, position: number): ts.ReferenceEntry[]|
+      undefined {
+    return ngLS.getReferencesAtPosition(fileName, position);
+  }
+
+  function findRenameLocations(
+      fileName: string, position: number, findInStrings: boolean, findInComments: boolean,
+      providePrefixAndSuffixTextForRename?: boolean): readonly ts.RenameLocation[]|undefined {
+    // TODO(atscott): implement
     return undefined;
+  }
+
+  function getCompletionsAtPosition(
+      fileName: string, position: number,
+      options: ts.GetCompletionsAtPositionOptions): ts.WithMetadata<ts.CompletionInfo>|undefined {
+    if (angularOnly) {
+      return ngLS.getCompletionsAtPosition(fileName, position, options);
+    } else {
+      // If TS could answer the query, then return that result. Otherwise, return from Angular LS.
+      return tsLS.getCompletionsAtPosition(fileName, position, options) ??
+          ngLS.getCompletionsAtPosition(fileName, position, options);
+    }
+  }
+
+  function getCompletionEntryDetails(
+      fileName: string, position: number, entryName: string,
+      formatOptions: ts.FormatCodeOptions|ts.FormatCodeSettings|undefined, source: string|undefined,
+      preferences: ts.UserPreferences|undefined): ts.CompletionEntryDetails|undefined {
+    if (angularOnly) {
+      return ngLS.getCompletionEntryDetails(
+          fileName, position, entryName, formatOptions, preferences);
+    } else {
+      // If TS could answer the query, then return that result. Otherwise, return from Angular LS.
+      return tsLS.getCompletionEntryDetails(
+                 fileName, position, entryName, formatOptions, source, preferences) ??
+          ngLS.getCompletionEntryDetails(fileName, position, entryName, formatOptions, preferences);
+    }
+  }
+
+  function getCompletionEntrySymbol(
+      fileName: string, position: number, name: string, source: string|undefined): ts.Symbol|
+      undefined {
+    if (angularOnly) {
+      return ngLS.getCompletionEntrySymbol(fileName, position, name);
+    } else {
+      // If TS could answer the query, then return that result. Otherwise, return from Angular LS.
+      return tsLS.getCompletionEntrySymbol(fileName, position, name, source) ??
+          ngLS.getCompletionEntrySymbol(fileName, position, name);
+    }
   }
 
   return {
@@ -68,5 +114,9 @@ export function create(info: ts.server.PluginCreateInfo): ts.LanguageService {
     getQuickInfoAtPosition,
     getDefinitionAndBoundSpan,
     getReferencesAtPosition,
+    findRenameLocations,
+    getCompletionsAtPosition,
+    getCompletionEntryDetails,
+    getCompletionEntrySymbol,
   };
 }

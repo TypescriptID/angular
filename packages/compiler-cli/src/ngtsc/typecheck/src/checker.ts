@@ -138,15 +138,11 @@ export class TemplateTypeCheckerImpl implements TemplateTypeChecker {
   }
 
   overrideComponentTemplate(component: ts.ClassDeclaration, template: string):
-      {nodes: TmplAstNode[], errors?: ParseError[]} {
+      {nodes: TmplAstNode[], errors: ParseError[]|null} {
     const {nodes, errors} = parseTemplate(template, 'override.html', {
       preserveWhitespaces: true,
       leadingTriviaChars: [],
     });
-
-    if (errors !== null) {
-      return {nodes, errors};
-    }
 
     const filePath = absoluteFromSourceFile(component.getSourceFile());
 
@@ -169,7 +165,11 @@ export class TemplateTypeCheckerImpl implements TemplateTypeChecker {
     this.completionCache.delete(component);
     this.symbolBuilderCache.delete(component);
 
-    return {nodes};
+    return {nodes, errors};
+  }
+
+  isTrackedTypeCheckFile(filePath: AbsoluteFsPath): boolean {
+    return this.getFileAndShimRecordsForPath(filePath) !== null;
   }
 
   private getFileAndShimRecordsForPath(shimPath: AbsoluteFsPath):
@@ -195,6 +195,10 @@ export class TemplateTypeCheckerImpl implements TemplateTypeChecker {
       return null;
     }
     return getTemplateMapping(shimSf, positionInShimFile, fileRecord.sourceManager);
+  }
+
+  generateAllTypeCheckBlocks() {
+    this.ensureAllShimsForAllFiles();
   }
 
   /**
@@ -494,15 +498,16 @@ export class TemplateTypeCheckerImpl implements TemplateTypeChecker {
       throw new Error(`AssertionError: components must have names`);
     }
 
+    const scope = this.componentScopeReader.getScopeForComponent(component);
+    if (scope === null) {
+      return null;
+    }
+
     const data: ScopeData = {
       directives: [],
       pipes: [],
+      isPoisoned: scope.compilation.isPoisoned,
     };
-
-    const scope = this.componentScopeReader.getScopeForComponent(component);
-    if (scope === null || scope === 'error') {
-      return null;
-    }
 
     const typeChecker = this.typeCheckingStrategy.getProgram().getTypeChecker();
     for (const dir of scope.exported.directives) {
@@ -731,4 +736,5 @@ class SingleShimTypeCheckingHost extends SingleFileTypeCheckingHost {
 interface ScopeData {
   directives: DirectiveInScope[];
   pipes: PipeInScope[];
+  isPoisoned: boolean;
 }

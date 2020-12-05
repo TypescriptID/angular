@@ -46,8 +46,17 @@ function writeTsconfig(
 
 export type TestableOptions = StrictTemplateOptions;
 
+export interface TemplateOverwriteResult {
+  cursor: number;
+  nodes: TmplAstNode[];
+  component: ts.ClassDeclaration;
+  text: string;
+}
+
 export class LanguageServiceTestEnvironment {
-  private constructor(private tsLS: ts.LanguageService, readonly ngLS: LanguageService) {}
+  private constructor(
+      readonly tsLS: ts.LanguageService, readonly ngLS: LanguageService,
+      readonly projectService: ts.server.ProjectService, readonly host: MockServerHost) {}
 
   static setup(files: TestFile[], options: TestableOptions = {}): LanguageServiceTestEnvironment {
     const fs = getFileSystem();
@@ -97,7 +106,7 @@ export class LanguageServiceTestEnvironment {
     const tsLS = project.getLanguageService();
 
     const ngLS = new LanguageService(project, tsLS);
-    return new LanguageServiceTestEnvironment(tsLS, ngLS);
+    return new LanguageServiceTestEnvironment(tsLS, ngLS, projectService, host);
   }
 
   getClass(fileName: AbsoluteFsPath, className: string): ts.ClassDeclaration {
@@ -110,7 +119,7 @@ export class LanguageServiceTestEnvironment {
   }
 
   overrideTemplateWithCursor(fileName: AbsoluteFsPath, className: string, contents: string):
-      {cursor: number, nodes: TmplAstNode[], component: ts.ClassDeclaration, text: string} {
+      TemplateOverwriteResult {
     const program = this.tsLS.getProgram();
     if (program === undefined) {
       throw new Error(`Expected to get a ts.Program`);
@@ -125,6 +134,17 @@ export class LanguageServiceTestEnvironment {
 
     const {nodes} = templateTypeChecker.overrideComponentTemplate(component, text);
     return {cursor, nodes, component, text};
+  }
+
+  updateFile(fileName: AbsoluteFsPath, contents: string): void {
+    const scriptInfo = this.projectService.getScriptInfo(fileName);
+    if (scriptInfo === undefined) {
+      throw new Error(`Could not find a file named ${fileName}`);
+    }
+
+    // Get the current contents to find the length
+    const len = scriptInfo.getSnapshot().getLength();
+    scriptInfo.editContent(0, len, contents);
   }
 
   expectNoSourceDiagnostics(): void {
@@ -206,7 +226,7 @@ function getClassOrError(sf: ts.SourceFile, name: string): ts.ClassDeclaration {
   throw new Error(`Class ${name} not found in file: ${sf.fileName}: ${sf.text}`);
 }
 
-function extractCursorInfo(textWithCursor: string): {cursor: number, text: string} {
+export function extractCursorInfo(textWithCursor: string): {cursor: number, text: string} {
   const cursor = textWithCursor.indexOf('¦');
   if (cursor === -1) {
     throw new Error(`Expected to find cursor symbol '¦'`);

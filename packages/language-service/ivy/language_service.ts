@@ -6,6 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {AST, TmplAstNode} from '@angular/compiler';
 import {CompilerOptions, ConfigurationHost, readConfiguration} from '@angular/compiler-cli';
 import {absoluteFromSourceFile, AbsoluteFsPath} from '@angular/compiler-cli/src/ngtsc/file_system';
 import {TypeCheckShimGenerator} from '@angular/compiler-cli/src/ngtsc/typecheck';
@@ -14,8 +15,10 @@ import * as ts from 'typescript/lib/tsserverlibrary';
 
 import {LanguageServiceAdapter, LSParseConfigHost} from './adapters';
 import {CompilerFactory} from './compiler_factory';
+import {CompletionBuilder} from './completions';
 import {DefinitionBuilder} from './definitions';
 import {QuickInfoBuilder} from './quick_info';
+import {ReferenceBuilder} from './references';
 import {getTargetAtPosition} from './template_target';
 import {getTemplateInfoAtPosition, isTypeScriptFile} from './utils';
 
@@ -80,7 +83,6 @@ export class LanguageService {
   }
 
   getQuickInfoAtPosition(fileName: string, position: number): ts.QuickInfo|undefined {
-    const program = this.strategy.getProgram();
     const compiler = this.compilerFactory.getOrCreateWithChangedFile(fileName);
     const templateInfo = getTemplateInfoAtPosition(fileName, position, compiler);
     if (templateInfo === undefined) {
@@ -95,6 +97,65 @@ export class LanguageService {
             .get();
     this.compilerFactory.registerLastKnownProgram();
     return results;
+  }
+
+  getReferencesAtPosition(fileName: string, position: number): ts.ReferenceEntry[]|undefined {
+    const compiler = this.compilerFactory.getOrCreateWithChangedFile(fileName);
+    const results =
+        new ReferenceBuilder(this.strategy, this.tsLS, compiler).get(fileName, position);
+    this.compilerFactory.registerLastKnownProgram();
+    return results;
+  }
+
+  private getCompletionBuilder(fileName: string, position: number):
+      CompletionBuilder<TmplAstNode|AST>|null {
+    const compiler = this.compilerFactory.getOrCreateWithChangedFile(fileName);
+    const templateInfo = getTemplateInfoAtPosition(fileName, position, compiler);
+    if (templateInfo === undefined) {
+      return null;
+    }
+    const positionDetails = getTargetAtPosition(templateInfo.template, position);
+    if (positionDetails === null) {
+      return null;
+    }
+    return new CompletionBuilder(
+        this.tsLS, compiler, templateInfo.component, positionDetails.node, positionDetails.parent,
+        positionDetails.context);
+  }
+
+  getCompletionsAtPosition(
+      fileName: string, position: number, options: ts.GetCompletionsAtPositionOptions|undefined):
+      ts.WithMetadata<ts.CompletionInfo>|undefined {
+    const builder = this.getCompletionBuilder(fileName, position);
+    if (builder === null) {
+      return undefined;
+    }
+    const result = builder.getCompletionsAtPosition(options);
+    this.compilerFactory.registerLastKnownProgram();
+    return result;
+  }
+
+  getCompletionEntryDetails(
+      fileName: string, position: number, entryName: string,
+      formatOptions: ts.FormatCodeOptions|ts.FormatCodeSettings|undefined,
+      preferences: ts.UserPreferences|undefined): ts.CompletionEntryDetails|undefined {
+    const builder = this.getCompletionBuilder(fileName, position);
+    if (builder === null) {
+      return undefined;
+    }
+    const result = builder.getCompletionEntryDetails(entryName, formatOptions, preferences);
+    this.compilerFactory.registerLastKnownProgram();
+    return result;
+  }
+
+  getCompletionEntrySymbol(fileName: string, position: number, name: string): ts.Symbol|undefined {
+    const builder = this.getCompletionBuilder(fileName, position);
+    if (builder === null) {
+      return undefined;
+    }
+    const result = builder.getCompletionEntrySymbol(name);
+    this.compilerFactory.registerLastKnownProgram();
+    return result;
   }
 
   private watchConfigFile(project: ts.server.Project) {
