@@ -865,6 +865,11 @@ export class TcbDirectiveOutputsOp extends TcbOp {
       // TODO(alxhub): consider supporting multiple fields with the same property name for outputs.
       const field = outputs.getByBindingPropertyName(output.name)![0].classPropertyName;
 
+      if (dirId === null) {
+        dirId = this.scope.resolve(this.node, this.dir);
+      }
+      const outputField = ts.createElementAccess(dirId, ts.createStringLiteral(field));
+      addParseSpanInfo(outputField, output.keySpan);
       if (this.tcb.env.config.checkTypeOfOutputEvents) {
         // For strict checking of directive events, generate a call to the `subscribe` method
         // on the directive's output field to let type information flow into the handler function's
@@ -877,12 +882,6 @@ export class TcbDirectiveOutputsOp extends TcbOp {
         // specially crafted set of signatures, to effectively cast `EventEmitter<T>` to something
         // that has a `subscribe` method that properly carries the `T` into the handler function.
         const handler = tcbCreateEventHandler(output, this.tcb, this.scope, EventParamType.Infer);
-
-        if (dirId === null) {
-          dirId = this.scope.resolve(this.node, this.dir);
-        }
-        const outputField = ts.createElementAccess(dirId, ts.createStringLiteral(field));
-        addParseSpanInfo(outputField, output.keySpan);
         const outputHelper =
             ts.createCall(this.tcb.env.declareOutputHelper(), undefined, [outputField]);
         const subscribeFn = ts.createPropertyAccess(outputHelper, 'subscribe');
@@ -890,8 +889,13 @@ export class TcbDirectiveOutputsOp extends TcbOp {
         addParseSpanInfo(call, output.sourceSpan);
         this.scope.addStatement(ts.createExpressionStatement(call));
       } else {
-        // If strict checking of directive events is disabled, emit a handler function where the
-        // `$event` parameter has an explicit `any` type.
+        // If strict checking of directive events is disabled:
+        //
+        // * We still generate the access to the output field as a statement in the TCB so consumers
+        //   of the `TemplateTypeChecker` can still find the node for the class member for the
+        //   output.
+        // * Emit a handler function where the `$event` parameter has an explicit `any` type.
+        this.scope.addStatement(ts.createExpressionStatement(outputField));
         const handler = tcbCreateEventHandler(output, this.tcb, this.scope, EventParamType.Any);
         this.scope.addStatement(ts.createExpressionStatement(handler));
       }
@@ -901,39 +905,6 @@ export class TcbDirectiveOutputsOp extends TcbOp {
     }
 
     return null;
-  }
-
-  /**
-   * Outputs are a `ts.CallExpression` that look like one of the two:
-   *  - `_outputHelper(_t1["outputField"]).subscribe(handler);`
-   *  - `_t1.addEventListener(handler);`
-   * This method reverses the operations to create a call expression for a directive output.
-   * It unpacks the given call expression and returns the original element access (i.e.
-   * `_t1["outputField"]` in the example above). Returns `null` if the given call expression is not
-   * the expected structure of an output binding
-   */
-  static decodeOutputCallExpression(node: ts.CallExpression): ts.ElementAccessExpression|null {
-    // `node.expression` === `_outputHelper(_t1["outputField"]).subscribe` or `_t1.addEventListener`
-    if (!ts.isPropertyAccessExpression(node.expression) ||
-        node.expression.name.text === 'addEventListener') {
-      // `addEventListener` outputs do not have an `ElementAccessExpression` for the output field.
-      return null;
-    }
-
-    if (!ts.isCallExpression(node.expression.expression)) {
-      return null;
-    }
-
-    // `node.expression.expression` === `_outputHelper(_t1["outputField"])`
-    if (node.expression.expression.arguments.length === 0) {
-      return null;
-    }
-
-    const [outputFieldAccess] = node.expression.expression.arguments;
-    if (!ts.isElementAccessExpression(outputFieldAccess)) {
-      return null;
-    }
-    return outputFieldAccess;
   }
 }
 
@@ -984,8 +955,10 @@ class TcbUnclaimedOutputsOp extends TcbOp {
         if (elId === null) {
           elId = this.scope.resolve(this.element);
         }
+        const propertyAccess = ts.createPropertyAccess(elId, 'addEventListener');
+        addParseSpanInfo(propertyAccess, output.keySpan);
         const call = ts.createCall(
-            /* expression */ ts.createPropertyAccess(elId, 'addEventListener'),
+            /* expression */ propertyAccess,
             /* typeArguments */ undefined,
             /* arguments */[ts.createStringLiteral(output.name), handler]);
         addParseSpanInfo(call, output.sourceSpan);
@@ -1626,7 +1599,8 @@ class TcbExpressionTranslator {
         pipe = this.tcb.env.pipeInst(pipeRef);
       } else {
         // Use an 'any' value when not checking the type of the pipe.
-        pipe = NULL_AS_ANY;
+        pipe = ts.createAsExpression(
+            this.tcb.env.pipeInst(pipeRef), ts.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword));
       }
       const args = ast.args.map(arg => this.translate(arg));
       const methodAccess = ts.createPropertyAccess(pipe, 'transform');

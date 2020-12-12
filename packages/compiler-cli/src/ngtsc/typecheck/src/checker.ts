@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {AST, ParseError, parseTemplate, TmplAstNode, TmplAstTemplate,} from '@angular/compiler';
+import {AST, MethodCall, ParseError, parseTemplate, PropertyRead, SafeMethodCall, SafePropertyRead, TmplAstNode, TmplAstTemplate} from '@angular/compiler';
 import * as ts from 'typescript';
 
 import {absoluteFrom, absoluteFromSourceFile, AbsoluteFsPath, getSourceFileOrError} from '../../file_system';
@@ -121,12 +121,12 @@ export class TemplateTypeCheckerImpl implements TemplateTypeChecker {
       throw new Error(`Error: no shim file in program: ${shimPath}`);
     }
 
-    let tcb: ts.Node|null = findTypeCheckBlock(shimSf, id);
+    let tcb: ts.Node|null = findTypeCheckBlock(shimSf, id, /*isDiagnosticsRequest*/ false);
 
     if (tcb === null) {
       // Try for an inline block.
       const inlineSf = getSourceFileOrError(program, sfPath);
-      tcb = findTypeCheckBlock(inlineSf, id);
+      tcb = findTypeCheckBlock(inlineSf, id, /*isDiagnosticsRequest*/ false);
     }
 
     let data: TemplateData|null = null;
@@ -194,7 +194,8 @@ export class TemplateTypeCheckerImpl implements TemplateTypeChecker {
     if (shimSf === undefined) {
       return null;
     }
-    return getTemplateMapping(shimSf, positionInShimFile, fileRecord.sourceManager);
+    return getTemplateMapping(
+        shimSf, positionInShimFile, fileRecord.sourceManager, /*isDiagnosticsRequest*/ false);
   }
 
   generateAllTypeCheckBlocks() {
@@ -283,6 +284,16 @@ export class TemplateTypeCheckerImpl implements TemplateTypeChecker {
       return null;
     }
     return engine.getGlobalCompletions(context);
+  }
+
+  getExpressionCompletionLocation(
+      ast: PropertyRead|SafePropertyRead|MethodCall|SafeMethodCall,
+      component: ts.ClassDeclaration): ShimLocation|null {
+    const engine = this.getOrCreateCompletionEngine(component);
+    if (engine === null) {
+      return null;
+    }
+    return engine.getExpressionCompletionLocation(ast);
   }
 
   private getOrCreateCompletionEngine(component: ts.ClassDeclaration): CompletionEngine|null {

@@ -5,7 +5,7 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-import {compileComponentFromMetadata, ConstantPool, DEFAULT_INTERPOLATION_CONFIG, InterpolationConfig, makeBindingParser, parseTemplate, R3ComponentMetadata, R3UsedDirectiveMetadata} from '@angular/compiler';
+import {compileComponentFromMetadata, ConstantPool, DEFAULT_INTERPOLATION_CONFIG, InterpolationConfig, makeBindingParser, parseTemplate, R3ComponentMetadata, R3DeclareComponentMetadata, R3PartialDeclaration, R3UsedDirectiveMetadata} from '@angular/compiler';
 import {ChangeDetectionStrategy, ViewEncapsulation} from '@angular/compiler/src/core';
 import * as o from '@angular/compiler/src/output/output_ast';
 
@@ -25,7 +25,7 @@ export class PartialComponentLinkerVersion1<TExpression> implements PartialLinke
 
   linkPartialDeclaration(
       sourceUrl: string, code: string, constantPool: ConstantPool,
-      metaObj: AstObject<TExpression>): o.Expression {
+      metaObj: AstObject<R3PartialDeclaration, TExpression>): o.Expression {
     const meta = toR3ComponentMeta(metaObj, code, sourceUrl, this.options);
     const def = compileComponentFromMetadata(meta, constantPool, makeBindingParser());
     return def.expression;
@@ -36,13 +36,9 @@ export class PartialComponentLinkerVersion1<TExpression> implements PartialLinke
  * This function derives the `R3ComponentMetadata` from the provided AST object.
  */
 export function toR3ComponentMeta<TExpression>(
-    metaObj: AstObject<TExpression>, code: string, sourceUrl: string,
+    metaObj: AstObject<R3DeclareComponentMetadata, TExpression>, code: string, sourceUrl: string,
     options: LinkerOptions): R3ComponentMetadata {
-  let interpolation = DEFAULT_INTERPOLATION_CONFIG;
-  if (metaObj.has('interpolation')) {
-    interpolation = InterpolationConfig.fromArray(
-        metaObj.getArray('interpolation').map(entry => entry.getString()) as [string, string]);
-  }
+  const interpolation = parseInterpolationConfig(metaObj);
   const templateObj = metaObj.getObject('template');
   const templateSource = templateObj.getValue('source');
   const range = getTemplateRange(templateSource, code);
@@ -69,42 +65,45 @@ export function toR3ComponentMeta<TExpression>(
 
   let wrapDirectivesAndPipesInClosure = false;
 
-  const directives: R3UsedDirectiveMetadata[] = metaObj.has('directives') ?
-      metaObj.getArray('directives').map(directive => {
-        const directiveExpr = directive.getObject();
-        const type = directiveExpr.getValue('type');
-        const selector = directiveExpr.getString('selector');
+  let directives: R3UsedDirectiveMetadata[] = [];
+  if (metaObj.has('directives')) {
+    directives = metaObj.getArray('directives').map(directive => {
+      const directiveExpr = directive.getObject();
+      const type = directiveExpr.getValue('type');
+      const selector = directiveExpr.getString('selector');
 
-        let typeExpr = type.getOpaque();
-        if (type.isFunction()) {
-          typeExpr = type.getFunctionReturnValue().getOpaque();
-          wrapDirectivesAndPipesInClosure = true;
-        }
-        return {
-          type: typeExpr,
-          selector: selector,
-          inputs: directiveExpr.has('inputs') ?
-              directiveExpr.getArray('inputs').map(input => input.getString()) :
-              [],
-          outputs: directiveExpr.has('outputs') ?
-              directiveExpr.getArray('outputs').map(input => input.getString()) :
-              [],
-          exportAs: directiveExpr.has('exportAs') ?
-              directiveExpr.getArray('exportAs').map(exportAs => exportAs.getString()) :
-              null,
-        };
-      }) :
-      [];
+      let typeExpr = type.getOpaque();
+      if (type.isFunction()) {
+        typeExpr = type.getFunctionReturnValue().getOpaque();
+        wrapDirectivesAndPipesInClosure = true;
+      }
+      return {
+        type: typeExpr,
+        selector: selector,
+        inputs: directiveExpr.has('inputs') ?
+            directiveExpr.getArray('inputs').map(input => input.getString()) :
+            [],
+        outputs: directiveExpr.has('outputs') ?
+            directiveExpr.getArray('outputs').map(input => input.getString()) :
+            [],
+        exportAs: directiveExpr.has('exportAs') ?
+            directiveExpr.getArray('exportAs').map(exportAs => exportAs.getString()) :
+            null,
+      };
+    });
+  }
 
-  const pipes = metaObj.has('pipes') ? metaObj.getObject('pipes').toMap(value => {
-    if (value.isFunction()) {
-      wrapDirectivesAndPipesInClosure = true;
-      return value.getFunctionReturnValue().getOpaque();
-    } else {
-      return value.getOpaque();
-    }
-  }) :
-                                       new Map<string, o.Expression>();
+  let pipes = new Map<string, o.Expression>();
+  if (metaObj.has('pipes')) {
+    pipes = metaObj.getObject('pipes').toMap(value => {
+      if (value.isFunction()) {
+        wrapDirectivesAndPipesInClosure = true;
+        return value.getFunctionReturnValue().getOpaque();
+      } else {
+        return value.getOpaque();
+      }
+    });
+  }
 
   return {
     ...toR3DirectiveMeta(metaObj, code, sourceUrl),
@@ -131,9 +130,29 @@ export function toR3ComponentMeta<TExpression>(
 }
 
 /**
+ * Extract an `InterpolationConfig` from the component declaration.
+ */
+function parseInterpolationConfig<TExpression>(
+    metaObj: AstObject<R3DeclareComponentMetadata, TExpression>): InterpolationConfig {
+  if (!metaObj.has('interpolation')) {
+    return DEFAULT_INTERPOLATION_CONFIG;
+  }
+
+  const interpolationExpr = metaObj.getValue('interpolation');
+  const values = interpolationExpr.getArray().map(entry => entry.getString());
+  if (values.length !== 2) {
+    throw new FatalLinkerError(
+        interpolationExpr.expression,
+        'Unsupported interpolation config, expected an array containing exactly two strings');
+  }
+  return InterpolationConfig.fromArray(values as [string, string]);
+}
+
+/**
  * Determines the `ViewEncapsulation` mode from the AST value's symbol name.
  */
-function parseEncapsulation<TExpression>(encapsulation: AstValue<TExpression>): ViewEncapsulation {
+function parseEncapsulation<TExpression>(encapsulation: AstValue<ViewEncapsulation, TExpression>):
+    ViewEncapsulation {
   const symbolName = encapsulation.getSymbolName();
   if (symbolName === null) {
     throw new FatalLinkerError(
@@ -149,7 +168,8 @@ function parseEncapsulation<TExpression>(encapsulation: AstValue<TExpression>): 
 /**
  * Determines the `ChangeDetectionStrategy` from the AST value's symbol name.
  */
-function parseChangeDetectionStrategy<TExpression>(changeDetectionStrategy: AstValue<TExpression>):
+function parseChangeDetectionStrategy<TExpression>(
+    changeDetectionStrategy: AstValue<ChangeDetectionStrategy, TExpression>):
     ChangeDetectionStrategy {
   const symbolName = changeDetectionStrategy.getSymbolName();
   if (symbolName === null) {
@@ -168,7 +188,8 @@ function parseChangeDetectionStrategy<TExpression>(changeDetectionStrategy: AstV
 /**
  * Update the range to remove the start and end chars, which should be quotes around the template.
  */
-function getTemplateRange<TExpression>(templateNode: AstValue<TExpression>, code: string): Range {
+function getTemplateRange<TExpression>(
+    templateNode: AstValue<unknown, TExpression>, code: string): Range {
   const {startPos, endPos, startLine, startCol} = templateNode.getRange();
 
   if (!/["'`]/.test(code[startPos]) || code[startPos] !== code[endPos - 1]) {

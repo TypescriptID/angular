@@ -839,7 +839,7 @@ describe('type check blocks', () => {
         expect(block).toContain('function ($event: any): any { (ctx).foo($event); }');
         // Note that DOM events are still checked, that is controlled by `checkTypeOfDomEvents`
         expect(block).toContain(
-            '_t1.addEventListener("nonDirOutput", function ($event): any { (ctx).foo($event); });');
+            'addEventListener("nonDirOutput", function ($event): any { (ctx).foo($event); });');
       });
     });
 
@@ -973,7 +973,8 @@ describe('type check blocks', () => {
       it('should not check types of pipes when disabled', () => {
         const DISABLED_CONFIG: TypeCheckingConfig = {...BASE_CONFIG, checkTypeOfPipes: false};
         const block = tcb(TEMPLATE, PIPES, DISABLED_CONFIG);
-        expect(block).toContain('(null as any).transform(((ctx).a), ((ctx).b), ((ctx).c))');
+        expect(block).toContain(
+            '((null as TestPipe) as any).transform(((ctx).a), ((ctx).b), ((ctx).c))');
       });
     });
 

@@ -309,6 +309,25 @@ describe('quick info', () => {
           expectedDisplayString: '(reference) chart: HTMLDivElement'
         });
       });
+
+      it('should work for $event from native element', () => {
+        expectQuickInfo({
+          templateOverride: `<div (click)="myClick($e¦vent)"></div>`,
+          expectedSpanText: '$event',
+          expectedDisplayString: '(parameter) $event: MouseEvent'
+        });
+      });
+
+      it('should work for click output from native element', () => {
+        expectQuickInfo({
+          templateOverride: `<div (cl¦ick)="myClick($event)"></div>`,
+          expectedSpanText: 'click',
+          expectedDisplayString:
+              '(event) HTMLDivElement.addEventListener<"click">(type: "click", ' +
+              'listener: (this: HTMLDivElement, ev: MouseEvent) => any, ' +
+              'options?: boolean | AddEventListenerOptions | undefined): void (+1 overload)'
+        });
+      });
     });
 
     describe('variables', () => {
@@ -476,6 +495,26 @@ describe('quick info', () => {
         expectedSpanText: 'tcName',
         expectedDisplayString: '(property) TestComponent.name: string'
       });
+    });
+
+    it('can still get quick info when strictOutputEventTypes is false', () => {
+      initMockFileSystem('Native');
+      env = LanguageServiceTestEnvironment.setup(
+          quickInfoSkeleton(), {strictOutputEventTypes: false});
+      expectQuickInfo({
+        templateOverride: `<test-comp (te¦st)="myClick($event)"></test-comp>`,
+        expectedSpanText: 'test',
+        expectedDisplayString: '(event) TestComponent.testEvent: EventEmitter<string>'
+      });
+    });
+
+    it('should work for pipes even if checkTypeOfPipes is false', () => {
+      initMockFileSystem('Native');
+      // checkTypeOfPipes is set to false when strict templates is false
+      env = LanguageServiceTestEnvironment.setup(quickInfoSkeleton(), {strictTemplates: false});
+      const templateOverride = `<p>The hero's birthday is {{birthday | da¦te: "MM/dd/yy"}}</p>`;
+      expectQuickInfo(
+          {templateOverride, expectedSpanText: 'date', expectedDisplayString: '(pipe) DatePipe'});
     });
   });
 
