@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {AST, TmplAstNode} from '@angular/compiler';
+import {AST, TmplAstBoundEvent, TmplAstNode} from '@angular/compiler';
 import {CompilerOptions, ConfigurationHost, readConfiguration} from '@angular/compiler-cli';
 import {absoluteFromSourceFile, AbsoluteFsPath} from '@angular/compiler-cli/src/ngtsc/file_system';
 import {TypeCheckShimGenerator} from '@angular/compiler-cli/src/ngtsc/typecheck';
@@ -15,11 +15,11 @@ import * as ts from 'typescript/lib/tsserverlibrary';
 
 import {LanguageServiceAdapter, LSParseConfigHost} from './adapters';
 import {CompilerFactory} from './compiler_factory';
-import {CompletionBuilder} from './completions';
+import {CompletionBuilder, CompletionNodeContext} from './completions';
 import {DefinitionBuilder} from './definitions';
 import {QuickInfoBuilder} from './quick_info';
 import {ReferenceBuilder} from './references';
-import {getTargetAtPosition} from './template_target';
+import {getTargetAtPosition, TargetNode, TargetNodeKind} from './template_target';
 import {getTemplateInfoAtPosition, isTypeScriptFile} from './utils';
 
 export class LanguageService {
@@ -32,6 +32,18 @@ export class LanguageService {
   constructor(project: ts.server.Project, private readonly tsLS: ts.LanguageService) {
     this.parseConfigHost = new LSParseConfigHost(project.projectService.host);
     this.options = parseNgCompilerOptions(project, this.parseConfigHost);
+
+    // Projects loaded into the Language Service often include test files which are not part of the
+    // app's main compilation unit, and these test files often include inline NgModules that declare
+    // components from the app. These declarations conflict with the main declarations of such
+    // components in the app's NgModules. This conflict is not normally present during regular
+    // compilation because the app and the tests are part of separate compilation units.
+    //
+    // As a temporary mitigation of this problem, we instruct the compiler to ignore classes which
+    // are not exported. In many cases, this ensures the test NgModules are ignored by the compiler
+    // and only the real component declaration is used.
+    this.options.compileNonExportedClasses = false;
+
     this.strategy = createTypeCheckingProgramStrategy(project);
     this.adapter = new LanguageServiceAdapter(project);
     this.compilerFactory = new CompilerFactory(this.adapter, this.strategy, this.options);
@@ -93,7 +105,8 @@ export class LanguageService {
       return undefined;
     }
     const results =
-        new QuickInfoBuilder(this.tsLS, compiler, templateInfo.component, positionDetails.node)
+        new QuickInfoBuilder(
+            this.tsLS, compiler, templateInfo.component, positionDetails.nodeInContext.node)
             .get();
     this.compilerFactory.registerLastKnownProgram();
     return results;
@@ -119,8 +132,9 @@ export class LanguageService {
       return null;
     }
     return new CompletionBuilder(
-        this.tsLS, compiler, templateInfo.component, positionDetails.node, positionDetails.parent,
-        positionDetails.context);
+        this.tsLS, compiler, templateInfo.component, positionDetails.nodeInContext.node,
+        nodeContextFromTarget(positionDetails.nodeInContext), positionDetails.parent,
+        positionDetails.template);
   }
 
   getCompletionsAtPosition(
@@ -148,12 +162,13 @@ export class LanguageService {
     return result;
   }
 
-  getCompletionEntrySymbol(fileName: string, position: number, name: string): ts.Symbol|undefined {
+  getCompletionEntrySymbol(fileName: string, position: number, entryName: string): ts.Symbol
+      |undefined {
     const builder = this.getCompletionBuilder(fileName, position);
     if (builder === null) {
       return undefined;
     }
-    const result = builder.getCompletionEntrySymbol(name);
+    const result = builder.getCompletionEntrySymbol(entryName);
     this.compilerFactory.registerLastKnownProgram();
     return result;
   }
@@ -241,4 +256,25 @@ function getOrCreateTypeCheckScriptInfo(
     project.addRoot(scriptInfo);
   }
   return scriptInfo;
+}
+
+function nodeContextFromTarget(target: TargetNode): CompletionNodeContext {
+  switch (target.kind) {
+    case TargetNodeKind.ElementInTagContext:
+      return CompletionNodeContext.ElementTag;
+    case TargetNodeKind.ElementInBodyContext:
+      // Completions in element bodies are for new attributes.
+      return CompletionNodeContext.ElementAttributeKey;
+    case TargetNodeKind.AttributeInKeyContext:
+      return CompletionNodeContext.ElementAttributeKey;
+    case TargetNodeKind.AttributeInValueContext:
+      if (target.node instanceof TmplAstBoundEvent) {
+        return CompletionNodeContext.EventValue;
+      } else {
+        return CompletionNodeContext.None;
+      }
+    default:
+      // No special context is available.
+      return CompletionNodeContext.None;
+  }
 }

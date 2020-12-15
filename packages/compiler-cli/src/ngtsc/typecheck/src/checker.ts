@@ -6,17 +6,17 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {AST, MethodCall, ParseError, parseTemplate, PropertyRead, SafeMethodCall, SafePropertyRead, TmplAstNode, TmplAstTemplate} from '@angular/compiler';
+import {AST, CssSelector, DomElementSchemaRegistry, MethodCall, ParseError, parseTemplate, PropertyRead, SafeMethodCall, SafePropertyRead, TmplAstElement, TmplAstNode, TmplAstReference, TmplAstTemplate, TmplAstVariable} from '@angular/compiler';
 import * as ts from 'typescript';
 
 import {absoluteFrom, absoluteFromSourceFile, AbsoluteFsPath, getSourceFileOrError} from '../../file_system';
-import {ReferenceEmitter} from '../../imports';
+import {Reference, ReferenceEmitter} from '../../imports';
 import {IncrementalBuild} from '../../incremental/api';
-import {isNamedClassDeclaration, ReflectionHost} from '../../reflection';
-import {ComponentScopeReader} from '../../scope';
+import {ClassDeclaration, isNamedClassDeclaration, ReflectionHost} from '../../reflection';
+import {ComponentScopeReader, TypeCheckScopeRegistry} from '../../scope';
 import {isShim} from '../../shims';
 import {getSourceFileOrNull} from '../../util/src/typescript';
-import {DirectiveInScope, FullTemplateMapping, GlobalCompletion, OptimizeFor, PipeInScope, ProgramTypeCheckAdapter, ShimLocation, Symbol, TemplateId, TemplateTypeChecker, TypeCheckingConfig, TypeCheckingProgramStrategy, UpdateMode} from '../api';
+import {DirectiveInScope, ElementSymbol, FullTemplateMapping, GlobalCompletion, OptimizeFor, PipeInScope, ProgramTypeCheckAdapter, ShimLocation, Symbol, TemplateId, TemplateSymbol, TemplateTypeChecker, TypeCheckableDirectiveMeta, TypeCheckingConfig, TypeCheckingProgramStrategy, UpdateMode} from '../api';
 import {TemplateDiagnostic} from '../diagnostics';
 
 import {CompletionEngine} from './completion';
@@ -26,6 +26,8 @@ import {TemplateSourceManager} from './source';
 import {findTypeCheckBlock, getTemplateMapping, TemplateSourceResolver} from './tcb_util';
 import {SymbolBuilder} from './template_symbol_builder';
 
+
+const REGISTRY = new DomElementSchemaRegistry();
 /**
  * Primary template type-checking engine, which performs type-checking using a
  * `TypeCheckingProgramStrategy` for type-checking program maintenance, and the
@@ -54,12 +56,23 @@ export class TemplateTypeCheckerImpl implements TemplateTypeChecker {
   /**
    * Stores directives and pipes that are in scope for each component.
    *
-   * Unlike the other caches, the scope of a component is not affected by its template, so this
+   * Unlike other caches, the scope of a component is not affected by its template, so this
    * cache does not need to be invalidate if the template is overridden. It will be destroyed when
    * the `ts.Program` changes and the `TemplateTypeCheckerImpl` as a whole is destroyed and
    * replaced.
    */
   private scopeCache = new Map<ts.ClassDeclaration, ScopeData>();
+
+  /**
+   * Stores potential element tags for each component (a union of DOM tags as well as directive
+   * tags).
+   *
+   * Unlike other caches, the scope of a component is not affected by its template, so this
+   * cache does not need to be invalidate if the template is overridden. It will be destroyed when
+   * the `ts.Program` changes and the `TemplateTypeCheckerImpl` as a whole is destroyed and
+   * replaced.
+   */
+  private elementTagCache = new Map<ts.ClassDeclaration, Map<string, DirectiveInScope|null>>();
 
   private isComplete = false;
 
@@ -70,7 +83,8 @@ export class TemplateTypeCheckerImpl implements TemplateTypeChecker {
       private refEmitter: ReferenceEmitter, private reflector: ReflectionHost,
       private compilerHost: Pick<ts.CompilerHost, 'getCanonicalFileName'>,
       private priorBuild: IncrementalBuild<unknown, FileTypeCheckingData>,
-      private readonly componentScopeReader: ComponentScopeReader) {}
+      private readonly componentScopeReader: ComponentScopeReader,
+      private readonly typeCheckScopeRegistry: TypeCheckScopeRegistry) {}
 
   resetOverrides(): void {
     for (const fileRecord of this.state.values()) {
@@ -458,7 +472,8 @@ export class TemplateTypeCheckerImpl implements TemplateTypeChecker {
     }
     return this.state.get(path)!;
   }
-
+  getSymbolOfNode(node: TmplAstTemplate, component: ts.ClassDeclaration): TemplateSymbol|null;
+  getSymbolOfNode(node: TmplAstElement, component: ts.ClassDeclaration): ElementSymbol|null;
   getSymbolOfNode(node: AST|TmplAstNode, component: ts.ClassDeclaration): Symbol|null {
     const builder = this.getOrCreateSymbolBuilder(component);
     if (builder === null) {
@@ -500,6 +515,51 @@ export class TemplateTypeCheckerImpl implements TemplateTypeChecker {
     return data.pipes;
   }
 
+  getDirectiveMetadata(dir: ts.ClassDeclaration): TypeCheckableDirectiveMeta|null {
+    if (!isNamedClassDeclaration(dir)) {
+      return null;
+    }
+    return this.typeCheckScopeRegistry.getTypeCheckDirectiveMetadata(new Reference(dir));
+  }
+
+  getPotentialElementTags(component: ts.ClassDeclaration): Map<string, DirectiveInScope|null> {
+    if (this.elementTagCache.has(component)) {
+      return this.elementTagCache.get(component)!;
+    }
+
+    const tagMap = new Map<string, DirectiveInScope|null>();
+
+    for (const tag of REGISTRY.allKnownElementNames()) {
+      tagMap.set(tag, null);
+    }
+
+    const scope = this.getScopeData(component);
+    if (scope !== null) {
+      for (const directive of scope.directives) {
+        for (const selector of CssSelector.parse(directive.selector)) {
+          if (selector.element === null || tagMap.has(selector.element)) {
+            // Skip this directive if it doesn't match an element tag, or if another directive has
+            // already been included with the same element name.
+            continue;
+          }
+
+          tagMap.set(selector.element, directive);
+        }
+      }
+    }
+
+    this.elementTagCache.set(component, tagMap);
+    return tagMap;
+  }
+
+  getPotentialDomBindings(tagName: string): {attribute: string, property: string}[] {
+    const attributes = REGISTRY.allKnownAttributesOfElement(tagName);
+    return attributes.map(attribute => ({
+                            attribute,
+                            property: REGISTRY.getMappedPropName(attribute),
+                          }));
+  }
+
   private getScopeData(component: ts.ClassDeclaration): ScopeData|null {
     if (this.scopeCache.has(component)) {
       return this.scopeCache.get(component)!;
@@ -521,7 +581,7 @@ export class TemplateTypeCheckerImpl implements TemplateTypeChecker {
     };
 
     const typeChecker = this.typeCheckingStrategy.getProgram().getTypeChecker();
-    for (const dir of scope.exported.directives) {
+    for (const dir of scope.compilation.directives) {
       if (dir.selector === null) {
         // Skip this directive, it can't be added to a template anyway.
         continue;
@@ -530,14 +590,23 @@ export class TemplateTypeCheckerImpl implements TemplateTypeChecker {
       if (tsSymbol === undefined) {
         continue;
       }
+
+      let ngModule: ClassDeclaration|null = null;
+      const moduleScopeOfDir = this.componentScopeReader.getScopeForComponent(dir.ref.node);
+      if (moduleScopeOfDir !== null) {
+        ngModule = moduleScopeOfDir.ngModule;
+      }
+
       data.directives.push({
         isComponent: dir.isComponent,
+        isStructural: dir.isStructural,
         selector: dir.selector,
         tsSymbol,
+        ngModule,
       });
     }
 
-    for (const pipe of scope.exported.pipes) {
+    for (const pipe of scope.compilation.pipes) {
       const tsSymbol = typeChecker.getSymbolAtLocation(pipe.ref.node.name);
       if (tsSymbol === undefined) {
         continue;
