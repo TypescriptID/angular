@@ -237,6 +237,9 @@
     "name": "FormsModule"
   },
   {
+    "name": "Host"
+  },
+  {
     "name": "INJECTOR"
   },
   {
@@ -766,6 +769,9 @@
   },
   {
     "name": "classIndexOf"
+  },
+  {
+    "name": "cleanUpControl"
   },
   {
     "name": "cleanUpValidators"
