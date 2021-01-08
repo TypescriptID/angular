@@ -19,7 +19,7 @@ import {CompletionBuilder, CompletionNodeContext} from './completions';
 import {DefinitionBuilder} from './definitions';
 import {QuickInfoBuilder} from './quick_info';
 import {ReferenceBuilder} from './references';
-import {getTargetAtPosition, TargetNode, TargetNodeKind} from './template_target';
+import {getTargetAtPosition, TargetContext, TargetNodeKind} from './template_target';
 import {getTemplateInfoAtPosition, isTypeScriptFile} from './utils';
 
 export class LanguageService {
@@ -104,10 +104,14 @@ export class LanguageService {
     if (positionDetails === null) {
       return undefined;
     }
-    const results =
-        new QuickInfoBuilder(
-            this.tsLS, compiler, templateInfo.component, positionDetails.nodeInContext.node)
-            .get();
+
+    // Because we can only show 1 quick info, just use the bound attribute if the target is a two
+    // way binding. We may consider concatenating additional display parts from the other target
+    // nodes or representing the two way binding in some other manner in the future.
+    const node = positionDetails.context.kind === TargetNodeKind.TwoWayBindingContext ?
+        positionDetails.context.nodes[0] :
+        positionDetails.context.node;
+    const results = new QuickInfoBuilder(this.tsLS, compiler, templateInfo.component, node).get();
     this.compilerFactory.registerLastKnownProgram();
     return results;
   }
@@ -131,9 +135,15 @@ export class LanguageService {
     if (positionDetails === null) {
       return null;
     }
+
+    // For two-way bindings, we actually only need to be concerned with the bound attribute because
+    // the bindings in the template are written with the attribute name, not the event name.
+    const node = positionDetails.context.kind === TargetNodeKind.TwoWayBindingContext ?
+        positionDetails.context.nodes[0] :
+        positionDetails.context.node;
     return new CompletionBuilder(
-        this.tsLS, compiler, templateInfo.component, positionDetails.nodeInContext.node,
-        nodeContextFromTarget(positionDetails.nodeInContext), positionDetails.parent,
+        this.tsLS, compiler, templateInfo.component, node,
+        nodeContextFromTarget(positionDetails.context), positionDetails.parent,
         positionDetails.template);
   }
 
@@ -242,9 +252,11 @@ function getOrCreateTypeCheckScriptInfo(
     // attempt to fetch the content from disk and fail.
     scriptInfo = projectService.getOrCreateScriptInfoForNormalizedPath(
         ts.server.toNormalizedPath(tcf),
-        true,              // openedByClient
-        '',                // fileContent
-        ts.ScriptKind.TS,  // scriptKind
+        true,  // openedByClient
+        '',    // fileContent
+        // script info added by plugins should be marked as external, see
+        // https://github.com/microsoft/TypeScript/blob/b217f22e798c781f55d17da72ed099a9dee5c650/src/compiler/program.ts#L1897-L1899
+        ts.ScriptKind.External,  // scriptKind
     );
     if (!scriptInfo) {
       throw new Error(`Failed to create script info for ${tcf}`);
@@ -258,13 +270,15 @@ function getOrCreateTypeCheckScriptInfo(
   return scriptInfo;
 }
 
-function nodeContextFromTarget(target: TargetNode): CompletionNodeContext {
+function nodeContextFromTarget(target: TargetContext): CompletionNodeContext {
   switch (target.kind) {
     case TargetNodeKind.ElementInTagContext:
       return CompletionNodeContext.ElementTag;
     case TargetNodeKind.ElementInBodyContext:
       // Completions in element bodies are for new attributes.
       return CompletionNodeContext.ElementAttributeKey;
+    case TargetNodeKind.TwoWayBindingContext:
+      return CompletionNodeContext.TwoWayBinding;
     case TargetNodeKind.AttributeInKeyContext:
       return CompletionNodeContext.ElementAttributeKey;
     case TargetNodeKind.AttributeInValueContext:

@@ -1136,7 +1136,7 @@ runInEachFileSystem(() => {
             .toEqual('TestDir');
       });
 
-      it('returns the first directive match when two directives have the same input', () => {
+      it('returns the all inputs when two directives have the same input', () => {
         const fileName = absoluteFrom('/main.ts');
         const dirFile = absoluteFrom('/dir.ts');
         const templateString = `<div dir otherDir [inputA]="'my input A'"></div>`;
@@ -1178,12 +1178,12 @@ runInEachFileSystem(() => {
         const inputAbinding = (nodes[0] as TmplAstElement).inputs[0];
         const symbol = templateTypeChecker.getSymbolOfNode(inputAbinding, cmp)!;
         assertInputBindingSymbol(symbol);
-        expect(
-            (symbol.bindings[0].tsSymbol!.declarations[0] as ts.PropertyDeclaration).name.getText())
-            .toEqual('inputA');
-        expect((symbol.bindings[0].tsSymbol!.declarations[0] as ts.PropertyDeclaration)
-                   .parent.name?.text)
-            .toEqual('TestDir');
+        expect(new Set(symbol.bindings.map(
+                   b => (b.tsSymbol!.declarations[0] as ts.PropertyDeclaration).name.getText())))
+            .toEqual(new Set(['inputA', 'otherDirInputA']));
+        expect(new Set(symbol.bindings.map(
+                   b => (b.tsSymbol!.declarations[0] as ts.PropertyDeclaration).parent.name?.text)))
+            .toEqual(new Set(['TestDir', 'OtherDir']));
       });
     });
 
@@ -1344,6 +1344,55 @@ runInEachFileSystem(() => {
         expect(
             (symbol.bindings[0].tsSymbol!.declarations[0] as ts.PropertyDeclaration).name.getText())
             .toEqual('outputA');
+        expect((symbol.bindings[0].tsSymbol!.declarations[0] as ts.PropertyDeclaration)
+                   .parent.name?.text)
+            .toEqual('TestDir');
+      });
+
+
+      it('returns output symbol for two way binding', () => {
+        const fileName = absoluteFrom('/main.ts');
+        const dirFile = absoluteFrom('/dir.ts');
+        const {program, templateTypeChecker} = setup([
+          {
+            fileName,
+            templates: {'Cmp': `<div dir [(ngModel)]="value"></div>`},
+            source: `
+                export class Cmp {
+                  value = '';
+                }`,
+            declarations: [
+              {
+                name: 'TestDir',
+                selector: '[dir]',
+                file: dirFile,
+                type: 'directive',
+                inputs: {ngModel: 'ngModel'},
+                outputs: {ngModelChange: 'ngModelChange'},
+              },
+            ]
+          },
+          {
+            fileName: dirFile,
+            source: `
+                export class TestDir {
+                  ngModel!: string;
+                  ngModelChange!: EventEmitter<string>;
+                }`,
+            templates: {},
+          }
+        ]);
+        const sf = getSourceFileOrError(program, fileName);
+        const cmp = getClass(sf, 'Cmp');
+
+        const nodes = templateTypeChecker.getTemplate(cmp)!;
+
+        const outputABinding = (nodes[0] as TmplAstElement).outputs[0];
+        const symbol = templateTypeChecker.getSymbolOfNode(outputABinding, cmp)!;
+        assertOutputBindingSymbol(symbol);
+        expect(
+            (symbol.bindings[0].tsSymbol!.declarations[0] as ts.PropertyDeclaration).name.getText())
+            .toEqual('ngModelChange');
         expect((symbol.bindings[0].tsSymbol!.declarations[0] as ts.PropertyDeclaration)
                    .parent.name?.text)
             .toEqual('TestDir');
