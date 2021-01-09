@@ -32,18 +32,7 @@ export class LanguageService {
   constructor(project: ts.server.Project, private readonly tsLS: ts.LanguageService) {
     this.parseConfigHost = new LSParseConfigHost(project.projectService.host);
     this.options = parseNgCompilerOptions(project, this.parseConfigHost);
-
-    // Projects loaded into the Language Service often include test files which are not part of the
-    // app's main compilation unit, and these test files often include inline NgModules that declare
-    // components from the app. These declarations conflict with the main declarations of such
-    // components in the app's NgModules. This conflict is not normally present during regular
-    // compilation because the app and the tests are part of separate compilation units.
-    //
-    // As a temporary mitigation of this problem, we instruct the compiler to ignore classes which
-    // are not exported. In many cases, this ensures the test NgModules are ignored by the compiler
-    // and only the real component declaration is used.
-    this.options.compileNonExportedClasses = false;
-
+    logCompilerOptions(project, this.options);
     this.strategy = createTypeCheckingProgramStrategy(project);
     this.adapter = new LanguageServiceAdapter(project);
     this.compilerFactory = new CompilerFactory(this.adapter, this.strategy, this.options);
@@ -197,9 +186,16 @@ export class LanguageService {
           project.log(`Config file changed: ${fileName}`);
           if (eventKind === ts.FileWatcherEventKind.Changed) {
             this.options = parseNgCompilerOptions(project, this.parseConfigHost);
+            logCompilerOptions(project, this.options);
           }
         });
   }
+}
+
+function logCompilerOptions(project: ts.server.Project, options: CompilerOptions) {
+  const {logger} = project.projectService;
+  const projectName = project.getProjectName();
+  logger.info(`Angular compiler options for ${projectName}: ` + JSON.stringify(options, null, 2));
 }
 
 function parseNgCompilerOptions(
@@ -212,6 +208,17 @@ function parseNgCompilerOptions(
   if (errors.length > 0) {
     project.setProjectErrors(errors);
   }
+
+  // Projects loaded into the Language Service often include test files which are not part of the
+  // app's main compilation unit, and these test files often include inline NgModules that declare
+  // components from the app. These declarations conflict with the main declarations of such
+  // components in the app's NgModules. This conflict is not normally present during regular
+  // compilation because the app and the tests are part of separate compilation units.
+  //
+  // As a temporary mitigation of this problem, we instruct the compiler to ignore classes which
+  // are not exported. In many cases, this ensures the test NgModules are ignored by the compiler
+  // and only the real component declaration is used.
+  options.compileNonExportedClasses = false;
 
   return options;
 }
