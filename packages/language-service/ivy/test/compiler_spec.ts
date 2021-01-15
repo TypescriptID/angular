@@ -8,6 +8,7 @@
 
 import {absoluteFrom, getSourceFileOrError} from '@angular/compiler-cli/src/ngtsc/file_system';
 import {initMockFileSystem} from '@angular/compiler-cli/src/ngtsc/file_system/testing';
+import {OptimizeFor} from '@angular/compiler-cli/src/ngtsc/typecheck/api';
 
 import {LanguageServiceTestEnvironment} from './env';
 
@@ -68,9 +69,15 @@ describe('language-service/compiler integration', () => {
     // Expect that this program is clean diagnostically.
     const ngCompiler = env.ngLS.compilerFactory.getOrCreate();
     const program = ngCompiler.getNextProgram();
-    expect(ngCompiler.getDiagnostics(getSourceFileOrError(program, appCmpFile))).toEqual([]);
-    expect(ngCompiler.getDiagnostics(getSourceFileOrError(program, appModuleFile))).toEqual([]);
-    expect(ngCompiler.getDiagnostics(getSourceFileOrError(program, testFile))).toEqual([]);
+    expect(ngCompiler.getDiagnosticsForFile(
+               getSourceFileOrError(program, appCmpFile), OptimizeFor.WholeProgram))
+        .toEqual([]);
+    expect(ngCompiler.getDiagnosticsForFile(
+               getSourceFileOrError(program, appModuleFile), OptimizeFor.WholeProgram))
+        .toEqual([]);
+    expect(ngCompiler.getDiagnosticsForFile(
+               getSourceFileOrError(program, testFile), OptimizeFor.WholeProgram))
+        .toEqual([]);
   });
 
   it('should show type-checking errors from components with poisoned scopes', () => {
@@ -123,7 +130,7 @@ describe('language-service/compiler integration', () => {
     // when invoked via the Language Service. Testing this via the LS is important as only the LS
     // requests Angular analysis in the presence of TypeScript-level errors. In the case of broken
     // imports this distinction is especially important: Angular's incremental analysis is
-    // built on the the compiler's dependency graph, and this graph must be able to function even
+    // built on the compiler's dependency graph, and this graph must be able to function even
     // with broken imports.
     //
     // The test works by creating a component/module pair where the module imports and declares a
@@ -153,9 +160,9 @@ describe('language-service/compiler integration', () => {
         name: moduleFile,
         contents: `
           import {NgModule} from '@angular/core';
-    
+
           import {Cmp} from './cmp';
-    
+
           @NgModule({
             declarations: [Cmp],
           })
@@ -173,7 +180,8 @@ describe('language-service/compiler integration', () => {
     // Angular should be complaining about the module not being understandable.
     const programBefore = env.tsLS.getProgram()!;
     const moduleSfBefore = programBefore.getSourceFile(moduleFile)!;
-    const ngDiagsBefore = env.ngLS.compilerFactory.getOrCreate().getDiagnostics(moduleSfBefore);
+    const ngDiagsBefore = env.ngLS.compilerFactory.getOrCreate().getDiagnosticsForFile(
+        moduleSfBefore, OptimizeFor.SingleFile);
     expect(ngDiagsBefore.length).toBe(1);
 
     // Fix the import.
@@ -182,7 +190,8 @@ describe('language-service/compiler integration', () => {
     // Angular should stop complaining about the NgModule.
     const programAfter = env.tsLS.getProgram()!;
     const moduleSfAfter = programAfter.getSourceFile(moduleFile)!;
-    const ngDiagsAfter = env.ngLS.compilerFactory.getOrCreate().getDiagnostics(moduleSfAfter);
+    const ngDiagsAfter = env.ngLS.compilerFactory.getOrCreate().getDiagnosticsForFile(
+        moduleSfAfter, OptimizeFor.SingleFile);
     expect(ngDiagsAfter.length).toBe(0);
   });
 });

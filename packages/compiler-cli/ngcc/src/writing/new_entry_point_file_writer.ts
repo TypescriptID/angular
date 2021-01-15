@@ -40,7 +40,7 @@ export class NewEntryPointFileWriter extends InPlaceFileWriter {
     // The new folder is at the root of the overall package
     const entryPoint = bundle.entryPoint;
     const ngccFolder = this.fs.join(entryPoint.packagePath, NGCC_DIRECTORY);
-    this.copyBundle(bundle, entryPoint.packagePath, ngccFolder);
+    this.copyBundle(bundle, entryPoint.packagePath, ngccFolder, transformedFiles);
     transformedFiles.forEach(file => this.writeFile(file, entryPoint.packagePath, ngccFolder));
     this.updatePackageJson(entryPoint, formatProperties, ngccFolder);
   }
@@ -67,16 +67,54 @@ export class NewEntryPointFileWriter extends InPlaceFileWriter {
   }
 
   protected copyBundle(
-      bundle: EntryPointBundle, packagePath: AbsoluteFsPath, ngccFolder: AbsoluteFsPath) {
+      bundle: EntryPointBundle, packagePath: AbsoluteFsPath, ngccFolder: AbsoluteFsPath,
+      transformedFiles: FileToWrite[]) {
+    const doNotCopy = new Set(transformedFiles.map(f => f.path));
     bundle.src.program.getSourceFiles().forEach(sourceFile => {
-      const relativePath = this.fs.relative(packagePath, absoluteFromSourceFile(sourceFile));
+      const originalPath = absoluteFromSourceFile(sourceFile);
+      if (doNotCopy.has(originalPath)) {
+        return;
+      }
+      const relativePath = this.fs.relative(packagePath, originalPath);
       const isInsidePackage = isLocalRelativePath(relativePath);
       if (!sourceFile.isDeclarationFile && isInsidePackage) {
-        const newFilePath = this.fs.resolve(ngccFolder, relativePath);
-        this.fs.ensureDir(this.fs.dirname(newFilePath));
-        this.fs.copyFile(absoluteFromSourceFile(sourceFile), newFilePath);
+        const newPath = this.fs.resolve(ngccFolder, relativePath);
+        this.fs.ensureDir(this.fs.dirname(newPath));
+        this.fs.copyFile(originalPath, newPath);
+        this.copyAndUpdateSourceMap(originalPath, newPath);
       }
     });
+  }
+
+  /**
+   * If a source file has an associated source-map, then copy this, while updating its sourceRoot
+   * accordingly.
+   *
+   * For now don't try to parse the source for inline source-maps or external source-map links,
+   * since that is more complex and will slow ngcc down.
+   * Instead just check for a source-map file residing next to the source file, which is by far
+   * the most common case.
+   *
+   * @param originalSrcPath absolute path to the original source file being copied.
+   * @param newSrcPath absolute path to where the source will be written.
+   */
+  protected copyAndUpdateSourceMap(originalSrcPath: AbsoluteFsPath, newSrcPath: AbsoluteFsPath):
+      void {
+    const sourceMapPath = (originalSrcPath + '.map') as AbsoluteFsPath;
+    if (this.fs.exists(sourceMapPath)) {
+      try {
+        const sourceMap = JSON.parse(this.fs.readFile(sourceMapPath));
+        const newSourceMapPath = (newSrcPath + '.map') as AbsoluteFsPath;
+        const relativePath =
+            this.fs.relative(this.fs.dirname(newSourceMapPath), this.fs.dirname(sourceMapPath));
+        sourceMap['sourceRoot'] = this.fs.join(relativePath, sourceMap['sourceRoot'] || '.');
+        this.fs.ensureDir(this.fs.dirname(newSourceMapPath));
+        this.fs.writeFile(newSourceMapPath, JSON.stringify(sourceMap));
+      } catch (e) {
+        this.logger.warn(`Failed to process source-map at ${sourceMapPath}`);
+        this.logger.warn(e.message ?? e);
+      }
+    }
   }
 
   protected writeFile(file: FileToWrite, packagePath: AbsoluteFsPath, ngccFolder: AbsoluteFsPath):
