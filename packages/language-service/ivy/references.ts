@@ -14,7 +14,7 @@ import * as ts from 'typescript';
 
 import {getTargetAtPosition, TargetNodeKind} from './template_target';
 import {findTightestNode} from './ts_utils';
-import {getDirectiveMatchesForAttribute, getDirectiveMatchesForElementTag, getTemplateInfoAtPosition, isWithin, TemplateInfo, toTextSpan} from './utils';
+import {getDirectiveMatchesForAttribute, getDirectiveMatchesForElementTag, getTemplateInfoAtPosition, getTemplateLocationFromShimLocation, isWithin, TemplateInfo, toTextSpan} from './utils';
 
 interface FilePosition {
   fileName: string;
@@ -166,7 +166,7 @@ export class ReferencesAndRenameBuilder {
       return undefined;
     }
 
-    const entries: ts.RenameLocation[] = [];
+    const entries: Map<string, ts.RenameLocation> = new Map();
     for (const location of locations) {
       // TODO(atscott): Determine if a file is a shim file in a more robust way and make the API
       // available in an appropriate location.
@@ -177,17 +177,17 @@ export class ReferencesAndRenameBuilder {
         if (entry === null) {
           return undefined;
         }
-        entries.push(entry);
+        entries.set(createLocationKey(entry), entry);
       } else {
         // Ensure we only allow renaming a TS result with matching text
         const refNode = this.getTsNodeAtPosition(location.fileName, location.textSpan.start);
         if (refNode === null || refNode.getText() !== originalNodeText) {
           return undefined;
         }
-        entries.push(location);
+        entries.set(createLocationKey(location), location);
       }
     }
-    return entries;
+    return Array.from(entries.values());
   }
 
   getReferencesAtPosition(filePath: string, position: number): ts.ReferenceEntry[]|undefined {
@@ -344,18 +344,18 @@ export class ReferencesAndRenameBuilder {
       return undefined;
     }
 
-    const entries: ts.ReferenceEntry[] = [];
+    const entries: Map<string, ts.ReferenceEntry> = new Map();
     for (const ref of refs) {
       if (this.ttc.isTrackedTypeCheckFile(absoluteFrom(ref.fileName))) {
         const entry = this.convertToTemplateDocumentSpan(ref, this.ttc);
         if (entry !== null) {
-          entries.push(entry);
+          entries.set(createLocationKey(entry), entry);
         }
       } else {
-        entries.push(ref);
+        entries.set(createLocationKey(ref), ref);
       }
     }
-    return entries;
+    return Array.from(entries.values());
   }
 
   private convertToTemplateDocumentSpan<T extends ts.DocumentSpan>(
@@ -376,27 +376,14 @@ export class ReferencesAndRenameBuilder {
     // TODO(atscott): Determine how to consistently resolve paths. i.e. with the project
     // serverHost or LSParseConfigHost in the adapter. We should have a better defined way to
     // normalize paths.
-    const mapping = templateTypeChecker.getTemplateMappingAtShimLocation({
-      shimPath: absoluteFrom(shimDocumentSpan.fileName),
-      positionInShimFile: shimDocumentSpan.textSpan.start,
-    });
+    const mapping = getTemplateLocationFromShimLocation(
+        templateTypeChecker, absoluteFrom(shimDocumentSpan.fileName),
+        shimDocumentSpan.textSpan.start);
     if (mapping === null) {
       return null;
     }
-    const {templateSourceMapping, span} = mapping;
 
-    let templateUrl: AbsoluteFsPath;
-    if (templateSourceMapping.type === 'direct') {
-      templateUrl = absoluteFromSourceFile(templateSourceMapping.node.getSourceFile());
-    } else if (templateSourceMapping.type === 'external') {
-      templateUrl = absoluteFrom(templateSourceMapping.templateUrl);
-    } else {
-      // This includes indirect mappings, which are difficult to map directly to the code
-      // location. Diagnostics similarly return a synthetic template string for this case rather
-      // than a real location.
-      return null;
-    }
-
+    const {span, templateUrl} = mapping;
     if (requiredNodeText !== undefined && span.toString() !== requiredNodeText) {
       return null;
     }
@@ -444,4 +431,14 @@ function getRenameTextAndSpanAtPosition(node: TmplAstNode|AST, position: number)
   }
 
   return null;
+}
+
+
+/**
+ * Creates a "key" for a rename/reference location by concatenating file name, span start, and span
+ * length. This allows us to de-duplicate template results when an item may appear several times
+ * in the TCB but map back to the same template location.
+ */
+function createLocationKey(ds: ts.DocumentSpan) {
+  return ds.fileName + ds.textSpan.start + ds.textSpan.length;
 }
