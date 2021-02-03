@@ -15,6 +15,7 @@ import {TypeCheckShimGenerator} from '@angular/compiler-cli/src/ngtsc/typecheck'
 import {OptimizeFor, TypeCheckingProgramStrategy} from '@angular/compiler-cli/src/ngtsc/typecheck/api';
 import {findFirstMatchingNode} from '@angular/compiler-cli/src/ngtsc/typecheck/src/comments';
 import * as ts from 'typescript/lib/tsserverlibrary';
+import {GetTcbResponse} from '../api';
 
 import {LanguageServiceAdapter, LSParseConfigHost} from './adapters';
 import {CompilerFactory} from './compiler_factory';
@@ -24,25 +25,6 @@ import {QuickInfoBuilder} from './quick_info';
 import {ReferencesAndRenameBuilder} from './references';
 import {getTargetAtPosition, TargetContext, TargetNodeKind} from './template_target';
 import {getTemplateInfoAtPosition, isTypeScriptFile} from './utils';
-
-export type GetTcbResponse = {
-  /**
-   * The filename of the SourceFile this typecheck block belongs to.
-   * The filename is entirely opaque and unstable, useful only for debugging
-   * purposes.
-   */
-  fileName: string,
-  /** The content of the SourceFile this typecheck block belongs to. */
-  content: string,
-  /**
-   * Spans over node(s) in the typecheck block corresponding to the
-   * TS code generated for template node under the current cursor position.
-   *
-   * When the cursor position is over a source for which there is no generated
-   * code, `selections` is empty.
-   */
-  selections: ts.TextSpan[],
-}|undefined;
 
 export class LanguageService {
   private options: CompilerOptions;
@@ -67,7 +49,7 @@ export class LanguageService {
   }
 
   getSemanticDiagnostics(fileName: string): ts.Diagnostic[] {
-    const compiler = this.compilerFactory.getOrCreateWithChangedFile(fileName);
+    const compiler = this.compilerFactory.getOrCreate();
     const ttc = compiler.getTemplateTypeChecker();
     const diagnostics: ts.Diagnostic[] = [];
     if (isTypeScriptFile(fileName)) {
@@ -90,7 +72,7 @@ export class LanguageService {
 
   getDefinitionAndBoundSpan(fileName: string, position: number): ts.DefinitionInfoAndBoundSpan
       |undefined {
-    const compiler = this.compilerFactory.getOrCreateWithChangedFile(fileName);
+    const compiler = this.compilerFactory.getOrCreate();
     const results =
         new DefinitionBuilder(this.tsLS, compiler).getDefinitionAndBoundSpan(fileName, position);
     this.compilerFactory.registerLastKnownProgram();
@@ -99,7 +81,7 @@ export class LanguageService {
 
   getTypeDefinitionAtPosition(fileName: string, position: number):
       readonly ts.DefinitionInfo[]|undefined {
-    const compiler = this.compilerFactory.getOrCreateWithChangedFile(fileName);
+    const compiler = this.compilerFactory.getOrCreate();
     const results =
         new DefinitionBuilder(this.tsLS, compiler).getTypeDefinitionsAtPosition(fileName, position);
     this.compilerFactory.registerLastKnownProgram();
@@ -107,7 +89,7 @@ export class LanguageService {
   }
 
   getQuickInfoAtPosition(fileName: string, position: number): ts.QuickInfo|undefined {
-    const compiler = this.compilerFactory.getOrCreateWithChangedFile(fileName);
+    const compiler = this.compilerFactory.getOrCreate();
     const templateInfo = getTemplateInfoAtPosition(fileName, position, compiler);
     if (templateInfo === undefined) {
       return undefined;
@@ -129,7 +111,7 @@ export class LanguageService {
   }
 
   getReferencesAtPosition(fileName: string, position: number): ts.ReferenceEntry[]|undefined {
-    const compiler = this.compilerFactory.getOrCreateWithChangedFile(fileName);
+    const compiler = this.compilerFactory.getOrCreate();
     const results = new ReferencesAndRenameBuilder(this.strategy, this.tsLS, compiler)
                         .getReferencesAtPosition(fileName, position);
     this.compilerFactory.registerLastKnownProgram();
@@ -137,7 +119,7 @@ export class LanguageService {
   }
 
   getRenameInfo(fileName: string, position: number): ts.RenameInfo {
-    const compiler = this.compilerFactory.getOrCreateWithChangedFile(fileName);
+    const compiler = this.compilerFactory.getOrCreate();
     const renameInfo = new ReferencesAndRenameBuilder(this.strategy, this.tsLS, compiler)
                            .getRenameInfo(absoluteFrom(fileName), position);
     if (!renameInfo.canRename) {
@@ -152,7 +134,7 @@ export class LanguageService {
   }
 
   findRenameLocations(fileName: string, position: number): readonly ts.RenameLocation[]|undefined {
-    const compiler = this.compilerFactory.getOrCreateWithChangedFile(fileName);
+    const compiler = this.compilerFactory.getOrCreate();
     const results = new ReferencesAndRenameBuilder(this.strategy, this.tsLS, compiler)
                         .findRenameLocations(fileName, position);
     this.compilerFactory.registerLastKnownProgram();
@@ -161,7 +143,7 @@ export class LanguageService {
 
   private getCompletionBuilder(fileName: string, position: number):
       CompletionBuilder<TmplAstNode|AST>|null {
-    const compiler = this.compilerFactory.getOrCreateWithChangedFile(fileName);
+    const compiler = this.compilerFactory.getOrCreate();
     const templateInfo = getTemplateInfoAtPosition(fileName, position, compiler);
     if (templateInfo === undefined) {
       return null;
@@ -219,7 +201,7 @@ export class LanguageService {
   }
 
   getTcb(fileName: string, position: number): GetTcbResponse {
-    return this.withCompiler<GetTcbResponse>(fileName, compiler => {
+    return this.withCompiler<GetTcbResponse>(compiler => {
       const templateInfo = getTemplateInfoAtPosition(fileName, position, compiler);
       if (templateInfo === undefined) {
         return undefined;
@@ -263,8 +245,8 @@ export class LanguageService {
     });
   }
 
-  private withCompiler<T>(fileName: string, p: (compiler: NgCompiler) => T): T {
-    const compiler = this.compilerFactory.getOrCreateWithChangedFile(fileName);
+  private withCompiler<T>(p: (compiler: NgCompiler) => T): T {
+    const compiler = this.compilerFactory.getOrCreate();
     const result = p(compiler);
     this.compilerFactory.registerLastKnownProgram();
     return result;
