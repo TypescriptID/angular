@@ -27,6 +27,8 @@ A best practice is to run your project locally before you deploy it. To run your
     ```sh
     ng new my-project-name
     ```
+    
+    This command displays a series of configuration prompts. For this tutorial, accept the default settings for each prompt.
 
 1. In your newly CLI-generated application, replace the `/src` folder with the `/src` folder from your `StackBlitz` download.
 
@@ -78,7 +80,7 @@ You can go deeper by studying more of Angular's features, engaging with the vibr
 
 For a more in-depth tutorial that leads you through building an application locally and exploring many of Angular's most popular features, see [Tour of Heroes](tutorial).
 
-To explore Angular's foundational concepts, see the guides in the Main Concepts section such as [Angular Components Overview](guide/component-overview) or [Template syntax](guide/template-syntax).
+To explore Angular's foundational concepts, see the guides in the Understanding Angular section such as [Angular Components Overview](guide/component-overview) or [Template syntax](guide/template-syntax).
 
 ### Joining the community
 
