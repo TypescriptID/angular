@@ -920,7 +920,9 @@ groups:
           'aio/content/examples/getting-started-v0/**',
           'aio/content/examples/getting-started/**',
           'aio/content/start/**',
-          'aio/content/images/guide/start/**'
+          'aio/content/images/guide/start/**',
+          'aio/content/examples/what-is-angular/**',
+          'aio/content/guide/what-is-angular.md'
           ])
     reviewers:
       users:
@@ -1223,6 +1225,7 @@ groups:
           'aio/content/errors/*.md',
           'aio/content/guide/glossary.md',
           'aio/content/guide/styleguide.md',
+          'aio/content/examples/errors/**',
           'aio/content/examples/styleguide/**',
           'aio/content/images/guide/styleguide/*'
           ])
