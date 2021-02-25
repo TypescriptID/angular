@@ -5,29 +5,8 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-
-/**
- * Given a text snippet which contains exactly one cursor symbol ('¦'), extract both the offset of
- * that cursor within the text as well as the text snippet without the cursor.
- */
-export function extractCursorInfo(textWithCursor: string): {cursor: number, text: string} {
-  const cursor = textWithCursor.indexOf('¦');
-  if (cursor === -1 || textWithCursor.indexOf('¦', cursor + 1) !== -1) {
-    throw new Error(`Expected to find exactly one cursor symbol '¦'`);
-  }
-
-  return {
-    cursor,
-    text: textWithCursor.substr(0, cursor) + textWithCursor.substr(cursor + 1),
-  };
-}
-
-function last<T>(array: T[]): T {
-  if (array.length === 0) {
-    throw new Error(`last() called on empty array`);
-  }
-  return array[array.length - 1];
-}
+import {LanguageServiceTestEnv} from './env';
+import {Project, ProjectFiles, TestableOptions} from './project';
 
 /**
  * Expect that a list of objects with a `fileName` property matches a set of expected files by only
@@ -41,6 +20,11 @@ export function assertFileNames(refs: Array<{fileName: string}>, expectedFileNam
   expect(new Set(actualFileNames)).toEqual(new Set(expectedFileNames));
 }
 
+export function assertTextSpans(items: Array<{textSpan: string}>, expectedTextSpans: string[]) {
+  const actualSpans = items.map(item => item.textSpan);
+  expect(new Set(actualSpans)).toEqual(new Set(expectedTextSpans));
+}
+
 /**
  * Returns whether the given `ts.Diagnostic` is of a type only produced by the Angular compiler (as
  * opposed to being an upstream TypeScript diagnostic).
@@ -51,4 +35,70 @@ export function assertFileNames(refs: Array<{fileName: string}>, expectedFileNam
 export function isNgSpecificDiagnostic(diag: ts.Diagnostic): boolean {
   // Angular-specific diagnostics use a negative code space.
   return diag.code < 0;
+}
+
+function getFirstClassDeclaration(declaration: string) {
+  const matches = declaration.match(/(?:export class )(\w+)(?:\s|\{)/);
+  if (matches === null || matches.length !== 2) {
+    throw new Error(`Did not find exactly one exported class in: ${declaration}`);
+  }
+  return matches[1].trim();
+}
+
+export function createModuleAndProjectWithDeclarations(
+    env: LanguageServiceTestEnv, projectName: string, projectFiles: ProjectFiles,
+    options: TestableOptions = {}): Project {
+  const externalClasses: string[] = [];
+  const externalImports: string[] = [];
+  for (const [fileName, fileContents] of Object.entries(projectFiles)) {
+    if (!fileName.endsWith('.ts')) {
+      continue;
+    }
+    const className = getFirstClassDeclaration(fileContents);
+    externalClasses.push(className);
+    externalImports.push(`import {${className}} from './${fileName.replace('.ts', '')}';`);
+  }
+  const moduleContents = `
+        import {NgModule} from '@angular/core';
+        import {CommonModule} from '@angular/common';
+        ${externalImports.join('\n')}
+
+        @NgModule({
+          declarations: [${externalClasses.join(',')}],
+          imports: [CommonModule],
+        })
+        export class AppModule {}
+      `;
+  projectFiles['app-module.ts'] = moduleContents;
+  return env.addProject(projectName, projectFiles, options);
+}
+
+export function humanizeDocumentSpanLike<T extends ts.DocumentSpan>(
+    item: T, env: LanguageServiceTestEnv): T&Stringy<ts.DocumentSpan> {
+  return {
+    ...item,
+    textSpan: env.getTextFromTsSpan(item.fileName, item.textSpan),
+    contextSpan: item.contextSpan ? env.getTextFromTsSpan(item.fileName, item.contextSpan) :
+                                    undefined,
+    originalTextSpan: item.originalTextSpan ?
+        env.getTextFromTsSpan(item.fileName, item.originalTextSpan) :
+        undefined,
+    originalContextSpan: item.originalContextSpan ?
+        env.getTextFromTsSpan(item.fileName, item.originalContextSpan) :
+        undefined,
+  };
+}
+type Stringy<T> = {
+  [P in keyof T]: string;
+};
+
+export function getText(contents: string, textSpan: ts.TextSpan) {
+  return contents.substr(textSpan.start, textSpan.length);
+}
+
+function last<T>(array: T[]): T {
+  if (array.length === 0) {
+    throw new Error(`last() called on empty array`);
+  }
+  return array[array.length - 1];
 }

@@ -7,7 +7,8 @@
  */
 
 import {StrictTemplateOptions} from '@angular/compiler-cli/src/ngtsc/core/api';
-import {absoluteFrom, AbsoluteFsPath, FileSystem, getFileSystem} from '@angular/compiler-cli/src/ngtsc/file_system';
+import {absoluteFrom, AbsoluteFsPath, FileSystem, getFileSystem, getSourceFileOrError} from '@angular/compiler-cli/src/ngtsc/file_system';
+import {OptimizeFor, TemplateTypeChecker} from '@angular/compiler-cli/src/ngtsc/typecheck/api';
 import * as ts from 'typescript/lib/tsserverlibrary';
 import {LanguageService} from '../../language_service';
 import {OpenBuffer} from './buffer';
@@ -43,6 +44,7 @@ function writeTsconfig(
           null, 2));
 }
 
+export type TestableOptions = StrictTemplateOptions;
 
 export class Project {
   private tsProject: ts.server.Project;
@@ -51,7 +53,8 @@ export class Project {
   private buffers = new Map<string, OpenBuffer>();
 
   static initialize(
-      projectName: string, projectService: ts.server.ProjectService, files: ProjectFiles): Project {
+      projectName: string, projectService: ts.server.ProjectService, files: ProjectFiles,
+      options: TestableOptions = {}): Project {
     const fs = getFileSystem();
     const tsConfigPath = absoluteFrom(`/${projectName}/tsconfig.json`);
 
@@ -67,7 +70,7 @@ export class Project {
       }
     }
 
-    writeTsconfig(fs, tsConfigPath, entryFiles, {});
+    writeTsconfig(fs, tsConfigPath, entryFiles, options);
 
     // Ensure the project is live in the ProjectService.
     projectService.openClientFile(entryFiles[0]);
@@ -95,9 +98,14 @@ export class Project {
   openFile(projectFileName: string): OpenBuffer {
     if (!this.buffers.has(projectFileName)) {
       const fileName = absoluteFrom(`/${this.name}/${projectFileName}`);
+      let scriptInfo = this.tsProject.getScriptInfo(fileName);
       this.projectService.openClientFile(fileName);
+      // Mark the project as dirty because the act of opening a file may result in the version
+      // changing since TypeScript will `switchToScriptVersionCache` when a file is opened.
+      // Note that this emulates what we have to do in the server/extension as well.
+      this.tsProject.markAsDirty();
 
-      const scriptInfo = this.tsProject.getScriptInfo(fileName);
+      scriptInfo = this.tsProject.getScriptInfo(fileName);
       if (scriptInfo === undefined) {
         throw new Error(
             `Unable to open ScriptInfo for ${projectFileName} in project ${this.tsConfigPath}`);
@@ -119,4 +127,65 @@ export class Project {
     diagnostics.push(...this.ngLS.getSemanticDiagnostics(fileName));
     return diagnostics;
   }
+
+  expectNoSourceDiagnostics(): void {
+    const program = this.tsLS.getProgram();
+    if (program === undefined) {
+      throw new Error(`Expected to get a ts.Program`);
+    }
+
+    const ngCompiler = this.ngLS.compilerFactory.getOrCreate();
+
+    for (const sf of program.getSourceFiles()) {
+      if (sf.isDeclarationFile || sf.fileName.endsWith('.ngtypecheck.ts')) {
+        continue;
+      }
+
+      const syntactic = program.getSyntacticDiagnostics(sf);
+      expect(syntactic.map(diag => diag.messageText)).toEqual([]);
+      if (syntactic.length > 0) {
+        continue;
+      }
+
+      const semantic = program.getSemanticDiagnostics(sf);
+      expect(semantic.map(diag => diag.messageText)).toEqual([]);
+      if (semantic.length > 0) {
+        continue;
+      }
+
+      // It's more efficient to optimize for WholeProgram since we call this with every file in the
+      // program.
+      const ngDiagnostics = ngCompiler.getDiagnosticsForFile(sf, OptimizeFor.WholeProgram);
+      expect(ngDiagnostics.map(diag => diag.messageText)).toEqual([]);
+    }
+
+    this.ngLS.compilerFactory.registerLastKnownProgram();
+  }
+
+  expectNoTemplateDiagnostics(projectFileName: string, className: string): void {
+    const program = this.tsLS.getProgram();
+    if (program === undefined) {
+      throw new Error(`Expected to get a ts.Program`);
+    }
+    const fileName = absoluteFrom(`/${this.name}/${projectFileName}`);
+    const sf = getSourceFileOrError(program, fileName);
+    const component = getClassOrError(sf, className);
+
+    const diags = this.getTemplateTypeChecker().getDiagnosticsForComponent(component);
+    this.ngLS.compilerFactory.registerLastKnownProgram();
+    expect(diags.map(diag => diag.messageText)).toEqual([]);
+  }
+
+  getTemplateTypeChecker(): TemplateTypeChecker {
+    return this.ngLS.compilerFactory.getOrCreate().getTemplateTypeChecker();
+  }
+}
+
+function getClassOrError(sf: ts.SourceFile, name: string): ts.ClassDeclaration {
+  for (const stmt of sf.statements) {
+    if (ts.isClassDeclaration(stmt) && stmt.name !== undefined && stmt.name.text === name) {
+      return stmt;
+    }
+  }
+  throw new Error(`Class ${name} not found in file: ${sf.fileName}: ${sf.text}`);
 }
