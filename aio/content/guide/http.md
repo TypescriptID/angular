@@ -72,7 +72,7 @@ The `get()` method takes two arguments; the endpoint URL from which to fetch, an
 options: {
     headers?: HttpHeaders | {[header: string]: string | string[]},
     observe?: 'body' | 'events' | 'response',
-    params?: HttpParams|{[param: string]: string | string[]},
+    params?: HttpParams|{[param: string]: string | number | boolean | ReadonlyArray<string | number | boolean>},
     reportProgress?: boolean,
     responseType?: 'arraybuffer'|'blob'|'json'|'text',
     withCredentials?: boolean,
@@ -978,6 +978,16 @@ a search request for a package with that name to the npm web API.
 </code-example>
 
 Here, the `keyup` event binding sends every keystroke to the component's `search()` method.
+
+<div class="alert is-helpful">
+
+The type of `$event.target` is only `EventTarget` in the template.
+In the `getValue()` method, the target is cast to an `HTMLInputElement` to allow type-safe access to its `value` property.
+
+<code-example path="http/src/app/package-search/package-search.component.ts" region="getValue"></code-example>
+
+</div>
+
 The following snippet implements debouncing for this input using RxJS operators.
 
 <code-example
