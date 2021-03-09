@@ -9,7 +9,12 @@ body,
 
 .center-layout {
   margin: 0 auto;
-  max-width: 50em;
+  max-width: 62.5em;
+}
+
+.center-layout-wide {
+  margin: 0 auto;
+  max-width: 84em;
 }
 
 .github-links + .content h1 {

@@ -41,7 +41,7 @@ function setup(program: ts.Program, options: ts.CompilerOptions, host: ts.Compil
   const evaluator = new PartialEvaluator(reflectionHost, checker, /* dependencyTracker */ null);
   const moduleResolver =
       new ModuleResolver(program, options, host, /* moduleResolutionCache */ null);
-  const importGraph = new ImportGraph(moduleResolver);
+  const importGraph = new ImportGraph(checker);
   const cycleAnalyzer = new CycleAnalyzer(importGraph);
   const metaRegistry = new LocalMetadataRegistry();
   const dtsReader = new DtsMetadataReader(checker, reflectionHost);
@@ -78,6 +78,7 @@ function setup(program: ts.Program, options: ts.CompilerOptions, host: ts.Compil
       NOOP_DEFAULT_IMPORT_RECORDER,
       /* depTracker */ null,
       injectableRegistry,
+      /* semanticDepGraphUpdater */ null,
       /* annotateForClosureCompiler */ false,
   );
   return {reflectionHost, handler};
@@ -247,7 +248,8 @@ runInEachFileSystem(() => {
         return fail('Failed to recognize @Component');
       }
       const {analysis} = handler.analyze(TestCmp, detected.metadata);
-      const resolution = handler.resolve(TestCmp, analysis!);
+      const symbol = handler.symbol(TestCmp, analysis!);
+      const resolution = handler.resolve(TestCmp, analysis!, symbol);
 
       const compileResult =
           handler.compileFull(TestCmp, analysis!, resolution.data!, new ConstantPool());

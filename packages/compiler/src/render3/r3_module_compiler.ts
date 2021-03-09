@@ -8,7 +8,7 @@
 
 import * as o from '../output/output_ast';
 
-import {compileFactoryFunction, R3DependencyMetadata, R3FactoryTarget} from './r3_factory';
+import {R3DependencyMetadata, R3FactoryFn} from './r3_factory';
 import {Identifiers as R3} from './r3_identifiers';
 import {jitOnlyGuardedExpression, mapToMapExpression, R3Reference} from './util';
 
@@ -152,7 +152,8 @@ export function compileNgModule(meta: R3NgModuleMetadata): R3NgModuleDef {
     definitionMap.id = id;
   }
 
-  const expression = o.importExpr(R3.defineNgModule).callFn([mapToMapExpression(definitionMap)]);
+  const expression =
+      o.importExpr(R3.defineNgModule).callFn([mapToMapExpression(definitionMap)], undefined, true);
   const type = new o.ExpressionType(o.importExpr(R3.NgModuleDefWithMeta, [
     new o.ExpressionType(moduleType.type), tupleTypeOf(declarations), tupleTypeOf(imports),
     tupleTypeOf(exports)
@@ -217,31 +218,18 @@ function generateSetNgModuleScopeCall(meta: R3NgModuleMetadata): o.Statement|nul
 export interface R3InjectorDef {
   expression: o.Expression;
   type: o.Type;
-  statements: o.Statement[];
 }
 
 export interface R3InjectorMetadata {
   name: string;
   type: R3Reference;
   internalType: o.Expression;
-  deps: R3DependencyMetadata[]|null;
   providers: o.Expression|null;
   imports: o.Expression[];
 }
 
 export function compileInjector(meta: R3InjectorMetadata): R3InjectorDef {
-  const result = compileFactoryFunction({
-    name: meta.name,
-    type: meta.type,
-    internalType: meta.internalType,
-    typeArgumentCount: 0,
-    deps: meta.deps,
-    injectFn: R3.inject,
-    target: R3FactoryTarget.NgModule,
-  });
-  const definitionMap = {
-    factory: result.factory,
-  } as {factory: o.Expression, providers: o.Expression, imports: o.Expression};
+  const definitionMap: Record<string, o.Expression> = {};
 
   if (meta.providers !== null) {
     definitionMap.providers = meta.providers;
@@ -251,10 +239,11 @@ export function compileInjector(meta: R3InjectorMetadata): R3InjectorDef {
     definitionMap.imports = o.literalArr(meta.imports);
   }
 
-  const expression = o.importExpr(R3.defineInjector).callFn([mapToMapExpression(definitionMap)]);
+  const expression =
+      o.importExpr(R3.defineInjector).callFn([mapToMapExpression(definitionMap)], undefined, true);
   const type =
       new o.ExpressionType(o.importExpr(R3.InjectorDef, [new o.ExpressionType(meta.type.type)]));
-  return {expression, type, statements: result.statements};
+  return {expression, type};
 }
 
 function tupleTypeOf(exp: R3Reference[]): o.Type {

@@ -12,8 +12,9 @@ import * as ts from 'typescript';
 import {Cycle, CycleAnalyzer, CycleHandlingStrategy} from '../../cycles';
 import {ErrorCode, FatalDiagnosticError, makeDiagnostic, makeRelatedInformation} from '../../diagnostics';
 import {absoluteFrom, relative} from '../../file_system';
-import {DefaultImportRecorder, ModuleResolver, Reference, ReferenceEmitter} from '../../imports';
+import {DefaultImportRecorder, ImportedFile, ModuleResolver, Reference, ReferenceEmitter} from '../../imports';
 import {DependencyTracker} from '../../incremental/api';
+import {extractSemanticTypeParameters, isArrayEqual, isReferenceEqual, SemanticDepGraphUpdater, SemanticReference, SemanticSymbol} from '../../incremental/semantic_graph';
 import {IndexingContext} from '../../indexer';
 import {ClassPropertyMapping, ComponentResources, DirectiveMeta, DirectiveTypeCheckMeta, extractDirectiveTypeCheckMeta, InjectableClassRegistry, MetadataReader, MetadataRegistry, Resource, ResourceRegistry} from '../../metadata';
 import {EnumValue, PartialEvaluator, ResolvedValue} from '../../partial_evaluator';
@@ -26,9 +27,10 @@ import {SubsetOfKeys} from '../../util/src/typescript';
 
 import {ResourceLoader} from './api';
 import {createValueHasWrongTypeError, getDirectiveDiagnostics, getProviderDiagnostics} from './diagnostics';
-import {extractDirectiveMetadata, parseFieldArrayValue} from './directive';
+import {DirectiveSymbol, extractDirectiveMetadata, parseFieldArrayValue} from './directive';
 import {compileNgFactoryDefField} from './factory';
 import {generateSetClassMetadataCall} from './metadata';
+import {NgModuleSymbol} from './ng_module';
 import {findAngularDecorator, isAngularCoreReference, isExpressionForwardReference, readBaseClass, resolveProvidersRequiringFactory, unwrapExpression, wrapFunctionExpressionsInParens} from './util';
 
 const EMPTY_MAP = new Map<string, Expression>();
@@ -112,10 +114,84 @@ export const enum ResourceTypeForDiagnostics {
 }
 
 /**
+ * Represents an Angular component.
+ */
+export class ComponentSymbol extends DirectiveSymbol {
+  usedDirectives: SemanticReference[] = [];
+  usedPipes: SemanticReference[] = [];
+  isRemotelyScoped = false;
+
+  isEmitAffected(previousSymbol: SemanticSymbol, publicApiAffected: Set<SemanticSymbol>): boolean {
+    if (!(previousSymbol instanceof ComponentSymbol)) {
+      return true;
+    }
+
+    // Create an equality function that considers symbols equal if they represent the same
+    // declaration, but only if the symbol in the current compilation does not have its public API
+    // affected.
+    const isSymbolUnaffected = (current: SemanticReference, previous: SemanticReference) =>
+        isReferenceEqual(current, previous) && !publicApiAffected.has(current.symbol);
+
+    // The emit of a component is affected if either of the following is true:
+    //  1. The component used to be remotely scoped but no longer is, or vice versa.
+    //  2. The list of used directives has changed or any of those directives have had their public
+    //     API changed. If the used directives have been reordered but not otherwise affected then
+    //     the component must still be re-emitted, as this may affect directive instantiation order.
+    //  3. The list of used pipes has changed, or any of those pipes have had their public API
+    //     changed.
+    return this.isRemotelyScoped !== previousSymbol.isRemotelyScoped ||
+        !isArrayEqual(this.usedDirectives, previousSymbol.usedDirectives, isSymbolUnaffected) ||
+        !isArrayEqual(this.usedPipes, previousSymbol.usedPipes, isSymbolUnaffected);
+  }
+
+  isTypeCheckBlockAffected(
+      previousSymbol: SemanticSymbol, typeCheckApiAffected: Set<SemanticSymbol>): boolean {
+    if (!(previousSymbol instanceof ComponentSymbol)) {
+      return true;
+    }
+
+    // To verify that a used directive is not affected we need to verify that its full inheritance
+    // chain is not present in `typeCheckApiAffected`.
+    const isInheritanceChainAffected = (symbol: SemanticSymbol): boolean => {
+      let currentSymbol: SemanticSymbol|null = symbol;
+      while (currentSymbol instanceof DirectiveSymbol) {
+        if (typeCheckApiAffected.has(currentSymbol)) {
+          return true;
+        }
+        currentSymbol = currentSymbol.baseClass;
+      }
+
+      return false;
+    };
+
+    // Create an equality function that considers directives equal if they represent the same
+    // declaration and if the symbol and all symbols it inherits from in the current compilation
+    // do not have their type-check API affected.
+    const isDirectiveUnaffected = (current: SemanticReference, previous: SemanticReference) =>
+        isReferenceEqual(current, previous) && !isInheritanceChainAffected(current.symbol);
+
+    // Create an equality function that considers pipes equal if they represent the same
+    // declaration and if the symbol in the current compilation does not have its type-check
+    // API affected.
+    const isPipeUnaffected = (current: SemanticReference, previous: SemanticReference) =>
+        isReferenceEqual(current, previous) && !typeCheckApiAffected.has(current.symbol);
+
+    // The emit of a type-check block of a component is affected if either of the following is true:
+    //  1. The list of used directives has changed or any of those directives have had their
+    //     type-check API changed.
+    //  2. The list of used pipes has changed, or any of those pipes have had their type-check API
+    //     changed.
+    return !isArrayEqual(
+               this.usedDirectives, previousSymbol.usedDirectives, isDirectiveUnaffected) ||
+        !isArrayEqual(this.usedPipes, previousSymbol.usedPipes, isPipeUnaffected);
+  }
+}
+
+/**
  * `DecoratorHandler` which handles the `@Component` annotation.
  */
 export class ComponentDecoratorHandler implements
-    DecoratorHandler<Decorator, ComponentAnalysisData, ComponentResolutionData> {
+    DecoratorHandler<Decorator, ComponentAnalysisData, ComponentSymbol, ComponentResolutionData> {
   constructor(
       private reflector: ReflectionHost, private evaluator: PartialEvaluator,
       private metaRegistry: MetadataRegistry, private metaReader: MetadataReader,
@@ -131,6 +207,7 @@ export class ComponentDecoratorHandler implements
       private defaultImportRecorder: DefaultImportRecorder,
       private depTracker: DependencyTracker|null,
       private injectableRegistry: InjectableClassRegistry,
+      private semanticDepGraphUpdater: SemanticDepGraphUpdater|null,
       private annotateForClosureCompiler: boolean) {}
 
   private literalCache = new Map<Decorator, ts.ObjectLiteralExpression>();
@@ -397,6 +474,14 @@ export class ComponentDecoratorHandler implements
     return output;
   }
 
+  symbol(node: ClassDeclaration, analysis: Readonly<ComponentAnalysisData>): ComponentSymbol {
+    const typeParameters = extractSemanticTypeParameters(node);
+
+    return new ComponentSymbol(
+        node, analysis.meta.selector, analysis.inputs, analysis.outputs, analysis.meta.exportAs,
+        analysis.typeCheckMeta, typeParameters);
+  }
+
   register(node: ClassDeclaration, analysis: ComponentAnalysisData): void {
     // Register this component's information with the `MetadataRegistry`. This ensures that
     // the information about the component is available during the compile() phase.
@@ -476,8 +561,13 @@ export class ComponentDecoratorHandler implements
         meta.template.sourceMapping, meta.template.file, meta.template.errors);
   }
 
-  resolve(node: ClassDeclaration, analysis: Readonly<ComponentAnalysisData>):
-      ResolveResult<ComponentResolutionData> {
+  resolve(
+      node: ClassDeclaration, analysis: Readonly<ComponentAnalysisData>,
+      symbol: ComponentSymbol): ResolveResult<ComponentResolutionData> {
+    if (this.semanticDepGraphUpdater !== null && analysis.baseClass instanceof Reference) {
+      symbol.baseClass = this.semanticDepGraphUpdater.getSymbol(analysis.baseClass.node);
+    }
+
     if (analysis.isPoisoned && !this.usePoisonedData) {
       return {};
     }
@@ -538,11 +628,14 @@ export class ComponentDecoratorHandler implements
       const bound = binder.bind({template: metadata.template.nodes});
 
       // The BoundTarget knows which directives and pipes matched the template.
-      type UsedDirective = R3UsedDirectiveMetadata&{ref: Reference};
+      type UsedDirective =
+          R3UsedDirectiveMetadata&{ref: Reference<ClassDeclaration>, importedFile: ImportedFile};
       const usedDirectives: UsedDirective[] = bound.getUsedDirectives().map(directive => {
+        const type = this.refEmitter.emit(directive.ref, context);
         return {
           ref: directive.ref,
-          type: this.refEmitter.emit(directive.ref, context),
+          type: type.expression,
+          importedFile: type.importedFile,
           selector: directive.selector,
           inputs: directive.inputs.propertyNames,
           outputs: directive.outputs.propertyNames,
@@ -551,45 +644,62 @@ export class ComponentDecoratorHandler implements
         };
       });
 
-      type UsedPipe = {ref: Reference, pipeName: string, expression: Expression};
+      type UsedPipe = {
+        ref: Reference<ClassDeclaration>,
+        pipeName: string,
+        expression: Expression,
+        importedFile: ImportedFile,
+      };
       const usedPipes: UsedPipe[] = [];
       for (const pipeName of bound.getUsedPipes()) {
         if (!pipes.has(pipeName)) {
           continue;
         }
         const pipe = pipes.get(pipeName)!;
+        const type = this.refEmitter.emit(pipe, context);
         usedPipes.push({
           ref: pipe,
           pipeName,
-          expression: this.refEmitter.emit(pipe, context),
+          expression: type.expression,
+          importedFile: type.importedFile,
         });
+      }
+      if (this.semanticDepGraphUpdater !== null) {
+        symbol.usedDirectives = usedDirectives.map(
+            dir => this.semanticDepGraphUpdater!.getSemanticReference(dir.ref.node, dir.type));
+        symbol.usedPipes = usedPipes.map(
+            pipe =>
+                this.semanticDepGraphUpdater!.getSemanticReference(pipe.ref.node, pipe.expression));
       }
 
       // Scan through the directives/pipes actually used in the template and check whether any
       // import which needs to be generated would create a cycle.
       const cyclesFromDirectives = new Map<UsedDirective, Cycle>();
       for (const usedDirective of usedDirectives) {
-        const cycle = this._checkForCyclicImport(usedDirective.ref, usedDirective.type, context);
+        const cycle =
+            this._checkForCyclicImport(usedDirective.importedFile, usedDirective.type, context);
         if (cycle !== null) {
           cyclesFromDirectives.set(usedDirective, cycle);
         }
       }
       const cyclesFromPipes = new Map<UsedPipe, Cycle>();
       for (const usedPipe of usedPipes) {
-        const cycle = this._checkForCyclicImport(usedPipe.ref, usedPipe.expression, context);
+        const cycle =
+            this._checkForCyclicImport(usedPipe.importedFile, usedPipe.expression, context);
         if (cycle !== null) {
           cyclesFromPipes.set(usedPipe, cycle);
         }
       }
 
-      if (cyclesFromDirectives.size === 0 && cyclesFromPipes.size === 0) {
+      const cycleDetected = cyclesFromDirectives.size !== 0 || cyclesFromPipes.size !== 0;
+      if (!cycleDetected) {
         // No cycle was detected. Record the imports that need to be created in the cycle detector
         // so that future cyclic import checks consider their production.
-        for (const {type} of usedDirectives) {
-          this._recordSyntheticImport(type, context);
+        for (const {type, importedFile} of usedDirectives) {
+          this._recordSyntheticImport(importedFile, type, context);
         }
-        for (const {expression} of usedPipes) {
-          this._recordSyntheticImport(expression, context);
+        for (const {expression, importedFile} of usedPipes) {
+          this._recordSyntheticImport(importedFile, expression, context);
         }
 
         // Check whether the directive/pipe arrays in ɵcmp need to be wrapped in closures.
@@ -613,6 +723,21 @@ export class ComponentDecoratorHandler implements
           // NgModule file will take care of setting the directives for the component.
           this.scopeRegistry.setComponentRemoteScope(
               node, usedDirectives.map(dir => dir.ref), usedPipes.map(pipe => pipe.ref));
+          symbol.isRemotelyScoped = true;
+
+          // If a semantic graph is being tracked, record the fact that this component is remotely
+          // scoped with the declaring NgModule symbol as the NgModule's emit becomes dependent on
+          // the directive/pipe usages of this component.
+          if (this.semanticDepGraphUpdater !== null) {
+            const moduleSymbol = this.semanticDepGraphUpdater.getSymbol(scope.ngModule);
+            if (!(moduleSymbol instanceof NgModuleSymbol)) {
+              throw new Error(
+                  `AssertionError: Expected ${scope.ngModule.name} to be an NgModuleSymbol.`);
+            }
+
+            moduleSymbol.addRemotelyScopedComponent(
+                symbol, symbol.usedDirectives, symbol.usedPipes);
+          }
         } else {
           // We are not able to handle this cycle so throw an error.
           const relatedMessages: ts.DiagnosticRelatedInformation[] = [];
@@ -1077,7 +1202,17 @@ export class ComponentDecoratorHandler implements
     }
   }
 
-  private _expressionToImportedFile(expr: Expression, origin: ts.SourceFile): ts.SourceFile|null {
+  private _resolveImportedFile(importedFile: ImportedFile, expr: Expression, origin: ts.SourceFile):
+      ts.SourceFile|null {
+    // If `importedFile` is not 'unknown' then it accurately reflects the source file that is
+    // being imported.
+    if (importedFile !== 'unknown') {
+      return importedFile;
+    }
+
+    // Otherwise `expr` has to be inspected to determine the file that is being imported. If `expr`
+    // is not an `ExternalExpr` then it does not correspond with an import, so return null in that
+    // case.
     if (!(expr instanceof ExternalExpr)) {
       return null;
     }
@@ -1092,18 +1227,19 @@ export class ComponentDecoratorHandler implements
    *
    * @returns a `Cycle` object if a cycle would be created, otherwise `null`.
    */
-  private _checkForCyclicImport(ref: Reference, expr: Expression, origin: ts.SourceFile): Cycle
-      |null {
-    const importedFile = this._expressionToImportedFile(expr, origin);
-    if (importedFile === null) {
+  private _checkForCyclicImport(
+      importedFile: ImportedFile, expr: Expression, origin: ts.SourceFile): Cycle|null {
+    const imported = this._resolveImportedFile(importedFile, expr, origin);
+    if (imported === null) {
       return null;
     }
     // Check whether the import is legal.
-    return this.cycleAnalyzer.wouldCreateCycle(origin, importedFile);
+    return this.cycleAnalyzer.wouldCreateCycle(origin, imported);
   }
 
-  private _recordSyntheticImport(expr: Expression, origin: ts.SourceFile): void {
-    const imported = this._expressionToImportedFile(expr, origin);
+  private _recordSyntheticImport(
+      importedFile: ImportedFile, expr: Expression, origin: ts.SourceFile): void {
+    const imported = this._resolveImportedFile(importedFile, expr, origin);
     if (imported === null) {
       return;
     }

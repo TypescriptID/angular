@@ -41,7 +41,11 @@ function getDiagnosticSourceCode(diag: ts.Diagnostic): string {
   return diag.file!.text.substr(diag.start!, diag.length!);
 }
 
-runInEachFileSystem(os => {
+runInEachFileSystem(allTests);
+
+// Wrap all tests into a function to work around clang-format going crazy and (poorly)
+// reformatting the entire file.
+function allTests(os: string) {
   describe('ngtsc behavioral tests', () => {
     let env!: NgtscTestEnvironment;
 
@@ -233,7 +237,7 @@ runInEachFileSystem(os => {
       env.driveMain();
 
       const jsContents = env.getContents('test.js');
-      expect(jsContents).toContain('TestDir.ɵdir = i0.ɵɵdefineDirective');
+      expect(jsContents).toContain('TestDir.ɵdir = /*@__PURE__*/ i0.ɵɵdefineDirective');
       expect(jsContents).toContain('TestDir.ɵfac = function');
       expect(jsContents).not.toContain('__decorate');
 
@@ -255,7 +259,7 @@ runInEachFileSystem(os => {
       env.driveMain();
 
       const jsContents = env.getContents('test.js');
-      expect(jsContents).toContain('TestDir.ɵdir = i0.ɵɵdefineDirective');
+      expect(jsContents).toContain('TestDir.ɵdir = /*@__PURE__*/ i0.ɵɵdefineDirective');
       expect(jsContents).toContain('TestDir.ɵfac = function');
       expect(jsContents).not.toContain('__decorate');
 
@@ -280,7 +284,7 @@ runInEachFileSystem(os => {
       env.driveMain();
 
       const jsContents = env.getContents('test.js');
-      expect(jsContents).toContain('TestCmp.ɵcmp = i0.ɵɵdefineComponent');
+      expect(jsContents).toContain('TestCmp.ɵcmp = /*@__PURE__*/ i0.ɵɵdefineComponent');
       expect(jsContents).toContain('TestCmp.ɵfac = function');
       expect(jsContents).not.toContain('__decorate');
 
@@ -305,7 +309,7 @@ runInEachFileSystem(os => {
       env.driveMain();
 
       const jsContents = env.getContents('test.js');
-      expect(jsContents).toContain('TestCmp.ɵcmp = i0.ɵɵdefineComponent');
+      expect(jsContents).toContain('TestCmp.ɵcmp = /*@__PURE__*/ i0.ɵɵdefineComponent');
       expect(jsContents).toContain('TestCmp.ɵfac = function');
       expect(jsContents).not.toContain('__decorate');
 
@@ -335,7 +339,7 @@ runInEachFileSystem(os => {
       env.driveMain();
 
       const jsContents = env.getContents('test.js');
-      expect(jsContents).toContain('TestCmp.ɵcmp = i0.ɵɵdefineComponent');
+      expect(jsContents).toContain('TestCmp.ɵcmp = /*@__PURE__*/ i0.ɵɵdefineComponent');
       expect(jsContents).toContain('TestCmp.ɵfac = function');
       expect(jsContents).not.toContain('__decorate');
 
@@ -399,12 +403,12 @@ runInEachFileSystem(os => {
           });
           env.write(`test.ts`, `
             import {Directive} from '@angular/core';
-    
+
             @Directive({
               selector: '[base]',
             })
             class Base {}
-    
+
             @Directive({
               selector: '[test]',
             })
@@ -677,13 +681,13 @@ runInEachFileSystem(os => {
       env.driveMain();
 
       const jsContents = env.getContents('test.js');
-      expect(jsContents).toContain('TestBase.ɵdir = i0.ɵɵdefineDirective');
-      expect(jsContents).toContain('TestComponent.ɵcmp = i0.ɵɵdefineComponent');
-      expect(jsContents).toContain('TestDirective.ɵdir = i0.ɵɵdefineDirective');
-      expect(jsContents).toContain('TestPipe.ɵpipe = i0.ɵɵdefinePipe');
-      expect(jsContents).toContain('TestInjectable.ɵprov = i0.ɵɵdefineInjectable');
-      expect(jsContents).toContain('MyModule.ɵmod = i0.ɵɵdefineNgModule');
-      expect(jsContents).toContain('MyModule.ɵinj = i0.ɵɵdefineInjector');
+      expect(jsContents).toContain('TestBase.ɵdir = /*@__PURE__*/ i0.ɵɵdefineDirective');
+      expect(jsContents).toContain('TestComponent.ɵcmp = /*@__PURE__*/ i0.ɵɵdefineComponent');
+      expect(jsContents).toContain('TestDirective.ɵdir = /*@__PURE__*/ i0.ɵɵdefineDirective');
+      expect(jsContents).toContain('TestPipe.ɵpipe = /*@__PURE__*/ i0.ɵɵdefinePipe');
+      expect(jsContents).toContain('TestInjectable.ɵprov = /*@__PURE__*/ i0.ɵɵdefineInjectable');
+      expect(jsContents).toContain('MyModule.ɵmod = /*@__PURE__*/ i0.ɵɵdefineNgModule');
+      expect(jsContents).toContain('MyModule.ɵinj = /*@__PURE__*/ i0.ɵɵdefineInjector');
       expect(jsContents).toContain('inputs: { input: "input" }');
       expect(jsContents).toContain('outputs: { output: "output" }');
     });
@@ -1094,8 +1098,8 @@ runInEachFileSystem(os => {
               'function () { (typeof ngJitMode === "undefined" || ngJitMode) && i0.ɵɵsetNgModuleScope(TestModule, { declarations: [TestCmp] }); })();');
       expect(jsContents)
           .toContain(
-              'i0.ɵɵdefineInjector({ factory: ' +
-              'function TestModule_Factory(t) { return new (t || TestModule)(); } });');
+              'TestModule.ɵfac = function TestModule_Factory(t) { return new (t || TestModule)(); }');
+      expect(jsContents).toContain('i0.ɵɵdefineInjector({});');
 
       const dtsContents = env.getContents('test.d.ts');
       expect(dtsContents)
@@ -1207,8 +1211,10 @@ runInEachFileSystem(os => {
       const jsContents = env.getContents('test.js');
       expect(jsContents)
           .toContain(
-              'i0.ɵɵdefineInjector({ factory: function TestModule_Factory(t) ' +
-              '{ return new (t || TestModule)(); }, imports: [[OtherModule, RouterModule.forRoot()],' +
+              'TestModule.ɵfac = function TestModule_Factory(t) { return new (t || TestModule)(); }');
+      expect(jsContents)
+          .toContain(
+              'i0.ɵɵdefineInjector({ imports: [[OtherModule, RouterModule.forRoot()],' +
               ' OtherModule, RouterModule] });');
     });
 
@@ -1238,12 +1244,15 @@ runInEachFileSystem(os => {
       env.driveMain();
 
       const jsContents = env.getContents('test.js');
+      expect(jsContents)
+          .toContain(
+              'TestModule.ɵfac = function TestModule_Factory(t) { return new (t || TestModule)(); }');
       expect(jsContents).toContain('i0.ɵɵdefineNgModule({ type: TestModule });');
       expect(jsContents)
           .toContain(
-              `TestModule.ɵinj = i0.ɵɵdefineInjector({ factory: ` +
-              `function TestModule_Factory(t) { return new (t || TestModule)(); }, providers: [{ provide: ` +
-              `Token, useValue: 'test' }], imports: [[OtherModule]] });`);
+              `TestModule.ɵinj = /*@__PURE__*/ i0.ɵɵdefineInjector({ ` +
+              `providers: [{ provide: Token, useValue: 'test' }], ` +
+              `imports: [[OtherModule]] });`);
 
       const dtsContents = env.getContents('test.d.ts');
       expect(dtsContents)
@@ -1278,12 +1287,15 @@ runInEachFileSystem(os => {
       env.driveMain();
 
       const jsContents = env.getContents('test.js');
+      expect(jsContents)
+          .toContain(
+              'TestModule.ɵfac = function TestModule_Factory(t) { return new (t || TestModule)(); }');
       expect(jsContents).toContain('i0.ɵɵdefineNgModule({ type: TestModule });');
       expect(jsContents)
           .toContain(
-              `TestModule.ɵinj = i0.ɵɵdefineInjector({ factory: ` +
-              `function TestModule_Factory(t) { return new (t || TestModule)(); }, providers: [{ provide: ` +
-              `Token, useFactory: function () { return new Token(); } }], imports: [[OtherModule]] });`);
+              `TestModule.ɵinj = /*@__PURE__*/ i0.ɵɵdefineInjector({ ` +
+              `providers: [{ provide: Token, useFactory: function () { return new Token(); } }], ` +
+              `imports: [[OtherModule]] });`);
 
       const dtsContents = env.getContents('test.d.ts');
       expect(dtsContents)
@@ -1322,12 +1334,15 @@ runInEachFileSystem(os => {
       env.driveMain();
 
       const jsContents = env.getContents('test.js');
+      expect(jsContents)
+          .toContain(
+              'TestModule.ɵfac = function TestModule_Factory(t) { return new (t || TestModule)(); }');
       expect(jsContents).toContain('i0.ɵɵdefineNgModule({ type: TestModule });');
       expect(jsContents)
           .toContain(
-              `TestModule.ɵinj = i0.ɵɵdefineInjector({ factory: ` +
-              `function TestModule_Factory(t) { return new (t || TestModule)(); }, providers: [{ provide: ` +
-              `Token, useFactory: function (dep) { return new Token(dep); }, deps: [Dep] }], imports: [[OtherModule]] });`);
+              `TestModule.ɵinj = /*@__PURE__*/ i0.ɵɵdefineInjector({ ` +
+              `providers: [{ provide: Token, useFactory: function (dep) { return new Token(dep); }, deps: [Dep] }], ` +
+              `imports: [[OtherModule]] });`);
 
       const dtsContents = env.getContents('test.d.ts');
       expect(dtsContents)
@@ -1496,7 +1511,7 @@ runInEachFileSystem(os => {
 
       expect(jsContents)
           .toContain(
-              'TestPipe.ɵpipe = i0.ɵɵdefinePipe({ name: "test-pipe", type: TestPipe, pure: false })');
+              'TestPipe.ɵpipe = /*@__PURE__*/ i0.ɵɵdefinePipe({ name: "test-pipe", type: TestPipe, pure: false })');
       expect(jsContents)
           .toContain(
               'TestPipe.ɵfac = function TestPipe_Factory(t) { return new (t || TestPipe)(); }');
@@ -1521,7 +1536,7 @@ runInEachFileSystem(os => {
 
       expect(jsContents)
           .toContain(
-              'TestPipe.ɵpipe = i0.ɵɵdefinePipe({ name: "test-pipe", type: TestPipe, pure: true })');
+              'TestPipe.ɵpipe = /*@__PURE__*/ i0.ɵɵdefinePipe({ name: "test-pipe", type: TestPipe, pure: true })');
       expect(jsContents)
           .toContain(
               'TestPipe.ɵfac = function TestPipe_Factory(t) { return new (t || TestPipe)(); }');
@@ -4213,7 +4228,7 @@ runInEachFileSystem(os => {
       env.driveMain();
       const jsContents = trim(env.getContents('test.js'));
       expect(jsContents).toContain(trim(`
-        MyComp.ɵcmp = i0.ɵɵdefineComponent({
+        MyComp.ɵcmp = /*@__PURE__*/ i0.ɵɵdefineComponent({
           type: MyComp,
           selectors: [["comp"]],
           decls: 1,
@@ -4227,7 +4242,8 @@ runInEachFileSystem(os => {
         });
       `));
       expect(jsContents)
-          .toContain(trim('MyModule.ɵmod = i0.ɵɵdefineNgModule({ type: MyModule });'));
+          .toContain(
+              trim('MyModule.ɵmod = /*@__PURE__*/ i0.ɵɵdefineNgModule({ type: MyModule });'));
     });
 
     it('should emit setClassMetadata calls for all types', () => {
@@ -7868,4 +7884,4 @@ export const Foo = Foo__PRE_R3__;
   function normalize(input: string): string {
     return input.replace(/\s+/g, ' ').trim();
   }
-});
+}
