@@ -23,7 +23,7 @@
     "build-local-with-viewengine": "yarn ~~build",
     "prebuild-local-with-viewengine-ci": "node scripts/switch-to-viewengine && yarn setup-local-ci",
     "build-local-with-viewengine-ci": "yarn ~~build --progress=false",
-    "extract-cli-command-docs": "node tools/transforms/cli-docs-package/extract-cli-commands.js edc1d0bc7",
+    "extract-cli-command-docs": "node tools/transforms/cli-docs-package/extract-cli-commands.js 5f5448301",
     "lint": "yarn check-env && yarn docs-lint && ng lint && yarn example-lint && yarn tools-lint",
     "test": "yarn check-env && ng test",
     "pree2e": "yarn check-env && yarn update-webdriver",
@@ -104,7 +104,7 @@
     "@angular/service-worker": "11.2.3",
     "@webcomponents/custom-elements": "1.2.1",
     "rxjs": "^6.5.3",
-    "tslib": "^2.0.0",
+    "tslib": "^2.1.0",
     "zone.js": "~0.11.4"
   },
   "devDependencies": {
@@ -170,7 +170,7 @@
     "tree-kill": "^1.1.0",
     "ts-node": "^8.4.1",
     "tslint": "~6.1.0",
-    "typescript": "~4.1.2",
+    "typescript": "~4.2.3",
     "uglify-js": "^3.0.15",
     "unist-util-filter": "^0.2.1",
     "unist-util-source": "^1.0.1",
