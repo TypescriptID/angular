@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 // Imports
-const {existsSync, readFileSync, statSync} = require('fs');
-const {basename, join, resolve} = require('path');
+const {readdirSync, readFileSync, statSync} = require('fs');
+const {join, resolve} = require('path');
 
 // Constants
 const MAX_IMAGE_SIZE = 30 * 1024;  // 30kb
@@ -11,41 +11,37 @@ const IMAGES_DIR = join(CONTENT_DIR, 'images/bios');
 const CONTRIBUTORS_PATH = join(CONTENT_DIR, 'marketing/contributors.json');
 const EXISTING_GROUPS = new Set(['Angular', 'GDE', 'Collaborators']);
 
-// The list of profile images that exceed specified `MAX_IMAGE_SIZE` limit.
-// These images were added before the size check was introduced. Exclude these images
-// from size check for now, but still check other images (more importantly run the check
-// for new PRs where profile images are added).
-const EXCLUDE_FROM_SIZE_CHECK = new Set([
-  'alainchautard.png', 'ahsanayaz.jpg', 'alan-agius4.jpg', 'andrew-kushnir.jpg',
-  'brian-love.jpg', 'cexbrayat.jpg', 'christianliebel.jpg', 'patovargas.png', 'gerardsans.jpg',
-  'jessicajaniuk.jpg', 'JiaLiPassion.jpg', 'juristr.jpg', 'katerina.jpg', 'kimmaida.jpg',
-  'kyliau.jpg', 'lacolaco.jpg', 'leonardo.jpg', 'nirkaufman.jpg', 'sajee.jpg', 'sonukapoor.jpg',
-  'tracylee.jpg', 'twerske.jpg', 'wesgrimes.jpg'
-]);
-
 // Run
 _main();
 
 // Functions - Definitions
 function _main() {
   const contributors = JSON.parse(readFileSync(CONTRIBUTORS_PATH, 'utf8'));
-
-  // Check that there are no missing images.
   const expectedImages = Object.keys(contributors)
       .filter(key => !!contributors[key].picture)
       .map(key => join(IMAGES_DIR, contributors[key].picture));
-  const missingImages = expectedImages.filter(path => !existsSync(path));
+  const existingImages = readdirSync(IMAGES_DIR)
+      .filter(name => name !== '_no-one.jpg')
+      .map(name => join(IMAGES_DIR, name));
 
+  // Check that there are no missing images.
+  const missingImages = expectedImages.filter(path => !existingImages.includes(path));
   if (missingImages.length > 0) {
     throw new Error(
         'The following pictures are referenced in \'contributors.json\' but do not exist:' +
         missingImages.map(path => `\n  - ${path}`).join(''));
   }
 
+  // Check that there are no unused images.
+  const unusedImages = existingImages.filter(path => !expectedImages.includes(path));
+  if (unusedImages.length > 0) {
+    throw new Error(
+        'The following pictures are not referenced in \'contributors.json\' and should be deleted:' +
+        unusedImages.map(path => `\n  - ${path}`).join(''));
+  }
+
   // Check that there are no images that exceed the size limit.
-  const tooLargeImages = expectedImages
-       .filter(path => !EXCLUDE_FROM_SIZE_CHECK.has(basename(path)))
-       .filter(path => statSync(path).size > MAX_IMAGE_SIZE);
+  const tooLargeImages = expectedImages.filter(path => statSync(path).size > MAX_IMAGE_SIZE);
   if (tooLargeImages.length > 0) {
     throw new Error(
         `The following pictures exceed maximum size limit of ${MAX_IMAGE_SIZE / 1024}kb:` +
