@@ -219,9 +219,6 @@ export class Identifiers {
 
   static injectAttribute: o.ExternalReference = {name: 'ɵɵinjectAttribute', moduleName: CORE};
 
-  static injectPipeChangeDetectorRef:
-      o.ExternalReference = {name: 'ɵɵinjectPipeChangeDetectorRef', moduleName: CORE};
-
   static directiveInject: o.ExternalReference = {name: 'ɵɵdirectiveInject', moduleName: CORE};
   static invalidFactory: o.ExternalReference = {name: 'ɵɵinvalidFactory', moduleName: CORE};
   static invalidFactoryDep: o.ExternalReference = {name: 'ɵɵinvalidFactoryDep', moduleName: CORE};
@@ -259,6 +256,8 @@ export class Identifiers {
     name: 'ɵɵFactoryDeclaration',
     moduleName: CORE,
   };
+  static declareFactory: o.ExternalReference = {name: 'ɵɵngDeclareFactory', moduleName: CORE};
+  static FactoryTarget: o.ExternalReference = {name: 'ɵɵFactoryTarget', moduleName: CORE};
 
   static defineDirective: o.ExternalReference = {name: 'ɵɵdefineDirective', moduleName: CORE};
   static declareDirective: o.ExternalReference = {name: 'ɵɵngDeclareDirective', moduleName: CORE};

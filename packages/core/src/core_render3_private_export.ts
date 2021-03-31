@@ -154,7 +154,6 @@ export {
   ɵɵInheritDefinitionFeature,
   ɵɵinjectAttribute,
   ɵɵInjectorDeclaration,
-  ɵɵinjectPipeChangeDetectorRef,
   ɵɵinvalidFactory,
   ɵɵlistener,
   ɵɵloadQuery,
@@ -269,8 +268,10 @@ export {
   transitiveScopesFor as ɵtransitiveScopesFor,
 } from './render3/jit/module';
 export {
+  FactoryTarget as ɵɵFactoryTarget,
   ɵɵngDeclareComponent,
   ɵɵngDeclareDirective,
+  ɵɵngDeclareFactory,
   ɵɵngDeclareInjector,
   ɵɵngDeclareNgModule,
   ɵɵngDeclarePipe,

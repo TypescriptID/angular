@@ -292,7 +292,7 @@ groups:
       users:
         - alxhub
         - crisbeto
-        # OOO as of 2020-09-28 - devversion
+        - devversion
 
 
   # =========================================================
@@ -1166,7 +1166,7 @@ groups:
     conditions:
       - *can-be-global-approved
       - >
-        contains_any_globs(files.exclude("packages/compiler-cli/**/BUILD.bazel"), [
+        contains_any_globs(files, [
           '*',
           '.circleci/**',
           '.devcontainer/**',
@@ -1203,12 +1203,11 @@ groups:
           'tools/utils/**',
           'tools/yarn/**',
           'tools/*',
-          '**/*.bzl',
-          '**/*.bazel'
+          '**/*.bzl'
           ])
     reviewers:
       users:
-        # OOO as of 2020-09-28 - devversion
+        - devversion
         - filipesilva
         - gkalpak
         - IgorMinar

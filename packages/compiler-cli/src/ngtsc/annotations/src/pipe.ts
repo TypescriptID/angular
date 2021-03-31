@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {compileDeclarePipeFromMetadata, compilePipeFromMetadata, Identifiers, R3CompiledExpression, R3FactoryTarget, R3PipeMetadata, Statement, WrappedNodeExpr} from '@angular/compiler';
+import {compileDeclarePipeFromMetadata, compilePipeFromMetadata, FactoryTarget, R3PipeMetadata, Statement, WrappedNodeExpr} from '@angular/compiler';
 import * as ts from 'typescript';
 
 import {ErrorCode, FatalDiagnosticError} from '../../diagnostics';
@@ -20,9 +20,9 @@ import {LocalModuleScopeRegistry} from '../../scope';
 import {AnalysisOutput, CompileResult, DecoratorHandler, DetectResult, HandlerPrecedence, ResolveResult} from '../../transform';
 
 import {createValueHasWrongTypeError} from './diagnostics';
-import {compileNgFactoryDefField} from './factory';
+import {compileDeclareFactory, compileNgFactoryDefField} from './factory';
 import {generateSetClassMetadataCall} from './metadata';
-import {findAngularDecorator, getValidConstructorDependencies, makeDuplicateDeclarationError, unwrapExpression, wrapTypeReference} from './util';
+import {compileResults, findAngularDecorator, getValidConstructorDependencies, makeDuplicateDeclarationError, toFactoryMetadata, unwrapExpression, wrapTypeReference} from './util';
 
 export interface PipeHandlerData {
   meta: R3PipeMetadata;
@@ -165,31 +165,14 @@ export class PipeDecoratorHandler implements
   }
 
   compileFull(node: ClassDeclaration, analysis: Readonly<PipeHandlerData>): CompileResult[] {
-    const res = compilePipeFromMetadata(analysis.meta);
-    return this.compilePipe(analysis, res);
+    const fac = compileNgFactoryDefField(toFactoryMetadata(analysis.meta, FactoryTarget.Pipe));
+    const def = compilePipeFromMetadata(analysis.meta);
+    return compileResults(fac, def, analysis.metadataStmt, 'ɵpipe');
   }
 
   compilePartial(node: ClassDeclaration, analysis: Readonly<PipeHandlerData>): CompileResult[] {
-    const res = compileDeclarePipeFromMetadata(analysis.meta);
-    return this.compilePipe(analysis, res);
-  }
-
-  private compilePipe(analysis: Readonly<PipeHandlerData>, def: R3CompiledExpression) {
-    const factoryRes = compileNgFactoryDefField({
-      ...analysis.meta,
-      injectFn: Identifiers.directiveInject,
-      target: R3FactoryTarget.Pipe,
-    });
-    if (analysis.metadataStmt !== null) {
-      factoryRes.statements.push(analysis.metadataStmt);
-    }
-    return [
-      factoryRes, {
-        name: 'ɵpipe',
-        initializer: def.expression,
-        statements: def.statements,
-        type: def.type,
-      }
-    ];
+    const fac = compileDeclareFactory(toFactoryMetadata(analysis.meta, FactoryTarget.Pipe));
+    const def = compileDeclarePipeFromMetadata(analysis.meta);
+    return compileResults(fac, def, analysis.metadataStmt, 'ɵpipe');
   }
 }

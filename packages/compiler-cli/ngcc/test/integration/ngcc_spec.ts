@@ -384,7 +384,7 @@ runInEachFileSystem(() => {
          expect(jsContents).toContain('__spreadArray([], __read(arguments))');
          expect(jsContents)
              .toContain(
-                 'var ɵSubClass_BaseFactory = /*@__PURE__*/ ɵngcc0.ɵɵgetInheritedFactory(SubClass);');
+                 'var ɵSubClass_BaseFactory; return function SubClass_Factory(t) { return (ɵSubClass_BaseFactory || (ɵSubClass_BaseFactory = ɵngcc0.ɵɵgetInheritedFactory(SubClass)))(t || SubClass); };');
        });
 
     it(`should be able to detect synthesized constructors in ES5 with downlevelIteration enabled (emitted helpers)`,
@@ -423,7 +423,7 @@ runInEachFileSystem(() => {
          expect(jsContents).toContain('__spreadArray([], __read(arguments))');
          expect(jsContents)
              .toContain(
-                 'var ɵSubClass_BaseFactory = /*@__PURE__*/ ɵngcc0.ɵɵgetInheritedFactory(SubClass);');
+                 'var ɵSubClass_BaseFactory; return function SubClass_Factory(t) { return (ɵSubClass_BaseFactory || (ɵSubClass_BaseFactory = ɵngcc0.ɵɵgetInheritedFactory(SubClass)))(t || SubClass); };');
        });
 
     it('should not add `const` in ES5 generated code', () => {
@@ -823,7 +823,7 @@ runInEachFileSystem(() => {
       expect(jsContents)
           .toContain(
               `TestClass.ɵfac = function TestClass_Factory(t) { ` +
-              `return new (t || TestClass)(ɵngcc0.ɵɵinjectPipeChangeDetectorRef()); };`);
+              `return new (t || TestClass)(ɵngcc0.ɵɵdirectiveInject(ɵngcc0.ChangeDetectorRef, 16)); };`);
     });
 
     it('should use the correct type name in typings files when an export has a different name in source files',

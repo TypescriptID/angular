@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {compileInjectable as compileIvyInjectable, Expression, Identifiers, LiteralExpr, R3DependencyMetadata, R3FactoryTarget, R3InjectableMetadata, R3ResolvedDependencyType, Statement, WrappedNodeExpr} from '@angular/compiler';
+import {compileInjectable as compileIvyInjectable, Expression, FactoryTarget, LiteralExpr, R3DependencyMetadata, R3FactoryMetadata, R3InjectableMetadata, Statement, WrappedNodeExpr} from '@angular/compiler';
 import * as ts from 'typescript';
 
 import {ErrorCode, FatalDiagnosticError} from '../../diagnostics';
@@ -16,9 +16,9 @@ import {PerfEvent, PerfRecorder} from '../../perf';
 import {ClassDeclaration, Decorator, ReflectionHost, reflectObjectLiteral} from '../../reflection';
 import {AnalysisOutput, CompileResult, DecoratorHandler, DetectResult, HandlerPrecedence} from '../../transform';
 
-import {compileNgFactoryDefField} from './factory';
+import {compileDeclareFactory, compileNgFactoryDefField} from './factory';
 import {generateSetClassMetadataCall} from './metadata';
-import {findAngularDecorator, getConstructorDependencies, getValidConstructorDependencies, isAngularCore, unwrapConstructorDependencies, unwrapForwardRef, validateConstructorDependencies, wrapTypeReference} from './util';
+import {findAngularDecorator, getConstructorDependencies, getValidConstructorDependencies, isAngularCore, toFactoryMetadata, unwrapConstructorDependencies, unwrapForwardRef, validateConstructorDependencies, wrapTypeReference} from './util';
 
 export interface InjectableHandlerData {
   meta: R3InjectableMetadata;
@@ -101,15 +101,8 @@ export class InjectableDecoratorHandler implements
 
     if (analysis.needsFactory) {
       const meta = analysis.meta;
-      const factoryRes = compileNgFactoryDefField({
-        name: meta.name,
-        type: meta.type,
-        internalType: meta.internalType,
-        typeArgumentCount: meta.typeArgumentCount,
-        deps: analysis.ctorDeps,
-        injectFn: Identifiers.inject,
-        target: R3FactoryTarget.Injectable,
-      });
+      const factoryRes = compileNgFactoryDefField(
+          toFactoryMetadata({...meta, deps: analysis.ctorDeps}, FactoryTarget.Injectable));
       if (analysis.metadataStmt !== null) {
         factoryRes.statements.push(analysis.metadataStmt);
       }
@@ -128,6 +121,37 @@ export class InjectableDecoratorHandler implements
       results.push({name: 'ɵprov', initializer: res.expression, statements, type: res.type});
     }
 
+
+    return results;
+  }
+
+  compilePartial(node: ClassDeclaration, analysis: Readonly<InjectableHandlerData>):
+      CompileResult[] {
+    const res = compileIvyInjectable(analysis.meta);
+    const statements = res.statements;
+    const results: CompileResult[] = [];
+
+    if (analysis.needsFactory) {
+      const meta = analysis.meta;
+      const factoryRes = compileDeclareFactory(
+          toFactoryMetadata({...meta, deps: analysis.ctorDeps}, FactoryTarget.Injectable));
+      if (analysis.metadataStmt !== null) {
+        factoryRes.statements.push(analysis.metadataStmt);
+      }
+      results.push(factoryRes);
+    }
+
+    const ɵprov = this.reflector.getMembersOfClass(node).find(member => member.name === 'ɵprov');
+    if (ɵprov !== undefined && this.errorOnDuplicateProv) {
+      throw new FatalDiagnosticError(
+          ErrorCode.INJECTABLE_DUPLICATE_PROV, ɵprov.nameNode || ɵprov.node || node,
+          'Injectables cannot contain a static ɵprov property, because the compiler is going to generate one.');
+    }
+
+    if (ɵprov === undefined) {
+      // Only add a new ɵprov if there is not one already
+      results.push({name: 'ɵprov', initializer: res.expression, statements, type: res.type});
+    }
 
     return results;
   }
@@ -284,9 +308,8 @@ function extractInjectableCtorDeps(
 function getDep(dep: ts.Expression, reflector: ReflectionHost): R3DependencyMetadata {
   const meta: R3DependencyMetadata = {
     token: new WrappedNodeExpr(dep),
-    attribute: null,
+    attributeNameType: null,
     host: false,
-    resolved: R3ResolvedDependencyType.Token,
     optional: false,
     self: false,
     skipSelf: false,
