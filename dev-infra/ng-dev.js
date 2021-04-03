@@ -1871,8 +1871,9 @@ function validateCommitMessage(commitMsg, options = {}) {
             errors.push(`Scopes are required for commits with type '${commit.type}', but no scope was provided.`);
             return false;
         }
-        if (commit.scope && !config.scopes.includes(commit.scope)) {
-            errors.push(`'${commit.scope}' is not an allowed scope.\n => SCOPES: ${config.scopes.join(', ')}`);
+        const fullScope = commit.npmScope ? `${commit.npmScope}/${commit.scope}` : commit.scope;
+        if (fullScope && !config.scopes.includes(fullScope)) {
+            errors.push(`'${fullScope}' is not an allowed scope.\n => SCOPES: ${config.scopes.join(', ')}`);
             return false;
         }
         // Commits with the type of `release` do not require a commit body.
@@ -6485,9 +6486,21 @@ class ReleaseTool {
      * @returns a boolean indicating whether the user is logged into NPM.
      */
     _verifyNpmLoginState() {
-        var _a;
+        var _a, _b;
         return tslib.__awaiter(this, void 0, void 0, function* () {
             const registry = `NPM at the ${(_a = this._config.publishRegistry) !== null && _a !== void 0 ? _a : 'default NPM'} registry`;
+            // TODO(josephperrott): remove wombat specific block once wombot allows `npm whoami` check to
+            // check the status of the local token in the .npmrc file.
+            if ((_b = this._config.publishRegistry) === null || _b === void 0 ? void 0 : _b.includes('wombat-dressing-room.appspot.com')) {
+                info('Unable to determine NPM login state for wombat proxy, requiring login now.');
+                try {
+                    yield npmLogin(this._config.publishRegistry);
+                }
+                catch (_c) {
+                    return false;
+                }
+                return true;
+            }
             if (yield npmIsLoggedIn(this._config.publishRegistry)) {
                 debug(`Already logged into ${registry}.`);
                 return true;
@@ -6499,7 +6512,7 @@ class ReleaseTool {
                 try {
                     yield npmLogin(this._config.publishRegistry);
                 }
-                catch (_b) {
+                catch (_d) {
                     return false;
                 }
                 return true;
@@ -7055,7 +7068,7 @@ function main(approve, config, printWarnings) {
     const analyzer = new Analyzer(resolveModule);
     const cycles = [];
     const checkedNodes = new WeakSet();
-    glob.sync(glob$1, { absolute: true }).forEach(filePath => {
+    glob.sync(glob$1, { absolute: true, ignore: ['**/node_modules/**'] }).forEach(filePath => {
         const sourceFile = analyzer.getSourceFile(filePath);
         cycles.push(...analyzer.findCycles(sourceFile, checkedNodes));
     });
