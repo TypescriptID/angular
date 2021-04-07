@@ -22,11 +22,15 @@ version: 2.1
 # **NOTE 1 **: If you change the cache key prefix, also sync the cache_key_fallback to match.
 # **NOTE 2 **: Keep the static part of the cache key as prefix to enable correct fallbacks.
 # See https://circleci.com/docs/2.0/caching/#restoring-cache for how prefixes work in CircleCI.
-var_3: &cache_key v1-angular-node-12-{{ checksum ".bazelversion" }}-{{ checksum "yarn.lock" }}-{{ checksum "WORKSPACE" }}-{{ checksum "packages/bazel/package.bzl" }}-{{ checksum "aio/yarn.lock" }}
+var_3: &cache_key v4-angular-node-12-{{ checksum ".bazelversion" }}-{{ checksum "yarn.lock" }}-{{ checksum "WORKSPACE" }}-{{ checksum "packages/bazel/package.bzl" }}-{{ checksum "aio/yarn.lock" }}
 # We invalidate the cache if the Bazel version changes because otherwise the `bazelisk` cache
 # folder will contain all previously used versions and ultimately cause the cache restoring to
 # be slower due to its growing size.
-var_4: &cache_key_fallback v1-angular-node-12-{{ checksum ".bazelversion" }}
+var_4: &cache_key_fallback v4-angular-node-12-{{ checksum ".bazelversion" }}
+
+# Windows needs its own cache key because binaries in node_modules are different.
+var_3_win: &cache_key_win v4-angular-win-node-12-{{ checksum ".bazelversion" }}-{{ checksum "yarn.lock" }}-{{ checksum "WORKSPACE" }}-{{ checksum "packages/bazel/package.bzl" }}-{{ checksum "aio/yarn.lock" }}
+var_4_win: &cache_key_win_fallback v4-angular-win-node-12-{{ checksum ".bazelversion" }}
 
 # Cache key for the `components-repo-unit-tests` job. **Note** when updating the SHA in the
 # cache keys also update the SHA for the "COMPONENTS_REPO_COMMIT" environment variable.
@@ -65,6 +69,7 @@ var_10: &only_on_master
 # **NOTE 1**: Pin to exact images using an ID (SHA). See https://circleci.com/docs/2.0/circleci-images/#using-a-docker-image-id-to-pin-an-image-to-a-fixed-version.
 #             (Using the tag in not necessary when pinning by ID, but include it anyway for documentation purposes.)
 # **NOTE 2**: If you change the version of the docker images, also change the `cache_key` suffix.
+# **NOTE 3**: If you change the version of Node.js provided by the docker images, also update `.devcontainer/recommended-Dockerfile` to match the new version.
 executors:
   default-executor:
     parameters:
@@ -186,7 +191,12 @@ commands:
       - run: ./.circleci/windows-env.ps1
       - run: node --version
       - run: yarn --version
-      - run: yarn install --frozen-lockfile --non-interactive
+      - restore_cache:
+          keys:
+            - *cache_key_win
+            - *cache_key_win_fallback
+      # On Windows `~/` is not resolved when using as a CLI value. `../` results in the same path.
+      - run: yarn install --frozen-lockfile --non-interactive --cache-folder ../.cache/yarn
 
   notify_webhook_on_fail:
     description: Notify a webhook about failure
@@ -231,10 +241,10 @@ jobs:
             - *cache_key_fallback
       - run:
           name: Running Yarn install
-          command: yarn install --frozen-lockfile --non-interactive
+          command: yarn install --frozen-lockfile --non-interactive --cache-folder ~/.cache/yarn
           # Yarn's requests sometimes take more than 10mins to complete.
           no_output_timeout: 45m
-      - run: yarn --cwd aio install --frozen-lockfile --non-interactive
+      - run: yarn --cwd aio install --frozen-lockfile --non-interactive --cache-folder ~/.cache/yarn
       # Make the bazel directories and add a file to them if they don't exist already so that
       # persist_to_workspace does not fail.
       - run: |
@@ -423,7 +433,7 @@ jobs:
       - custom_attach_workspace
       - init_environment
         # Install
-      - run: yarn --cwd aio install --frozen-lockfile --non-interactive
+      - run: yarn --cwd aio install --frozen-lockfile --non-interactive --cache-folder ~/.cache/yarn
       - run: yarn --cwd aio extract-cli-command-docs
         # Run tools tests
       - run: yarn --cwd aio tools-test
@@ -443,7 +453,7 @@ jobs:
       - init_environment
       - install_chrome_libs
         # Install aio
-      - run: yarn --cwd aio install --frozen-lockfile --non-interactive
+      - run: yarn --cwd aio install --frozen-lockfile --non-interactive --cache-folder ~/.cache/yarn
         # Run examples tests. The "CIRCLE_NODE_INDEX" will be set if "parallelism" is enabled.
         # Since the parallelism is set to "5", there will be five parallel CircleCI containers.
         # with either "0", "1", etc as node index. This can be passed to the "--shard" argument.
@@ -472,7 +482,7 @@ jobs:
       - custom_attach_workspace
       - init_environment
       - install_chrome_libs
-      - run: yarn --cwd aio install --frozen-lockfile --non-interactive
+      - run: yarn --cwd aio install --frozen-lockfile --non-interactive --cache-folder ~/.cache/yarn
       - run:
           name: Wait for preview and run tests
           command: node aio/scripts/test-preview.js $CI_PULL_REQUEST $CI_COMMIT $CI_AIO_MIN_PWA_SCORE
@@ -500,16 +510,16 @@ jobs:
           root: *workspace_location
           paths:
             - ng/dist/packages-dist
+            - ng/dist/angular-in-memory-web-api-dist
             - ng/dist/zone.js-dist
 
       # Save dependencies and bazel repository cache to use on subsequent runs.
       - save_cache:
           key: *cache_key
           paths:
-            - "node_modules"
-            - "aio/node_modules"
-            - "~/bazel_repository_cache"
-            - "~/.cache/bazelisk"
+            - ~/.cache/yarn
+            - ~/bazel_repository_cache
+            - ~/.cache/bazelisk
 
   # Build the ivy npm packages.
   build-ivy-npm-packages:
@@ -526,6 +536,7 @@ jobs:
           root: *workspace_location
           paths:
             - ng/dist/packages-dist-ivy-aot
+            - ng/dist/angular-in-memory-web-api-dist-ivy-aot
             - ng/dist/zone.js-dist-ivy-aot
 
   # This job creates compressed tarballs (`.tgz` files) for all Angular packages and stores them as
@@ -536,6 +547,8 @@ jobs:
   publish_packages_as_artifacts:
     executor: default-executor
     environment:
+      AIMWA_PACKAGES_DIR: &aimwa_packages_dir 'dist/angular-in-memory-web-api-dist'
+      AIMWA_PACKAGES_ARCHIVES_DIR: &aimwa_packages_archives_dir 'dist/angular-in-memory-web-api-dist-archives'
       NG_PACKAGES_DIR: &ng_packages_dir 'dist/packages-dist'
       NG_PACKAGES_ARCHIVES_DIR: &ng_packages_archives_dir 'dist/packages-dist-archives'
       ZONEJS_PACKAGES_DIR: &zonejs_packages_dir 'dist/zone.js-dist'
@@ -550,9 +563,17 @@ jobs:
       - store_artifacts:
           path: *ng_packages_archives_dir
           destination: angular
-      # Publish `zone.js` package.
+      # Publish the `angular-in-memory-web-api` package.
       - run:
-          name: Create artifacts for zone.js package
+          name: Create artifacts for the `angular-in-memory-web-api` package
+          # Need to remove the zone.js.tgz before archive
+          command: ./scripts/ci/create-package-archives.sh $CI_BRANCH $CI_COMMIT $AIMWA_PACKAGES_DIR $AIMWA_PACKAGES_ARCHIVES_DIR
+      - store_artifacts:
+          path: *aimwa_packages_archives_dir
+          destination: angular-in-memory-web-api
+      # Publish the `zone.js` package.
+      - run:
+          name: Create artifacts for the `zone.js` package
           # Need to remove the zone.js.tgz before archive
           command: rm -rf $ZONEJS_PACKAGES_DIR/archive && ./scripts/ci/create-package-archives.sh $CI_BRANCH $CI_COMMIT $ZONEJS_PACKAGES_DIR $ZONEJS_PACKAGES_ARCHIVES_DIR
       - store_artifacts:
@@ -703,7 +724,7 @@ jobs:
           # We temporarily ignore the "engines" because the Angular components repository has
           # minimum dependency on NodeJS v12 and Yarn 1.19.1, but the framework repository uses
           # older versions.
-          command: yarn --ignore-engines --cwd ${COMPONENTS_REPO_TMP_DIR} install --frozen-lockfile --non-interactive
+          command: yarn --ignore-engines --cwd ${COMPONENTS_REPO_TMP_DIR} install --frozen-lockfile --non-interactive --cache-folder ~/.cache/yarn
       - save_cache:
           key: *components_repo_unit_tests_cache_key
           paths:
@@ -730,7 +751,7 @@ jobs:
       - init_environment
       - install_java
         # Install
-      - run: yarn --cwd packages/zone.js install --frozen-lockfile --non-interactive
+      - run: yarn --cwd packages/zone.js install --frozen-lockfile --non-interactive --cache-folder ~/.cache/yarn
         # Run zone.js tools tests
       - run: yarn --cwd packages/zone.js promisetest
       - run: yarn --cwd packages/zone.js promisefinallytest
@@ -742,7 +763,7 @@ jobs:
       - run: yarn --cwd packages/zone.js jest:nodetest
       - run: yarn --cwd packages/zone.js electrontest
       - run: yarn --cwd packages/zone.js closuretest
-      - run: yarn --cwd packages/zone.js/test/typings install --frozen-lockfile --non-interactive
+      - run: yarn --cwd packages/zone.js/test/typings install --frozen-lockfile --non-interactive --cache-folder ~/.cache/yarn
       - run: yarn --cwd packages/zone.js/test/typings test
 
   # Windows jobs
@@ -772,6 +793,11 @@ jobs:
           name: Test all windows CI targets
           command: yarn bazel test --config=ivy --build_tag_filters=-no-windows --test_tag_filters="-no-ivy-aot,-no-windows,-fixme-ivy-aot,-browser:chromium-local" //packages/compiler-cli/... //tools/ts-api-guardian/... //packages/localize/...
           no_output_timeout: 15m
+      # Save dependencies to use on subsequent runs.
+      - save_cache:
+          key: *cache_key_win
+          paths:
+            - ~/.cache/yarn
 
 
 workflows:
