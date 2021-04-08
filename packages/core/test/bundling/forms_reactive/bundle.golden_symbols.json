@@ -45,6 +45,9 @@
     "name": "BROWSER_MODULE_PROVIDERS"
   },
   {
+    "name": "BaseControlValueAccessor"
+  },
+  {
     "name": "BrowserDomAdapter"
   },
   {
@@ -649,6 +652,9 @@
   },
   {
     "name": "_testabilityGetter"
+  },
+  {
+    "name": "_wrapInTimeout"
   },
   {
     "name": "addComponentLogic"
@@ -1633,6 +1639,9 @@
   },
   {
     "name": "ɵɵelementStart"
+  },
+  {
+    "name": "ɵɵgetInheritedFactory"
   },
   {
     "name": "ɵɵinject"

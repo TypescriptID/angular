@@ -1716,7 +1716,7 @@ const COMMIT_TYPES = {
     refactor: {
         name: 'refactor',
         description: 'Refactor without any change in functionality or API (includes style changes)',
-        scope: ScopeRequirement.Required,
+        scope: ScopeRequirement.Optional,
         releaseNotesLevel: ReleaseNotesLevel.Hidden,
     },
     release: {
@@ -1728,7 +1728,7 @@ const COMMIT_TYPES = {
     test: {
         name: 'test',
         description: 'Improvements or corrections made to the project\'s test suite',
-        scope: ScopeRequirement.Required,
+        scope: ScopeRequirement.Optional,
         releaseNotesLevel: ReleaseNotesLevel.Hidden,
     },
 };
@@ -3353,6 +3353,17 @@ var PullRequestFailure = /** @class */ (function () {
             "your auth token has write access."; }
         return new this(message);
     };
+    PullRequestFailure.hasBreakingChanges = function (label) {
+        var message = "Cannot merge into branch for \"" + label.pattern + "\" as the pull request has " +
+            "breaking changes. Breaking changes can only be merged with the \"target: major\" label.";
+        return new this(message);
+    };
+    PullRequestFailure.hasFeatureCommits = function (label) {
+        var message = "Cannot merge into branch for \"" + label.pattern + "\" as the pull request has " +
+            'commits with the "feat" type. New features can only be merged with the "target: minor" ' +
+            'or "target: major" label.';
+        return new this(message);
+    };
     return PullRequestFailure;
 }());
 
@@ -3387,7 +3398,7 @@ function loadAndValidatePullRequest(_a, prNumber, ignoreNonFatalFailures) {
     var git = _a.git, config = _a.config;
     if (ignoreNonFatalFailures === void 0) { ignoreNonFatalFailures = false; }
     return tslib.__awaiter(this, void 0, void 0, function () {
-        var prData, labels, targetLabel, state, githubTargetBranch, requiredBaseSha, needsCommitMessageFixup, hasCaretakerNote, targetBranches, error_1;
+        var prData, labels, targetLabel, commitMessages, state, githubTargetBranch, requiredBaseSha, needsCommitMessageFixup, hasCaretakerNote, targetBranches, error_1;
         return tslib.__generator(this, function (_b) {
             switch (_b.label) {
                 case 0: return [4 /*yield*/, fetchPullRequestFromGithub(git, prNumber)];
@@ -3396,7 +3407,7 @@ function loadAndValidatePullRequest(_a, prNumber, ignoreNonFatalFailures) {
                     if (prData === null) {
                         return [2 /*return*/, PullRequestFailure.notFound()];
                     }
-                    labels = prData.labels.map(function (l) { return l.name; });
+                    labels = prData.labels.nodes.map(function (l) { return l.name; });
                     if (!labels.some(function (name) { return matchesPattern(name, config.mergeReadyLabel); })) {
                         return [2 /*return*/, PullRequestFailure.notMergeReady()];
                     }
@@ -3412,36 +3423,41 @@ function loadAndValidatePullRequest(_a, prNumber, ignoreNonFatalFailures) {
                         }
                         throw error;
                     }
-                    return [4 /*yield*/, git.github.repos.getCombinedStatusForRef(tslib.__assign(tslib.__assign({}, git.remoteParams), { ref: prData.head.sha }))];
-                case 2:
-                    state = (_b.sent()).data.state;
-                    if (state === 'failure' && !ignoreNonFatalFailures) {
+                    try {
+                        commitMessages = prData.commits.nodes.map(function (n) { return n.commit.message; });
+                        assertChangesAllowForTargetLabel(commitMessages, targetLabel, config);
+                    }
+                    catch (error) {
+                        return [2 /*return*/, error];
+                    }
+                    state = prData.commits.nodes.slice(-1)[0].commit.status.state;
+                    if (state === 'FAILURE' && !ignoreNonFatalFailures) {
                         return [2 /*return*/, PullRequestFailure.failingCiJobs()];
                     }
-                    if (state === 'pending' && !ignoreNonFatalFailures) {
+                    if (state === 'PENDING' && !ignoreNonFatalFailures) {
                         return [2 /*return*/, PullRequestFailure.pendingCiJobs()];
                     }
-                    githubTargetBranch = prData.base.ref;
+                    githubTargetBranch = prData.baseRefName;
                     requiredBaseSha = config.requiredBaseCommits && config.requiredBaseCommits[githubTargetBranch];
                     needsCommitMessageFixup = !!config.commitMessageFixupLabel &&
                         labels.some(function (name) { return matchesPattern(name, config.commitMessageFixupLabel); });
                     hasCaretakerNote = !!config.caretakerNoteLabel &&
                         labels.some(function (name) { return matchesPattern(name, config.caretakerNoteLabel); });
-                    _b.label = 3;
-                case 3:
-                    _b.trys.push([3, 5, , 6]);
+                    _b.label = 2;
+                case 2:
+                    _b.trys.push([2, 4, , 5]);
                     return [4 /*yield*/, getBranchesFromTargetLabel(targetLabel, githubTargetBranch)];
-                case 4:
+                case 3:
                     targetBranches = _b.sent();
-                    return [3 /*break*/, 6];
-                case 5:
+                    return [3 /*break*/, 5];
+                case 4:
                     error_1 = _b.sent();
                     if (error_1 instanceof InvalidTargetBranchError || error_1 instanceof InvalidTargetLabelError) {
                         return [2 /*return*/, new PullRequestFailure(error_1.failureMessage)];
                     }
                     throw error_1;
-                case 6: return [2 /*return*/, {
-                        url: prData.html_url,
+                case 5: return [2 /*return*/, {
+                        url: prData.url,
                         prNumber: prNumber,
                         labels: labels,
                         requiredBaseSha: requiredBaseSha,
@@ -3450,24 +3466,49 @@ function loadAndValidatePullRequest(_a, prNumber, ignoreNonFatalFailures) {
                         hasCaretakerNote: hasCaretakerNote,
                         targetBranches: targetBranches,
                         title: prData.title,
-                        commitCount: prData.commits,
+                        commitCount: prData.commits.totalCount,
                     }];
             }
         });
     });
 }
+/* GraphQL schema for the response body the requested pull request. */
+var PR_SCHEMA$2 = {
+    url: typedGraphqlify.types.string,
+    number: typedGraphqlify.types.number,
+    // Only the last 100 commits from a pull request are obtained as we likely will never see a pull
+    // requests with more than 100 commits.
+    commits: typedGraphqlify.params({ last: 100 }, {
+        totalCount: typedGraphqlify.types.number,
+        nodes: [{
+                commit: {
+                    status: {
+                        state: typedGraphqlify.types.oneOf(['FAILURE', 'PENDING', 'SUCCESS']),
+                    },
+                    message: typedGraphqlify.types.string,
+                },
+            }],
+    }),
+    baseRefName: typedGraphqlify.types.string,
+    title: typedGraphqlify.types.string,
+    labels: typedGraphqlify.params({ first: 100 }, {
+        nodes: [{
+                name: typedGraphqlify.types.string,
+            }]
+    }),
+};
 /** Fetches a pull request from Github. Returns null if an error occurred. */
 function fetchPullRequestFromGithub(git, prNumber) {
     return tslib.__awaiter(this, void 0, void 0, function () {
-        var result, e_1;
+        var x, e_1;
         return tslib.__generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
                     _a.trys.push([0, 2, , 3]);
-                    return [4 /*yield*/, git.github.pulls.get(tslib.__assign(tslib.__assign({}, git.remoteParams), { pull_number: prNumber }))];
+                    return [4 /*yield*/, getPr(PR_SCHEMA$2, prNumber, git)];
                 case 1:
-                    result = _a.sent();
-                    return [2 /*return*/, result.data];
+                    x = _a.sent();
+                    return [2 /*return*/, x];
                 case 2:
                     e_1 = _a.sent();
                     // If the pull request could not be found, we want to return `null` so
@@ -3484,6 +3525,46 @@ function fetchPullRequestFromGithub(git, prNumber) {
 /** Whether the specified value resolves to a pull request. */
 function isPullRequest(v) {
     return v.targetBranches !== undefined;
+}
+/**
+ * Assert the commits provided are allowed to merge to the provided target label, throwing a
+ * PullRequestFailure otherwise.
+ */
+function assertChangesAllowForTargetLabel(rawCommits, label, config) {
+    /**
+     * List of commit scopes which are exempted from target label content requirements. i.e. no `feat`
+     * scopes in patch branches, no breaking changes in minor or patch changes.
+     */
+    var exemptedScopes = config.targetLabelExemptScopes || [];
+    /** List of parsed commits which are subject to content requirements for the target label. */
+    var commits = rawCommits.map(parseCommitMessage).filter(function (commit) {
+        return !exemptedScopes.includes(commit.scope);
+    });
+    switch (label.pattern) {
+        case 'target: major':
+            break;
+        case 'target: minor':
+            // Check if any commits in the pull request contains a breaking change.
+            if (commits.some(function (commit) { return commit.breakingChanges.length !== 0; })) {
+                throw PullRequestFailure.hasBreakingChanges(label);
+            }
+            break;
+        case 'target: patch':
+        case 'target: lts':
+            // Check if any commits in the pull request contains a breaking change.
+            if (commits.some(function (commit) { return commit.breakingChanges.length !== 0; })) {
+                throw PullRequestFailure.hasBreakingChanges(label);
+            }
+            // Check if any commits in the pull request contains a commit type of "feat".
+            if (commits.some(function (commit) { return commit.type === 'feat'; })) {
+                throw PullRequestFailure.hasFeatureCommits(label);
+            }
+            break;
+        default:
+            warn(red('WARNING: Unable to confirm all commits in the pull request are eligible to be'));
+            warn(red("merged into the target branch: " + label.pattern));
+            break;
+    }
 }
 
 /**
@@ -4315,7 +4396,7 @@ var MergeCommandModule = {
  * found in the LICENSE file at https://angular.io/license
  */
 /* GraphQL schema for the response body for each pending PR. */
-const PR_SCHEMA$2 = {
+const PR_SCHEMA$3 = {
     state: typedGraphqlify.types.string,
     maintainerCanModify: typedGraphqlify.types.boolean,
     viewerDidAuthor: typedGraphqlify.types.boolean,
@@ -4353,7 +4434,7 @@ function rebasePr(prNumber, githubToken, config = getConfig()) {
          */
         const previousBranchOrRevision = git.getCurrentBranchOrRevision();
         /* Get the PR information from Github. */
-        const pr = yield getPr(PR_SCHEMA$2, prNumber, git);
+        const pr = yield getPr(PR_SCHEMA$3, prNumber, git);
         const headRefName = pr.headRef.name;
         const baseRefName = pr.baseRef.name;
         const fullHeadRef = `${pr.headRef.repository.nameWithOwner}:${headRefName}`;
