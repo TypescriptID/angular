@@ -54,6 +54,25 @@ function allTests(os: string) {
       env.tsconfig();
     });
 
+    it('should accept relative file paths as command line argument', () => {
+      env.addCommandLineArgs('--rootDir', './rootDir');
+      env.write('rootDir/test.html', '<p>Hello World</p>');
+      env.write('rootDir/test.ts', `
+        import {Component} from '@angular/core';
+
+        @Component({
+          selector: 'test-cmp',
+          templateUrl: 'test.html',
+        })
+        export class TestCmp {}
+    `);
+
+      env.driveMain();
+
+      const jsContents = env.getContents('test.js');
+      expect(jsContents).toContain('Hello World');
+    });
+
     it('should compile Injectables without errors', () => {
       env.write('test.ts', `
         import {Injectable} from '@angular/core';
@@ -4629,7 +4648,7 @@ function allTests(os: string) {
 
       env.driveMain();
       const jsContents = trim(env.getContents('test.js'));
-      expect(jsContents).toContain(`import { KeyCodes } from './keycodes';`);
+      expect(jsContents).toContain(`import * as i1 from "./keycodes";`);
       expect(jsContents).toMatch(setClassMetadataRegExp('type: i1.KeyCodes'));
     });
 

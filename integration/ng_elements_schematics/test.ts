@@ -45,6 +45,9 @@ for (let p of nodePackages) {
   packages[p] = `file:${bazelMappings[p]}` || `file:${__dirname}/../../node_modules/${p}`;
 }
 
+// TODO(alan-agius4): remove once the main repo dependency on `@angular-devkut/build-angular` is `0.1200.0-next.9` or greater.
+packages['@angular-devkit/build-angular'] = 'github:angular/angular-devkit-build-angular-builds#e0c1374b12cfc892844030431bc19f631c0086a5';
+
 // Clean up previously run test
 cd(__dirname);
 rm('-rf', `demo`);
@@ -62,7 +65,11 @@ const packageList = Object.keys(packages).map(p => `${p}@${packages[p]}`).join('
 exec(`yarn add --ignore-scripts --silent ${packageList} --cache-folder ./.yarn_local_cache`);
 
 // Add @angular/elements
-exec(bazelMappings ? `ng add "${bazelMappings['@angular/elements']}"` : `ng add "${__dirname}/../../dist/packages-dist/elements"`);
+const schematicPath = bazelMappings
+  ? `${bazelMappings['@angular/elements']}`
+  : `${__dirname}/../../dist/packages-dist/elements`;
+
+exec(`ng add "${schematicPath}" --skip-confirmation`);
 
 // Test that build is successful after adding elements
-exec('ng build --no-source-map');
+exec('ng build --no-source-map --configuration=development');
