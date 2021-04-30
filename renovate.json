@@ -46,8 +46,6 @@
     "angular-mocks-1.7",
     "puppeteer",
     "rollup",
-    "remark",
-    "remark-html",
     "selenium-webdriver"
   ],
   "packageFiles": [
@@ -128,6 +126,7 @@
         "minor",
         "patch"
       ],
+      "matchCurrentVersion": ">=1",
       "groupName": "all non-major dependencies",
       "groupSlug": "all-minor-patch",
       "schedule": [
