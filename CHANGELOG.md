@@ -1,3 +1,74 @@
+# 12.0.0-rc.2 (2021-05-05)
+
+
+### Bug Fixes
+
+* **animations:** ensure consistent transition namespace ordering ([#19854](https://github.com/angular/angular/issues/19854)) ([01cc995](https://github.com/angular/angular/commit/01cc99589bc449eaf3b1de2c94636de878843fba))
+* **common:** add  right ContentType for boolean values with HttpClient request body([#38924](https://github.com/angular/angular/issues/38924)) ([#41885](https://github.com/angular/angular/issues/41885)) ([922a602](https://github.com/angular/angular/commit/922a60283183c47a268fd084302b2bc87267a73e))
+* **compiler-cli:** expose the linker as a Babel plugin ([#41918](https://github.com/angular/angular/issues/41918)) ([8fdac8f](https://github.com/angular/angular/commit/8fdac8f4361fd4ac0f20c21c98289c19e8864347))
+* **compiler-cli:** prefer non-aliased exports in reference emitters ([#41866](https://github.com/angular/angular/issues/41866)) ([75bb931](https://github.com/angular/angular/commit/75bb931889b946c243161a6ce0503bc7d08a6565)), closes [#41443](https://github.com/angular/angular/issues/41443) [#41277](https://github.com/angular/angular/issues/41277)
+* **core:** AsyncPipe now compatible with RxJS 7 ([#41590](https://github.com/angular/angular/issues/41590)) ([9759bca](https://github.com/angular/angular/commit/9759bca339b44ed78ec6aafab0336d531d285f90))
+* **core:** handle multiple i18n attributes with expression bindings ([#41882](https://github.com/angular/angular/issues/41882)) ([73c6c64](https://github.com/angular/angular/commit/73c6c64f82d45c34203d4d18d759ad0c33a6b221)), closes [#41869](https://github.com/angular/angular/issues/41869)
+* **localize:** relax error to warning for missing target ([#41944](https://github.com/angular/angular/issues/41944)) ([35ceed2](https://github.com/angular/angular/commit/35ceed2061a890a70576dc7afa0b779f3779ae7b)), closes [#21690](https://github.com/angular/angular/issues/21690)
+
+
+### Performance Improvements
+
+* **core:** minor improvements to listener instructions ([#41807](https://github.com/angular/angular/issues/41807)) ([9346d61](https://github.com/angular/angular/commit/9346d61d92c722175ca7673efe475e838546fef7))
+
+
+
+# 12.1.0-next.1 (2021-05-05)
+
+
+### Bug Fixes
+
+* **common:** add body as an optional property on the options of HttpClient.delete ([#19438](https://github.com/angular/angular/issues/19438)) ([#41723](https://github.com/angular/angular/issues/41723)) ([6b8baad](https://github.com/angular/angular/commit/6b8baad94096225837dddc6ccf0826c59582d467))
+* **compiler-cli:** expose the linker as a Babel plugin ([#41918](https://github.com/angular/angular/issues/41918)) ([6eafaa7](https://github.com/angular/angular/commit/6eafaa7b5e2b85e53b4213f9f7756474609a0fa3))
+* **compiler-cli:** prefer non-aliased exports in reference emitters ([#41866](https://github.com/angular/angular/issues/41866)) ([35450c7](https://github.com/angular/angular/commit/35450c78f7908d43c1d7d8598c915a8c86a28d2e)), closes [#41443](https://github.com/angular/angular/issues/41443) [#41277](https://github.com/angular/angular/issues/41277)
+* **core:** handle multiple i18n attributes with expression bindings ([#41882](https://github.com/angular/angular/issues/41882)) ([9b4b281](https://github.com/angular/angular/commit/9b4b281c5223084834019664fbe5248521caadae)), closes [#41869](https://github.com/angular/angular/issues/41869)
+
+
+### Features
+
+* **compiler:** support directive selectors with attributes containing `$` ([#41567](https://github.com/angular/angular/issues/41567)) ([1758d02](https://github.com/angular/angular/commit/1758d0297267a8d46042d2f926eebb2263a345e5)), closes [#41244](https://github.com/angular/angular/issues/41244) [#41500](https://github.com/angular/angular/issues/41500) [#41500](https://github.com/angular/angular/issues/41500)
+
+
+### Performance Improvements
+
+* **core:** minor improvements to listener instructions ([#41807](https://github.com/angular/angular/issues/41807)) ([6581a1b](https://github.com/angular/angular/commit/6581a1b48dc6a3ddb6d371d26d765aaa0f0b04c1))
+
+
+### BREAKING CHANGES
+
+* Minified UMD bundles are no longer included in the distributed NPM packages.
+* **core:** Angular no longer maintains support for node v10
+* **core:** Previously the `ng.getDirectives` function threw an error in case a
+given DOM node had no Angular context associated with it (for example
+if a function was called for a DOM element outside of an Angular app).
+This behavior was inconsistent with other debugging utilities under `ng`
+namespace, which handled this situation without raising an exception.
+Now calling the `ng.getDirectives` function for such DOM nodes would
+result in an empty array returned from that function.
+* **compiler-cli:** Linked libraries no longer generate legacy i18n message ids. Any downstream
+application that provides translations for these messages, will need to
+migrate their message ids using the `localize-migrate` command line tool.
+
+
+
+## 11.2.13 (2021-05-05)
+
+
+### Bug Fixes
+
+* **animations:** ensure consistent transition namespace ordering ([#19854](https://github.com/angular/angular/issues/19854)) ([a58562a](https://github.com/angular/angular/commit/a58562a515492f827e5215bca184a332a68fb538))
+* **common:** add  right ContentType for boolean values with HttpClient request body([#38924](https://github.com/angular/angular/issues/38924)) ([#41885](https://github.com/angular/angular/issues/41885)) ([ae0fa08](https://github.com/angular/angular/commit/ae0fa0885eb0dd91b3ce77d2a7d948aa64ca41f0))
+* **core:** AsyncPipe now compatible with RxJS 7 ([#41590](https://github.com/angular/angular/issues/41590)) ([7a86ebf](https://github.com/angular/angular/commit/7a86ebfcf6d0a2beb66ae628e58ef0741d624e11))
+* **core:** handle multiple i18n attributes with expression bindings ([#41912](https://github.com/angular/angular/issues/41912)) ([345f5c4](https://github.com/angular/angular/commit/345f5c487aad26551cd510f13223a71ceae3f634)), closes [#41869](https://github.com/angular/angular/issues/41869)
+* **localize:** relax error to warning for missing target ([#41944](https://github.com/angular/angular/issues/41944)) ([3150f9f](https://github.com/angular/angular/commit/3150f9f66db3d3bd81425341dd5921c6f42324e6)), closes [#21690](https://github.com/angular/angular/issues/21690)
+
+
+
 # 12.0.0-rc.1 (2021-04-28)
 
 
