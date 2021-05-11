@@ -10,7 +10,7 @@ import {compileClassMetadata, compileComponentFromMetadata, compileDeclareClassM
 import * as ts from 'typescript';
 
 import {Cycle, CycleAnalyzer, CycleHandlingStrategy} from '../../cycles';
-import {ErrorCode, FatalDiagnosticError, makeDiagnostic, makeRelatedInformation} from '../../diagnostics';
+import {ErrorCode, FatalDiagnosticError, makeRelatedInformation} from '../../diagnostics';
 import {absoluteFrom, relative} from '../../file_system';
 import {ImportedFile, ModuleResolver, Reference, ReferenceEmitter} from '../../imports';
 import {DependencyTracker} from '../../incremental/api';
@@ -23,7 +23,6 @@ import {ClassDeclaration, DeclarationNode, Decorator, ReflectionHost, reflectObj
 import {ComponentScopeReader, LocalModuleScopeRegistry, TypeCheckScopeRegistry} from '../../scope';
 import {AnalysisOutput, CompileResult, DecoratorHandler, DetectResult, HandlerFlags, HandlerPrecedence, ResolveResult} from '../../transform';
 import {TemplateSourceMapping, TypeCheckContext} from '../../typecheck/api';
-import {tsSourceMapBug29300Fixed} from '../../util/src/ts_source_map_bug_29300';
 import {SubsetOfKeys} from '../../util/src/typescript';
 
 import {ResourceLoader} from './api';
@@ -1083,7 +1082,7 @@ export class ComponentDecoratorHandler implements
           type: 'direct',
           node: template.expression,
         };
-        sourceMapUrl = template.potentialSourceMapUrl;
+        sourceMapUrl = template.resolvedTemplateUrl;
       } else {
         const resolvedTemplate = this.evaluator.evaluate(template.expression);
         if (typeof resolvedTemplate !== 'string') {
@@ -1124,7 +1123,7 @@ export class ComponentDecoratorHandler implements
         ...this._parseTemplate(
             template, /* sourceStr */ templateContent, /* sourceParseRange */ null,
             /* escapedString */ false,
-            /* sourceMapUrl */ template.potentialSourceMapUrl),
+            /* sourceMapUrl */ template.resolvedTemplateUrl),
         content: templateContent,
         sourceMapping: {
           type: 'external',
@@ -1231,7 +1230,6 @@ export class ComponentDecoratorHandler implements
           templateUrl,
           templateUrlExpression: templateUrlExpr,
           resolvedTemplateUrl: resourceUrl,
-          potentialSourceMapUrl: sourceMapUrl(resourceUrl),
         };
       } catch (e) {
         throw this.makeResourceNotFoundError(
@@ -1245,7 +1243,6 @@ export class ComponentDecoratorHandler implements
         expression: component.get('template')!,
         templateUrl: containingFile,
         resolvedTemplateUrl: containingFile,
-        potentialSourceMapUrl: containingFile,
       };
     } else {
       throw new FatalDiagnosticError(
@@ -1342,17 +1339,6 @@ function getTemplateRange(templateExpr: ts.Expression) {
   };
 }
 
-function sourceMapUrl(resourceUrl: string): string {
-  if (!tsSourceMapBug29300Fixed()) {
-    // By removing the template URL we are telling the translator not to try to
-    // map the external source file to the generated code, since the version
-    // of TS that is running does not support it.
-    return '';
-  } else {
-    return resourceUrl;
-  }
-}
-
 /** Determines if the result of an evaluation is a string array. */
 function isStringArray(resolvedValue: ResolvedValue): resolvedValue is string[] {
   return Array.isArray(resolvedValue) && resolvedValue.every(elem => typeof elem === 'string');
@@ -1406,7 +1392,6 @@ interface CommonTemplateDeclaration {
   interpolationConfig: InterpolationConfig;
   templateUrl: string;
   resolvedTemplateUrl: string;
-  potentialSourceMapUrl: string;
 }
 
 /**
@@ -1428,7 +1413,7 @@ interface ExternalTemplateDeclaration extends CommonTemplateDeclaration {
 /**
  * The declaration of a template extracted from a component decorator.
  *
- * This data is extracted and stored separately to faciliate re-interpreting the template
+ * This data is extracted and stored separately to facilitate re-interpreting the template
  * declaration whenever the compiler is notified of a change to a template file. With this
  * information, `ComponentDecoratorHandler` is able to re-read the template and update the component
  * record without needing to parse the original decorator again.
