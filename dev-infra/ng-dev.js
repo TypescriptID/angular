@@ -5623,25 +5623,6 @@ function invokeYarnInstallCommand(projectDir) {
         }
     });
 }
-/**
- * Invokes the `yarn bazel clean` command in order to clean the output tree and ensure new artifacts
- * are created for builds.
- */
-function invokeBazelCleanCommand(projectDir) {
-    return tslib.__awaiter(this, void 0, void 0, function* () {
-        try {
-            // Note: No progress indicator needed as that is the responsibility of the command.
-            // TODO: Consider using an Ora spinner instead to ensure minimal console output.
-            yield spawnWithDebugOutput('yarn', ['bazel', 'clean'], { cwd: projectDir });
-            info(green('  ✓   Cleaned bazel output tree.'));
-        }
-        catch (e) {
-            error(e);
-            error(red('  ✘   An error occurred while cleaning the bazel output tree.'));
-            throw new FatalReleaseActionError();
-        }
-    });
-}
 
 /**
  * @license
@@ -5874,18 +5855,20 @@ function getLocalChangelogFilePath(projectDir) {
 }
 /** Release note generation. */
 class ReleaseNotes {
-    constructor(version, config) {
+    constructor(version, startingRef, endingRef) {
         this.version = version;
-        this.config = config;
+        this.startingRef = startingRef;
+        this.endingRef = endingRef;
         /** An instance of GitClient. */
         this.git = GitClient.getInstance();
         /** A promise resolving to a list of Commits since the latest semver tag on the branch. */
-        this.commits = getCommitsInRange(this.git.getLatestSemverTag().format(), 'HEAD');
+        this.commits = this.getCommitsInRange(this.startingRef, this.endingRef);
+        /** The configuration for release notes. */
+        this.config = this.getReleaseConfig().releaseNotes;
     }
-    /** Construct a release note generation instance. */
-    static fromLatestTagToHead(version, config) {
+    static fromRange(version, startingRef, endingRef) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
-            return new ReleaseNotes(version, config);
+            return new ReleaseNotes(version, startingRef, endingRef);
         });
     }
     /** Retrieve the release note generated for a Github Release. */
@@ -5907,7 +5890,7 @@ class ReleaseNotes {
     promptForReleaseTitle() {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             if (this.title === undefined) {
-                if (this.config.releaseNotes.useReleaseTitle) {
+                if (this.config.useReleaseTitle) {
                     this.title = yield promptInput('Please provide a title for the release:');
                 }
                 else {
@@ -5925,13 +5908,23 @@ class ReleaseNotes {
                     commits: yield this.commits,
                     github: this.git.remoteConfig,
                     version: this.version.format(),
-                    groupOrder: this.config.releaseNotes.groupOrder,
-                    hiddenScopes: this.config.releaseNotes.hiddenScopes,
+                    groupOrder: this.config.groupOrder,
+                    hiddenScopes: this.config.hiddenScopes,
                     title: yield this.promptForReleaseTitle(),
                 });
             }
             return this.renderContext;
         });
+    }
+    // These methods are used for access to the utility functions while allowing them to be
+    // overwritten in subclasses during testing.
+    getCommitsInRange(from, to) {
+        return tslib.__awaiter(this, void 0, void 0, function* () {
+            return getCommitsInRange(from, to);
+        });
+    }
+    getReleaseConfig(config) {
+        return getReleaseConfig(config);
     }
 }
 
@@ -6213,7 +6206,7 @@ class ReleaseAction {
      */
     stageVersionForBranchAndCreatePullRequest(newVersion, pullRequestBaseBranch) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
-            const releaseNotes = yield ReleaseNotes.fromLatestTagToHead(newVersion, this.config);
+            const releaseNotes = yield ReleaseNotes.fromRange(newVersion, this.git.getLatestSemverTag().format(), 'HEAD');
             yield this.updateProjectVersion(newVersion);
             yield this.prependReleaseNotesToChangelog(releaseNotes);
             yield this.waitForEditsAndCreateReleaseCommit(newVersion);
@@ -6297,7 +6290,6 @@ class ReleaseAction {
             // created in the `next` branch. The new package would not be part of the patch branch,
             // so we cannot build and publish it.
             yield invokeYarnInstallCommand(this.projectDir);
-            yield invokeBazelCleanCommand(this.projectDir);
             const builtPackages = yield invokeReleaseBuildCommand();
             // Verify the packages built are the correct version.
             yield this._verifyPackageVersions(releaseNotes.version, builtPackages);
