@@ -1,6 +1,6 @@
 {
   "name": "angular-srcs",
-  "version": "12.1.0-next.1",
+  "version": "12.1.0-next.2",
   "private": true,
   "description": "Angular - a web framework for modern web apps",
   "homepage": "https://github.com/angular/angular",
@@ -194,6 +194,7 @@
     "mutation-observer": "^1.0.3",
     "nock": "^13.0.3",
     "ora": "^5.0.0",
+    "prettier": "^2.3.0",
     "rollup-plugin-hashbang": "^2.2.2",
     "sauce-connect": "https://saucelabs.com/downloads/sc-4.6.2-linux.tar.gz",
     "semver": "^7.3.5",
