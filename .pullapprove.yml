@@ -45,10 +45,10 @@
 # =========================================================
 #  Used for approving minor changes, large-scale refactorings, and in emergency situations.
 #
+# alxhub
 # IgorMinar
 # jelbourn
 # josephperrott
-# mhevery
 #
 # =========================================================
 # @angular/framework-global-approvers-for-docs-only-changes
@@ -58,6 +58,7 @@
 # aikidave
 # gkalpak
 # petebacondarwin
+# TeriGlover
 
 version: 3
 
@@ -192,7 +193,6 @@ groups:
         - kyliau # Keen Yee Liau
         - manughub # Manu Murthy
         - mgechev # Minko Gechev
-        - mhevery # Miško Hevery
         - mmalerba # Miles Malerba
         - petebacondarwin # Pete Bacon Darwin
         - pkozlowski-opensource # Pawel Kozlowski
@@ -416,7 +416,6 @@ groups:
         - alxhub
         - AndrewKushnir
         - atscott
-        - mhevery
         - jessicajaniuk
         # OOO as of 2020-09-28 - pkozlowski-opensource
 
@@ -438,7 +437,6 @@ groups:
         - alxhub
         - AndrewKushnir
         - atscott
-        - mhevery
         - jessicajaniuk
         # OOO as of 2020-09-28 - pkozlowski-opensource
 
@@ -546,7 +544,6 @@ groups:
     reviewers:
       users:
         - AndrewKushnir
-        - mhevery
         - petebacondarwin
 
   # =========================================================
@@ -587,7 +584,9 @@ groups:
           'aio/content/guide/router-reference.md',
           'aio/content/examples/router-tutorial/**',
           'aio/content/examples/router/**',
-          'aio/content/images/guide/router/**'
+          'aio/content/images/guide/router/**',
+          'aio/content/guide/routing-with-urlmatcher.md',
+          'aio/content/examples/routing-with-urlmatcher/**'
           ])
     reviewers:
       users:
@@ -733,7 +732,6 @@ groups:
     reviewers:
       users:
         - IgorMinar
-        - mhevery
         - jelbourn
         # OOO as of 2020-09-28 - pkozlowski-opensource
     reviews:
@@ -795,7 +793,6 @@ groups:
     reviewers:
       users:
         - JiaLiPassion
-        - mhevery
 
   # =========================================================
   #  in-memory-web-api
@@ -845,7 +842,6 @@ groups:
       users:
         - IgorMinar
         - josephperrott
-        - mhevery
 
   # =========================================================
   #  Docs: Contributors
@@ -1303,7 +1299,6 @@ groups:
         - atscott
         - jelbourn
         - josephperrott
-        - mhevery
 
   # ====================================================
   #  Catch all for if no groups match the code change
