@@ -24,8 +24,8 @@ var cliProgress = require('cli-progress');
 var os = require('os');
 var shelljs = require('shelljs');
 var minimatch = require('minimatch');
-var ora = require('ora');
 var ejs = require('ejs');
+var ora = require('ora');
 var glob = require('glob');
 var ts = require('typescript');
 
@@ -2683,7 +2683,7 @@ function checkFiles(files) {
                 // Inform user how to format files in the future.
                 info();
                 info(`To format the failing file run the following command:`);
-                info(`  yarn ng-dev format files ${failures.join(' ')}`);
+                info(`  yarn ng-dev format files ${failures.map(f => f.filePath).join(' ')}`);
                 process.exit(1);
             }
         }
@@ -5152,10 +5152,10 @@ function getReleaseConfig(config = getConfig()) {
  * pollute the stdout in such cases, we launch a child process for building the release packages
  * and redirect all stdout output to the stderr channel (which can be read in the terminal).
  */
-function buildReleaseOutput() {
+function buildReleaseOutput(stampForRelease = false) {
     return tslib.__awaiter(this, void 0, void 0, function* () {
         return new Promise(resolve => {
-            const buildProcess = child_process.fork(require.resolve('./build-worker'), [], {
+            const buildProcess = child_process.fork(require.resolve('./build-worker'), [`${stampForRelease}`], {
                 // The stdio option is set to redirect any "stdout" output directly to the "stderr" file
                 // descriptor. An additional "ipc" file descriptor is created to support communication with
                 // the build process. https://nodejs.org/api/child_process.html#child_process_options_stdio.
@@ -5180,9 +5180,15 @@ function buildReleaseOutput() {
  */
 /** Yargs command builder for configuring the `ng-dev release build` command. */
 function builder$7(argv) {
-    return argv.option('json', {
+    return argv
+        .option('json', {
         type: 'boolean',
         description: 'Whether the built packages should be printed to stdout as JSON.',
+        default: false,
+    })
+        .option('stampForRelease', {
+        type: 'boolean',
+        description: 'Whether the built packages should be stamped for release.',
         default: false,
     });
 }
@@ -5190,7 +5196,7 @@ function builder$7(argv) {
 function handler$7(args) {
     return tslib.__awaiter(this, void 0, void 0, function* () {
         const { npmPackages } = getReleaseConfig();
-        let builtPackages = yield buildReleaseOutput();
+        let builtPackages = yield buildReleaseOutput(args.stampForRelease);
         // If package building failed, print an error and exit with an error code.
         if (builtPackages === null) {
             error(red(`  ✘   Could not build release output. Please check output above.`));
@@ -5226,6 +5232,438 @@ const ReleaseBuildCommandModule = {
     handler: handler$7,
     command: 'build',
     describe: 'Builds the release output for the current branch.',
+};
+
+/**
+ * @license
+ * Copyright Google LLC All Rights Reserved.
+ *
+ * Use of this source code is governed by an MIT-style license that can be
+ * found in the LICENSE file at https://angular.io/license
+ */
+/** List of types to be included in the release notes. */
+const typesToIncludeInReleaseNotes = Object.values(COMMIT_TYPES)
+    .filter(type => type.releaseNotesLevel === ReleaseNotesLevel.Visible)
+    .map(type => type.name);
+/** Context class used for rendering release notes. */
+class RenderContext {
+    constructor(data) {
+        this.data = data;
+        /** An array of group names in sort order if defined. */
+        this.groupOrder = this.data.groupOrder || [];
+        /** An array of scopes to hide from the release entry output. */
+        this.hiddenScopes = this.data.hiddenScopes || [];
+        /** The title of the release, or `false` if no title should be used. */
+        this.title = this.data.title;
+        /** An array of commits in the release period. */
+        this.commits = this.data.commits;
+        /** The version of the release. */
+        this.version = this.data.version;
+        /** The date stamp string for use in the release notes entry. */
+        this.dateStamp = buildDateStamp(this.data.date);
+    }
+    /**
+     * Organizes and sorts the commits into groups of commits.
+     *
+     * Groups are sorted either by default `Array.sort` order, or using the provided group order from
+     * the configuration. Commits are order in the same order within each groups commit list as they
+     * appear in the provided list of commits.
+     * */
+    asCommitGroups(commits) {
+        /** The discovered groups to organize into. */
+        const groups = new Map();
+        // Place each commit in the list into its group.
+        commits.forEach(commit => {
+            const key = commit.npmScope ? `${commit.npmScope}/${commit.scope}` : commit.scope;
+            const groupCommits = groups.get(key) || [];
+            groups.set(key, groupCommits);
+            groupCommits.push(commit);
+        });
+        /**
+         * Array of CommitGroups containing the discovered commit groups. Sorted in alphanumeric order
+         * of the group title.
+         */
+        const commitGroups = Array.from(groups.entries())
+            .map(([title, commits]) => ({ title, commits }))
+            .sort((a, b) => a.title > b.title ? 1 : a.title < b.title ? -1 : 0);
+        // If the configuration provides a sorting order, updated the sorted list of group keys to
+        // satisfy the order of the groups provided in the list with any groups not found in the list at
+        // the end of the sorted list.
+        if (this.groupOrder.length) {
+            for (const groupTitle of this.groupOrder.reverse()) {
+                const currentIdx = commitGroups.findIndex(k => k.title === groupTitle);
+                if (currentIdx !== -1) {
+                    const removedGroups = commitGroups.splice(currentIdx, 1);
+                    commitGroups.splice(0, 0, ...removedGroups);
+                }
+            }
+        }
+        return commitGroups;
+    }
+    /**
+     * A filter function for filtering a list of commits to only include commits which should appear
+     * in release notes.
+     */
+    includeInReleaseNotes() {
+        return (commit) => {
+            if (!typesToIncludeInReleaseNotes.includes(commit.type)) {
+                return false;
+            }
+            if (this.hiddenScopes.includes(commit.scope)) {
+                return false;
+            }
+            return true;
+        };
+    }
+    /**
+     * A filter function for filtering a list of commits to only include commits which contain a
+     * truthy value, or for arrays an array with 1 or more elements, for the provided field.
+     */
+    contains(field) {
+        return (commit) => {
+            const fieldValue = commit[field];
+            if (!fieldValue) {
+                return false;
+            }
+            if (Array.isArray(fieldValue) && fieldValue.length === 0) {
+                return false;
+            }
+            return true;
+        };
+    }
+    /**
+     * A filter function for filtering a list of commits to only include commits which contain a
+     * unique value for the provided field across all commits in the list.
+     */
+    unique(field) {
+        const set = new Set();
+        return (commit) => {
+            const include = !set.has(commit[field]);
+            set.add(commit[field]);
+            return include;
+        };
+    }
+}
+/**
+ * Builds a date stamp for stamping in release notes.
+ *
+ * Uses the current date, or a provided date in the format of YYYY-MM-DD, i.e. 1970-11-05.
+ */
+function buildDateStamp(date = new Date()) {
+    const year = `${date.getFullYear()}`;
+    const month = `${(date.getMonth() + 1)}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    return [year, month, day].join('-');
+}
+
+/**
+ * @license
+ * Copyright Google LLC All Rights Reserved.
+ *
+ * Use of this source code is governed by an MIT-style license that can be
+ * found in the LICENSE file at https://angular.io/license
+ */
+var changelogTemplate = `
+<a name="<%- version %>"></a>
+# <%- version %><% if (title) { %> "<%- title %>"<% } %> (<%- dateStamp %>)
+
+<%_
+const commitsInChangelog = commits.filter(includeInReleaseNotes());
+for (const group of asCommitGroups(commitsInChangelog)) {
+_%>
+
+### <%- group.title %>
+| Commit | Description |
+| -- | -- |
+<%_
+  for (const commit of group.commits) {
+_%>
+| <%- commit.shortHash %> | <%- commit.header %> |
+<%_
+  }
+}
+_%>
+
+<%_
+const breakingChanges = commits.filter(contains('breakingChanges'));
+if (breakingChanges.length) {
+_%>
+## Breaking Changes
+
+<%_
+  for (const group of asCommitGroups(breakingChanges)) {
+_%>
+### <%- group.title %>
+
+<%_
+    for (const commit of group.commits) {
+_%>
+<%- commit.breakingChanges[0].text %>
+
+<%_
+    }
+  }
+}
+_%>
+
+<%_
+const deprecations = commits.filter(contains('deprecations'));
+if (deprecations.length) {
+_%>
+## Deprecations
+<%_
+  for (const group of asCommitGroups(deprecations)) {
+_%>
+### <%- group.title %>
+
+<%_
+    for (const commit of group.commits) {
+_%>
+<%- commit.deprecations[0].text %>
+<%_
+    }
+  }
+}
+_%>
+
+<%_
+const authors = commits.filter(unique('author')).map(c => c.author).sort();
+if (authors.length === 1) {
+_%>
+## Special Thanks:
+<%- authors[0]%>
+<%_
+}
+if (authors.length > 1) {
+_%>
+## Special Thanks:
+<%- authors.slice(0, -1).join(', ') %> and <%- authors.slice(-1)[0] %>
+<%_
+}
+_%>
+`;
+
+/**
+ * @license
+ * Copyright Google LLC All Rights Reserved.
+ *
+ * Use of this source code is governed by an MIT-style license that can be
+ * found in the LICENSE file at https://angular.io/license
+ */
+var githubReleaseTemplate = `
+<a name="<%- version %>"></a>
+# <%- version %><% if (title) { %> "<%- title %>"<% } %> (<%- dateStamp %>)
+
+<%_
+const commitsInChangelog = commits.filter(includeInReleaseNotes());
+for (const group of asCommitGroups(commitsInChangelog)) {
+_%>
+
+### <%- group.title %>
+| Commit | Description |
+| -- | -- |
+<%_
+  for (const commit of group.commits) {
+_%>
+| <%- commit.shortHash %> | <%- commit.header %> |
+<%_
+  }
+}
+_%>
+
+<%_
+const breakingChanges = commits.filter(contains('breakingChanges'));
+if (breakingChanges.length) {
+_%>
+## Breaking Changes
+
+<%_
+  for (const group of asCommitGroups(breakingChanges)) {
+_%>
+### <%- group.title %>
+
+<%_
+    for (const commit of group.commits) {
+_%>
+<%- commit.breakingChanges[0].text %>
+
+<%_
+    }
+  }
+}
+_%>
+
+<%_
+const deprecations = commits.filter(contains('deprecations'));
+if (deprecations.length) {
+_%>
+## Deprecations
+<%_
+  for (const group of asCommitGroups(deprecations)) {
+_%>
+### <%- group.title %>
+
+<%_
+    for (const commit of group.commits) {
+_%>
+<%- commit.deprecations[0].text %>
+<%_
+    }
+  }
+}
+_%>
+
+<%_
+const authors = commits.filter(unique('author')).map(c => c.author).sort();
+if (authors.length === 1) {
+_%>
+## Special Thanks:
+<%- authors[0]%>
+<%_
+}
+if (authors.length > 1) {
+_%>
+## Special Thanks:
+<%- authors.slice(0, -1).join(', ') %> and <%- authors.slice(-1)[0] %>
+<%_
+}
+_%>
+`;
+
+/** Release note generation. */
+class ReleaseNotes {
+    constructor(version, startingRef, endingRef) {
+        this.version = version;
+        this.startingRef = startingRef;
+        this.endingRef = endingRef;
+        /** An instance of GitClient. */
+        this.git = GitClient.getInstance();
+        /** A promise resolving to a list of Commits since the latest semver tag on the branch. */
+        this.commits = this.getCommitsInRange(this.startingRef, this.endingRef);
+        /** The configuration for release notes. */
+        this.config = this.getReleaseConfig().releaseNotes;
+    }
+    static fromRange(version, startingRef, endingRef) {
+        return tslib.__awaiter(this, void 0, void 0, function* () {
+            return new ReleaseNotes(version, startingRef, endingRef);
+        });
+    }
+    /** Retrieve the release note generated for a Github Release. */
+    getGithubReleaseEntry() {
+        return tslib.__awaiter(this, void 0, void 0, function* () {
+            return ejs.render(githubReleaseTemplate, yield this.generateRenderContext(), { rmWhitespace: true });
+        });
+    }
+    /** Retrieve the release note generated for a CHANGELOG entry. */
+    getChangelogEntry() {
+        return tslib.__awaiter(this, void 0, void 0, function* () {
+            return ejs.render(changelogTemplate, yield this.generateRenderContext(), { rmWhitespace: true });
+        });
+    }
+    /**
+     * Prompt the user for a title for the release, if the project's configuration is defined to use a
+     * title.
+     */
+    promptForReleaseTitle() {
+        return tslib.__awaiter(this, void 0, void 0, function* () {
+            if (this.title === undefined) {
+                if (this.config.useReleaseTitle) {
+                    this.title = yield promptInput('Please provide a title for the release:');
+                }
+                else {
+                    this.title = false;
+                }
+            }
+            return this.title;
+        });
+    }
+    /** Build the render context data object for constructing the RenderContext instance. */
+    generateRenderContext() {
+        return tslib.__awaiter(this, void 0, void 0, function* () {
+            if (!this.renderContext) {
+                this.renderContext = new RenderContext({
+                    commits: yield this.commits,
+                    github: this.git.remoteConfig,
+                    version: this.version.format(),
+                    groupOrder: this.config.groupOrder,
+                    hiddenScopes: this.config.hiddenScopes,
+                    title: yield this.promptForReleaseTitle(),
+                });
+            }
+            return this.renderContext;
+        });
+    }
+    // These methods are used for access to the utility functions while allowing them to be
+    // overwritten in subclasses during testing.
+    getCommitsInRange(from, to) {
+        return tslib.__awaiter(this, void 0, void 0, function* () {
+            return getCommitsInRange(from, to);
+        });
+    }
+    getReleaseConfig(config) {
+        return getReleaseConfig(config);
+    }
+}
+
+/**
+ * @license
+ * Copyright Google LLC All Rights Reserved.
+ *
+ * Use of this source code is governed by an MIT-style license that can be
+ * found in the LICENSE file at https://angular.io/license
+ */
+/** Yargs command builder for configuring the `ng-dev release build` command. */
+function builder$8(argv) {
+    return argv
+        .option('releaseVersion', { type: 'string', default: '0.0.0', coerce: (version) => new semver.SemVer(version) })
+        .option('from', {
+        type: 'string',
+        description: 'The git tag or ref to start the changelog entry from',
+        defaultDescription: 'The latest semver tag',
+    })
+        .option('to', {
+        type: 'string',
+        description: 'The git tag or ref to end the changelog entry with',
+        default: 'HEAD',
+    })
+        .option('type', {
+        type: 'string',
+        description: 'The type of release notes to create',
+        choices: ['github-release', 'changelog'],
+        default: 'changelog',
+    })
+        .option('outFile', {
+        type: 'string',
+        description: 'File location to write the generated release notes to',
+        coerce: (filePath) => filePath ? path.join(process.cwd(), filePath) : undefined
+    });
+}
+/** Yargs command handler for generating release notes. */
+function handler$8({ releaseVersion, from, to, outFile, type }) {
+    return tslib.__awaiter(this, void 0, void 0, function* () {
+        // Since `yargs` evaluates defaults even if a value as been provided, if no value is provided to
+        // the handler, the latest semver tag on the branch is used.
+        from = from || GitClient.getInstance().getLatestSemverTag().format();
+        /** The ReleaseNotes instance to generate release notes. */
+        const releaseNotes = yield ReleaseNotes.fromRange(releaseVersion, from, to);
+        /** The requested release notes entry. */
+        const releaseNotesEntry = yield (type === 'changelog' ? releaseNotes.getChangelogEntry() :
+            releaseNotes.getGithubReleaseEntry());
+        if (outFile) {
+            fs.writeFileSync(outFile, releaseNotesEntry);
+            info(`Generated release notes for "${releaseVersion}" written to ${outFile}`);
+        }
+        else {
+            process.stdout.write(releaseNotesEntry);
+        }
+    });
+}
+/** CLI command module for generating release notes. */
+const ReleaseNotesCommandModule = {
+    builder: builder$8,
+    handler: handler$8,
+    command: 'notes',
+    describe: 'Generate release notes',
 };
 
 /**
@@ -5539,10 +5977,10 @@ function getReleaseNoteCherryPickCommitMessage(newVersion) {
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-/** Project-relative path for the changelog file. */
-const changelogPath = 'CHANGELOG.md';
 /** Project-relative path for the "package.json" file. */
 const packageJsonPath = 'package.json';
+/** Project-relative path for the changelog file. */
+const changelogPath = 'CHANGELOG.md';
 /** Default interval in milliseconds to check whether a pull request has been merged. */
 const waitForPullRequestInterval = 10000;
 
@@ -5733,381 +6171,6 @@ function isCommitClosingPullRequest(api, sha, id) {
         // https://docs.github.com/en/enterprise/2.16/user/github/managing-your-work-on-github/closing-issues-using-keywords.
         return data.commit.message.match(new RegExp(`(?:close[sd]?|fix(?:e[sd]?)|resolve[sd]?):? #${id}(?!\\d)`, 'i'));
     });
-}
-
-/**
- * @license
- * Copyright Google LLC All Rights Reserved.
- *
- * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
- */
-/** List of types to be included in the release notes. */
-const typesToIncludeInReleaseNotes = Object.values(COMMIT_TYPES)
-    .filter(type => type.releaseNotesLevel === ReleaseNotesLevel.Visible)
-    .map(type => type.name);
-/** Context class used for rendering release notes. */
-class RenderContext {
-    constructor(data) {
-        this.data = data;
-        /** An array of group names in sort order if defined. */
-        this.groupOrder = this.data.groupOrder || [];
-        /** An array of scopes to hide from the release entry output. */
-        this.hiddenScopes = this.data.hiddenScopes || [];
-        /** The title of the release, or `false` if no title should be used. */
-        this.title = this.data.title;
-        /** An array of commits in the release period. */
-        this.commits = this.data.commits;
-        /** The version of the release. */
-        this.version = this.data.version;
-        /** The date stamp string for use in the release notes entry. */
-        this.dateStamp = buildDateStamp(this.data.date);
-    }
-    /**
-     * Organizes and sorts the commits into groups of commits.
-     *
-     * Groups are sorted either by default `Array.sort` order, or using the provided group order from
-     * the configuration. Commits are order in the same order within each groups commit list as they
-     * appear in the provided list of commits.
-     * */
-    asCommitGroups(commits) {
-        /** The discovered groups to organize into. */
-        const groups = new Map();
-        // Place each commit in the list into its group.
-        commits.forEach(commit => {
-            const key = commit.npmScope ? `${commit.npmScope}/${commit.scope}` : commit.scope;
-            const groupCommits = groups.get(key) || [];
-            groups.set(key, groupCommits);
-            groupCommits.push(commit);
-        });
-        /**
-         * Array of CommitGroups containing the discovered commit groups. Sorted in alphanumeric order
-         * of the group title.
-         */
-        const commitGroups = Array.from(groups.entries())
-            .map(([title, commits]) => ({ title, commits }))
-            .sort((a, b) => a.title > b.title ? 1 : a.title < b.title ? -1 : 0);
-        // If the configuration provides a sorting order, updated the sorted list of group keys to
-        // satisfy the order of the groups provided in the list with any groups not found in the list at
-        // the end of the sorted list.
-        if (this.groupOrder.length) {
-            for (const groupTitle of this.groupOrder.reverse()) {
-                const currentIdx = commitGroups.findIndex(k => k.title === groupTitle);
-                if (currentIdx !== -1) {
-                    const removedGroups = commitGroups.splice(currentIdx, 1);
-                    commitGroups.splice(0, 0, ...removedGroups);
-                }
-            }
-        }
-        return commitGroups;
-    }
-    /**
-     * A filter function for filtering a list of commits to only include commits which should appear
-     * in release notes.
-     */
-    includeInReleaseNotes() {
-        return (commit) => {
-            if (!typesToIncludeInReleaseNotes.includes(commit.type)) {
-                return false;
-            }
-            if (this.hiddenScopes.includes(commit.scope)) {
-                return false;
-            }
-            return true;
-        };
-    }
-    /**
-     * A filter function for filtering a list of commits to only include commits which contain a
-     * truthy value, or for arrays an array with 1 or more elements, for the provided field.
-     */
-    contains(field) {
-        return (commit) => {
-            const fieldValue = commit[field];
-            if (!fieldValue) {
-                return false;
-            }
-            if (Array.isArray(fieldValue) && fieldValue.length === 0) {
-                return false;
-            }
-            return true;
-        };
-    }
-    /**
-     * A filter function for filtering a list of commits to only include commits which contain a
-     * unique value for the provided field across all commits in the list.
-     */
-    unique(field) {
-        const set = new Set();
-        return (commit) => {
-            const include = !set.has(commit[field]);
-            set.add(commit[field]);
-            return include;
-        };
-    }
-}
-/**
- * Builds a date stamp for stamping in release notes.
- *
- * Uses the current date, or a provided date in the format of YYYY-MM-DD, i.e. 1970-11-05.
- */
-function buildDateStamp(date = new Date()) {
-    const year = `${date.getFullYear()}`;
-    const month = `${(date.getMonth() + 1)}`.padStart(2, '0');
-    const day = `${date.getDate()}`.padStart(2, '0');
-    return [year, month, day].join('-');
-}
-
-/**
- * @license
- * Copyright Google LLC All Rights Reserved.
- *
- * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
- */
-var changelogTemplate = `
-<a name="<%- version %>"></a>
-# <%- version %><% if (title) { %> "<%- title %>"<% } %> (<%- dateStamp %>)
-
-<%_
-const commitsInChangelog = commits.filter(includeInReleaseNotes());
-for (const group of asCommitGroups(commitsInChangelog)) {
-_%>
-
-### <%- group.title %>
-| Commit | Description |
-| -- | -- |
-<%_
-  for (const commit of group.commits) {
-_%>
-| <%- commit.shortHash %> | <%- commit.header %> |
-<%_
-  }
-}
-_%>
-
-<%_
-const breakingChanges = commits.filter(contains('breakingChanges'));
-if (breakingChanges.length) {
-_%>
-## Breaking Changes
-
-<%_
-  for (const group of asCommitGroups(breakingChanges)) {
-_%>
-### <%- group.title %>
-
-<%_
-    for (const commit of group.commits) {
-_%>
-<%- commit.breakingChanges[0].text %>
-
-<%_
-    }
-  }
-}
-_%>
-
-<%_
-const deprecations = commits.filter(contains('deprecations'));
-if (deprecations.length) {
-_%>
-## Deprecations
-<%_
-  for (const group of asCommitGroups(deprecations)) {
-_%>
-### <%- group.title %>
-
-<%_
-    for (const commit of group.commits) {
-_%>
-<%- commit.deprecations[0].text %>
-<%_
-    }
-  }
-}
-_%>
-
-<%_
-const authors = commits.filter(unique('author')).map(c => c.author).sort();
-if (authors.length === 1) {
-_%>
-## Special Thanks:
-<%- authors[0]%>
-<%_
-}
-if (authors.length > 1) {
-_%>
-## Special Thanks:
-<%- authors.slice(0, -1).join(', ') %> and <%- authors.slice(-1)[0] %>
-<%_
-}
-_%>
-`;
-
-/**
- * @license
- * Copyright Google LLC All Rights Reserved.
- *
- * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
- */
-var githubReleaseTemplate = `
-<a name="<%- version %>"></a>
-# <%- version %><% if (title) { %> "<%- title %>"<% } %> (<%- dateStamp %>)
-
-<%_
-const commitsInChangelog = commits.filter(includeInReleaseNotes());
-for (const group of asCommitGroups(commitsInChangelog)) {
-_%>
-
-### <%- group.title %>
-| Commit | Description |
-| -- | -- |
-<%_
-  for (const commit of group.commits) {
-_%>
-| <%- commit.shortHash %> | <%- commit.header %> |
-<%_
-  }
-}
-_%>
-
-<%_
-const breakingChanges = commits.filter(contains('breakingChanges'));
-if (breakingChanges.length) {
-_%>
-## Breaking Changes
-
-<%_
-  for (const group of asCommitGroups(breakingChanges)) {
-_%>
-### <%- group.title %>
-
-<%_
-    for (const commit of group.commits) {
-_%>
-<%- commit.breakingChanges[0].text %>
-
-<%_
-    }
-  }
-}
-_%>
-
-<%_
-const deprecations = commits.filter(contains('deprecations'));
-if (deprecations.length) {
-_%>
-## Deprecations
-<%_
-  for (const group of asCommitGroups(deprecations)) {
-_%>
-### <%- group.title %>
-
-<%_
-    for (const commit of group.commits) {
-_%>
-<%- commit.deprecations[0].text %>
-<%_
-    }
-  }
-}
-_%>
-
-<%_
-const authors = commits.filter(unique('author')).map(c => c.author).sort();
-if (authors.length === 1) {
-_%>
-## Special Thanks:
-<%- authors[0]%>
-<%_
-}
-if (authors.length > 1) {
-_%>
-## Special Thanks:
-<%- authors.slice(0, -1).join(', ') %> and <%- authors.slice(-1)[0] %>
-<%_
-}
-_%>
-`;
-
-/** Gets the path for the changelog file in a given project. */
-function getLocalChangelogFilePath(projectDir) {
-    return path.join(projectDir, changelogPath);
-}
-/** Release note generation. */
-class ReleaseNotes {
-    constructor(version, startingRef, endingRef) {
-        this.version = version;
-        this.startingRef = startingRef;
-        this.endingRef = endingRef;
-        /** An instance of GitClient. */
-        this.git = GitClient.getInstance();
-        /** A promise resolving to a list of Commits since the latest semver tag on the branch. */
-        this.commits = this.getCommitsInRange(this.startingRef, this.endingRef);
-        /** The configuration for release notes. */
-        this.config = this.getReleaseConfig().releaseNotes;
-    }
-    static fromRange(version, startingRef, endingRef) {
-        return tslib.__awaiter(this, void 0, void 0, function* () {
-            return new ReleaseNotes(version, startingRef, endingRef);
-        });
-    }
-    /** Retrieve the release note generated for a Github Release. */
-    getGithubReleaseEntry() {
-        return tslib.__awaiter(this, void 0, void 0, function* () {
-            return ejs.render(githubReleaseTemplate, yield this.generateRenderContext(), { rmWhitespace: true });
-        });
-    }
-    /** Retrieve the release note generated for a CHANGELOG entry. */
-    getChangelogEntry() {
-        return tslib.__awaiter(this, void 0, void 0, function* () {
-            return ejs.render(changelogTemplate, yield this.generateRenderContext(), { rmWhitespace: true });
-        });
-    }
-    /**
-     * Prompt the user for a title for the release, if the project's configuration is defined to use a
-     * title.
-     */
-    promptForReleaseTitle() {
-        return tslib.__awaiter(this, void 0, void 0, function* () {
-            if (this.title === undefined) {
-                if (this.config.useReleaseTitle) {
-                    this.title = yield promptInput('Please provide a title for the release:');
-                }
-                else {
-                    this.title = false;
-                }
-            }
-            return this.title;
-        });
-    }
-    /** Build the render context data object for constructing the RenderContext instance. */
-    generateRenderContext() {
-        return tslib.__awaiter(this, void 0, void 0, function* () {
-            if (!this.renderContext) {
-                this.renderContext = new RenderContext({
-                    commits: yield this.commits,
-                    github: this.git.remoteConfig,
-                    version: this.version.format(),
-                    groupOrder: this.config.groupOrder,
-                    hiddenScopes: this.config.hiddenScopes,
-                    title: yield this.promptForReleaseTitle(),
-                });
-            }
-            return this.renderContext;
-        });
-    }
-    // These methods are used for access to the utility functions while allowing them to be
-    // overwritten in subclasses during testing.
-    getCommitsInRange(from, to) {
-        return tslib.__awaiter(this, void 0, void 0, function* () {
-            return getCommitsInRange(from, to);
-        });
-    }
-    getReleaseConfig(config) {
-        return getReleaseConfig(config);
-    }
 }
 
 /**
@@ -6357,7 +6420,7 @@ class ReleaseAction {
      */
     prependReleaseNotesToChangelog(releaseNotes) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
-            const localChangelogPath = getLocalChangelogFilePath(this.projectDir);
+            const localChangelogPath = path.join(this.projectDir, changelogPath);
             const localChangelog = yield fs.promises.readFile(localChangelogPath, 'utf8');
             const releaseNotesEntry = yield releaseNotes.getChangelogEntry();
             yield fs.promises.writeFile(localChangelogPath, `${releaseNotesEntry}\n\n${localChangelog}`);
@@ -7223,11 +7286,11 @@ class ReleaseTool {
  * found in the LICENSE file at https://angular.io/license
  */
 /** Yargs command builder for configuring the `ng-dev release publish` command. */
-function builder$8(argv) {
+function builder$9(argv) {
     return addGithubTokenOption(argv);
 }
 /** Yargs command handler for staging a release. */
-function handler$8() {
+function handler$9() {
     return tslib.__awaiter(this, void 0, void 0, function* () {
         const git = GitClient.getInstance();
         const config = getConfig();
@@ -7252,8 +7315,8 @@ function handler$8() {
 }
 /** CLI command module for publishing a release. */
 const ReleasePublishCommandModule = {
-    builder: builder$8,
-    handler: handler$8,
+    builder: builder$9,
+    handler: handler$9,
     command: 'publish',
     describe: 'Publish new releases and configure version branches.',
 };
@@ -7265,7 +7328,7 @@ const ReleasePublishCommandModule = {
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-function builder$9(args) {
+function builder$a(args) {
     return args
         .positional('tagName', {
         type: 'string',
@@ -7279,7 +7342,7 @@ function builder$9(args) {
     });
 }
 /** Yargs command handler for building a release. */
-function handler$9(args) {
+function handler$a(args) {
     return tslib.__awaiter(this, void 0, void 0, function* () {
         const { targetVersion: rawVersion, tagName } = args;
         const { npmPackages, publishRegistry } = getReleaseConfig();
@@ -7311,8 +7374,8 @@ function handler$9(args) {
 }
 /** CLI command module for setting an NPM dist tag. */
 const ReleaseSetDistTagCommand = {
-    builder: builder$9,
-    handler: handler$9,
+    builder: builder$a,
+    handler: handler$a,
     command: 'set-dist-tag <tag-name> <target-version>',
     describe: 'Sets a given NPM dist tag for all release packages.',
 };
@@ -7392,22 +7455,22 @@ function getCurrentGitUser() {
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-function builder$a(args) {
+function builder$b(args) {
     return args.option('mode', {
         demandOption: true,
         description: 'Whether the env-stamp should be built for a snapshot or release',
         choices: ['snapshot', 'release']
     });
 }
-function handler$a({ mode }) {
+function handler$b({ mode }) {
     return tslib.__awaiter(this, void 0, void 0, function* () {
         buildEnvStamp(mode);
     });
 }
 /** CLI command module for building the environment stamp. */
 const BuildEnvStampCommand = {
-    builder: builder$a,
-    handler: handler$a,
+    builder: builder$b,
+    handler: handler$b,
     command: 'build-env-stamp',
     describe: 'Build the environment stamping information',
 };
@@ -7420,7 +7483,8 @@ function buildReleaseParser(localYargs) {
         .command(ReleasePublishCommandModule)
         .command(ReleaseBuildCommandModule)
         .command(ReleaseSetDistTagCommand)
-        .command(BuildEnvStampCommand);
+        .command(BuildEnvStampCommand)
+        .command(ReleaseNotesCommandModule);
 }
 
 /**
@@ -7830,6 +7894,61 @@ function convertReferenceChainToString(chain) {
     return chain.join(' → ');
 }
 
+/**
+ * @license
+ * Copyright Google LLC All Rights Reserved.
+ *
+ * Use of this source code is governed by an MIT-style license that can be
+ * found in the LICENSE file at https://angular.io/license
+ */
+/** Yargs command builder for the command. */
+function builder$c(argv) {
+    return argv.positional('projectRoot', {
+        type: 'string',
+        normalize: true,
+        coerce: (path$1) => path.resolve(path$1),
+        demandOption: true,
+    });
+}
+/** Yargs command handler for the command. */
+function handler$c({ projectRoot }) {
+    return tslib.__awaiter(this, void 0, void 0, function* () {
+        try {
+            if (!fs.lstatSync(projectRoot).isDirectory()) {
+                error(red(`  ✘   The 'projectRoot' must be a directory: ${projectRoot}`));
+                process.exit(1);
+            }
+        }
+        catch (_a) {
+            error(red(`  ✘   Could not find the 'projectRoot' provided: ${projectRoot}`));
+            process.exit(1);
+        }
+        const releaseOutputs = yield buildReleaseOutput(false);
+        if (releaseOutputs === null) {
+            error(red(`  ✘   Could not build release output. Please check output above.`));
+            process.exit(1);
+        }
+        info(chalk.green(` ✓  Built release output.`));
+        for (const { outputPath, name } of releaseOutputs) {
+            exec(`yarn link --cwd ${outputPath}`);
+            exec(`yarn link --cwd ${projectRoot} ${name}`);
+        }
+        info(chalk.green(` ✓  Linked release packages in provided project.`));
+    });
+}
+/** CLI command module. */
+const BuildAndLinkCommandModule = {
+    builder: builder$c,
+    handler: handler$c,
+    command: 'build-and-link <projectRoot>',
+    describe: 'Builds the release output, registers the outputs as linked, and links via yarn to the provided project',
+};
+
+/** Build the parser for the misc commands. */
+function buildMiscParser(localYargs) {
+    return localYargs.help().strict().command(BuildAndLinkCommandModule);
+}
+
 yargs.scriptName('ng-dev')
     .middleware(captureLogOutputForCommand)
     .demandCommand()
@@ -7841,6 +7960,7 @@ yargs.scriptName('ng-dev')
     .command('release <command>', '', buildReleaseParser)
     .command('ts-circular-deps <command>', '', tsCircularDependenciesBuilder)
     .command('caretaker <command>', '', buildCaretakerParser)
+    .command('misc <command>', '', buildMiscParser)
     .command('ngbot <command>', false, buildNgbotParser)
     .wrap(120)
     .strict()

@@ -1002,7 +1002,12 @@ Since `ngOnInit()` is only called once per component instantiation, you can dete
 When subscribing to an observable in a component, you almost always unsubscribe when the component is destroyed.
 
 However, `ActivatedRoute` observables are among the exceptions because `ActivatedRoute` and its observables are insulated from the `Router` itself.
-The `Router` destroys a routed component when it is no longer needed along with the injected `ActivatedRoute`.
+The `Router` destroys a routed component when it is no longer needed. This means all the component's members will also be destroyed, 
+including the injected `ActivatedRoute` and the subscriptions to its `Observable` properties. 
+
+The `Router` does not `complete` any `Observable` of the `ActivatedRoute` so any `finalize` or `complete` blocks will not run.
+If you need to handle something in a `finalize`, you will still need to unsubscribe in `ngOnDestroy`. You will also have to
+unsubscribe if your observable pipe has a delay with code you do not want to run after the component is destroyed.
 
 </div>
 
@@ -1942,8 +1947,8 @@ The router supports multiple guard interfaces:
 
 
 You can have multiple guards at every level of a routing hierarchy.
-The router checks the `CanDeactivate` and `CanActivateChild` guards first, from the deepest child route to the top.
-Then it checks the `CanActivate` guards from the top down to the deepest child route.
+The router checks the `CanDeactivate` guards first, from the deepest child route to the top.
+Then it checks the `CanActivate` and `CanActivateChild` guards from the top down to the deepest child route.
 If the feature module is loaded asynchronously, the `CanLoad` guard is checked before the module is loaded.
 If _any_ guard returns false, pending guards that have not completed will be canceled, and the entire navigation is canceled.
 
