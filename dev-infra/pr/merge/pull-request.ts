@@ -170,8 +170,7 @@ type RawPullRequest = typeof PR_SCHEMA;
 async function fetchPullRequestFromGithub(
     git: GitClient<true>, prNumber: number): Promise<RawPullRequest|null> {
   try {
-    const x = await getPr(PR_SCHEMA, prNumber, git);
-    return x;
+    return await getPr(PR_SCHEMA, prNumber, git);
   } catch (e) {
     // If the pull request could not be found, we want to return `null` so
     // that the error can be handled gracefully.
@@ -188,8 +187,9 @@ export function isPullRequest(v: PullRequestFailure|PullRequest): v is PullReque
 }
 
 /**
- * Assert the commits provided are allowed to merge to the provided target label, throwing a
- * PullRequestFailure otherwise.
+ * Assert the commits provided are allowed to merge to the provided target label,
+ * throwing an error otherwise.
+ * @throws {PullRequestFailure}
  */
 function assertChangesAllowForTargetLabel(
     commits: Commit[], label: TargetLabel, config: MergeConfig) {
@@ -201,6 +201,7 @@ function assertChangesAllowForTargetLabel(
   /** List of commits which are subject to content requirements for the target label. */
   commits = commits.filter(commit => !exemptedScopes.includes(commit.scope));
   const hasBreakingChanges = commits.some(commit => commit.breakingChanges.length !== 0);
+  const hasDeprecations = commits.some(commit => commit.deprecations.length !== 0);
   const hasFeatureCommits = commits.some(commit => commit.type === 'feat');
   switch (label.pattern) {
     case 'target: major':
@@ -219,6 +220,12 @@ function assertChangesAllowForTargetLabel(
       if (hasFeatureCommits) {
         throw PullRequestFailure.hasFeatureCommits(label);
       }
+      // Deprecations should not be merged into RC, patch or LTS branches.
+      // https://semver.org/#spec-item-7. Deprecations should be part of
+      // minor releases, or major releases according to SemVer.
+      if (hasDeprecations) {
+        throw PullRequestFailure.hasDeprecations(label);
+      }
       break;
     default:
       warn(red('WARNING: Unable to confirm all commits in the pull request are eligible to be'));
@@ -230,6 +237,7 @@ function assertChangesAllowForTargetLabel(
 /**
  * Assert the pull request has the proper label for breaking changes if there are breaking change
  * commits, and only has the label if there are breaking change commits.
+ * @throws {PullRequestFailure}
  */
 function assertCorrectBreakingChangeLabeling(
     commits: Commit[], labels: string[], config: MergeConfig) {
@@ -248,7 +256,10 @@ function assertCorrectBreakingChangeLabeling(
 }
 
 
-/** Assert the pull request is pending, not closed, merged or in draft. */
+/**
+ * Assert the pull request is pending, not closed, merged or in draft.
+ * @throws {PullRequestFailure} if the pull request is not pending.
+ */
 function assertPendingState(pr: RawPullRequest) {
   if (pr.isDraft) {
     throw PullRequestFailure.isDraft();

@@ -12,7 +12,7 @@ var path = require('path');
 var child_process = require('child_process');
 var semver = require('semver');
 var graphql = require('@octokit/graphql');
-var Octokit = require('@octokit/rest');
+var rest = require('@octokit/rest');
 var typedGraphqlify = require('typed-graphqlify');
 var url = require('url');
 var fetch = _interopDefault(require('node-fetch'));
@@ -231,32 +231,27 @@ var GithubGraphqlClientError = /** @class */ (function (_super) {
  * Additionally, provides convenience methods for actions which require multiple requests, or
  * would provide value from memoized style responses.
  **/
-var GithubClient = /** @class */ (function (_super) {
-    tslib.__extends(GithubClient, _super);
+var GithubClient = /** @class */ (function () {
     /**
      * @param token The github authentication token for Github Rest and Graphql API requests.
      */
     function GithubClient(token) {
-        var _this = 
-        // Pass in authentication token to base Octokit class.
-        _super.call(this, { auth: token }) || this;
-        _this.token = token;
-        /** The current user based on checking against the Github API. */
-        _this._currentUser = null;
+        this.token = token;
         /** The graphql instance with authentication set during construction. */
-        _this._graphql = graphql.graphql.defaults({ headers: { authorization: "token " + _this.token } });
-        _this.hook.error('request', function (error) {
+        this._graphql = graphql.graphql.defaults({ headers: { authorization: "token " + this.token } });
+        /** The Octokit instance actually performing API requests. */
+        this._octokit = new rest.Octokit({ auth: this.token });
+        this.pulls = this._octokit.pulls;
+        this.repos = this._octokit.repos;
+        this.issues = this._octokit.issues;
+        this.git = this._octokit.git;
+        this.paginate = this._octokit.paginate;
+        this.rateLimit = this._octokit.rateLimit;
+        this._octokit.hook.error('request', function (error) {
             // Wrap API errors in a known error class. This allows us to
             // expect Github API errors better and in a non-ambiguous way.
             throw new GithubApiRequestError(error.status, error.message);
         });
-        // Note: The prototype must be set explictly as Github's Octokit class is a non-standard class
-        // definition which adjusts the prototype chain.
-        // See:
-        //    https://github.com/Microsoft/TypeScript/wiki/FAQ#why-doesnt-extending-built-ins-like-error-array-and-map-work
-        //    https://github.com/octokit/rest.js/blob/7b51cee4a22b6e52adcdca011f93efdffa5df998/lib/constructor.js
-        Object.setPrototypeOf(_this, GithubClient.prototype);
-        return _this;
     }
     /** Perform a query using Github's Graphql API. */
     GithubClient.prototype.graphql = function (queryObject, params) {
@@ -275,31 +270,8 @@ var GithubClient = /** @class */ (function (_super) {
             });
         });
     };
-    /** Retrieve the login of the current user from Github. */
-    GithubClient.prototype.getCurrentUser = function () {
-        return tslib.__awaiter(this, void 0, void 0, function () {
-            var result;
-            return tslib.__generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        // If the current user has already been retrieved return the current user value again.
-                        if (this._currentUser !== null) {
-                            return [2 /*return*/, this._currentUser];
-                        }
-                        return [4 /*yield*/, this.graphql({
-                                viewer: {
-                                    login: typedGraphqlify.types.string,
-                                }
-                            })];
-                    case 1:
-                        result = _a.sent();
-                        return [2 /*return*/, this._currentUser = result.viewer.login];
-                }
-            });
-        });
-    };
     return GithubClient;
-}(Octokit));
+}());
 
 /**
  * @license
@@ -882,7 +854,8 @@ const versionBranchNameRegex = /^(\d+)\.(\d+)\.x$/;
 function getVersionOfBranch(repo, branchName) {
     return tslib.__awaiter(this, void 0, void 0, function* () {
         const { data } = yield repo.api.repos.getContents({ owner: repo.owner, repo: repo.name, path: '/package.json', ref: branchName });
-        const { version } = JSON.parse(Buffer.from(data.content, 'base64').toString());
+        const content = Array.isArray(data) ? '' : data.content || '';
+        const { version } = JSON.parse(Buffer.from(content, 'base64').toString());
         const parsedVersion = semver.parse(version);
         if (parsedVersion === null) {
             throw Error(`Invalid version detected in following branch: ${branchName}.`);
@@ -1870,7 +1843,7 @@ const parseOptions = {
     headerPattern,
     headerCorrespondence,
     noteKeywords: [NoteSections.BREAKING_CHANGE, NoteSections.DEPRECATED],
-    notesPattern: (keywords) => new RegExp(`(${keywords})(?:: ?)(.*)`),
+    notesPattern: (keywords) => new RegExp(`^\s*(${keywords}): ?(.*)`),
 };
 /** Parse a commit message into its composite parts. */
 const parseCommitMessage = parseInternal;
@@ -1929,15 +1902,25 @@ function parseInternal(fullText) {
 /** Regex matching a URL for an entire commit body line. */
 const COMMIT_BODY_URL_LINE_RE = /^https?:\/\/.*$/;
 /**
- * Regex matching a breaking change.
+ * Regular expression matching potential misuse of the `BREAKING CHANGE:` marker in a
+ * commit message. Commit messages containing one of the following snippets will fail:
  *
- * - Starts with BREAKING CHANGE
- * - Followed by a colon
- * - Followed by a single space or two consecutive new lines
- *
- * NB: Anything after `BREAKING CHANGE` is optional to facilitate the validation.
+ *   - `BREAKING CHANGE <some-content>` | Here we assume the colon is missing by accident.
+ *   - `BREAKING-CHANGE: <some-content>` | The wrong keyword is used here.
+ *   - `BREAKING CHANGES: <some-content>` | The wrong keyword is used here.
+ *   - `BREAKING-CHANGES: <some-content>` | The wrong keyword is used here.
  */
-const COMMIT_BODY_BREAKING_CHANGE_RE = /^BREAKING CHANGE(:( |\n{2}))?/m;
+const INCORRECT_BREAKING_CHANGE_BODY_RE = /^(BREAKING CHANGE[^:]|BREAKING-CHANGE|BREAKING[ -]CHANGES)/m;
+/**
+ * Regular expression matching potential misuse of the `DEPRECATED:` marker in a commit
+ * message. Commit messages containing one of the following snippets will fail:
+ *
+ *   - `DEPRECATED <some-content>` | Here we assume the colon is missing by accident.
+ *   - `DEPRECATIONS: <some-content>` | The wrong keyword is used here.
+ *   - `DEPRECATE: <some-content>` | The wrong keyword is used here.
+ *   - `DEPRECATES: <some-content>` | The wrong keyword is used here.
+ */
+const INCORRECT_DEPRECATION_BODY_RE = /^(DEPRECATED[^:]|DEPRECATIONS|DEPRECATE:|DEPRECATES)/m;
 /** Validate a commit message against using the local repo's config. */
 function validateCommitMessage(commitMsg, options = {}) {
     const config = getCommitMessageConfig().commitMessage;
@@ -2035,14 +2018,13 @@ function validateCommitMessage(commitMsg, options = {}) {
         // Breaking change
         // Check if the commit message contains a valid break change description.
         // https://github.com/angular/angular/blob/88fbc066775ab1a2f6a8c75f933375b46d8fa9a4/CONTRIBUTING.md#commit-message-footer
-        const hasBreakingChange = COMMIT_BODY_BREAKING_CHANGE_RE.exec(commit.fullText);
-        if (hasBreakingChange !== null) {
-            const [, breakingChangeDescription] = hasBreakingChange;
-            if (!breakingChangeDescription) {
-                // Not followed by :, space or two consecutive new lines,
-                errors.push(`The commit message body contains an invalid breaking change description.`);
-                return false;
-            }
+        if (INCORRECT_BREAKING_CHANGE_BODY_RE.test(commit.fullText)) {
+            errors.push(`The commit message body contains an invalid breaking change note.`);
+            return false;
+        }
+        if (INCORRECT_DEPRECATION_BODY_RE.test(commit.fullText)) {
+            errors.push(`The commit message body contains an invalid deprecation note.`);
+            return false;
         }
         return true;
     }
@@ -3471,6 +3453,12 @@ var PullRequestFailure = /** @class */ (function () {
             "breaking changes. Breaking changes can only be merged with the \"target: major\" label.";
         return new this(message);
     };
+    PullRequestFailure.hasDeprecations = function (label) {
+        var message = "Cannot merge into branch for \"" + label.pattern + "\" as the pull request " +
+            "contains deprecations. Deprecations can only be merged with the \"target: minor\" or " +
+            "\"target: major\" label.";
+        return new this(message);
+    };
     PullRequestFailure.hasFeatureCommits = function (label) {
         var message = "Cannot merge into branch for \"" + label.pattern + "\" as the pull request has " +
             'commits with the "feat" type. New features can only be merged with the "target: minor" ' +
@@ -3629,15 +3617,13 @@ var PR_SCHEMA$2 = {
 /** Fetches a pull request from Github. Returns null if an error occurred. */
 function fetchPullRequestFromGithub(git, prNumber) {
     return tslib.__awaiter(this, void 0, void 0, function () {
-        var x, e_1;
+        var e_1;
         return tslib.__generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
                     _a.trys.push([0, 2, , 3]);
                     return [4 /*yield*/, getPr(PR_SCHEMA$2, prNumber, git)];
-                case 1:
-                    x = _a.sent();
-                    return [2 /*return*/, x];
+                case 1: return [2 /*return*/, _a.sent()];
                 case 2:
                     e_1 = _a.sent();
                     // If the pull request could not be found, we want to return `null` so
@@ -3656,8 +3642,9 @@ function isPullRequest(v) {
     return v.targetBranches !== undefined;
 }
 /**
- * Assert the commits provided are allowed to merge to the provided target label, throwing a
- * PullRequestFailure otherwise.
+ * Assert the commits provided are allowed to merge to the provided target label,
+ * throwing an error otherwise.
+ * @throws {PullRequestFailure}
  */
 function assertChangesAllowForTargetLabel(commits, label, config) {
     /**
@@ -3668,6 +3655,7 @@ function assertChangesAllowForTargetLabel(commits, label, config) {
     /** List of commits which are subject to content requirements for the target label. */
     commits = commits.filter(function (commit) { return !exemptedScopes.includes(commit.scope); });
     var hasBreakingChanges = commits.some(function (commit) { return commit.breakingChanges.length !== 0; });
+    var hasDeprecations = commits.some(function (commit) { return commit.deprecations.length !== 0; });
     var hasFeatureCommits = commits.some(function (commit) { return commit.type === 'feat'; });
     switch (label.pattern) {
         case 'target: major':
@@ -3686,6 +3674,12 @@ function assertChangesAllowForTargetLabel(commits, label, config) {
             if (hasFeatureCommits) {
                 throw PullRequestFailure.hasFeatureCommits(label);
             }
+            // Deprecations should not be merged into RC, patch or LTS branches.
+            // https://semver.org/#spec-item-7. Deprecations should be part of
+            // minor releases, or major releases according to SemVer.
+            if (hasDeprecations) {
+                throw PullRequestFailure.hasDeprecations(label);
+            }
             break;
         default:
             warn(red('WARNING: Unable to confirm all commits in the pull request are eligible to be'));
@@ -3696,6 +3690,7 @@ function assertChangesAllowForTargetLabel(commits, label, config) {
 /**
  * Assert the pull request has the proper label for breaking changes if there are breaking change
  * commits, and only has the label if there are breaking change commits.
+ * @throws {PullRequestFailure}
  */
 function assertCorrectBreakingChangeLabeling(commits, labels, config) {
     /** Whether the PR has a label noting a breaking change. */
@@ -3709,7 +3704,10 @@ function assertCorrectBreakingChangeLabeling(commits, labels, config) {
         throw PullRequestFailure.missingBreakingChangeCommit();
     }
 }
-/** Assert the pull request is pending, not closed, merged or in draft. */
+/**
+ * Assert the pull request is pending, not closed, merged or in draft.
+ * @throws {PullRequestFailure} if the pull request is not pending.
+ */
 function assertPendingState(pr) {
     if (pr.isDraft) {
         throw PullRequestFailure.isDraft();
