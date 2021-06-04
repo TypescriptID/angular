@@ -10,7 +10,8 @@ import {Bar} from 'cli-progress';
 import {types as graphqlTypes} from 'typed-graphqlify';
 
 import {error, info} from '../../utils/console';
-import {GitClient} from '../../utils/git/index';
+import {AuthenticatedGitClient} from '../../utils/git/authenticated-git-client';
+import {GitClient} from '../../utils/git/git-client';
 import {getPendingPrs} from '../../utils/github';
 import {exec} from '../../utils/shelljs';
 
@@ -53,11 +54,11 @@ const tempWorkingBranch = '__NgDevRepoBaseAfterChange__';
 
 /** Checks if the provided PR will cause new conflicts in other pending PRs. */
 export async function discoverNewConflictsForPr(newPrNumber: number, updatedAfter: number) {
-  /** The singleton instance of the GitClient. */
-  const git = GitClient.getAuthenticatedInstance();
+  /** The singleton instance of the authenticated git client. */
+  const git = AuthenticatedGitClient.get();
   // If there are any local changes in the current repository state, the
   // check cannot run as it needs to move between branches.
-  if (git.hasLocalChanges()) {
+  if (git.hasUncommittedChanges()) {
     error('Cannot run with local changes. Please make sure there are no local changes.');
     process.exit(1);
   }

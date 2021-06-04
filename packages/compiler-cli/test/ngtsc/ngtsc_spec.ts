@@ -1278,9 +1278,9 @@ function allTests(os: string) {
           .toContain(
               'TestModule.ɵfac = function TestModule_Factory(t) { return new (t || TestModule)(); }');
       expect(jsContents)
-          .toContain(
-              'i0.ɵɵdefineInjector({ imports: [[OtherModule, RouterModule.forRoot()],' +
-              ' OtherModule, RouterModule] });');
+          .toContain(`i0.ɵɵdefineInjector({ imports: [[OtherModule, RouterModule.forRoot()],
+            OtherModule,
+            RouterModule] });`);
     });
 
     it('should compile NgModules with services without errors', () => {
@@ -4840,6 +4840,41 @@ function allTests(os: string) {
           template: 'does not use a-cmp',
         })
         export class BCmp {}
+      `);
+        env.driveMain();
+        const jsContents = env.getContents('test.js');
+        expect(jsContents).not.toContain('setComponentScope');
+      });
+
+      it('should not consider type-only imports during cycle detection', () => {
+        env.write('test.ts', `
+        import {NgModule} from '@angular/core';
+        import {ACmp} from './a';
+        import {BCmp} from './b';
+
+        @NgModule({declarations: [ACmp, BCmp]})
+        export class Module {}
+      `);
+        env.write('a.ts', `
+        import {Component} from '@angular/core';
+
+        @Component({
+          selector: 'a-cmp',
+          template: '<b-cmp></b-cmp>',
+        })
+        export class ACmp {}
+      `);
+        env.write('b.ts', `
+        import {Component} from '@angular/core';
+        import type {ACmp} from './a';
+
+        @Component({
+          selector: 'b-cmp',
+          template: 'does not use a-cmp',
+        })
+        export class BCmp {
+          a: ACmp;
+        }
       `);
         env.driveMain();
         const jsContents = env.getContents('test.js');

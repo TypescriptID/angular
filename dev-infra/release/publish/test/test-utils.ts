@@ -34,7 +34,7 @@ export const testTmpDir: string = process.env['TEST_TMPDIR']!;
 /** Interface describing a test release action. */
 export interface TestReleaseAction<T extends ReleaseAction = ReleaseAction> {
   instance: T;
-  gitClient: VirtualGitClient<boolean>;
+  gitClient: VirtualGitClient;
   repo: GithubTestingRepo;
   fork: GithubTestingRepo;
   testTmpDir: string;
@@ -45,7 +45,7 @@ export interface TestReleaseAction<T extends ReleaseAction = ReleaseAction> {
 /** Gets necessary test mocks for running a release action. */
 export function getTestingMocksForReleaseAction() {
   const githubConfig = {owner: 'angular', name: 'dev-infra-test'};
-  const gitClient = VirtualGitClient.getAuthenticatedInstance({github: githubConfig});
+  const gitClient = VirtualGitClient.createInstance({github: githubConfig});
   const releaseConfig: ReleaseConfig = {
     npmPackages: [
       '@angular/pkg1',
@@ -68,15 +68,15 @@ export function getTestingMocksForReleaseAction() {
 export function setupReleaseActionForTesting<T extends ReleaseAction>(
     actionCtor: ReleaseActionConstructor<T>, active: ActiveReleaseTrains,
     isNextPublishedToNpm = true): TestReleaseAction<T> {
-  installVirtualGitClientSpies();
-  installMockReleaseNotes();
-
   // Reset existing HTTP interceptors.
   nock.cleanAll();
 
   const {gitClient, githubConfig, releaseConfig} = getTestingMocksForReleaseAction();
   const repo = new GithubTestingRepo(githubConfig.owner, githubConfig.name);
   const fork = new GithubTestingRepo('some-user', 'fork');
+
+  installVirtualGitClientSpies(gitClient);
+  installMockReleaseNotes();
 
   // The version for the release-train in the next phase does not necessarily need to be
   // published to NPM. We mock the NPM package request and fake the state of the next
