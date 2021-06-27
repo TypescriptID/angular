@@ -31,6 +31,24 @@ export class MockClient {
     this.queue.next(message);
   }
 }
+export class WindowClientImpl extends MockClient implements WindowClient {
+  readonly ancestorOrigins: ReadonlyArray<string> = [];
+  readonly focused: boolean = false;
+  readonly visibilityState: VisibilityState = 'hidden';
+  frameType: ClientFrameType = 'top-level';
+  url = 'http://localhost/unique';
+
+  constructor(readonly id: string) {
+    super(id);
+  }
+
+  async focus(): Promise<WindowClient> {
+    return this;
+  }
+  async navigate(url: string): Promise<WindowClient|null> {
+    return this;
+  }
+}
 
 export class SwTestHarnessBuilder {
   private origin = parseUrl(this.scopeUrl).origin;
@@ -76,17 +94,22 @@ export class MockClients implements Clients {
     return this.clients.get(id);
   }
 
-  async matchAll(): Promise<Client[]> {
-    return Array.from(this.clients.values()) as any[] as Client[];
+  async matchAll<T extends ClientQueryOptions>(options?: T):
+      Promise<ReadonlyArray<T['type'] extends 'window'? WindowClient : Client>> {
+    return Array.from(this.clients.values()) as any[];
+  }
+  async openWindow(url: string): Promise<WindowClient|null> {
+    return null;
   }
 
   async claim(): Promise<any> {}
 }
 
-export class SwTestHarness extends Adapter implements ServiceWorkerGlobalScope, Context {
+export class SwTestHarness extends Adapter<MockCacheStorage> implements Context,
+                                                                        ServiceWorkerGlobalScope {
   readonly clients = new MockClients();
   private eventHandlers = new Map<string, Function>();
-  private skippedWaiting = true;
+  private skippedWaiting = false;
 
   private selfMessageQueue: any[] = [];
   autoAdvanceTime = false;
@@ -141,9 +164,8 @@ export class SwTestHarness extends Adapter implements ServiceWorkerGlobalScope, 
 
   parseUrl = parseUrl;
 
-  constructor(
-      private server: MockServerState, readonly caches: MockCacheStorage, scopeUrl: string) {
-    super(scopeUrl);
+  constructor(private server: MockServerState, caches: MockCacheStorage, scopeUrl: string) {
+    super(scopeUrl, caches);
   }
 
   async resolveSelfMessages(): Promise<void> {
