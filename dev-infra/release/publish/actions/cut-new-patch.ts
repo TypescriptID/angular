@@ -18,13 +18,13 @@ import {ReleaseAction} from '../actions';
 export class CutNewPatchAction extends ReleaseAction {
   private _newVersion = semverInc(this.active.latest.version, 'patch');
 
-  async getDescription() {
+  override async getDescription() {
     const {branchName} = this.active.latest;
     const newVersion = this._newVersion;
     return `Cut a new patch release for the "${branchName}" branch (v${newVersion}).`;
   }
 
-  async perform() {
+  override async perform() {
     const {branchName} = this.active.latest;
     const newVersion = this._newVersion;
 
@@ -36,7 +36,7 @@ export class CutNewPatchAction extends ReleaseAction {
     await this.cherryPickChangelogIntoNextBranch(releaseNotes, branchName);
   }
 
-  static async isActive(active: ActiveReleaseTrains) {
+  static override async isActive(active: ActiveReleaseTrains) {
     // Patch versions can be cut at any time. See:
     // https://hackmd.io/2Le8leq0S6G_R5VEVTNK9A#Release-prompt-options.
     return true;

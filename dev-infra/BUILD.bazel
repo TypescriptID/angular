@@ -57,6 +57,7 @@ pkg_npm(
     substitutions = {
         # angular/angular should not consume it's own packages, so we use
         # substitutions to replace these in the published version of dev-infra.
+        "@angular//dev-infra/": "@npm//@angular/dev-infra-private/",
         "//dev-infra/": "@npm//@angular/dev-infra-private/",
         "//dev-infra:": "@npm//@angular/dev-infra-private:",
 
@@ -78,6 +79,7 @@ pkg_npm(
         "//dev-infra/benchmark/driver-utilities",
         "//dev-infra/commit-message",
         "//dev-infra/ts-circular-dependencies",
+        "//dev-infra/tslint-rules",
     ],
 )
 

@@ -17,12 +17,12 @@ import {ReleaseAction} from '../actions';
 export class CutReleaseCandidateAction extends ReleaseAction {
   private _newVersion = semverInc(this.active.releaseCandidate!.version, 'prerelease', 'rc');
 
-  async getDescription() {
+  override async getDescription() {
     const newVersion = this._newVersion;
     return `Cut a first release-candidate for the feature-freeze branch (v${newVersion}).`;
   }
 
-  async perform() {
+  override async perform() {
     const {branchName} = this.active.releaseCandidate!;
     const newVersion = this._newVersion;
 
@@ -34,7 +34,7 @@ export class CutReleaseCandidateAction extends ReleaseAction {
     await this.cherryPickChangelogIntoNextBranch(releaseNotes, branchName);
   }
 
-  static async isActive(active: ActiveReleaseTrains) {
+  static override async isActive(active: ActiveReleaseTrains) {
     // A release-candidate can be cut for an active release-train currently
     // in the feature-freeze phase.
     return active.releaseCandidate !== null &&
