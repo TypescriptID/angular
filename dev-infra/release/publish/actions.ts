@@ -80,6 +80,14 @@ export abstract class ReleaseAction {
       protected active: ActiveReleaseTrains, protected git: AuthenticatedGitClient,
       protected config: ReleaseConfig, protected projectDir: string) {}
 
+  /** Retrieves the version in the project top-level `package.json` file. */
+  private async getProjectVersion() {
+    const pkgJsonPath = join(this.projectDir, packageJsonPath);
+    const pkgJson =
+        JSON.parse(await fs.readFile(pkgJsonPath, 'utf8')) as {version: string, [key: string]: any};
+    return new semver.SemVer(pkgJson.version);
+  }
+
   /** Updates the version in the project top-level `package.json` file. */
   protected async updateProjectVersion(newVersion: semver.SemVer) {
     const pkgJsonPath = join(this.projectDir, packageJsonPath);
@@ -211,13 +219,13 @@ export abstract class ReleaseAction {
    * existing branches in case of a collision.
    */
   protected async createLocalBranchFromHead(branchName: string) {
-    this.git.run(['checkout', '-B', branchName]);
+    this.git.run(['checkout', '-q', '-B', branchName]);
   }
 
   /** Pushes the current Git `HEAD` to the given remote branch in the configured project. */
   protected async pushHeadToRemoteBranch(branchName: string) {
     // Push the local `HEAD` to the remote branch in the configured project.
-    this.git.run(['push', this.git.getRepoGitUrl(), `HEAD:refs/heads/${branchName}`]);
+    this.git.run(['push', '-q', this.git.getRepoGitUrl(), `HEAD:refs/heads/${branchName}`]);
   }
 
   /**
@@ -245,7 +253,7 @@ export abstract class ReleaseAction {
       pushArgs.push('--set-upstream');
     }
     // Push the local `HEAD` to the remote branch in the fork.
-    this.git.run(['push', repoGitUrl, `HEAD:refs/heads/${branchName}`, ...pushArgs]);
+    this.git.run(['push', '-q', repoGitUrl, `HEAD:refs/heads/${branchName}`, ...pushArgs]);
     return {fork, branchName};
   }
 
@@ -291,8 +299,8 @@ export abstract class ReleaseAction {
    * API is 10 seconds (to not exceed any rate limits). If the pull request is closed without
    * merge, the script will abort gracefully (considering a manual user abort).
    */
-  protected async waitForPullRequestToBeMerged(id: number, interval = waitForPullRequestInterval):
-      Promise<void> {
+  protected async waitForPullRequestToBeMerged(
+      {id}: PullRequest, interval = waitForPullRequestInterval): Promise<void> {
     return new Promise((resolve, reject) => {
       debug(`Waiting for pull request #${id} to be merged.`);
 
@@ -330,7 +338,7 @@ export abstract class ReleaseAction {
   /** Checks out an upstream branch with a detached head. */
   protected async checkoutUpstreamBranch(branchName: string) {
     this.git.run(['fetch', '-q', this.git.getRepoGitUrl(), branchName]);
-    this.git.run(['checkout', 'FETCH_HEAD', '--detach']);
+    this.git.run(['checkout', '-q', 'FETCH_HEAD', '--detach']);
   }
 
   /**
@@ -339,7 +347,7 @@ export abstract class ReleaseAction {
    * @param files List of project-relative file paths to be commited.
    */
   protected async createCommit(message: string, files: string[]) {
-    this.git.run(['commit', '--no-verify', '-m', message, ...files]);
+    this.git.run(['commit', '-q', '--no-verify', '-m', message, ...files]);
   }
 
 
@@ -351,8 +359,12 @@ export abstract class ReleaseAction {
   protected async stageVersionForBranchAndCreatePullRequest(
       newVersion: semver.SemVer, pullRequestBaseBranch: string):
       Promise<{releaseNotes: ReleaseNotes, pullRequest: PullRequest}> {
-    const releaseNotes =
-        await ReleaseNotes.fromRange(newVersion, this.git.getLatestSemverTag().format(), 'HEAD');
+    /**
+     * The current version of the project for the branch from the root package.json. This must be
+     * retrieved prior to updating the project version.
+     */
+    const currentVersion = this.git.getMatchingTagForSemver(await this.getProjectVersion());
+    const releaseNotes = await ReleaseNotes.fromRange(newVersion, currentVersion, 'HEAD');
     await this.updateProjectVersion(newVersion);
     await this.prependReleaseNotesToChangelog(releaseNotes);
     await this.waitForEditsAndCreateReleaseCommit(newVersion);
@@ -399,7 +411,7 @@ export abstract class ReleaseAction {
     info(green(`  ✓   Created changelog cherry-pick commit for: "${releaseNotes.version}".`));
 
     // Create a cherry-pick pull request that should be merged by the caretaker.
-    const {url, id} = await this.pushChangesToForkAndCreatePullRequest(
+    const pullRequest = await this.pushChangesToForkAndCreatePullRequest(
         nextBranch, `changelog-cherry-pick-${releaseNotes.version}`, commitMessage,
         `Cherry-picks the changelog from the "${stagingBranch}" branch to the next ` +
             `branch (${nextBranch}).`);
@@ -407,10 +419,10 @@ export abstract class ReleaseAction {
     info(green(
         `  ✓   Pull request for cherry-picking the changelog into "${nextBranch}" ` +
         'has been created.'));
-    info(yellow(`      Please ask team members to review: ${url}.`));
+    info(yellow(`      Please ask team members to review: ${pullRequest.url}.`));
 
     // Wait for the Pull Request to be merged.
-    await this.waitForPullRequestToBeMerged(id);
+    await this.waitForPullRequestToBeMerged(pullRequest);
 
     return true;
   }
@@ -508,13 +520,20 @@ export abstract class ReleaseAction {
 
   /** Verify the version of each generated package exact matches the specified version. */
   private async _verifyPackageVersions(version: semver.SemVer, packages: BuiltPackage[]) {
+    /** Experimental equivalent version for packages created with the provided version. */
+    const experimentalVersion =
+        new semver.SemVer(`0.${version.major * 100 + version.minor}.${version.patch}`);
     for (const pkg of packages) {
       const {version: packageJsonVersion} =
           JSON.parse(await fs.readFile(join(pkg.outputPath, 'package.json'), 'utf8')) as
           {version: string, [key: string]: any};
-      if (version.compare(packageJsonVersion) !== 0) {
+
+      const mismatchesVersion = version.compare(packageJsonVersion) !== 0;
+      const mismatchesExperimental = experimentalVersion.compare(packageJsonVersion) !== 0;
+
+      if (mismatchesExperimental && mismatchesVersion) {
         error(red('The built package version does not match the version being released.'));
-        error(`  Release Version:   ${version.version}`);
+        error(`  Release Version:   ${version.version} (${experimentalVersion.version})`);
         error(`  Generated Version: ${packageJsonVersion}`);
         throw new FatalReleaseActionError();
       }

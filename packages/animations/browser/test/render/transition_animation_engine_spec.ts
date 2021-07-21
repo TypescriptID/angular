@@ -20,7 +20,7 @@ const DEFAULT_NAMESPACE_ID = 'id';
 (function() {
 const driver = new MockAnimationDriver();
 
-// these tests are only mean't to be run within the DOM
+// these tests are only meant to be run within the DOM
 if (isNode) return;
 
 describe('TransitionAnimationEngine', () => {
@@ -736,7 +736,7 @@ function registerTrigger(
   const ast = buildAnimationAst(driver, metadata as AnimationMetadata, errors) as TriggerAst;
   if (errors.length) {
   }
-  const trigger = buildTrigger(name, ast);
+  const trigger = buildTrigger(name, ast, new NoopAnimationStyleNormalizer());
   engine.register(id, element);
   engine.registerTrigger(id, name, trigger);
 }

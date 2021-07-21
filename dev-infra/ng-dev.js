@@ -434,6 +434,16 @@ var GitClient = /** @class */ (function () {
         }
         return new semver.SemVer(latestTag, semVerOptions);
     };
+    /** Retrieves the git tag matching the provided SemVer, if it exists. */
+    GitClient.prototype.getMatchingTagForSemver = function (semver$1) {
+        var semVerOptions = { loose: true };
+        var tags = this.runGraceful(['tag', '--sort=-committerdate', '--merged']).stdout.split('\n');
+        var matchingTag = tags.find(function (tag) { var _a; return ((_a = semver.parse(tag, semVerOptions)) === null || _a === void 0 ? void 0 : _a.compare(semver$1)) === 0; });
+        if (matchingTag === undefined) {
+            throw new Error("Unable to find a tag for the version: \"" + semver$1.format() + "\"");
+        }
+        return matchingTag;
+    };
     /** Retrieve a list of all files in the repository changed since the provided shaOrRef. */
     GitClient.prototype.allChangesFilesSince = function (shaOrRef) {
         if (shaOrRef === void 0) { shaOrRef = 'HEAD'; }
@@ -1777,7 +1787,6 @@ function saveCommitMessageDraft(basePath, commitMessage) {
  */
 function restoreCommitMessage(filePath, source) {
     if (!!source) {
-        log('Skipping commit message restoration attempt');
         if (source === 'message') {
             debug('A commit message was already provided via the command with a -m or -F flag');
         }
@@ -6424,6 +6433,14 @@ class ReleaseAction {
     static isActive(_trains, _config) {
         throw Error('Not implemented.');
     }
+    /** Retrieves the version in the project top-level `package.json` file. */
+    getProjectVersion() {
+        return tslib.__awaiter(this, void 0, void 0, function* () {
+            const pkgJsonPath = path.join(this.projectDir, packageJsonPath);
+            const pkgJson = JSON.parse(yield fs.promises.readFile(pkgJsonPath, 'utf8'));
+            return new semver.SemVer(pkgJson.version);
+        });
+    }
     /** Updates the version in the project top-level `package.json` file. */
     updateProjectVersion(newVersion) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
@@ -6548,14 +6565,14 @@ class ReleaseAction {
      */
     createLocalBranchFromHead(branchName) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
-            this.git.run(['checkout', '-B', branchName]);
+            this.git.run(['checkout', '-q', '-B', branchName]);
         });
     }
     /** Pushes the current Git `HEAD` to the given remote branch in the configured project. */
     pushHeadToRemoteBranch(branchName) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             // Push the local `HEAD` to the remote branch in the configured project.
-            this.git.run(['push', this.git.getRepoGitUrl(), `HEAD:refs/heads/${branchName}`]);
+            this.git.run(['push', '-q', this.git.getRepoGitUrl(), `HEAD:refs/heads/${branchName}`]);
         });
     }
     /**
@@ -6582,7 +6599,7 @@ class ReleaseAction {
                 pushArgs.push('--set-upstream');
             }
             // Push the local `HEAD` to the remote branch in the fork.
-            this.git.run(['push', repoGitUrl, `HEAD:refs/heads/${branchName}`, ...pushArgs]);
+            this.git.run(['push', '-q', repoGitUrl, `HEAD:refs/heads/${branchName}`, ...pushArgs]);
             return { fork, branchName };
         });
     }
@@ -6616,7 +6633,7 @@ class ReleaseAction {
      * API is 10 seconds (to not exceed any rate limits). If the pull request is closed without
      * merge, the script will abort gracefully (considering a manual user abort).
      */
-    waitForPullRequestToBeMerged(id, interval = waitForPullRequestInterval) {
+    waitForPullRequestToBeMerged({ id }, interval = waitForPullRequestInterval) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             return new Promise((resolve, reject) => {
                 debug(`Waiting for pull request #${id} to be merged.`);
@@ -6657,7 +6674,7 @@ class ReleaseAction {
     checkoutUpstreamBranch(branchName) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             this.git.run(['fetch', '-q', this.git.getRepoGitUrl(), branchName]);
-            this.git.run(['checkout', 'FETCH_HEAD', '--detach']);
+            this.git.run(['checkout', '-q', 'FETCH_HEAD', '--detach']);
         });
     }
     /**
@@ -6667,7 +6684,7 @@ class ReleaseAction {
      */
     createCommit(message, files) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
-            this.git.run(['commit', '--no-verify', '-m', message, ...files]);
+            this.git.run(['commit', '-q', '--no-verify', '-m', message, ...files]);
         });
     }
     /**
@@ -6677,7 +6694,12 @@ class ReleaseAction {
      */
     stageVersionForBranchAndCreatePullRequest(newVersion, pullRequestBaseBranch) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
-            const releaseNotes = yield ReleaseNotes.fromRange(newVersion, this.git.getLatestSemverTag().format(), 'HEAD');
+            /**
+             * The current version of the project for the branch from the root package.json. This must be
+             * retrieved prior to updating the project version.
+             */
+            const currentVersion = this.git.getMatchingTagForSemver(yield this.getProjectVersion());
+            const releaseNotes = yield ReleaseNotes.fromRange(newVersion, currentVersion, 'HEAD');
             yield this.updateProjectVersion(newVersion);
             yield this.prependReleaseNotesToChangelog(releaseNotes);
             yield this.waitForEditsAndCreateReleaseCommit(newVersion);
@@ -6715,13 +6737,13 @@ class ReleaseAction {
             yield this.createCommit(commitMessage, [changelogPath]);
             info(green(`  ✓   Created changelog cherry-pick commit for: "${releaseNotes.version}".`));
             // Create a cherry-pick pull request that should be merged by the caretaker.
-            const { url, id } = yield this.pushChangesToForkAndCreatePullRequest(nextBranch, `changelog-cherry-pick-${releaseNotes.version}`, commitMessage, `Cherry-picks the changelog from the "${stagingBranch}" branch to the next ` +
+            const pullRequest = yield this.pushChangesToForkAndCreatePullRequest(nextBranch, `changelog-cherry-pick-${releaseNotes.version}`, commitMessage, `Cherry-picks the changelog from the "${stagingBranch}" branch to the next ` +
                 `branch (${nextBranch}).`);
             info(green(`  ✓   Pull request for cherry-picking the changelog into "${nextBranch}" ` +
                 'has been created.'));
-            info(yellow(`      Please ask team members to review: ${url}.`));
+            info(yellow(`      Please ask team members to review: ${pullRequest.url}.`));
             // Wait for the Pull Request to be merged.
-            yield this.waitForPullRequestToBeMerged(id);
+            yield this.waitForPullRequestToBeMerged(pullRequest);
             return true;
         });
     }
@@ -6801,11 +6823,15 @@ class ReleaseAction {
     /** Verify the version of each generated package exact matches the specified version. */
     _verifyPackageVersions(version, packages) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
+            /** Experimental equivalent version for packages created with the provided version. */
+            const experimentalVersion = new semver.SemVer(`0.${version.major * 100 + version.minor}.${version.patch}`);
             for (const pkg of packages) {
                 const { version: packageJsonVersion } = JSON.parse(yield fs.promises.readFile(path.join(pkg.outputPath, 'package.json'), 'utf8'));
-                if (version.compare(packageJsonVersion) !== 0) {
+                const mismatchesVersion = version.compare(packageJsonVersion) !== 0;
+                const mismatchesExperimental = experimentalVersion.compare(packageJsonVersion) !== 0;
+                if (mismatchesExperimental && mismatchesVersion) {
                     error(red('The built package version does not match the version being released.'));
-                    error(`  Release Version:   ${version.version}`);
+                    error(`  Release Version:   ${version.version} (${experimentalVersion.version})`);
                     error(`  Generated Version: ${packageJsonVersion}`);
                     throw new FatalReleaseActionError();
                 }
@@ -6842,8 +6868,8 @@ class CutLongTermSupportPatchAction extends ReleaseAction {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             const ltsBranch = yield this._promptForTargetLtsBranch();
             const newVersion = semverInc(ltsBranch.version, 'patch');
-            const { pullRequest: { id }, releaseNotes } = yield this.checkoutBranchAndStageVersion(newVersion, ltsBranch.name);
-            yield this.waitForPullRequestToBeMerged(id);
+            const { pullRequest, releaseNotes } = yield this.checkoutBranchAndStageVersion(newVersion, ltsBranch.name);
+            yield this.waitForPullRequestToBeMerged(pullRequest);
             yield this.buildAndPublish(releaseNotes, ltsBranch.name, ltsBranch.npmDistTag);
             yield this.cherryPickChangelogIntoNextBranch(releaseNotes, ltsBranch.name);
         });
@@ -6919,8 +6945,8 @@ class CutNewPatchAction extends ReleaseAction {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             const { branchName } = this.active.latest;
             const newVersion = this._newVersion;
-            const { pullRequest: { id }, releaseNotes } = yield this.checkoutBranchAndStageVersion(newVersion, branchName);
-            yield this.waitForPullRequestToBeMerged(id);
+            const { pullRequest, releaseNotes } = yield this.checkoutBranchAndStageVersion(newVersion, branchName);
+            yield this.waitForPullRequestToBeMerged(pullRequest);
             yield this.buildAndPublish(releaseNotes, branchName, 'latest');
             yield this.cherryPickChangelogIntoNextBranch(releaseNotes, branchName);
         });
@@ -6989,8 +7015,8 @@ class CutNextPrereleaseAction extends ReleaseAction {
             const releaseTrain = this._getActivePrereleaseTrain();
             const { branchName } = releaseTrain;
             const newVersion = yield this._newVersion;
-            const { pullRequest: { id }, releaseNotes } = yield this.checkoutBranchAndStageVersion(newVersion, branchName);
-            yield this.waitForPullRequestToBeMerged(id);
+            const { pullRequest, releaseNotes } = yield this.checkoutBranchAndStageVersion(newVersion, branchName);
+            yield this.waitForPullRequestToBeMerged(pullRequest);
             yield this.buildAndPublish(releaseNotes, branchName, 'next');
             // If the pre-release has been cut from a branch that is not corresponding
             // to the next release-train, cherry-pick the changelog into the primary
@@ -7056,8 +7082,8 @@ class CutReleaseCandidateAction extends ReleaseAction {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             const { branchName } = this.active.releaseCandidate;
             const newVersion = this._newVersion;
-            const { pullRequest: { id }, releaseNotes } = yield this.checkoutBranchAndStageVersion(newVersion, branchName);
-            yield this.waitForPullRequestToBeMerged(id);
+            const { pullRequest, releaseNotes } = yield this.checkoutBranchAndStageVersion(newVersion, branchName);
+            yield this.waitForPullRequestToBeMerged(pullRequest);
             yield this.buildAndPublish(releaseNotes, branchName, 'next');
             yield this.cherryPickChangelogIntoNextBranch(releaseNotes, branchName);
         });
@@ -7100,8 +7126,8 @@ class CutStableAction extends ReleaseAction {
             const { branchName } = this.active.releaseCandidate;
             const newVersion = this._newVersion;
             const isNewMajor = (_a = this.active.releaseCandidate) === null || _a === void 0 ? void 0 : _a.isMajor;
-            const { pullRequest: { id }, releaseNotes } = yield this.checkoutBranchAndStageVersion(newVersion, branchName);
-            yield this.waitForPullRequestToBeMerged(id);
+            const { pullRequest, releaseNotes } = yield this.checkoutBranchAndStageVersion(newVersion, branchName);
+            yield this.waitForPullRequestToBeMerged(pullRequest);
             // If a new major version is published, we publish to the `next` NPM dist tag temporarily.
             // We do this because for major versions, we want all main Angular projects to have their
             // new major become available at the same time. Publishing immediately to the `latest` NPM
@@ -7180,11 +7206,11 @@ class MoveNextIntoFeatureFreezeAction extends ReleaseAction {
             // Stage the new version for the newly created branch, and push changes to a
             // fork in order to create a staging pull request. Note that we re-use the newly
             // created branch instead of re-fetching from the upstream.
-            const { pullRequest: { id }, releaseNotes } = yield this.stageVersionForBranchAndCreatePullRequest(newVersion, newBranch);
+            const { pullRequest, releaseNotes } = yield this.stageVersionForBranchAndCreatePullRequest(newVersion, newBranch);
             // Wait for the staging PR to be merged. Then build and publish the feature-freeze next
             // pre-release. Finally, cherry-pick the release notes into the next branch in combination
             // with bumping the version to the next minor too.
-            yield this.waitForPullRequestToBeMerged(id);
+            yield this.waitForPullRequestToBeMerged(pullRequest);
             yield this.buildAndPublish(releaseNotes, newBranch, 'next');
             yield this._createNextBranchUpdatePullRequest(releaseNotes, newVersion);
         });
@@ -7468,21 +7494,9 @@ class ReleaseTool {
      * @returns a boolean indicating whether the user is logged into NPM.
      */
     _verifyNpmLoginState() {
-        var _a, _b;
+        var _a;
         return tslib.__awaiter(this, void 0, void 0, function* () {
             const registry = `NPM at the ${(_a = this._config.publishRegistry) !== null && _a !== void 0 ? _a : 'default NPM'} registry`;
-            // TODO(josephperrott): remove wombat specific block once wombot allows `npm whoami` check to
-            // check the status of the local token in the .npmrc file.
-            if ((_b = this._config.publishRegistry) === null || _b === void 0 ? void 0 : _b.includes('wombat-dressing-room.appspot.com')) {
-                info('Unable to determine NPM login state for wombat proxy, requiring login now.');
-                try {
-                    yield npmLogin(this._config.publishRegistry);
-                }
-                catch (_c) {
-                    return false;
-                }
-                return true;
-            }
             if (yield npmIsLoggedIn(this._config.publishRegistry)) {
                 debug(`Already logged into ${registry}.`);
                 return true;
@@ -7494,7 +7508,7 @@ class ReleaseTool {
                 try {
                     yield npmLogin(this._config.publishRegistry);
                 }
-                catch (_d) {
+                catch (_b) {
                     return false;
                 }
                 return true;
