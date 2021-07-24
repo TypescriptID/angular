@@ -8,7 +8,7 @@
 
 import {ListChoiceOptions, prompt} from 'inquirer';
 
-import {spawnWithDebugOutput} from '../../utils/child-process';
+import {spawn} from '../../utils/child-process';
 import {GithubConfig} from '../../utils/config';
 import {debug, error, info, log, promptConfirm, red, yellow} from '../../utils/console';
 import {AuthenticatedGitClient} from '../../utils/git/authenticated-git-client';
@@ -138,8 +138,7 @@ export class ReleaseTool {
     try {
       // Note: We do not rely on `/usr/bin/env` but rather access the `env` binary directly as it
       // should be part of the shell's `$PATH`. This is necessary for compatibility with Windows.
-      const pyVersion =
-          await spawnWithDebugOutput('env', ['python', '--version'], {mode: 'silent'});
+      const pyVersion = await spawn('env', ['python', '--version'], {mode: 'silent'});
       const version = pyVersion.stdout.trim() || pyVersion.stderr.trim();
       if (version.startsWith('Python 3.')) {
         debug(`Local python version: ${version}`);
@@ -184,6 +183,17 @@ export class ReleaseTool {
    */
   private async _verifyNpmLoginState(): Promise<boolean> {
     const registry = `NPM at the ${this._config.publishRegistry ?? 'default NPM'} registry`;
+    // TODO(josephperrott): remove wombat specific block once wombot allows `npm whoami` check to
+    // check the status of the local token in the .npmrc file.
+    if (this._config.publishRegistry?.includes('wombat-dressing-room.appspot.com')) {
+      info('Unable to determine NPM login state for wombat proxy, requiring login now.');
+      try {
+        await npmLogin(this._config.publishRegistry);
+      } catch {
+        return false;
+      }
+      return true;
+    }
     if (await npmIsLoggedIn(this._config.publishRegistry)) {
       debug(`Already logged into ${registry}.`);
       return true;

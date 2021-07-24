@@ -1,15 +1,16 @@
-'use strict';
-
 // Canonical path provides a consistent path (i.e. always forward slashes) across different OSes
-const path = require('canonical-path');
-const fs = require('fs-extra');
-const globby = require('globby');
-const jsdom = require('jsdom');
-const json5 = require('json5');
+import path from 'canonical-path';
+import fs from 'fs-extra';
+import {globbySync} from 'globby';
+import jsdom from 'jsdom';
+import json5 from 'json5';
+import {fileURLToPath} from 'url';
 
-const regionExtractor = require('../transforms/examples-package/services/region-parser');
+import regionExtractor from '../transforms/examples-package/services/region-parser.js';
 
-class StackblitzBuilder {
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+export class StackblitzBuilder {
   constructor(basePath, destPath) {
     this.basePath = basePath;
     this.destPath = destPath;
@@ -24,7 +25,7 @@ class StackblitzBuilder {
     // When testing it sometimes helps to look a just one example directory like so:
     // const stackblitzPaths = path.join(this.basePath, '**/testing/*stackblitz.json');
     const stackblitzPaths = path.join(this.basePath, '**/*stackblitz.json');
-    const fileNames = globby.sync(stackblitzPaths, { ignore: ['**/node_modules/**'] });
+    const fileNames = globbySync(stackblitzPaths, { ignore: ['**/node_modules/**'] });
     let failed = false;
     fileNames.forEach((configFileName) => {
       try {
@@ -64,7 +65,9 @@ class StackblitzBuilder {
   _getBoilerplatePackageJson(exampleType) {
     if (!this._boilerplatePackageJsons.hasOwnProperty(exampleType)) {
       const pkgJsonPath = `${__dirname}/../examples/shared/boilerplate/${exampleType}/package.json`;
-      this._boilerplatePackageJsons[exampleType] = fs.existsSync(pkgJsonPath) ? require(pkgJsonPath) : null;
+      this._boilerplatePackageJsons[exampleType] = fs.existsSync(pkgJsonPath)
+          ? JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'))
+          : null;
     }
 
     return this._boilerplatePackageJsons[exampleType];
@@ -123,7 +126,7 @@ class StackblitzBuilder {
   _checkForOutdatedConfig() {
     // Ensure that nobody is trying to use the old config filenames (i.e. `plnkr.json`).
     const plunkerPaths = path.join(this.basePath, '**/*plnkr.json');
-    const fileNames = globby.sync(plunkerPaths, { ignore: ['**/node_modules/**'] });
+    const fileNames = globbySync(plunkerPaths, { ignore: ['**/node_modules/**'] });
 
     if (fileNames.length) {
       const readmePath = path.join(__dirname, 'README.md');
@@ -325,7 +328,7 @@ class StackblitzBuilder {
 
     gpaths.push(...defaultExcludes);
 
-    config.fileNames = globby.sync(gpaths, { ignore: ['**/node_modules/**'] });
+    config.fileNames = globbySync(gpaths, { ignore: ['**/node_modules/**'] });
 
     return config;
   }
@@ -341,5 +344,3 @@ class StackblitzBuilder {
     }
   }
 }
-
-module.exports = StackblitzBuilder;

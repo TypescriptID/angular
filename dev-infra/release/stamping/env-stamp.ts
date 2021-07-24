@@ -7,9 +7,9 @@
  */
 
 import {join} from 'path';
+import {SemVer} from 'semver';
 import {GitClient} from '../../utils/git/git-client';
-
-import {exec as _exec} from '../../utils/shelljs';
+import {createExperimentalSemver} from '../../utils/semver';
 
 export type EnvStampMode = 'snapshot'|'release';
 
@@ -25,59 +25,67 @@ export type EnvStampMode = 'snapshot'|'release';
  */
 export function buildEnvStamp(mode: EnvStampMode) {
   console.info(`BUILD_SCM_BRANCH ${getCurrentBranch()}`);
-  console.info(`BUILD_SCM_COMMIT_SHA ${getCurrentSha()}`);
-  console.info(`BUILD_SCM_HASH ${getCurrentSha()}`);
+  console.info(`BUILD_SCM_COMMIT_SHA ${getCurrentBranchOrRevision()}`);
+  console.info(`BUILD_SCM_HASH ${getCurrentBranchOrRevision()}`);
   console.info(`BUILD_SCM_LOCAL_CHANGES ${hasLocalChanges()}`);
   console.info(`BUILD_SCM_USER ${getCurrentGitUser()}`);
-  console.info(`BUILD_SCM_VERSION ${getSCMVersion(mode)}`);
-  process.exit(0);
-}
-
-/** Run the exec command and return the stdout as a trimmed string. */
-function exec(cmd: string) {
-  return _exec(cmd).trim();
+  const {version, experimentalVersion} = getSCMVersions(mode);
+  console.info(`BUILD_SCM_VERSION ${version}`);
+  console.info(`BUILD_SCM_EXPERIMENTAL_VERSION ${experimentalVersion}`);
+  process.exit();
 }
 
 /** Whether the repo has local changes. */
 function hasLocalChanges() {
-  return !!exec(`git status --untracked-files=no --porcelain`);
+  const git = GitClient.get();
+  return git.hasUncommittedChanges();
 }
 
 /**
- * Get the version for generated packages.
+ * Get the versions for generated packages.
  *
  * In snapshot mode, the version is based on the most recent semver tag.
  * In release mode, the version is based on the base package.json version.
  */
-function getSCMVersion(mode: EnvStampMode) {
+function getSCMVersions(mode: EnvStampMode): {version: string, experimentalVersion: string} {
+  const git = GitClient.get();
   if (mode === 'release') {
-    const git = GitClient.get();
     const packageJsonPath = join(git.baseDir, 'package.json');
-    const {version} = require(packageJsonPath);
-    return version;
+    const {version} = new SemVer(require(packageJsonPath).version);
+    const {version: experimentalVersion} = createExperimentalSemver(new SemVer(version));
+    return {version, experimentalVersion};
   }
   if (mode === 'snapshot') {
-    const version = exec(`git describe --match [0-9]*.[0-9]*.[0-9]* --abbrev=7 --tags HEAD`);
-    return `${version.replace(/-([0-9]+)-g/, '+$1.sha-')}${
-        (hasLocalChanges() ? '.with-local-changes' : '')}`;
+    const localChanges = hasLocalChanges() ? '.with-local-changes' : '';
+    const {stdout: rawVersion} = git.run(
+        ['describe', '--match', '*[0-9]*.[0-9]*.[0-9]*', '--abbrev=7', '--tags', 'HEAD~100']);
+    const {version} = new SemVer(rawVersion);
+    const {version: experimentalVersion} = createExperimentalSemver(version);
+    return {
+      version: `${version.replace(/-([0-9]+)-g/, '+$1.sha-')}${localChanges}`,
+      experimentalVersion:
+          `${experimentalVersion.replace(/-([0-9]+)-g/, '+$1.sha-')}${localChanges}`,
+    };
   }
-  return '0.0.0';
+  throw Error('No environment stamp mode was provided.');
 }
 
-/** Get the current SHA of HEAD. */
-function getCurrentSha() {
-  return exec(`git rev-parse HEAD`);
+/** Get the current branch or revision of HEAD. */
+function getCurrentBranchOrRevision() {
+  const git = GitClient.get();
+  return git.getCurrentBranchOrRevision();
 }
 
 /** Get the currently checked out branch. */
 function getCurrentBranch() {
-  return exec(`git symbolic-ref --short HEAD`);
+  const git = GitClient.get();
+  return git.run(['symbolic-ref', '--short', 'HEAD']).stdout.trim();
 }
 
 /** Get the current git user based on the git config. */
 function getCurrentGitUser() {
-  const userName = exec(`git config user.name`);
-  const userEmail = exec(`git config user.email`);
-
+  const git = GitClient.get();
+  let userName = git.runGraceful(['config', 'user.name']).stdout.trim() || 'Unknown User';
+  let userEmail = git.runGraceful(['config', 'user.email']).stdout.trim() || 'unknown_email';
   return `${userName} <${userEmail}>`;
 }

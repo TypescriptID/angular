@@ -14,6 +14,7 @@ import * as semver from 'semver';
 import {debug, error, green, info, promptConfirm, red, warn, yellow} from '../../utils/console';
 import {AuthenticatedGitClient} from '../../utils/git/authenticated-git-client';
 import {getListCommitsInBranchUrl, getRepositoryGitUrl} from '../../utils/git/github-urls';
+import {createExperimentalSemver} from '../../utils/semver';
 import {BuiltPackage, ReleaseConfig} from '../config/index';
 import {ReleaseNotes} from '../notes/release-notes';
 import {NpmDistTag} from '../versioning';
@@ -521,8 +522,8 @@ export abstract class ReleaseAction {
   /** Verify the version of each generated package exact matches the specified version. */
   private async _verifyPackageVersions(version: semver.SemVer, packages: BuiltPackage[]) {
     /** Experimental equivalent version for packages created with the provided version. */
-    const experimentalVersion =
-        new semver.SemVer(`0.${version.major * 100 + version.minor}.${version.patch}`);
+    const experimentalVersion = createExperimentalSemver(version);
+
     for (const pkg of packages) {
       const {version: packageJsonVersion} =
           JSON.parse(await fs.readFile(join(pkg.outputPath, 'package.json'), 'utf8')) as

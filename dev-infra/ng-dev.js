@@ -22,7 +22,6 @@ var conventionalCommitsParser = require('conventional-commits-parser');
 var gitCommits_ = require('git-raw-commits');
 var cliProgress = require('cli-progress');
 var os = require('os');
-var shelljs = require('shelljs');
 var minimatch = require('minimatch');
 var ejs = require('ejs');
 var ora = require('ora');
@@ -317,6 +316,10 @@ var GitCommandError = /** @class */ (function (_super) {
         // we sanitize the command that will be part of the error message.
         _super.call(this, "Command failed: git " + client.sanitizeConsoleOutput(args.join(' '))) || this;
         _this.args = args;
+        // Set the prototype explicitly because in ES5, the prototype is accidentally lost due to
+        // a limitation in down-leveling.
+        // https://github.com/Microsoft/TypeScript/wiki/FAQ#why-doesnt-extending-built-ins-like-error-array-and-map-work.
+        Object.setPrototypeOf(_this, GitCommandError.prototype);
         return _this;
     }
     return GitCommandError;
@@ -2446,6 +2449,113 @@ function buildCommitMessageParser(localYargs) {
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
+/**
+ * Spawns a given command with the specified arguments inside an interactive shell. All process
+ * stdin, stdout and stderr output is printed to the current console.
+ *
+ * @returns a Promise resolving on success, and rejecting on command failure with the status code.
+ */
+function spawnInteractive(command, args, options) {
+    if (options === void 0) { options = {}; }
+    return new Promise(function (resolve, reject) {
+        var commandText = command + " " + args.join(' ');
+        debug("Executing command: " + commandText);
+        var childProcess = child_process.spawn(command, args, tslib.__assign(tslib.__assign({}, options), { shell: true, stdio: 'inherit' }));
+        childProcess.on('exit', function (status) { return status === 0 ? resolve() : reject(status); });
+    });
+}
+/**
+ * Spawns a given command with the specified arguments inside a shell. All process stdout
+ * output is captured and returned as resolution on completion. Depending on the chosen
+ * output mode, stdout/stderr output is also printed to the console, or only on error.
+ *
+ * @returns a Promise resolving with captured stdout and stderr on success. The promise
+ *   rejects on command failure.
+ */
+function spawn(command, args, options) {
+    if (options === void 0) { options = {}; }
+    return new Promise(function (resolve, reject) {
+        var commandText = command + " " + args.join(' ');
+        var outputMode = options.mode;
+        debug("Executing command: " + commandText);
+        var childProcess = child_process.spawn(command, args, tslib.__assign(tslib.__assign({}, options), { shell: true, stdio: 'pipe' }));
+        var logOutput = '';
+        var stdout = '';
+        var stderr = '';
+        // Capture the stdout separately so that it can be passed as resolve value.
+        // This is useful if commands return parsable stdout.
+        childProcess.stderr.on('data', function (message) {
+            stderr += message;
+            logOutput += message;
+            // If console output is enabled, print the message directly to the stderr. Note that
+            // we intentionally print all output to stderr as stdout should not be polluted.
+            if (outputMode === undefined || outputMode === 'enabled') {
+                process.stderr.write(message);
+            }
+        });
+        childProcess.stdout.on('data', function (message) {
+            stdout += message;
+            logOutput += message;
+            // If console output is enabled, print the message directly to the stderr. Note that
+            // we intentionally print all output to stderr as stdout should not be polluted.
+            if (outputMode === undefined || outputMode === 'enabled') {
+                process.stderr.write(message);
+            }
+        });
+        childProcess.on('exit', function (exitCode, signal) {
+            var exitDescription = exitCode !== null ? "exit code \"" + exitCode + "\"" : "signal \"" + signal + "\"";
+            var printFn = outputMode === 'on-error' ? error : debug;
+            var status = statusFromExitCodeAndSignal(exitCode, signal);
+            printFn("Command \"" + commandText + "\" completed with " + exitDescription + ".");
+            printFn("Process output: \n" + logOutput);
+            // On success, resolve the promise. Otherwise reject with the captured stderr
+            // and stdout log output if the output mode was set to `silent`.
+            if (status === 0 || options.suppressErrorOnFailingExitCode) {
+                resolve({ stdout: stdout, stderr: stderr, status: status });
+            }
+            else {
+                reject(outputMode === 'silent' ? logOutput : undefined);
+            }
+        });
+    });
+}
+/**
+ * Spawns a given command with the specified arguments inside a shell synchronously.
+ *
+ * @returns The command's stdout and stderr.
+ */
+function spawnSync(command, args, options) {
+    if (options === void 0) { options = {}; }
+    var commandText = command + " " + args.join(' ');
+    debug("Executing command: " + commandText);
+    var _a = child_process.spawnSync(command, args, tslib.__assign(tslib.__assign({}, options), { encoding: 'utf8', shell: true, stdio: 'pipe' })), exitCode = _a.status, signal = _a.signal, stdout = _a.stdout, stderr = _a.stderr;
+    /** The status of the spawn result. */
+    var status = statusFromExitCodeAndSignal(exitCode, signal);
+    if (status === 0 || options.suppressErrorOnFailingExitCode) {
+        return { status: status, stdout: stdout, stderr: stderr };
+    }
+    throw new Error(stderr);
+}
+/**
+ * Convert the provided exitCode and signal to a single status code.
+ *
+ * During `exit` node provides either a `code` or `signal`, one of which is guaranteed to be
+ * non-null.
+ *
+ * For more details see: https://nodejs.org/api/child_process.html#child_process_event_exit
+ */
+function statusFromExitCodeAndSignal(exitCode, signal) {
+    var _a;
+    return (_a = exitCode !== null && exitCode !== void 0 ? exitCode : signal) !== null && _a !== void 0 ? _a : -1;
+}
+
+/**
+ * @license
+ * Copyright Google LLC All Rights Reserved.
+ *
+ * Use of this source code is governed by an MIT-style license that can be
+ * found in the LICENSE file at https://angular.io/license
+ */
 /** Retrieve and validate the config as `FormatConfig`. */
 function getFormatConfig() {
     // List of errors encountered validating the config.
@@ -2643,7 +2753,9 @@ class Prettier extends Formatter {
          * The configuration path of the prettier config, obtained during construction to prevent needing
          * to discover it repeatedly for each execution.
          */
-        this.configPath = this.config['prettier'] ? shelljs.exec(`${this.binaryFilePath} --find-config-path .`).trim() : '';
+        this.configPath = this.config['prettier'] ?
+            spawnSync(this.binaryFilePath, ['--find-config-path', '.']).stdout.trim() :
+            '';
         this.actions = {
             check: {
                 commandFlags: `--config ${this.configPath} --check`,
@@ -2746,9 +2858,11 @@ function runFormatterInParallel(allFiles, action) {
             }
             // Get the file and formatter for the next command.
             const { file, formatter } = nextCommand;
-            shelljs.exec(`${formatter.commandFor(action)} ${file}`, { async: true, silent: true }, (code, stdout, stderr) => {
+            const [spawnCmd, ...spawnArgs] = [...formatter.commandFor(action).split(' '), file];
+            spawn(spawnCmd, spawnArgs, { suppressErrorOnFailingExitCode: true, mode: 'silent' })
+                .then(({ stdout, stderr, status }) => {
                 // Run the provided callback function.
-                const failed = formatter.callbackFor(action)(file, code, stdout, stderr);
+                const failed = formatter.callbackFor(action)(file, status, stdout, stderr);
                 if (failed) {
                     failures.push({ filePath: file, message: stderr });
                 }
@@ -3382,21 +3496,6 @@ const CheckoutCommandModule = {
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-/**
- * Runs an given command as child process. By default, child process
- * output will not be printed.
- */
-function exec(cmd, opts) {
-    return shelljs.exec(cmd, tslib.__assign(tslib.__assign({ silent: true }, opts), { async: false }));
-}
-
-/**
- * @license
- * Copyright Google LLC All Rights Reserved.
- *
- * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
- */
 /* Graphql schema for the response body for each pending PR. */
 const PR_SCHEMA$1 = {
     headRef: {
@@ -3463,37 +3562,49 @@ function discoverNewConflictsForPr(newPrNumber, updatedAfter) {
         info(`Retrieved ${allPendingPRs.length} total pending PRs`);
         info(`Checking ${pendingPrs.length} PRs for conflicts after a merge of #${newPrNumber}`);
         // Fetch and checkout the PR being checked.
-        exec(`git fetch ${requestedPr.headRef.repository.url} ${requestedPr.headRef.name}`);
-        exec(`git checkout -B ${tempWorkingBranch} FETCH_HEAD`);
+        git.run(['fetch', '-q', requestedPr.headRef.repository.url, requestedPr.headRef.name]);
+        git.run(['checkout', '-q', '-B', tempWorkingBranch, 'FETCH_HEAD']);
         // Rebase the PR against the PRs target branch.
-        exec(`git fetch ${requestedPr.baseRef.repository.url} ${requestedPr.baseRef.name}`);
-        const result = exec(`git rebase FETCH_HEAD`);
-        if (result.code) {
-            error('The requested PR currently has conflicts');
-            cleanUpGitState(previousBranchOrRevision);
-            process.exit(1);
+        git.run(['fetch', '-q', requestedPr.baseRef.repository.url, requestedPr.baseRef.name]);
+        try {
+            git.run(['rebase', 'FETCH_HEAD'], { stdio: 'ignore' });
+        }
+        catch (err) {
+            if (err instanceof GitCommandError) {
+                error('The requested PR currently has conflicts');
+                git.checkout(previousBranchOrRevision, true);
+                process.exit(1);
+            }
+            throw err;
         }
         // Start the progress bar
         progressBar.start(pendingPrs.length, 0);
         // Check each PR to determine if it can merge cleanly into the repo after the target PR.
         for (const pr of pendingPrs) {
             // Fetch and checkout the next PR
-            exec(`git fetch ${pr.headRef.repository.url} ${pr.headRef.name}`);
-            exec(`git checkout --detach FETCH_HEAD`);
+            git.run(['fetch', '-q', pr.headRef.repository.url, pr.headRef.name]);
+            git.run(['checkout', '-q', '--detach', 'FETCH_HEAD']);
             // Check if the PR cleanly rebases into the repo after the target PR.
-            const result = exec(`git rebase ${tempWorkingBranch}`);
-            if (result.code !== 0) {
-                conflicts.push(pr);
+            try {
+                git.run(['rebase', tempWorkingBranch], { stdio: 'ignore' });
+            }
+            catch (err) {
+                if (err instanceof GitCommandError) {
+                    conflicts.push(pr);
+                }
+                else {
+                    throw err;
+                }
             }
             // Abort any outstanding rebase attempt.
-            exec(`git rebase --abort`);
+            git.runGraceful(['rebase', '--abort'], { stdio: 'ignore' });
             progressBar.increment(1);
         }
         // End the progress bar as all PRs have been processed.
         progressBar.stop();
         info();
         info(`Result:`);
-        cleanUpGitState(previousBranchOrRevision);
+        git.checkout(previousBranchOrRevision, true);
         // If no conflicts are found, exit successfully.
         if (conflicts.length === 0) {
             info(`No new conflicting PRs found after #${newPrNumber} merging`);
@@ -3507,17 +3618,6 @@ function discoverNewConflictsForPr(newPrNumber, updatedAfter) {
         error.groupEnd();
         process.exit(1);
     });
-}
-/** Reset git back to the provided branch or revision. */
-function cleanUpGitState(previousBranchOrRevision) {
-    // Ensure that any outstanding rebases are aborted.
-    exec(`git rebase --abort`);
-    // Ensure that any changes in the current repo state are cleared.
-    exec(`git reset --hard`);
-    // Checkout the original branch from before the run began.
-    exec(`git checkout ${previousBranchOrRevision}`);
-    // Delete the generated branch.
-    exec(`git branch -D ${tempWorkingBranch}`);
 }
 
 /**
@@ -5080,10 +5180,6 @@ function transformExpressionToJs(expression) {
  */
 // Regular expression that matches conditions for the global approval.
 const GLOBAL_APPROVAL_CONDITION_REGEX = /^"global-(docs-)?approvers" not in groups.approved$/;
-// Name of the PullApprove group that serves as fallback. This group should never capture
-// any conditions as it would always match specified files. This is not desired as we want
-// to figure out as part of this tool, whether there actually are unmatched files.
-const FALLBACK_GROUP_NAME = 'fallback';
 /** A PullApprove group to be able to test files against. */
 class PullApproveGroup {
     constructor(groupName, config, precedingGroups = []) {
@@ -5096,7 +5192,7 @@ class PullApproveGroup {
         this.reviewers = (_a = config.reviewers) !== null && _a !== void 0 ? _a : { users: [], teams: [] };
     }
     _captureConditions(config) {
-        if (config.conditions && this.groupName !== FALLBACK_GROUP_NAME) {
+        if (config.conditions) {
             return config.conditions.forEach(condition => {
                 const expression = condition.trim();
                 if (expression.match(GLOBAL_APPROVAL_CONDITION_REGEX)) {
@@ -5973,83 +6069,6 @@ const ReleaseNotesCommandModule = {
  * found in the LICENSE file at https://angular.io/license
  */
 /**
- * Spawns a given command with the specified arguments inside an interactive shell. All process
- * stdin, stdout and stderr output is printed to the current console.
- *
- * @returns a Promise resolving on success, and rejecting on command failure with the status code.
- */
-function spawnInteractiveCommand(command, args, options) {
-    if (options === void 0) { options = {}; }
-    return new Promise(function (resolve, reject) {
-        var commandText = command + " " + args.join(' ');
-        debug("Executing command: " + commandText);
-        var childProcess = child_process.spawn(command, args, tslib.__assign(tslib.__assign({}, options), { shell: true, stdio: 'inherit' }));
-        childProcess.on('exit', function (status) { return status === 0 ? resolve() : reject(status); });
-    });
-}
-/**
- * Spawns a given command with the specified arguments inside a shell. All process stdout
- * output is captured and returned as resolution on completion. Depending on the chosen
- * output mode, stdout/stderr output is also printed to the console, or only on error.
- *
- * @returns a Promise resolving with captured stdout and stderr on success. The promise
- *   rejects on command failure.
- */
-function spawnWithDebugOutput(command, args, options) {
-    if (options === void 0) { options = {}; }
-    return new Promise(function (resolve, reject) {
-        var commandText = command + " " + args.join(' ');
-        var outputMode = options.mode;
-        debug("Executing command: " + commandText);
-        var childProcess = child_process.spawn(command, args, tslib.__assign(tslib.__assign({}, options), { shell: true, stdio: 'pipe' }));
-        var logOutput = '';
-        var stdout = '';
-        var stderr = '';
-        // Capture the stdout separately so that it can be passed as resolve value.
-        // This is useful if commands return parsable stdout.
-        childProcess.stderr.on('data', function (message) {
-            stderr += message;
-            logOutput += message;
-            // If console output is enabled, print the message directly to the stderr. Note that
-            // we intentionally print all output to stderr as stdout should not be polluted.
-            if (outputMode === undefined || outputMode === 'enabled') {
-                process.stderr.write(message);
-            }
-        });
-        childProcess.stdout.on('data', function (message) {
-            stdout += message;
-            logOutput += message;
-            // If console output is enabled, print the message directly to the stderr. Note that
-            // we intentionally print all output to stderr as stdout should not be polluted.
-            if (outputMode === undefined || outputMode === 'enabled') {
-                process.stderr.write(message);
-            }
-        });
-        childProcess.on('exit', function (status, signal) {
-            var exitDescription = status !== null ? "exit code \"" + status + "\"" : "signal \"" + signal + "\"";
-            var printFn = outputMode === 'on-error' ? error : debug;
-            printFn("Command \"" + commandText + "\" completed with " + exitDescription + ".");
-            printFn("Process output: \n" + logOutput);
-            // On success, resolve the promise. Otherwise reject with the captured stderr
-            // and stdout log output if the output mode was set to `silent`.
-            if (status === 0) {
-                resolve({ stdout: stdout, stderr: stderr });
-            }
-            else {
-                reject(outputMode === 'silent' ? logOutput : undefined);
-            }
-        });
-    });
-}
-
-/**
- * @license
- * Copyright Google LLC All Rights Reserved.
- *
- * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
- */
-/**
  * Runs NPM publish within a specified package directory.
  * @throws With the process log output if the publish failed.
  */
@@ -6060,7 +6079,7 @@ function runNpmPublish(packagePath, distTag, registryUrl) {
         if (registryUrl !== undefined) {
             args.push('--registry', registryUrl);
         }
-        yield spawnWithDebugOutput('npm', args, { cwd: packagePath, mode: 'silent' });
+        yield spawn('npm', args, { cwd: packagePath, mode: 'silent' });
     });
 }
 /**
@@ -6074,7 +6093,7 @@ function setNpmTagForPackage(packageName, distTag, version, registryUrl) {
         if (registryUrl !== undefined) {
             args.push('--registry', registryUrl);
         }
-        yield spawnWithDebugOutput('npm', args, { mode: 'silent' });
+        yield spawn('npm', args, { mode: 'silent' });
     });
 }
 /**
@@ -6089,7 +6108,7 @@ function npmIsLoggedIn(registryUrl) {
             args.push('--registry', registryUrl);
         }
         try {
-            yield spawnWithDebugOutput('npm', args, { mode: 'silent' });
+            yield spawn('npm', args, { mode: 'silent' });
         }
         catch (e) {
             return false;
@@ -6112,7 +6131,7 @@ function npmLogin(registryUrl) {
         }
         // The login command prompts for username, password and other profile information. Hence
         // the process needs to be interactive (i.e. respecting current TTYs stdin).
-        yield spawnInteractiveCommand('npm', args);
+        yield spawnInteractive('npm', args);
     });
 }
 /**
@@ -6129,7 +6148,7 @@ function npmLogout(registryUrl) {
             args.splice(1, 0, '--registry', registryUrl);
         }
         try {
-            yield spawnWithDebugOutput('npm', args, { mode: 'silent' });
+            yield spawn('npm', args, { mode: 'silent' });
         }
         finally {
             return npmIsLoggedIn(registryUrl);
@@ -6177,8 +6196,16 @@ class FatalReleaseActionError extends Error {
  * the version is cloned to not modify the original version instance.
  */
 function semverInc(version, release, identifier) {
-    const clone = new semver.SemVer(version.version);
+    var clone = new semver.SemVer(version.version);
     return clone.inc(release, identifier);
+}
+/** Creates the equivalent experimental version for a provided SemVer. */
+function createExperimentalSemver(version) {
+    version = new semver.SemVer(version);
+    var experimentalVersion = new semver.SemVer(version.format());
+    experimentalVersion.major = 0;
+    experimentalVersion.minor = version.major * 100 + version.minor;
+    return new semver.SemVer(experimentalVersion.format());
 }
 
 /**
@@ -6251,7 +6278,7 @@ function invokeSetNpmDistCommand(npmDistTag, version) {
     return tslib.__awaiter(this, void 0, void 0, function* () {
         try {
             // Note: No progress indicator needed as that is the responsibility of the command.
-            yield spawnWithDebugOutput('yarn', ['--silent', 'ng-dev', 'release', 'set-dist-tag', npmDistTag, version.format()]);
+            yield spawn('yarn', ['--silent', 'ng-dev', 'release', 'set-dist-tag', npmDistTag, version.format()]);
             info(green(`  ✓   Set "${npmDistTag}" NPM dist tag for all packages to v${version}.`));
         }
         catch (e) {
@@ -6271,7 +6298,7 @@ function invokeReleaseBuildCommand() {
         try {
             // Since we expect JSON to be printed from the `ng-dev release build` command,
             // we spawn the process in silent mode. We have set up an Ora progress spinner.
-            const { stdout } = yield spawnWithDebugOutput('yarn', ['--silent', 'ng-dev', 'release', 'build', '--json'], { mode: 'silent' });
+            const { stdout } = yield spawn('yarn', ['--silent', 'ng-dev', 'release', 'build', '--json'], { mode: 'silent' });
             spinner.stop();
             info(green('  ✓   Built release output for all packages.'));
             // The `ng-dev release build` command prints a JSON array to stdout
@@ -6295,7 +6322,7 @@ function invokeYarnInstallCommand(projectDir) {
         try {
             // Note: No progress indicator needed as that is the responsibility of the command.
             // TODO: Consider using an Ora spinner instead to ensure minimal console output.
-            yield spawnWithDebugOutput('yarn', ['install', '--frozen-lockfile', '--non-interactive'], { cwd: projectDir });
+            yield spawn('yarn', ['install', '--frozen-lockfile', '--non-interactive'], { cwd: projectDir });
             info(green('  ✓   Installed project dependencies.'));
         }
         catch (e) {
@@ -6824,7 +6851,7 @@ class ReleaseAction {
     _verifyPackageVersions(version, packages) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             /** Experimental equivalent version for packages created with the provided version. */
-            const experimentalVersion = new semver.SemVer(`0.${version.major * 100 + version.minor}.${version.patch}`);
+            const experimentalVersion = createExperimentalSemver(version);
             for (const pkg of packages) {
                 const { version: packageJsonVersion } = JSON.parse(yield fs.promises.readFile(path.join(pkg.outputPath, 'package.json'), 'utf8'));
                 const mismatchesVersion = version.compare(packageJsonVersion) !== 0;
@@ -7450,7 +7477,7 @@ class ReleaseTool {
             try {
                 // Note: We do not rely on `/usr/bin/env` but rather access the `env` binary directly as it
                 // should be part of the shell's `$PATH`. This is necessary for compatibility with Windows.
-                const pyVersion = yield spawnWithDebugOutput('env', ['python', '--version'], { mode: 'silent' });
+                const pyVersion = yield spawn('env', ['python', '--version'], { mode: 'silent' });
                 const version = pyVersion.stdout.trim() || pyVersion.stderr.trim();
                 if (version.startsWith('Python 3.')) {
                     debug(`Local python version: ${version}`);
@@ -7494,9 +7521,21 @@ class ReleaseTool {
      * @returns a boolean indicating whether the user is logged into NPM.
      */
     _verifyNpmLoginState() {
-        var _a;
+        var _a, _b;
         return tslib.__awaiter(this, void 0, void 0, function* () {
             const registry = `NPM at the ${(_a = this._config.publishRegistry) !== null && _a !== void 0 ? _a : 'default NPM'} registry`;
+            // TODO(josephperrott): remove wombat specific block once wombot allows `npm whoami` check to
+            // check the status of the local token in the .npmrc file.
+            if ((_b = this._config.publishRegistry) === null || _b === void 0 ? void 0 : _b.includes('wombat-dressing-room.appspot.com')) {
+                info('Unable to determine NPM login state for wombat proxy, requiring login now.');
+                try {
+                    yield npmLogin(this._config.publishRegistry);
+                }
+                catch (_c) {
+                    return false;
+                }
+                return true;
+            }
             if (yield npmIsLoggedIn(this._config.publishRegistry)) {
                 debug(`Already logged into ${registry}.`);
                 return true;
@@ -7508,7 +7547,7 @@ class ReleaseTool {
                 try {
                     yield npmLogin(this._config.publishRegistry);
                 }
-                catch (_b) {
+                catch (_d) {
                     return false;
                 }
                 return true;
@@ -7639,52 +7678,61 @@ const ReleaseSetDistTagCommand = {
  */
 function buildEnvStamp(mode) {
     console.info(`BUILD_SCM_BRANCH ${getCurrentBranch()}`);
-    console.info(`BUILD_SCM_COMMIT_SHA ${getCurrentSha()}`);
-    console.info(`BUILD_SCM_HASH ${getCurrentSha()}`);
+    console.info(`BUILD_SCM_COMMIT_SHA ${getCurrentBranchOrRevision()}`);
+    console.info(`BUILD_SCM_HASH ${getCurrentBranchOrRevision()}`);
     console.info(`BUILD_SCM_LOCAL_CHANGES ${hasLocalChanges()}`);
     console.info(`BUILD_SCM_USER ${getCurrentGitUser()}`);
-    console.info(`BUILD_SCM_VERSION ${getSCMVersion(mode)}`);
-    process.exit(0);
-}
-/** Run the exec command and return the stdout as a trimmed string. */
-function exec$1(cmd) {
-    return exec(cmd).trim();
+    const { version, experimentalVersion } = getSCMVersions(mode);
+    console.info(`BUILD_SCM_VERSION ${version}`);
+    console.info(`BUILD_SCM_EXPERIMENTAL_VERSION ${experimentalVersion}`);
+    process.exit();
 }
 /** Whether the repo has local changes. */
 function hasLocalChanges() {
-    return !!exec$1(`git status --untracked-files=no --porcelain`);
+    const git = GitClient.get();
+    return git.hasUncommittedChanges();
 }
 /**
- * Get the version for generated packages.
+ * Get the versions for generated packages.
  *
  * In snapshot mode, the version is based on the most recent semver tag.
  * In release mode, the version is based on the base package.json version.
  */
-function getSCMVersion(mode) {
+function getSCMVersions(mode) {
+    const git = GitClient.get();
     if (mode === 'release') {
-        const git = GitClient.get();
         const packageJsonPath = path.join(git.baseDir, 'package.json');
-        const { version } = require(packageJsonPath);
-        return version;
+        const { version } = new semver.SemVer(require(packageJsonPath).version);
+        const { version: experimentalVersion } = createExperimentalSemver(new semver.SemVer(version));
+        return { version, experimentalVersion };
     }
     if (mode === 'snapshot') {
-        const version = exec$1(`git describe --match [0-9]*.[0-9]*.[0-9]* --abbrev=7 --tags HEAD`);
-        return `${version.replace(/-([0-9]+)-g/, '+$1.sha-')}${(hasLocalChanges() ? '.with-local-changes' : '')}`;
+        const localChanges = hasLocalChanges() ? '.with-local-changes' : '';
+        const { stdout: rawVersion } = git.run(['describe', '--match', '*[0-9]*.[0-9]*.[0-9]*', '--abbrev=7', '--tags', 'HEAD~100']);
+        const { version } = new semver.SemVer(rawVersion);
+        const { version: experimentalVersion } = createExperimentalSemver(version);
+        return {
+            version: `${version.replace(/-([0-9]+)-g/, '+$1.sha-')}${localChanges}`,
+            experimentalVersion: `${experimentalVersion.replace(/-([0-9]+)-g/, '+$1.sha-')}${localChanges}`,
+        };
     }
-    return '0.0.0';
+    throw Error('No environment stamp mode was provided.');
 }
-/** Get the current SHA of HEAD. */
-function getCurrentSha() {
-    return exec$1(`git rev-parse HEAD`);
+/** Get the current branch or revision of HEAD. */
+function getCurrentBranchOrRevision() {
+    const git = GitClient.get();
+    return git.getCurrentBranchOrRevision();
 }
 /** Get the currently checked out branch. */
 function getCurrentBranch() {
-    return exec$1(`git symbolic-ref --short HEAD`);
+    const git = GitClient.get();
+    return git.run(['symbolic-ref', '--short', 'HEAD']).stdout.trim();
 }
 /** Get the current git user based on the git config. */
 function getCurrentGitUser() {
-    const userName = exec$1(`git config user.name`);
-    const userEmail = exec$1(`git config user.email`);
+    const git = GitClient.get();
+    let userName = git.runGraceful(['config', 'user.name']).stdout.trim() || 'Unknown User';
+    let userEmail = git.runGraceful(['config', 'user.email']).stdout.trim() || 'unknown_email';
     return `${userName} <${userEmail}>`;
 }
 
@@ -8171,8 +8219,8 @@ function handler$e({ projectRoot }) {
         }
         info(chalk.green(` ✓  Built release output.`));
         for (const { outputPath, name } of releaseOutputs) {
-            exec(`yarn link --cwd ${outputPath}`);
-            exec(`yarn link --cwd ${projectRoot} ${name}`);
+            yield spawn('yarn', ['link', '--cwd', outputPath]);
+            yield spawn('yarn', ['link', '--cwd', projectRoot, name]);
         }
         info(chalk.green(` ✓  Linked release packages in provided project.`));
     });
