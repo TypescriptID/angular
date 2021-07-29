@@ -246,8 +246,9 @@ groups:
           ])
     reviewers:
       users:
-        - alxhub
         - AndrewKushnir
+        - alxhub
+        - atscott
         - JoostK
 
   # =========================================================
@@ -1177,7 +1178,6 @@ groups:
           'tools/source-map-test/**',
           'tools/symbol-extractor/**',
           'tools/testing/**',
-          'tools/ts-api-guardian/**',
           'tools/tslint/**',
           'tools/utils/**',
           'tools/yarn/**',

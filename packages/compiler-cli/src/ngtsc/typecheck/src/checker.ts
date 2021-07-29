@@ -6,8 +6,10 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {AST, CssSelector, DomElementSchemaRegistry, MethodCall, ParseError, parseTemplate, PropertyRead, SafeMethodCall, SafePropertyRead, TmplAstElement, TmplAstNode, TmplAstReference, TmplAstTemplate, TmplAstVariable} from '@angular/compiler';
+import {AST, CssSelector, DomElementSchemaRegistry, LiteralPrimitive, MethodCall, ParseError, ParseSourceSpan, parseTemplate, PropertyRead, SafeMethodCall, SafePropertyRead, TmplAstElement, TmplAstNode, TmplAstReference, TmplAstTemplate, TmplAstVariable} from '@angular/compiler';
+import {TextAttribute} from '@angular/compiler/src/render3/r3_ast';
 import * as ts from 'typescript';
+import {ErrorCode} from '../../diagnostics';
 
 import {absoluteFrom, absoluteFromSourceFile, AbsoluteFsPath, getSourceFileOrError} from '../../file_system';
 import {Reference, ReferenceEmitter} from '../../imports';
@@ -19,7 +21,7 @@ import {ComponentScopeReader, TypeCheckScopeRegistry} from '../../scope';
 import {isShim} from '../../shims';
 import {getSourceFileOrNull, isSymbolWithValueDeclaration} from '../../util/src/typescript';
 import {DirectiveInScope, ElementSymbol, FullTemplateMapping, GlobalCompletion, OptimizeFor, PipeInScope, ProgramTypeCheckAdapter, ShimLocation, Symbol, TemplateId, TemplateSymbol, TemplateTypeChecker, TypeCheckableDirectiveMeta, TypeCheckingConfig} from '../api';
-import {TemplateDiagnostic} from '../diagnostics';
+import {makeTemplateDiagnostic, TemplateDiagnostic} from '../diagnostics';
 
 import {CompletionEngine} from './completion';
 import {InliningMode, ShimTypeCheckingData, TemplateData, TypeCheckContextImpl, TypeCheckingHost} from './context';
@@ -279,6 +281,16 @@ export class TemplateTypeCheckerImpl implements TemplateTypeChecker {
         PerfPhase.TtcAutocompletion, () => engine.getExpressionCompletionLocation(ast));
   }
 
+  getLiteralCompletionLocation(
+      node: LiteralPrimitive|TextAttribute, component: ts.ClassDeclaration): ShimLocation|null {
+    const engine = this.getOrCreateCompletionEngine(component);
+    if (engine === null) {
+      return null;
+    }
+    return this.perf.inPhase(
+        PerfPhase.TtcAutocompletion, () => engine.getLiteralCompletionLocation(node));
+  }
+
   invalidateClass(clazz: ts.ClassDeclaration): void {
     this.completionCache.delete(clazz);
     this.symbolBuilderCache.delete(clazz);
@@ -295,6 +307,23 @@ export class TemplateTypeCheckerImpl implements TemplateTypeChecker {
     fileData.isComplete = false;
 
     this.isComplete = false;
+  }
+
+  makeTemplateDiagnostic(
+      clazz: ts.ClassDeclaration, sourceSpan: ParseSourceSpan, category: ts.DiagnosticCategory,
+      errorCode: ErrorCode, message: string, relatedInformation?: {
+        text: string,
+        start: number,
+        end: number,
+        sourceFile: ts.SourceFile,
+      }[]): TemplateDiagnostic {
+    const sfPath = absoluteFromSourceFile(clazz.getSourceFile());
+    const fileRecord = this.state.get(sfPath)!;
+    const templateId = fileRecord.sourceManager.getTemplateId(clazz);
+    const mapping = fileRecord.sourceManager.getSourceMapping(templateId);
+
+    return makeTemplateDiagnostic(
+        templateId, mapping, sourceSpan, category, errorCode, message, relatedInformation);
   }
 
   private getOrCreateCompletionEngine(component: ts.ClassDeclaration): CompletionEngine|null {
