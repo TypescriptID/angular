@@ -7,13 +7,13 @@
  */
 
 import * as ts from 'typescript';
-import {ErrorCode} from '../../../../../diagnostics';
+import {ErrorCode, ngErrorCode} from '../../../../../diagnostics';
 import {absoluteFrom, getSourceFileOrError} from '../../../../../file_system';
 import {runInEachFileSystem} from '../../../../../file_system/testing';
 import {getSourceCodeForDiagnostic} from '../../../../../testing';
 import {getClass, setup} from '../../../../testing';
+import {InvalidBananaInBoxCheck} from '../../../checks/invalid_banana_in_box/index';
 import {ExtendedTemplateCheckerImpl} from '../../../src/extended_template_checker';
-import {InvalidBananaInBoxCheck} from '../../../src/template_checks/invalid_banana_in_box/index';
 
 runInEachFileSystem(() => {
   describe('TemplateChecks', () => {
@@ -30,10 +30,10 @@ runInEachFileSystem(() => {
       const component = getClass(sf, 'TestCmp');
       const extendedTemplateChecker = new ExtendedTemplateCheckerImpl(
           templateTypeChecker, program.getTypeChecker(), [new InvalidBananaInBoxCheck()]);
-      const diags = extendedTemplateChecker.getExtendedTemplateDiagnosticsForComponent(component);
+      const diags = extendedTemplateChecker.getDiagnosticsForComponent(component);
       expect(diags.length).toBe(1);
       expect(diags[0].category).toBe(ts.DiagnosticCategory.Warning);
-      expect(diags[0].code).toBe(ErrorCode.INVALID_BANANA_IN_BOX);
+      expect(diags[0].code).toBe(ngErrorCode(ErrorCode.INVALID_BANANA_IN_BOX));
       expect(getSourceCodeForDiagnostic(diags[0])).toBe('([notARealThing])="var1"');
     });
 
@@ -50,7 +50,7 @@ runInEachFileSystem(() => {
       const component = getClass(sf, 'TestCmp');
       const extendedTemplateChecker = new ExtendedTemplateCheckerImpl(
           templateTypeChecker, program.getTypeChecker(), [new InvalidBananaInBoxCheck()]);
-      const diags = extendedTemplateChecker.getExtendedTemplateDiagnosticsForComponent(component);
+      const diags = extendedTemplateChecker.getDiagnosticsForComponent(component);
       expect(diags.length).toBe(0);
     });
 
@@ -68,8 +68,7 @@ runInEachFileSystem(() => {
          const component = getClass(sf, 'TestCmp');
          const extendedTemplateChecker = new ExtendedTemplateCheckerImpl(
              templateTypeChecker, program.getTypeChecker(), [new InvalidBananaInBoxCheck()]);
-         const diags =
-             extendedTemplateChecker.getExtendedTemplateDiagnosticsForComponent(component);
+         const diags = extendedTemplateChecker.getDiagnosticsForComponent(component);
          expect(diags.length).toBe(0);
        });
 
@@ -91,13 +90,13 @@ runInEachFileSystem(() => {
       const component = getClass(sf, 'TestCmp');
       const extendedTemplateChecker = new ExtendedTemplateCheckerImpl(
           templateTypeChecker, program.getTypeChecker(), [new InvalidBananaInBoxCheck()]);
-      const diags = extendedTemplateChecker.getExtendedTemplateDiagnosticsForComponent(component);
+      const diags = extendedTemplateChecker.getDiagnosticsForComponent(component);
       expect(diags.length).toBe(2);
       expect(diags[0].category).toBe(ts.DiagnosticCategory.Warning);
-      expect(diags[0].code).toBe(ErrorCode.INVALID_BANANA_IN_BOX);
+      expect(diags[0].code).toBe(ngErrorCode(ErrorCode.INVALID_BANANA_IN_BOX));
       expect(getSourceCodeForDiagnostic(diags[0])).toBe('([notARealThing])="var1"');
       expect(diags[1].category).toBe(ts.DiagnosticCategory.Warning);
-      expect(diags[1].code).toBe(ErrorCode.INVALID_BANANA_IN_BOX);
+      expect(diags[1].code).toBe(ngErrorCode(ErrorCode.INVALID_BANANA_IN_BOX));
       expect(getSourceCodeForDiagnostic(diags[1])).toBe('([notARealThing2])="var1"');
     });
   });
