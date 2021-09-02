@@ -1,3 +1,27 @@
+<a name="13.0.0-next.4"></a>
+# 13.0.0-next.4 (2021-09-01)
+### compiler-cli
+| Commit | Description |
+| -- | -- |
+| [4341a5f4cb](https://github.com/angular/angular/commit/4341a5f4cb7969b5c06d46a6afbd95cbccab8d95) | fix: Emit type annotations for synthesized decorator fields ([#43021](https://github.com/angular/angular/pull/43021)) |
+### router
+| Commit | Description |
+| -- | -- |
+| [faf9f5a3bc](https://github.com/angular/angular/commit/faf9f5a3bc444bb6cbf75916c8022f60e0742bca) | feat: new output that would notify when link is activated ([#43280](https://github.com/angular/angular/pull/43280)) |
+## Special Thanks:
+Alan Agius, Andrew Scott, Daniel Trevino, George Kalpakas, Jessica Janiuk, Joey Perrott, JoostK, Kristiyan Kostadinov, anandtiwary, nickreid and segunb
+
+
+<a name="12.2.4"></a>
+# 12.2.4 (2021-09-01)
+### compiler-cli
+| Commit | Description |
+| -- | -- |
+| [8233906be2](https://github.com/angular/angular/commit/8233906be25e19da6d8115094616d3e4b5e36fea) | fix: Emit type annotations for synthesized decorator fields ([#43021](https://github.com/angular/angular/pull/43021)) |
+## Special Thanks:
+Andrew Scott, Daniel Trevino, George Kalpakas, Joey Perrott, Kristiyan Kostadinov, nickreid and segunb
+
+
 <a name="13.0.0-next.3"></a>
 # 13.0.0-next.3 (2021-08-25)
 ## Breaking Changes
