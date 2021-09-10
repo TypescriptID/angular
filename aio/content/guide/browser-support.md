@@ -20,13 +20,6 @@ Angular supports most recent browsers. This includes the following specific vers
     <td>2 most recent major versions</td>
   </tr>
   <tr>
-    <td>IE</td>
-    <td>
-      11<br>
-      <em>*deprecated, see the <a href="guide/deprecations#internet-explorer-11">deprecations guide</a></em>
-    </td>
-  </tr>
-  <tr>
     <td>Safari</td>
     <td>2 most recent major versions</td>
   </tr>
@@ -49,16 +42,6 @@ using [Sauce Labs](https://saucelabs.com/) and
 
 </div>
 
-
-{@a ie11}
-## Configuring Angular CLI for compatibility with IE11
-
-While Angular supports all browsers listed above, in order to improve the build times and output,  Angular CLI applications don't support IE11 by default.
-
-Angular CLI uses [`browserlist`](https://github.com/browserslist/browserslist) to configure browser support for applications.
-
-You can enable the IE11 support by following the instructions in the `.browserslistrc` file at the root of your project.
-
 ## Polyfills
 
 Angular is built on the latest standards of the web platform.
@@ -73,15 +56,6 @@ You may need additional polyfills to support features not covered by this list.
 Note that polyfills cannot magically transform an old, slow browser into a modern, fast one.
 
 </div>
-
-In Angular CLI version 8 and higher, applications are built using *differential loading*, a strategy where the CLI builds two separate bundles as part of your deployed application.
-
-* The first bundle contains modern ES2015 syntax, takes advantage of built-in support in modern browsers, ships less polyfills, and results in a smaller bundle size.
-
-* The second bundle contains code in the old ES5 syntax, along with all necessary polyfills. This results in a larger bundle size, but supports older browsers.
-
-This strategy allows you to continue to build your web application to support multiple browsers, but only load the necessary code that the browser needs.
-For more information about how this works, see [Differential Loading](guide/deployment#differential-loading) in the [Deployment guide](guide/deployment).
 
 ## Enabling polyfills with CLI projects
 
@@ -138,20 +112,8 @@ Some features of Angular may require additional polyfills.
     </td>
     <td>
       <p>If AnimationBuilder is used, enables scrubbing
-      support for IE/Edge and Safari.
+      support for Edge and Safari.
       (Chrome and Firefox support this natively).</p>
-    </td>
-  </tr>
-
-  <tr style="vertical-align: top">
-    <td>
-      <a href="api/common/NgClass">NgClass</a> on SVG elements
-    </td>
-    <td>
-      <a href="guide/browser-support#classlist">classList</a>
-    </td>
-    <td>
-      IE 11
     </td>
   </tr>
 </table>
@@ -171,17 +133,6 @@ The following polyfills are used to test the framework itself. They are a good s
     <th>
       Size*
     </th>
-  </tr>
-  <tr>
-    <td>
-      <a id='classlist' href="https://github.com/eligrey/classList.js">classList</a>
-    </td>
-    <td>
-      Public domain
-    </td>
-    <td>
-      1KB
-    </td>
   </tr>
   <tr>
     <td>
@@ -222,8 +173,8 @@ For example:
     // __Zone_disable_on_property = true; // disable patch onProperty such as onclick
     // __zone_symbol__UNPATCHED_EVENTS = ['scroll', 'mousemove']; // disable patch specified eventNames
     /*
-     * in IE/Edge developer tools, the addEventListener will also be wrapped by zone.js
-     * with the following flag, it will bypass `zone.js` patch for IE/Edge
+     * in Edge developer tools, the addEventListener will also be wrapped by zone.js
+     * with the following flag, it will bypass `zone.js` patch for Edge
      */
     // __Zone_enable_cross_context_check = true;
   &lt;/script>
