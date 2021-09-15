@@ -565,6 +565,10 @@ export class Router {
    * button is clicked and the navigation is cancelled, the Router will trigger a forward navigation
    * and vice versa.
    *
+   * Note: the 'computed' option is incompatible with any `UrlHandlingStrategy` which only
+   * handles a portion of the URL because the history restoration navigates to the previous place in
+   * the browser history rather than simply resetting a portion of the URL.
+   *
    * The default value is `replace`.
    *
    */
@@ -650,28 +654,25 @@ export class Router {
                        };
                      }),
                      switchMap(t => {
+                       const browserUrlTree = this.browserUrlTree.toString();
                        const urlTransition = !this.navigated ||
-                           t.extractedUrl.toString() !== this.browserUrlTree.toString();
-                       /* || this.browserUrlTree.toString() !== this.currentUrlTree.toString() */
-                       // TODO(atscott): Run TGP to see if the above change can be made. There are
-                       // situations where a navigation is canceled _after_ browserUrlTree is
-                       // updated. For example, urlUpdateStrategy === 'eager': if a new
-                       // navigation happens (i.e. in a guard), this would cause the router to
-                       // be in an invalid state of tracking.
+                           t.extractedUrl.toString() !== browserUrlTree ||
+                           // Navigations which succeed or ones which fail and are cleaned up
+                           // correctly should result in `browserUrlTree` and `currentUrlTree`
+                           // matching. If this is not the case, assume something went wrong and try
+                           // processing the URL again.
+                           browserUrlTree !== this.currentUrlTree.toString();
                        const processCurrentUrl =
                            (this.onSameUrlNavigation === 'reload' ? true : urlTransition) &&
                            this.urlHandlingStrategy.shouldProcessUrl(t.rawUrl);
 
-                       // If the source of the navigation is from a browser event, the URL is
-                       // already updated. We already need to sync the internal state.
-                       if (isBrowserTriggeredNavigation(t.source)) {
-                         // TODO(atscott): this should be `t.extractedUrl`. The `browserUrlTree`
-                         // should only be the part of the URL that is handled by the router. In
-                         // addition, this should only be done if we process the current url.
-                         this.browserUrlTree = t.rawUrl;
-                       }
 
                        if (processCurrentUrl) {
+                         // If the source of the navigation is from a browser event, the URL is
+                         // already updated. We already need to sync the internal state.
+                         if (isBrowserTriggeredNavigation(t.source)) {
+                           this.browserUrlTree = t.extractedUrl;
+                         }
                          return of(t).pipe(
                              // Fire NavigationStart event
                              switchMap(t => {
@@ -711,14 +712,9 @@ export class Router {
                              tap(t => {
                                if (this.urlUpdateStrategy === 'eager') {
                                  if (!t.extras.skipLocationChange) {
-                                   this.setBrowserUrl(t.urlAfterRedirects, t);
-                                   // TODO(atscott): The above line is incorrect. It sets the url to
-                                   // only the part that is handled by the router. It should merge
-                                   // that with the rawUrl so the url includes segments not handled
-                                   // by the router:
-                                   //  const rawUrl = this.urlHandlingStrategy.merge(
-                                   //      t.urlAfterRedirects, t.rawUrl);
-                                   //  this.setBrowserUrl(rawUrl, t);
+                                   const rawUrl = this.urlHandlingStrategy.merge(
+                                       t.urlAfterRedirects, t.rawUrl);
+                                   this.setBrowserUrl(rawUrl, t);
                                  }
                                  this.browserUrlTree = t.urlAfterRedirects;
                                }
@@ -1538,6 +1534,11 @@ export class Router {
   private resetState(t: NavigationTransition): void {
     (this as {routerState: RouterState}).routerState = t.currentRouterState;
     this.currentUrlTree = t.currentUrlTree;
+    // Note here that we use the urlHandlingStrategy to get the reset `rawUrlTree` because it may be
+    // configured to handle only part of the navigation URL. This means we would only want to reset
+    // the part of the navigation handled by the Angular router rather than the whole URL. In
+    // addition, the URLHandlingStrategy may be configured to specifically preserve parts of the URL
+    // when merging, such as the query params so they are not lost on a refresh.
     this.rawUrlTree = this.urlHandlingStrategy.merge(this.currentUrlTree, t.rawUrl);
   }
 
