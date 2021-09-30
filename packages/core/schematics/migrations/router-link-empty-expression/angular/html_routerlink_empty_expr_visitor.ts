@@ -6,29 +6,29 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ASTWithSource, EmptyExpr} from '@angular/compiler';
-import {BoundAttribute, Element, NullVisitor, Template, visitAll} from '@angular/compiler/src/render3/r3_ast';
+import type {TmplAstBoundAttribute, TmplAstElement, TmplAstTemplate} from '@angular/compiler';
+import {TemplateAstVisitor} from '../../../utils/template_ast_visitor';
 
 /**
  * HTML AST visitor that traverses the Render3 HTML AST in order to find all
  * undefined routerLink asssignment ([routerLink]="").
  */
-export class RouterLinkEmptyExprVisitor extends NullVisitor {
-  readonly emptyRouterLinkExpressions: BoundAttribute[] = [];
+export class RouterLinkEmptyExprVisitor extends TemplateAstVisitor {
+  readonly emptyRouterLinkExpressions: TmplAstBoundAttribute[] = [];
 
-  override visitElement(element: Element): void {
-    visitAll(this, element.inputs);
-    visitAll(this, element.children);
+  override visitElement(element: TmplAstElement): void {
+    this.visitAll(element.inputs);
+    this.visitAll(element.children);
   }
 
-  override visitTemplate(t: Template): void {
-    visitAll(this, t.inputs);
-    visitAll(this, t.children);
+  override visitTemplate(t: TmplAstTemplate): void {
+    this.visitAll(t.inputs);
+    this.visitAll(t.children);
   }
 
-  override visitBoundAttribute(node: BoundAttribute) {
-    if (node.name === 'routerLink' && node.value instanceof ASTWithSource &&
-        node.value.ast instanceof EmptyExpr) {
+  override visitBoundAttribute(node: TmplAstBoundAttribute) {
+    if (node.name === 'routerLink' && node.value instanceof this.compilerModule.ASTWithSource &&
+        node.value.ast instanceof this.compilerModule.EmptyExpr) {
       this.emptyRouterLinkExpressions.push(node);
     }
   }
