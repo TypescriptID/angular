@@ -775,6 +775,7 @@ groups:
           ])
     reviewers:
       users:
+        - devversion
         - IgorMinar
         - josephperrott
 
@@ -1027,7 +1028,8 @@ groups:
       - *can-be-global-docs-approved
       - >
         contains_any_globs(files, [
-          'packages/compiler-cli/src/tooling.ts'
+          'packages/compiler-cli/private/tooling.ts',
+          'packages/localize/tools/index.ts'
         ])
     reviewers:
       users:

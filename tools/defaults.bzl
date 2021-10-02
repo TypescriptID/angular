@@ -1,6 +1,6 @@
 """Re-export of some bazel rules with repository-wide defaults."""
 
-load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@build_bazel_rules_nodejs//:index.bzl", _nodejs_binary = "nodejs_binary", _pkg_npm = "pkg_npm")
 load("@npm//@bazel/jasmine:index.bzl", _jasmine_node_test = "jasmine_node_test")
 load("@npm//@bazel/concatjs:index.bzl", _concatjs_devserver = "concatjs_devserver", _karma_web_test = "karma_web_test", _karma_web_test_suite = "karma_web_test_suite")
@@ -120,6 +120,10 @@ def ts_library(name, tsconfig = None, testonly = False, deps = [], module_name =
         tsconfig = tsconfig,
         testonly = testonly,
         deps = deps,
+        # For prodmode, the target is set to `ES2020`. `@bazel/typecript` sets `ES2015` by
+        # default. Note that this should be in sync with the `ng_module` tsconfig generation.
+        # https://github.com/bazelbuild/rules_nodejs/blob/901df3868e3ceda177d3ed181205e8456a5592ea/third_party/github.com/bazelbuild/rules_typescript/internal/common/tsconfig.bzl#L195
+        prodmode_target = "es2020",
         # `module_name` is used for AMD module names within emitted JavaScript files.
         module_name = module_name,
         # `package_name` can be set to allow for the Bazel NodeJS linker to run. This
@@ -187,9 +191,6 @@ def ng_package(name, readme_md = None, license_banner = None, deps = [], **kwarg
         readme_md = "//packages:README.md"
     if not license_banner:
         license_banner = "//packages:license-banner.txt"
-    deps = deps + [
-        "@npm//tslib",
-    ]
     visibility = kwargs.pop("visibility", None)
 
     common_substitutions = dict(kwargs.pop("substitutions", {}), **PKG_GROUP_REPLACEMENTS)
@@ -241,7 +242,7 @@ def ng_package(name, readme_md = None, license_banner = None, deps = [], **kwarg
         visibility = visibility,
     )
 
-def pkg_npm(name, **kwargs):
+def pkg_npm(name, use_prodmode_output = False, **kwargs):
     """Default values for pkg_npm"""
     visibility = kwargs.pop("visibility", None)
 
@@ -256,13 +257,16 @@ def pkg_npm(name, **kwargs):
     deps = kwargs.pop("deps", [])
 
     # The `pkg_npm` rule brings in devmode (`JSModuleInfo`) and prodmode (`JSEcmaScriptModuleInfo`)
-    # output into the the NPM package. We do not plan to ship prodmode ECMAScript `.mjs` files yet,
-    # so we only extract the `JSModuleInfo` outputs (which correspond to ES5 output) from the deps.
+    # output into the the NPM package We do not intend to ship the prodmode ECMAScript `.mjs`
+    # files, but the `JSModuleInfo` outputs (which correspond to devmode output). Depending on
+    # the `use_prodmode_output` macro attribute, we either ship the ESM output of dependencies,
+    # or continue shipping the devmode ES5 output.
+    # TODO: Clean this up in the future if we have combined devmode and prodmode output.
     # https://github.com/bazelbuild/rules_nodejs/commit/911529fd364eb3ee1b8ecdc568a9fcf38a8b55ca.
     # https://github.com/bazelbuild/rules_nodejs/blob/stable/packages/typescript/internal/build_defs.bzl#L334-L337.
     extract_js_module_output(
         name = "%s_js_module_output" % name,
-        provider = "JSModuleInfo",
+        provider = "JSEcmaScriptModuleInfo" if use_prodmode_output else "JSModuleInfo",
         include_declarations = True,
         include_default_files = True,
         deps = deps,
@@ -461,6 +465,12 @@ def ng_rollup_bundle(deps = [], **kwargs):
         **kwargs
     )
 
+# TODO: Consider removing this rule in favor of `ng_rollup_bundle`. Most of the tests use
+# the benchmarking rule from dev-infra, but there are cases where we have a bad mix of
+# the rollup bundle rules here. i.e.
+#   - `@angular/language-service` uses the benchmarking rule for shipping to NPM.
+#   - `@angular/service-worker` uses the benchmarking rule for shipping the worker minified.
+#   - `zone.js` uses this rule (as the only consumer) for creating NPM package bundles.
 def rollup_bundle(name, testonly = False, sourcemap = "true", **kwargs):
     """A drop in replacement for the rules nodejs [legacy rollup_bundle].
 
@@ -566,7 +576,7 @@ def rollup_bundle(name, testonly = False, sourcemap = "true", **kwargs):
 def api_golden_test(**kwargs):
     _api_golden_test(
         tags = [
-            "fixme-ivy-aot",
+            "ivy-only",
         ],
         **kwargs
     )
@@ -574,7 +584,7 @@ def api_golden_test(**kwargs):
 def api_golden_test_npm_package(**kwargs):
     _api_golden_test_npm_package(
         tags = [
-            "fixme-ivy-aot",
+            "ivy-only",
         ],
         **kwargs
     )

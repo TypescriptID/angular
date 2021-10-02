@@ -7,10 +7,8 @@
  */
 
 import {UpdateRecorder} from '@angular-devkit/schematics';
-import {Reference} from '@angular/compiler-cli/src/ngtsc/imports';
-import {DynamicValue, PartialEvaluator, ResolvedValue, ResolvedValueMap} from '@angular/compiler-cli/src/ngtsc/partial_evaluator';
-import {TypeScriptReflectionHost} from '@angular/compiler-cli/src/ngtsc/reflection';
-import * as ts from 'typescript';
+import {DynamicValue, PartialEvaluator, Reference, ResolvedValue, ResolvedValueMap, TypeScriptReflectionHost} from '@angular/compiler-cli/private/migrations';
+import ts from 'typescript';
 
 import {ResolvedNgModule} from './collector';
 import {createModuleWithProvidersType} from './util';

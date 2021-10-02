@@ -74,6 +74,7 @@ export * from './ml_parser/html_parser';
 export * from './ml_parser/html_tags';
 export * from './ml_parser/interpolation_config';
 export * from './ml_parser/tags';
+export {ParseTreeResult, TreeError} from './ml_parser/parser';
 export {LexerRange} from './ml_parser/lexer';
 export * from './ml_parser/xml_parser';
 export {NgModuleCompiler} from './ng_module_compiler';
@@ -113,6 +114,8 @@ export {compileDeclareInjectorFromMetadata} from './render3/partial/injector';
 export {compileDeclareNgModuleFromMetadata} from './render3/partial/ng_module';
 export {compileDeclarePipeFromMetadata} from './render3/partial/pipe';
 export {publishFacade} from './jit_compiler_facade';
+export {emitDistinctChangesOnlyDefaultValue, ChangeDetectionStrategy, ViewEncapsulation} from './core';
+export * as outputAst from './output/output_ast';
 // This file only reexports content of the `src` folder. Keep it that way.
 
 // This function call has a global side effects and publishes the compiler into global namespace for

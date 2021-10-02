@@ -8,7 +8,8 @@
 
 import {CustomTransformers, defaultGatherDiagnostics, Program} from '@angular/compiler-cli';
 import * as api from '@angular/compiler-cli/src/transformers/api';
-import * as ts from 'typescript';
+import * as tsickle from 'tsickle';
+import ts from 'typescript';
 
 import {createCompilerHost, createProgram} from '../../index';
 import {mainXi18n} from '../../src/extract_i18n';
@@ -20,7 +21,6 @@ import {NgtscProgram} from '../../src/ngtsc/program';
 import {DeclarationNode} from '../../src/ngtsc/reflection';
 import {NgtscTestCompilerHost} from '../../src/ngtsc/testing';
 import {setWrapHostForTest} from '../../src/transformers/compiler_host';
-
 
 /**
  * Manages a temporary testing directory structure and environment for testing ngtsc by feeding it
@@ -220,7 +220,7 @@ export class NgtscTestEnvironment {
     }
     const exitCode = main(
         this.commandLineArgs, errorSpy, undefined, customTransformers, reuseProgram,
-        this.changedResources);
+        this.changedResources, tsickle);
     expect(errorSpy).not.toHaveBeenCalled();
     expect(exitCode).toBe(0);
     if (this.multiCompileHostExt !== null) {
@@ -241,7 +241,7 @@ export class NgtscTestEnvironment {
     }
 
     const diags = mainDiagnosticsForTest(
-        this.commandLineArgs, undefined, reuseProgram, this.changedResources);
+        this.commandLineArgs, undefined, reuseProgram, this.changedResources, tsickle);
 
 
     if (this.multiCompileHostExt !== null) {

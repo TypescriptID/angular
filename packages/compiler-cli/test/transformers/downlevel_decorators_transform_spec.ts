@@ -6,10 +6,10 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import * as ts from 'typescript';
+import ts from 'typescript';
 
 import {TypeScriptReflectionHost} from '../../src/ngtsc/reflection';
-import {getDownlevelDecoratorsTransform} from '../../src/transformers/downlevel_decorators_transform';
+import {getDownlevelDecoratorsTransform} from '../../src/transformers/downlevel_decorators_transform/index';
 import {MockAotContext, MockCompilerHost} from '../mocks';
 
 const TEST_FILE_INPUT = '/test.ts';

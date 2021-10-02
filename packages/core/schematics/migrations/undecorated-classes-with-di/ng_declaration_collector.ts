@@ -6,9 +6,8 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Reference} from '@angular/compiler-cli/src/ngtsc/imports';
-import {PartialEvaluator, ResolvedValue} from '@angular/compiler-cli/src/ngtsc/partial_evaluator';
-import * as ts from 'typescript';
+import {PartialEvaluator, Reference, ResolvedValue} from '@angular/compiler-cli/private/migrations';
+import ts from 'typescript';
 
 import {getAngularDecorators, NgDecorator} from '../../utils/ng_decorators';
 import {getPropertyNameText} from '../../utils/typescript/property_name';

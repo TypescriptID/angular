@@ -10,7 +10,7 @@
 import {AotCompiler, AotCompilerOptions, core, createAotCompiler, FormattedMessageChain, GeneratedFile, getMissingNgModuleMetadataErrorData, getParseErrors, isFormattedError, isSyntaxError, MessageBundle, NgAnalyzedFileWithInjectables, NgAnalyzedModules, ParseSourceSpan, PartialModule} from '@angular/compiler';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as ts from 'typescript';
+import ts from 'typescript';
 
 import {translateDiagnostics} from '../diagnostics/translate_diagnostics';
 import {createBundleIndexHost, MetadataCollector} from '../metadata';
@@ -21,7 +21,7 @@ import {verifySupportedTypeScriptVersion} from '../typescript_support';
 
 import {CompilerHost, CompilerOptions, CustomTransformers, DEFAULT_ERROR_CODE, Diagnostic, DiagnosticMessageChain, EmitFlags, LazyRoute, LibrarySummary, Program, SOURCE, TsEmitCallback, TsMergeEmitResultsCallback} from './api';
 import {CodeGenerator, getOriginalReferences, TsCompilerAotCompilerTypeCheckHostAdapter} from './compiler_host';
-import {getDownlevelDecoratorsTransform} from './downlevel_decorators_transform';
+import {getDownlevelDecoratorsTransform} from './downlevel_decorators_transform/index';
 import {i18nExtract} from './i18n';
 import {getInlineResourcesTransformFactory, InlineResourcesMetadataTransformer} from './inline_resources';
 import {getExpressionLoweringTransformFactory, LowerMetadataTransform} from './lower_expressions';
