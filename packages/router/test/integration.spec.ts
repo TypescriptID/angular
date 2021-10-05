@@ -16,7 +16,6 @@ import {ActivatedRoute, ActivatedRouteSnapshot, ActivationEnd, ActivationStart, 
 import {EMPTY, Observable, Observer, of, Subscription, SubscriptionLike} from 'rxjs';
 import {delay, filter, first, map, mapTo, tap} from 'rxjs/operators';
 
-import {RouterInitializer} from '../src/router_module';
 import {forEach} from '../src/utils/collection';
 import {isUrlTree} from '../src/utils/type_guards';
 import {RouterTestingModule} from '../testing';
@@ -5942,42 +5941,59 @@ describe('Integration', () => {
          advance(fixture);
          expect(fixture).toContainComponent(Tool2Component, '(e)');
        }));
-  });
 
-  describe('RouterInitializer', () => {
-    it('should not throw from appInitializer if module is destroyed before location is initialized',
-       done => {
-         let resolveInitializer: () => void;
-         let moduleRef: NgModuleRef<SelfDestructModule>;
-
-         @NgModule({
-           imports: [RouterModule.forRoot([])],
-           providers: [
-             {
-               provide: LOCATION_INITIALIZED,
-               useValue: new Promise<void>(resolve => resolveInitializer = resolve)
-             },
-             {
-               // Required when running the tests in a browser
-               provide: APP_BASE_HREF,
-               useValue: ''
-             }
-           ]
+    it('should not remount a destroyed component', fakeAsync(() => {
+         @Component({
+           selector: 'root-cmp',
+           template: '<div *ngIf="showRouterOutlet"><router-outlet></router-outlet></div>'
          })
-         class SelfDestructModule {
-           constructor(ref: NgModuleRef<SelfDestructModule>, routerInitializer: RouterInitializer) {
-             moduleRef = ref;
-             routerInitializer.appInitializer().then(done, done.fail);
-           }
+         class RootCmpWithCondOutlet {
+           public showRouterOutlet: boolean = true;
          }
 
-         TestBed.resetTestingModule()
-             .configureTestingModule({imports: [SelfDestructModule], declarations: [SimpleCmp]})
-             .createComponent(SimpleCmp);
+         @NgModule({
+           declarations: [RootCmpWithCondOutlet],
+           imports: [
+             CommonModule,
+             RouterTestingModule.withRoutes([
+               {path: 'a', component: SimpleCmp},
+               {path: 'b', component: BlankCmp},
+             ]),
+           ],
+           providers: [{provide: RouteReuseStrategy, useClass: AttachDetachReuseStrategy}]
+         })
+         class TestModule {
+         }
+         TestBed.configureTestingModule({imports: [TestModule]});
 
-         moduleRef!.destroy();
-         resolveInitializer!();
-       });
+         const router: Router = TestBed.inject(Router);
+         const fixture = createRoot(router, RootCmpWithCondOutlet);
+
+         // Activate 'a'
+         router.navigate(['a']);
+         advance(fixture);
+         expect(fixture.debugElement.query(By.directive(SimpleCmp))).toBeTruthy();
+
+         // Deactivate 'a' and detach the route
+         router.navigate(['b']);
+         advance(fixture);
+         expect(fixture.debugElement.query(By.directive(SimpleCmp))).toBeNull();
+
+         // Activate 'a' again, the route should be re-attached
+         router.navigate(['a']);
+         advance(fixture);
+         expect(fixture.debugElement.query(By.directive(SimpleCmp))).toBeTruthy();
+
+         // Hide the router-outlet, SimpleCmp should be destroyed
+         fixture.componentInstance.showRouterOutlet = false;
+         advance(fixture);
+         expect(fixture.debugElement.query(By.directive(SimpleCmp))).toBeNull();
+
+         // Show the router-outlet, SimpleCmp should be re-created
+         fixture.componentInstance.showRouterOutlet = true;
+         advance(fixture);
+         expect(fixture.debugElement.query(By.directive(SimpleCmp))).toBeTruthy();
+       }));
   });
 });
 

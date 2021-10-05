@@ -28,6 +28,7 @@
 **/tsconfig.json
 **/tsconfig.app.json
 **/tsconfig.spec.json
+# TODO: remove tslint.json after linting has been removed from systemjs examples
 **/tslint.json
 **/karma-test-shim.js
 **/browser-test-shim.js
@@ -99,3 +100,7 @@ upgrade-phonecat-3-final/rollup-config.js
 
 # schematics
 !schematics-for-libraries/projects/my-lib/package.json
+
+#angular-compiler-options
+!angular-compiler-options/tsconfig.json
+!angular-compiler-options/tsconfig.app.json

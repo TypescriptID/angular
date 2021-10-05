@@ -319,12 +319,11 @@ export class Driver implements Debuggable, UpdateSource {
 
   private async handleMessage(msg: MsgAny&{action: string}, from: Client): Promise<void> {
     if (isMsgCheckForUpdates(msg)) {
-      const action = (async () => {
-        await this.checkForUpdate();
-      })();
-      await this.reportStatus(from, action, msg.statusNonce);
+      const action = this.checkForUpdate();
+      await this.completeOperation(from, action, msg.nonce);
     } else if (isMsgActivateUpdate(msg)) {
-      await this.reportStatus(from, this.updateClient(from), msg.statusNonce);
+      const action = this.updateClient(from);
+      await this.completeOperation(from, action, msg.nonce);
     }
   }
 
@@ -398,27 +397,30 @@ export class Driver implements Debuggable, UpdateSource {
     // As per the spec windowClients are `sorted in the most recently focused order`
     return windowClients[0];
   }
-  private async reportStatus(client: Client, promise: Promise<void>, nonce: number): Promise<void> {
-    const response = {type: 'STATUS', nonce, status: true};
+
+  private async completeOperation(client: Client, promise: Promise<boolean>, nonce: number):
+      Promise<void> {
+    const response = {type: 'OPERATION_COMPLETED', nonce};
     try {
-      await promise;
-      client.postMessage(response);
+      client.postMessage({
+        ...response,
+        result: await promise,
+      });
     } catch (e) {
       client.postMessage({
         ...response,
-        status: false,
         error: e.toString(),
       });
     }
   }
 
-  async updateClient(client: Client): Promise<void> {
+  async updateClient(client: Client): Promise<boolean> {
     // Figure out which version the client is on. If it's not on the latest,
     // it needs to be moved.
     const existing = this.clientVersionMap.get(client.id);
     if (existing === this.latestHash) {
       // Nothing to do, this client is already on the latest version.
-      return;
+      return false;
     }
 
     // Switch the client over.
@@ -444,6 +446,7 @@ export class Driver implements Debuggable, UpdateSource {
     };
 
     client.postMessage(notice);
+    return true;
   }
 
   private async handleFetch(event: FetchEvent): Promise<Response> {
@@ -831,35 +834,40 @@ export class Driver implements Debuggable, UpdateSource {
   }
 
   private async setupUpdate(manifest: Manifest, hash: string): Promise<void> {
-    const newVersion =
-        new AppVersion(this.scope, this.adapter, this.db, this.idle, this.debugger, manifest, hash);
+    try {
+      const newVersion = new AppVersion(
+          this.scope, this.adapter, this.db, this.idle, this.debugger, manifest, hash);
 
-    // Firstly, check if the manifest version is correct.
-    if (manifest.configVersion !== SUPPORTED_CONFIG_VERSION) {
-      await this.deleteAllCaches();
-      await this.scope.registration.unregister();
-      throw new Error(`Invalid config version: expected ${SUPPORTED_CONFIG_VERSION}, got ${
-          manifest.configVersion}.`);
+      // Firstly, check if the manifest version is correct.
+      if (manifest.configVersion !== SUPPORTED_CONFIG_VERSION) {
+        await this.deleteAllCaches();
+        await this.scope.registration.unregister();
+        throw new Error(`Invalid config version: expected ${SUPPORTED_CONFIG_VERSION}, got ${
+            manifest.configVersion}.`);
+      }
+
+      // Cause the new version to become fully initialized. If this fails, then the
+      // version will not be available for use.
+      await newVersion.initializeFully(this);
+
+      // Install this as an active version of the app.
+      this.versions.set(hash, newVersion);
+      // Future new clients will use this hash as the latest version.
+      this.latestHash = hash;
+
+      // If we are in `EXISTING_CLIENTS_ONLY` mode (meaning we didn't have a clean copy of the last
+      // latest version), we can now recover to `NORMAL` mode and start accepting new clients.
+      if (this.state === DriverReadyState.EXISTING_CLIENTS_ONLY) {
+        this.state = DriverReadyState.NORMAL;
+        this.stateMessage = '(nominal)';
+      }
+
+      await this.sync();
+      await this.notifyClientsAboutVersionReady(manifest, hash);
+    } catch (e) {
+      await this.notifyClientsAboutVersionInstallationFailed(manifest, hash, e);
+      throw e;
     }
-
-    // Cause the new version to become fully initialized. If this fails, then the
-    // version will not be available for use.
-    await newVersion.initializeFully(this);
-
-    // Install this as an active version of the app.
-    this.versions.set(hash, newVersion);
-    // Future new clients will use this hash as the latest version.
-    this.latestHash = hash;
-
-    // If we are in `EXISTING_CLIENTS_ONLY` mode (meaning we didn't have a clean copy of the last
-    // latest version), we can now recover to `NORMAL` mode and start accepting new clients.
-    if (this.state === DriverReadyState.EXISTING_CLIENTS_ONLY) {
-      this.state = DriverReadyState.NORMAL;
-      this.stateMessage = '(nominal)';
-    }
-
-    await this.sync();
-    await this.notifyClientsAboutUpdate(newVersion);
   }
 
   async checkForUpdate(): Promise<boolean> {
@@ -880,6 +888,8 @@ export class Driver implements Debuggable, UpdateSource {
       if (this.versions.has(hash)) {
         return false;
       }
+
+      await this.notifyClientsAboutVersionDetected(manifest, hash);
 
       await this.setupUpdate(manifest, hash);
 
@@ -1055,7 +1065,42 @@ export class Driver implements Debuggable, UpdateSource {
     }));
   }
 
-  async notifyClientsAboutUpdate(next: AppVersion): Promise<void> {
+  async notifyClientsAboutVersionInstallationFailed(manifest: Manifest, hash: string, error: any):
+      Promise<void> {
+    await this.initialized;
+
+    const clients = await this.scope.clients.matchAll();
+
+    await Promise.all(clients.map(async client => {
+      // Send a notice.
+      client.postMessage({
+        type: 'VERSION_INSTALLATION_FAILED',
+        version: this.mergeHashWithAppData(manifest, hash),
+        error: errorToString(error),
+      });
+    }));
+  }
+
+  async notifyClientsAboutVersionDetected(manifest: Manifest, hash: string): Promise<void> {
+    await this.initialized;
+
+    const clients = await this.scope.clients.matchAll();
+
+    await Promise.all(clients.map(async client => {
+      // Firstly, determine which version this client is on.
+      const version = this.clientVersionMap.get(client.id);
+      if (version === undefined) {
+        // Unmapped client - assume it's the latest.
+        return;
+      }
+
+      // Send a notice.
+      client.postMessage(
+          {type: 'VERSION_DETECTED', version: this.mergeHashWithAppData(manifest, hash)});
+    }));
+  }
+
+  async notifyClientsAboutVersionReady(manifest: Manifest, hash: string): Promise<void> {
     await this.initialized;
 
     const clients = await this.scope.clients.matchAll();
@@ -1077,9 +1122,9 @@ export class Driver implements Debuggable, UpdateSource {
 
       // Send a notice.
       const notice = {
-        type: 'UPDATE_AVAILABLE',
-        current: this.mergeHashWithAppData(current.manifest, version),
-        available: this.mergeHashWithAppData(next.manifest, this.latestHash!),
+        type: 'VERSION_READY',
+        currentVersion: this.mergeHashWithAppData(current.manifest, version),
+        latestVersion: this.mergeHashWithAppData(manifest, hash),
       };
 
       client.postMessage(notice);

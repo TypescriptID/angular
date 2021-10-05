@@ -465,8 +465,11 @@ export class TestBedViewEngine implements TestBed {
     this._moduleRef = this._moduleFactory.create(ngZoneInjector);
     // ApplicationInitStatus.runInitializers() is marked @internal to core. So casting to any
     // before accessing it.
-    (this._moduleRef.injector.get(ApplicationInitStatus) as any).runInitializers();
-    this._instantiated = true;
+    try {
+      (this._moduleRef.injector.get(ApplicationInitStatus) as any).runInitializers();
+    } finally {
+      this._instantiated = true;
+    }
   }
 
   private _createCompilerAndModule(): Type<any> {
@@ -691,17 +694,18 @@ export class TestBedViewEngine implements TestBed {
     }
   }
 
-  private shouldRethrowTeardownErrors() {
+  shouldRethrowTeardownErrors() {
     const instanceOptions = this._instanceTeardownOptions;
     const environmentOptions = TestBedViewEngine._environmentTeardownOptions;
 
     // If the new teardown behavior hasn't been configured, preserve the old behavior.
     if (!instanceOptions && !environmentOptions) {
-      return false;
+      return TEARDOWN_TESTING_MODULE_ON_DESTROY_DEFAULT;
     }
 
     // Otherwise use the configured behavior or default to rethrowing.
-    return instanceOptions?.rethrowErrors ?? environmentOptions?.rethrowErrors ?? true;
+    return instanceOptions?.rethrowErrors ?? environmentOptions?.rethrowErrors ??
+        this.shouldTearDownTestingModule();
   }
 
   shouldTearDownTestingModule(): boolean {

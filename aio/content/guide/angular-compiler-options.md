@@ -4,21 +4,7 @@ When you use [AOT compilation](guide/aot-compiler), you can control how your app
 
 The template options object, `angularCompilerOptions`, is a sibling to the `compilerOptions` object that supplies standard options to the TypeScript compiler.
 
-<code-example language="json">
-
-{
-  "compilerOptions": {
-    "experimentalDecorators": true,
-    ...
-  },
-  "angularCompilerOptions": {
-    "fullTemplateTypeCheck": true,
-    "preserveWhitespaces": true,
-    ...
-  }
-}
-
-</code-example>
+<code-example language="json" header="tsconfig.json" path="angular-compiler-options/tsconfig.json" region="angular-compiler-options"></code-example>
 
 {@a tsconfig-extends}
 
@@ -32,22 +18,7 @@ The configuration options from the base file are loaded first, then overridden b
 
 For example:
 
-<code-example language="json">
-
-{
-  "extends": "../tsconfig.json",
-  "compilerOptions": {
-    "experimentalDecorators": true,
-    ...
-  },
-  "angularCompilerOptions": {
-    "fullTemplateTypeCheck": true,
-    "preserveWhitespaces": true,
-    ...
-  }
-}
-
-</code-example>
+<code-example language="json" header="tsconfig.app.json" path="angular-compiler-options/tsconfig.app.json" region="angular-compiler-options-app"></code-example>
 
 For more information, see the [TypeScript Handbook](https://www.typescriptlang.org/docs/handbook/tsconfig-json.html).
 
@@ -148,6 +119,12 @@ The `module` field of the library's `package.json` would be `"index.js"` and the
 When `true` (recommended), enables the [binding expression validation](guide/aot-compiler#binding-expression-validation) phase of the template compiler, which uses TypeScript to validate binding expressions. For more information, see [Template type checking](guide/template-typecheck).
 
 Default is `false`, but when you use the CLI command `ng new --strict`, it is set to `true` in the generated project's configuration.
+
+<div class="alert is-important">
+
+The `fullTemplateTypeCheck` option has been deprecated in Angular 13 in favor of the `strictTemplates` family of compiler options.
+
+</div>
 
 ### `generateCodeForLibraries`
 
