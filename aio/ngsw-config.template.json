@@ -1,4 +1,5 @@
 {
+  "$schema": "./node_modules/@angular/service-worker/config/schema.json",
   "index": "/index.html",
   "assetGroups": [
     {
@@ -13,7 +14,9 @@
           "/assets/js/*.js",
           "/*.css",
           "/*.js",
-          "!/*-es5*.js"
+          "!/ngsw-worker.js",
+          "!/safety-worker.js",
+          "!/worker-basic.min.js"
         ],
         "urls": [
           "https://fonts.googleapis.com/**",
@@ -41,8 +44,6 @@
       "resources": {
         "files": [
           "/assets/images/favicons/**",
-          "/generated/js/custom-elements-es5-polyfills.js",
-          "/*-es5*.js",
           "!/**/_unused/**"
         ]
       }

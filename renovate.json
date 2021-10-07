@@ -34,6 +34,8 @@
     "angular-mocks-1.7",
     "angular-mocks-1.8",
     "puppeteer",
+    "remark",
+    "remark-html",
     "rollup",
     "selenium-webdriver",
     "watchr"
@@ -60,11 +62,6 @@
     {
       "packagePatterns": ["^@bazel/.*", "^build_bazel.*"],
       "groupName": "bazel",
-      "pinVersions": false
-    },
-    {
-      "packagePatterns": ["^remark-.*", "remark"],
-      "groupName": "remark",
       "pinVersions": false
     },
     {
