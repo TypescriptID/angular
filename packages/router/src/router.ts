@@ -923,10 +923,11 @@ export class Router {
                              t.id} is not equal to the current navigation id ${this.navigationId}`;
                          this.cancelNavigationTransition(t, cancelationReason);
                        }
-                       // currentNavigation should always be reset to null here. If navigation was
-                       // successful, lastSuccessfulTransition will have already been set. Therefore
-                       // we can safely set currentNavigation to null here.
-                       this.currentNavigation = null;
+                       // Only clear current navigation if it is still set to the one that
+                       // finalized.
+                       if (this.currentNavigation?.id === t.id) {
+                         this.currentNavigation = null;
+                       }
                      }),
                      catchError((e) => {
                        // TODO(atscott): The NavigationTransition `t` used here does not accurately
@@ -1353,26 +1354,18 @@ export class Router {
       return Promise.resolve(false);
     }
 
-    // * Duplicate navigations may also be triggered by attempts to sync AngularJS and Angular
-    // router states.
-    // * Imperative navigations can be cancelled by router guards, meaning the URL won't change. If
-    //   the user follows that with a navigation using the back/forward button or manual URL change,
-    //   the destination may be the same as the previous imperative attempt. We should not skip
-    //   these navigations because it's a separate case from the one above -- it's not a duplicate
-    //   navigation.
+    // Duplicate navigations may be triggered by attempts to sync AngularJS and
+    // Angular router states. We have the setTimeout in the location listener to
+    // ensure the imperative nav is scheduled before the browser nav.
     const lastNavigation = this.transitions.value;
-    // We don't want to skip duplicate successful navs if they're imperative because
-    // onSameUrlNavigation could be 'reload' (so the duplicate is intended).
     const browserNavPrecededByRouterNav = isBrowserTriggeredNavigation(source) && lastNavigation &&
         !isBrowserTriggeredNavigation(lastNavigation.source);
-    const lastNavigationSucceeded = this.lastSuccessfulId === lastNavigation.id;
-    // If the last navigation succeeded or is in flight, we can use the rawUrl as the comparison.
-    // However, if it failed, we should compare to the final result (urlAfterRedirects).
-    const lastNavigationUrl = (lastNavigationSucceeded || this.currentNavigation) ?
-        lastNavigation.rawUrl :
-        (lastNavigation.urlAfterRedirects ?? this.browserUrlTree);
-    const duplicateNav = lastNavigationUrl.toString() === rawUrl.toString();
-    if (browserNavPrecededByRouterNav && duplicateNav) {
+    const navToSameUrl = lastNavigation.rawUrl.toString() === rawUrl.toString();
+    const lastNavigationInProgress = lastNavigation.id === this.currentNavigation?.id;
+    // We consider duplicates as ones that goes to the same URL while the first
+    // is still processing.
+    const isDuplicateNav = navToSameUrl && lastNavigationInProgress;
+    if (browserNavPrecededByRouterNav && isDuplicateNav) {
       return Promise.resolve(true);  // return value is not used
     }
 
