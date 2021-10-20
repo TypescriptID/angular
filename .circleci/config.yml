@@ -303,24 +303,11 @@ jobs:
       - init_environment
       - install_java
       - run:
-          command: yarn bazel test //... --build_tag_filters=-ivy-only --test_tag_filters=-ivy-only
+          # We need to explicitly specify the --symlink_prefix option because otherwise we would
+          # not be able to easily find the output bin directory when uploading artifacts for size
+          # measurements.
+          command: yarn test  --symlink_prefix=dist/ //...
           no_output_timeout: 20m
-
-  # Temporary job to test what will happen when we flip the Ivy flag to true
-  test_ivy_aot:
-    executor:
-      name: test-browser-executor
-      resource_class: xlarge
-    steps:
-      - custom_attach_workspace
-      - init_environment
-      # We need to explicitly specify the --symlink_prefix option because otherwise we would
-      # not be able to easily find the output bin directory when uploading artifacts for size
-      # measurements.
-      - run:
-          command: yarn test-ivy-aot //... --symlink_prefix=dist/
-          no_output_timeout: 20m
-
         # Publish bundle artifacts which will be used to calculate the size change. **Note**: Make
         # sure that the size plugin from the Angular robot fetches the artifacts from this CircleCI
         # job (see .github/angular-robot.yml). Additionally any artifacts need to be stored with the
@@ -341,7 +328,7 @@ jobs:
           destination: core/todo/bundle.br
 
   # NOTE: This is currently limited to master builds only. See the `monitoring` configuration.
-  saucelabs_view_engine:
+  saucelabs:
     executor:
       name: default-executor
       # In order to avoid the bottleneck of having a slow host machine, we acquire a better
@@ -353,36 +340,12 @@ jobs:
       - init_environment
       - init_saucelabs_environment
       - run:
-          name: Run Bazel tests on Saucelabs with ViewEngine
+          name: Run Bazel tests on Saucelabs
           # See /tools/saucelabs/README.md for more info
           command: |
             yarn bazel run //tools/saucelabs:sauce_service_setup
-            TESTS=$(./node_modules/.bin/bazelisk query --output label '(kind(karma_web_test, ...) intersect attr("tags", "saucelabs", ...)) except attr("tags", "ivy-only", ...) except attr("tags", "fixme-saucelabs-ve", ...)')
+            TESTS=$(./node_modules/.bin/bazelisk query --output label '(kind(karma_web_test, ...) intersect attr("tags", "saucelabs", ...)) except attr("tags", "view-engine-only", ...) except attr("tags", "fixme-saucelabs", ...)')
             yarn bazel test --config=saucelabs ${TESTS}
-            yarn bazel run //tools/saucelabs:sauce_service_stop
-          no_output_timeout: 40m
-      - notify_webhook_on_fail:
-          webhook_url_env_var: SLACK_DEV_INFRA_CI_FAILURES_WEBHOOK_URL
-
-  # NOTE: This is currently limited to master builds only. See the `monitoring` configuration.
-  saucelabs_ivy:
-    executor:
-      name: default-executor
-      # In order to avoid the bottleneck of having a slow host machine, we acquire a better
-      # container for this job. This is necessary because we launch a lot of browsers concurrently
-      # and therefore the tunnel and Karma need to process a lot of file requests and tests.
-      resource_class: xlarge
-    steps:
-      - custom_attach_workspace
-      - init_environment
-      - init_saucelabs_environment
-      - run:
-          name: Run Bazel tests on Saucelabs with Ivy
-          # See /tools/saucelabs/README.md for more info
-          command: |
-            yarn bazel run //tools/saucelabs:sauce_service_setup
-            TESTS=$(./node_modules/.bin/bazelisk query --output label '(kind(karma_web_test, ...) intersect attr("tags", "saucelabs", ...)) except attr("tags", "no-ivy-aot", ...) except attr("tags", "fixme-saucelabs-ivy", ...)')
-            yarn bazel test --config=saucelabs --config=ivy ${TESTS}
             yarn bazel run //tools/saucelabs:sauce_service_stop
           no_output_timeout: 40m
       - notify_webhook_on_fail:
@@ -509,8 +472,6 @@ jobs:
   # the bazel packages more than once. Even though we have a remote cache, these jobs will
   # typically run in parallel so up-to-date outputs will not be available at the time the build
   # starts.
-
-  # Build the view engine npm packages. No new jobs should depend on this.
   build-npm-packages:
     executor:
       name: default-executor
@@ -776,30 +737,12 @@ jobs:
       - setup_win
       - run:
           name: Build all windows CI targets
-          command: bazel build --build_tag_filters=-ivy-only //packages/compiler-cli/...
+          command: bazel build --build_tag_filters=-view-engine-only //packages/compiler-cli/...
           no_output_timeout: 15m
       - run:
           name: Test all windows CI targets
-          command: bazel test --test_tag_filters="-ivy-only,-browser:chromium-local" //packages/compiler-cli/...
+          command: bazel test --test_tag_filters="-view-engine-only,-browser:chromium-local" //packages/compiler-cli/...
           no_output_timeout: 15m
-
-  test_ivy_aot_win:
-    executor: windows-executor
-    steps:
-      - setup_win
-      - run:
-          name: Build all windows CI targets
-          command: bazel build --config=ivy --build_tag_filters=-no-ivy-aot,-fixme-ivy-aot //packages/compiler-cli/...
-          no_output_timeout: 15m
-      - run:
-          name: Test all windows CI targets
-          command: bazel test --config=ivy --test_tag_filters="-no-ivy-aot,-fixme-ivy-aot,-browser:chromium-local" //packages/compiler-cli/... //packages/localize/...
-          no_output_timeout: 15m
-      # Save dependencies to use on subsequent runs.
-      - save_cache:
-          key: *cache_key_win
-          paths:
-            - ~/.cache/yarn
 
 workflows:
   version: 2
@@ -813,9 +756,6 @@ workflows:
           requires:
             - setup
       - test:
-          requires:
-            - setup
-      - test_ivy_aot:
           requires:
             - setup
       - build-npm-packages:
@@ -855,7 +795,6 @@ workflows:
           requires:
             # Only publish if tests and integration tests pass
             - test
-            - test_ivy_aot
             # Only publish if `aio`/`docs` tests using the locally built Angular packages pass
             - test_aio_local
             - test_docs_examples
@@ -872,9 +811,6 @@ workflows:
       - test_win:
           requires:
             - setup
-      - test_ivy_aot_win:
-          requires:
-            - setup
 
   monitoring:
     jobs:
@@ -888,16 +824,7 @@ workflows:
       - aio_monitoring_next:
           requires:
             - setup
-      - saucelabs_ivy:
-          # Testing saucelabs via Bazel currently taking longer than the legacy saucelabs job as it
-          # each karma_web_test target is provisioning and tearing down browsers which is adding
-          # a lot of overhead. Running once daily on master only to avoid wasting resources and
-          # slowing down CI for PRs.
-          # TODO: Run this job on all branches (including PRs) once karma_web_test targets can
-          # share provisioned browsers and we can remove the legacy saucelabs job.
-          requires:
-            - setup
-      - saucelabs_view_engine:
+      - saucelabs:
           # Testing saucelabs via Bazel currently taking longer than the legacy saucelabs job as it
           # each karma_web_test target is provisioning and tearing down browsers which is adding
           # a lot of overhead. Running once daily on master only to avoid wasting resources and
