@@ -333,9 +333,6 @@
     "name": "NG_INJ_DEF"
   },
   {
-    "name": "NG_LOC_ID_DEF"
-  },
-  {
     "name": "NG_MODEL_WITH_FORM_CONTROL_WARNING"
   },
   {
@@ -1534,9 +1531,6 @@
   },
   {
     "name": "setIsInCheckNoChangesMode"
-  },
-  {
-    "name": "setLocaleId"
   },
   {
     "name": "setSelectedIndex"

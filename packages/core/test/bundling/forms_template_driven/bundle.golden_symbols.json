@@ -318,9 +318,6 @@
     "name": "NG_INJ_DEF"
   },
   {
-    "name": "NG_LOC_ID_DEF"
-  },
-  {
     "name": "NG_MOD_DEF"
   },
   {
@@ -1507,9 +1504,6 @@
   },
   {
     "name": "setIsInCheckNoChangesMode"
-  },
-  {
-    "name": "setLocaleId"
   },
   {
     "name": "setSelectedIndex"
