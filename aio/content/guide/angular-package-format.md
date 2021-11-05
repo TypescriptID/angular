@@ -26,69 +26,18 @@ Developers can rely on Angular CLI and [ng-packagr](https://github.com/ng-packag
 
 The following example shows a simplified version of the `@angular/core` package's file layout, with an explanation for each file in the package. This table describes the file layout under `node_modules/@angular/core` annotated to describe the purpose of files and directories:
 
-<style>
-  table tbody>tr>td {
-    padding: 8px;
-    vertical-align: middle;
-    line-height: normal;
-  }
-</style>
-
-<table>
-<tbody>
-<tr>
-<td><pre>README.md</pre>
-<td>Package README, used by npmjs web UI</td>
-</tr>
-<tr>
-<td><pre>package.json</pre></td>
-<td>Primary package.json, describing the package itself as well as all available entrypoints and code formats. This file contains the "exports" mapping used by runtimes and tools to perform module resolution.</td>
-</tr>
-<tr>
-<td><pre>core.d.ts</pre></td>
-<td>Bundled .d.ts for the primary entrypoint (@angular/core)</td>
-</tr>
-<tr>
-<td><pre>esm2020/
-  core.mjs
-  index.mjs
-  public_api.mjs</pre></td>
-<td>Tree of @angular/core's sources in unflattened ES2020 format.</td>
-</tr>
-<tr>
-<td><pre>esm2020/testing/</pre></td>
-<td>Tree of the @angular/core/testing entrypoint in unflattened ES2020 format.</td>
-</tr>
-<tr>
-<td><pre>fesm2015/
-  core.mjs
-  core.mjs.map
-  testing.mjs
-  testing.mjs.map</pre></td>
-<td>Code for all entrypoints in a flattened (FESM) ES2015 format, along with sourcemaps.</td>
-</tr>
-<tr>
-<td><pre>fesm2020/
-  core.mjs
-  core.mjs.map
-  testing.mjs
-  testing.mjs.map</pre></td>
-<td>Code for all entrypoints in flattened (FESM) ES2020 format, along with sourcemaps.</td>
-</tr>
-<tr>
-<td><pre>testing/</pre></td>
-<td>Directory representing the "testing" entrypoint.</td>
-</tr>
-<tr>
-<td><pre>testing/package.json</pre></td>
-<td>Defines the @angular/core/testing entrypoint with its typings for TypeScript, which does not support the top level "exports" based module resolution.</td>
-</tr>
-<tr>
-<td><pre>testing/testing.d.ts</pre></td>
-<td>Actual .d.ts for the @angular/core/testing entrypoint</td>
-</tr>
-</tbody>
-</table>
+| FILES                                                                                                                                     | PURPOSE                                                                                                                                                                                                      |
+| :---------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `README.md`                                                                                                                               | Package README, used by npmjs web UI.                                                                                                                                                                        |
+| `package.json`                                                                                                                            | Primary package.json, describing the package itself as well as all available entrypoints and code formats. This file contains the "exports" mapping used by runtimes and tools to perform module resolution. |
+| `core.d.ts`                                                                                                                               | Bundled `.d.ts` for the primary entrypoint `@angular/core`.                                                                                                                                                  |
+| `esm2020/`<br>&nbsp;&nbsp;─ `core.mjs`<br>&nbsp;&nbsp;─ `index.mjs`<br>&nbsp;&nbsp;─ `public_api.mjs`                                     | Tree of @angular/core's sources in unflattened ES2020 format.                                                                                                                                                |
+| `esm2020/testing/`                                                                                                                        | Tree of the `@angular/core/testing` entrypoint in unflattened ES2020 format.                                                                                                                                 |
+| `fesm2015/`<br>&nbsp;&nbsp;─ `core.mjs`<br>&nbsp;&nbsp;─ `core.mjs.map`<br>&nbsp;&nbsp;─ `testing.mjs`<br>&nbsp;&nbsp;─ `testing.mjs.map` | Code for all entrypoints in a flattened (FESM) ES2015 format, along with sourcemaps.                                                                                                                         |
+| `fesm2020/`<br>&nbsp;&nbsp;─ `core.mjs`<br>&nbsp;&nbsp;─ `core.mjs.map`<br>&nbsp;&nbsp;─ `testing.mjs`<br>&nbsp;&nbsp;─ `testing.mjs.map` | Code for all entrypoints in flattened (FESM) ES2020 format, along with sourcemaps.                                                                                                                           |
+| `testing/`                                                                                                                                | Directory representing the "testing" entrypoint.                                                                                                                                                             |
+| `testing/package.json`                                                                                                                    | Defines the @angular/core/testing entrypoint with its typings for TypeScript, which does not support the top level "exports" based module resolution.                                                        |
+| `testing/testing.d.ts`                                                                                                                    | Actual `.d.ts` for the `@angular/core/testing` entrypoint                                                                                                                                                    |
 
 ## `package.json`
 
@@ -154,7 +103,7 @@ Tooling that is aware of these keys may preferentially select a desirable code f
 
 * `"node"` selects flattened ES2015 code when the package is loaded in Node.
 
-    This format is used due to the requirements of `zone.js`, which does not support native `async`/`await` ES2017 syntax. Therefore, Node is instructed to use ES2015 code, where `async`/`await` structures have been downleveled into Promises.
+    This format is used due to the requirements of `zone.js`, which does not support native <code class="no-auto-link">async</code>/`await` ES2017 syntax. Therefore, Node is instructed to use ES2015 code, where <code class="no-auto-link">async</code>/`await` structures have been downleveled into Promises.
 
 * `"default"` selects flattened ES2020 code for all other consumers.
 
@@ -319,48 +268,54 @@ As of APF v10, we recommend adding tslib as a direct dependency of your primary 
 
 The following terms are used throughout this document very intentionally. In this section we define all of them to provide additional clarity.
 
-<style>
-dt {
-  font-size: larger;
-  font-weight: bold;
-  padding: 16px 0px;
-}
-</style>
+#### Package
+The smallest set of files that are published to NPM and installed together, for example `@angular/core`. This package includes a manifest called package.json, compiled source code, typescript definition files, source maps, metadata, etc. The package is installed with `npm install @angular/core`.
 
-<dl>
-<dt>Package</dt>
-<dd>The smallest set of files that are published to NPM and installed together, for example @angular/core. This package includes a manifest called package.json, compiled source code, typescript definition files, source maps, metadata, etc. The package is installed with npm install @angular/core.</dd>
-<dt>Symbol</dt>
-<dd>A class, function, constant or variable contained in a module and optionally made visible to the external world via a module export.</dd>
-<dt>Module</dt>
-<dd>Short for ECMAScript Modules. A file containing statements that import and export symbols. This is identical to the definition of modules in the ECMAScript spec.</dd>
-<dt>ESM</dt>
-<dd>Short for ECMAScript Modules (see above)</dd>
-<dt>FESM</dt>
-<dd>Short for Flattened ES Modules and consists of a file format created by flattening all ES Modules accessible from an entry point into a single ES Module.
-</dd>
-<dt>Module ID</dt>
-<dd>The identifier of a module used in the import statements, e.g. `@angular/core`. The ID often maps directly to a path on the filesystem, but this is not always the case due to various module resolution strategies.</dd>
-<dt>Module Specifier</dt>
-<dd>A module identifier (see above)</dd>
-<dt>Module Resolution Strategy</dt>
-<dd>Algorithm used to convert Module IDs to paths on the filesystem. Node.js has one that is well specified and widely used, TypeScript supports several module resolution strategies, Closure has yet another strategy.</dd>
-<dt>Module Format</dt>
-<dd>Specification of the module syntax that covers at minimum the syntax for the importing and exporting from a file. Common module formats are CommonJS (CJS, typically used for Node.js applications) or ECMAScript Modules (ESM). The module format indicates only the packaging of the individual modules, but not the JavaScript language features used to make up the module content. Because of this, the Angular team often uses the language level specifier as a suffix to the module format, e.g. ESM+ES5 specifies that the module is in ESM format and contains code down-leveled to ES5. Other commonly used combos: ESM+ES2015, CJS+ES5, and CJS+ES2015.</dd>
-<dt>Bundle</dt>
-<dd>An artifact in the form of a single JS file, produced by a build tool, e.g. WebPack or Rollup, that contains symbols originating in one or more modules. Bundles are a browser-specific workaround that reduce network strain that would be caused if browsers were to start downloading hundreds if not tens of thousands of files. Node.js typically doesn't use bundles. Common bundle formats are UMD and System.register.</dd>
-<dt>Language Level</dt>
-<dd>The language of the code (ES5 or ES2015). Independent of the module format.</dd>
-<dt>Entry Point</dt>
-<dd>A module intended to be imported by the user. It is referenced by a unique module ID and exports the public API referenced by that module ID. An example is @angular/core or @angular/core/testing. Both entry points exist in the @angular/core package, but they export different symbols. A package can have many entry points.</dd>
-<dt>Deep Import</dt>
-<dd>A process of retrieving symbols from modules that are not Entry Points. These module IDs are usually considered to be private APIs that can change over the lifetime of the project or while the bundle for the given package is being created.</dd>
-<dt>Top-Level Import</dt>
-<dd>An import coming from an entry point. The available top-level imports are what define the public API and are exposed in “@angular/name” modules, such as @angular/core  or @angular/common.</dd>
-<dt>Tree-shaking</dt>
-<dd>The process of identifying and removing code not used by an application - also known as dead code elimination. This is a global optimization performed at the application level using tools like Rollup, Closure Compiler, or Uglify.</dd>
-<dt>AOT Compiler</dt>
-<dd>The Ahead of Time Compiler for Angular.</dd>
-<dt>Flattened Type Definitions</dt>
-<dd>The bundled TypeScript definitions generated from api-extractor.</dd>
-</dl>
+#### Symbol
+A class, function, constant or variable contained in a module and optionally made visible to the external world via a module export.
+
+#### Module
+Short for ECMAScript Modules. A file containing statements that import and export symbols. This is identical to the definition of modules in the ECMAScript spec.
+#### ESM
+Short for ECMAScript Modules (see above).
+
+#### FESM
+Short for Flattened ES Modules and consists of a file format created by flattening all ES Modules accessible from an entry point into a single ES Module.
+
+#### Module ID
+The identifier of a module used in the import statements, e.g. `@angular/core`. The ID often maps directly to a path on the filesystem, but this is not always the case due to various module resolution strategies.
+
+#### Module Specifier
+A module identifier (see above).
+
+#### Module Resolution Strategy
+Algorithm used to convert Module IDs to paths on the filesystem. Node.js has one that is well specified and widely used, TypeScript supports several module resolution strategies, [Closure Compiler](https://developers.google.com/closure/compiler) has yet another strategy.</dd>
+
+#### Module Format
+Specification of the module syntax that covers at minimum the syntax for the importing and exporting from a file. Common module formats are CommonJS (CJS, typically used for Node.js applications) or ECMAScript Modules (ESM). The module format indicates only the packaging of the individual modules, but not the JavaScript language features used to make up the module content. Because of this, the Angular team often uses the language level specifier as a suffix to the module format, e.g. ESM+ES2015 specifies that the module is in ESM format and contains code down-leveled to ES2015.
+
+#### Bundle
+An artifact in the form of a single JS file, produced by a build tool, e.g. [Webpack](https://webpack.js.org/) or [Rollup](https://rollupjs.org/), that contains symbols originating in one or more modules. Bundles are a browser-specific workaround that reduce network strain that would be caused if browsers were to start downloading hundreds if not tens of thousands of files. Node.js typically doesn't use bundles. Common bundle formats are UMD and System.register.
+
+#### Language Level
+The language of the code (ES2015 or ES2020). Independent of the module format.
+
+#### Entry Point
+A module intended to be imported by the user. It is referenced by a unique module ID and exports the public API referenced by that module ID. An example is `@angular/core` or `@angular/core/testing`. Both entry points exist in the `@angular/core` package, but they export different symbols. A package can have many entry points.
+
+#### Deep Import
+A process of retrieving symbols from modules that are not Entry Points. These module IDs are usually considered to be private APIs that can change over the lifetime of the project or while the bundle for the given package is being created.
+
+#### Top-Level Import
+An import coming from an entry point. The available top-level imports are what define the public API and are exposed in “@angular/name” modules, such as `@angular/core` or `@angular/common`.
+
+#### Tree-shaking
+The process of identifying and removing code not used by an application - also known as dead code elimination. This is a global optimization performed at the application level using tools like [Rollup](https://rollupjs.org/), [Closure Compiler](https://developers.google.com/closure/compiler), or [Terser](https://github.com/terser/terser/).
+
+#### AOT Compiler
+The Ahead of Time Compiler for Angular.
+
+#### Flattened Type Definitions
+The bundled TypeScript definitions generated from [API Extractor](https://api-extractor.com/).
+
+@reviewed 2021-11-04
