@@ -3,7 +3,6 @@ import path from 'canonical-path';
 import fs from 'fs-extra';
 import {globbySync} from 'globby';
 import jsdom from 'jsdom';
-import json5 from 'json5';
 import {fileURLToPath} from 'url';
 
 import regionExtractor from '../transforms/examples-package/services/region-parser.js';
@@ -272,7 +271,7 @@ export class StackblitzBuilder {
     const config = this._parseConfig(configFileName);
 
     const defaultIncludes = ['**/*.ts', '**/*.js', '**/*.css', '**/*.html', '**/*.md', '**/*.json', '**/*.png', '**/*.svg'];
-    const boilerplateIncludes = ['src/environments/*.*', 'angular.json', 'src/polyfills.ts', 'tsconfig.json'];
+    const boilerplateIncludes = ['src/environments/*.*', 'src/polyfills.ts', '*.json'];
     if (config.files) {
       if (config.files.length > 0) {
         if (config.files[0][0] === '!') {
