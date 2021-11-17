@@ -180,6 +180,7 @@ groups:
         - crisbeto # Kristiyan Kostadinov
         - devversion # Paul Gschwendtner
         - dgp1130 # Doug Parker
+        - dylhunn # Dylan Hunn
         - filipesilva # Filipe Silva
         - gkalpak # Georgios Kalpakas
         - gregmagolan # Greg Magolan
@@ -1239,10 +1240,10 @@ groups:
         - IgorMinar
         - alxhub
         - atscott
+        - dylhunn
         - jelbourn
         - petebacondarwin
         - jessicajaniuk
-        - zarend
         # OOO as of 2020-09-28 - pkozlowski-opensource
     reviews:
       request: 4 # Request reviews from four people
@@ -1268,10 +1269,10 @@ groups:
         - IgorMinar
         - alxhub
         - atscott
+        - dylhunn
         - jelbourn
         - petebacondarwin
         - jessicajaniuk
-        - zarend
         # OOO as of 2020-09-28 - pkozlowski-opensource
     reviews:
       request: 4 # Request reviews from four people
@@ -1297,10 +1298,10 @@ groups:
         - IgorMinar
         - alxhub
         - atscott
+        - dylhunn
         - jelbourn
         - petebacondarwin
         - jessicajaniuk
-        - zarend
         # OOO as of 2020-09-28 - pkozlowski-opensource
 
   ####################################################################################
