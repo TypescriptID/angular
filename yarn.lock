@@ -234,10 +234,10 @@
   dependencies:
     tslib "^2.0.0"
 
-"@angular/dev-infra-private@https://github.com/angular/dev-infra-private-builds.git#c55a3937d45945489714273bfbbe9b803ceff89e":
-  version "0.0.0-f0f363cb4ce5b5faf14e3d3bb7eeb7c7aee72da7"
-  uid c55a3937d45945489714273bfbbe9b803ceff89e
-  resolved "https://github.com/angular/dev-infra-private-builds.git#c55a3937d45945489714273bfbbe9b803ceff89e"
+"@angular/dev-infra-private@https://github.com/angular/dev-infra-private-builds.git#74fb4de008fde297fb83393ff076de10532f82a9":
+  version "0.0.0-c2fb49a44ad9fa77f508010f950524ee97f5e8d5"
+  uid "74fb4de008fde297fb83393ff076de10532f82a9"
+  resolved "https://github.com/angular/dev-infra-private-builds.git#74fb4de008fde297fb83393ff076de10532f82a9"
   dependencies:
     "@actions/core" "^1.4.0"
     "@actions/github" "^5.0.0"
@@ -13073,6 +13073,14 @@ source-map-support@0.5.20, source-map-support@^0.5.5, source-map-support@~0.5.20
     buffer-from "^1.0.0"
     source-map "^0.6.0"
 
+source-map-support@0.5.21:
+  version "0.5.21"
+  resolved "https://registry.yarnpkg.com/source-map-support/-/source-map-support-0.5.21.tgz#04fe7c7f9e1ed2d662233c28cb2b35b9f63f6e4f"
+  integrity sha512-uBHU3L3czsIyYXKX88fdrGovxdSCoTGDRZ6SYXtSRxLZUzHg5P/66Ht6uoUlHu9EZod+inXhKo3qQgwXUT/y1w==
+  dependencies:
+    buffer-from "^1.0.0"
+    source-map "^0.6.0"
+
 source-map-support@0.5.9:
   version "0.5.9"
   resolved "https://registry.yarnpkg.com/source-map-support/-/source-map-support-0.5.9.tgz#41bc953b2534267ea2d605bccfa7bfa3111ced5f"
@@ -13902,10 +13910,10 @@ ts-node@^10.0.0, ts-node@^10.2.1:
     make-error "^1.1.1"
     yn "3.1.1"
 
-tsec@0.1.11:
-  version "0.1.11"
-  resolved "https://registry.yarnpkg.com/tsec/-/tsec-0.1.11.tgz#d24d0b36bfd73c83bf39db4211d29a0469457da4"
-  integrity sha512-GzUW2kyV8UgmEp0NPkcxsnlXimJj02kchmVde6FnzUfvpAp+l36MKT2swcCd0aS8QWfqaXNckXrFtjZhIGJWkw==
+tsec@0.2.0:
+  version "0.2.0"
+  resolved "https://registry.yarnpkg.com/tsec/-/tsec-0.2.0.tgz#f8417b6929eaf71c61ca9593e96f1f2f94cbc9b9"
+  integrity sha512-fk70XZHb7AIcPI6PbtlHp/rXbca4G+ocfjJxc4M3daf66VUsQc82WppqD0jle5FaqVLRLV37ukmwjCOSjXdI+A==
   dependencies:
     glob "^7.1.1"
     minimatch "^3.0.3"
