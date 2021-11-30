@@ -7,7 +7,7 @@
  */
 
 import {CommonModule, DOCUMENT, ɵgetDOM as getDOM} from '@angular/common';
-import {Compiler, ComponentFactory, ComponentRef, EventEmitter, Host, Inject, Injectable, InjectionToken, Injector, NgModule, NgModuleRef, NO_ERRORS_SCHEMA, OnDestroy, SkipSelf, ViewChild, ViewRef} from '@angular/core';
+import {Attribute, Compiler, Component, ComponentFactory, ComponentRef, ContentChildren, Directive, EventEmitter, Host, HostBinding, HostListener, Inject, Injectable, InjectionToken, Injector, Input, NgModule, NgModuleRef, NO_ERRORS_SCHEMA, OnDestroy, Output, Pipe, SkipSelf, ViewChild, ViewRef} from '@angular/core';
 import {ChangeDetectionStrategy, ChangeDetectorRef, PipeTransform} from '@angular/core/src/change_detection/change_detection';
 import {ComponentFactoryResolver} from '@angular/core/src/linker/component_factory_resolver';
 import {ElementRef} from '@angular/core/src/linker/element_ref';
@@ -15,7 +15,6 @@ import {QueryList} from '@angular/core/src/linker/query_list';
 import {TemplateRef} from '@angular/core/src/linker/template_ref';
 import {ViewContainerRef} from '@angular/core/src/linker/view_container_ref';
 import {EmbeddedViewRef} from '@angular/core/src/linker/view_ref';
-import {Attribute, Component, ContentChildren, Directive, HostBinding, HostListener, Input, Output, Pipe} from '@angular/core/src/metadata';
 import {fakeAsync, getTestBed, TestBed, tick, waitForAsync} from '@angular/core/testing';
 import {createMouseEvent, dispatchEvent, el, isCommentNode} from '@angular/platform-browser/testing/src/browser_util';
 import {expect} from '@angular/platform-browser/testing/src/matchers';
@@ -976,17 +975,8 @@ describe('integration tests', function() {
 
     describe('ViewContainerRef', () => {
       beforeEach(() => {
-        // we need a module to declarate ChildCompUsingService as an entryComponent otherwise the
-        // factory doesn't get created
-        @NgModule({
-          declarations: [MyComp, DynamicViewport, ChildCompUsingService],
-          entryComponents: [ChildCompUsingService],
-          schemas: [NO_ERRORS_SCHEMA],
-        })
-        class MyModule {
-        }
-
-        TestBed.configureTestingModule({imports: [MyModule]});
+        TestBed.configureTestingModule(
+            {declarations: [MyComp, DynamicViewport, ChildCompUsingService]});
         TestBed.overrideComponent(
             MyComp, {add: {template: '<div><dynamic-vp #dynamic></dynamic-vp></div>'}});
       });
@@ -1069,7 +1059,6 @@ describe('integration tests', function() {
 
           @NgModule({
             declarations: [RootComp, MyComp],
-            entryComponents: [MyComp],
             providers: [{provide: 'someToken', useValue: 'someRootValue'}],
           })
           class RootModule {
@@ -1115,7 +1104,6 @@ describe('integration tests', function() {
 
           @NgModule({
             declarations: [MyComp],
-            entryComponents: [MyComp],
             providers: [{provide: 'someToken', useValue: 'someValue'}],
           })
           class MyModule {
@@ -1401,7 +1389,7 @@ describe('integration tests', function() {
       class NoSelectorComponent {
       }
 
-      @Component({selector: 'some-comp', template: '', entryComponents: [NoSelectorComponent]})
+      @Component({selector: 'some-comp', template: ''})
       class SomeComponent {
         constructor(componentFactoryResolver: ComponentFactoryResolver) {
           // grab its own component factory
@@ -1484,13 +1472,6 @@ describe('integration tests', function() {
       itemContent!: string;
     }
 
-    @NgModule({
-      declarations: [DynamicMenuItem],
-      entryComponents: [DynamicMenuItem],
-    })
-    class DynamicMenuItemModule {
-    }
-
     @Component({selector: 'test', template: `<ng-container #menuItemsContainer></ng-container>`})
     class TestCmp {
       constructor(public cfr: ComponentFactoryResolver) {}
@@ -1499,10 +1480,7 @@ describe('integration tests', function() {
     }
 
     beforeEach(() => {
-      TestBed.configureTestingModule({
-        declarations: [TestCmp],
-        imports: [DynamicMenuItemModule],
-      });
+      TestBed.configureTestingModule({declarations: [TestCmp, DynamicMenuItem]});
     });
 
     const createElWithContent = (content: string, tagName = 'span') => {
@@ -1567,8 +1545,7 @@ describe('integration tests', function() {
              DynamicMenuItem,
              `<ng-template #templateRef><ng-content select="span"></ng-content>{{itemContent}}<ng-content select="button"></ng-content></ng-template>`);
 
-         TestBed.configureTestingModule(
-             {declarations: [TestCmp], imports: [DynamicMenuItemModule]});
+         TestBed.configureTestingModule({declarations: [TestCmp, DynamicMenuItem]});
 
          const fixture = TestBed.createComponent(TestCmp);
          const menuItemsContainer = fixture.componentInstance.menuItemsContainer;

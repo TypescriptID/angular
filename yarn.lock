@@ -236,7 +236,6 @@
 
 "@angular/dev-infra-private@https://github.com/angular/dev-infra-private-builds.git#74fb4de008fde297fb83393ff076de10532f82a9":
   version "0.0.0-c2fb49a44ad9fa77f508010f950524ee97f5e8d5"
-  uid "74fb4de008fde297fb83393ff076de10532f82a9"
   resolved "https://github.com/angular/dev-infra-private-builds.git#74fb4de008fde297fb83393ff076de10532f82a9"
   dependencies:
     "@actions/core" "^1.4.0"
@@ -9974,7 +9973,7 @@ multicast-dns@^6.0.1:
     dns-packet "^1.3.1"
     thunky "^1.0.2"
 
-multimatch@*:
+multimatch@*, multimatch@^6.0.0:
   version "6.0.0"
   resolved "https://registry.yarnpkg.com/multimatch/-/multimatch-6.0.0.tgz#c72a9bddbc94baa4727efd613b5d22a1fe4d6ee3"
   integrity sha512-I7tSVxHGPlmPN/enE3mS1aOSo6bWBfls+3HmuEeCUBCE7gWnm3cBXCBkpurzFjVRwC6Kld8lLaZ1Iv5vOcjvcQ==
@@ -12555,18 +12554,11 @@ sass@1.43.4:
   dependencies:
     chokidar ">=3.0.0 <4.0.0"
 
-"sauce-connect@https://saucelabs.com/downloads/sc-4.6.2-linux.tar.gz":
+"sauce-connect@https://saucelabs.com/downloads/sc-4.7.1-linux.tar.gz":
   version "0.0.0"
   resolved "https://saucelabs.com/downloads/sc-4.6.2-linux.tar.gz#7b7f35433af9c3380758e048894d7b9aecf3754e"
 
-saucelabs@^1.5.0:
-  version "1.5.0"
-  resolved "https://registry.yarnpkg.com/saucelabs/-/saucelabs-1.5.0.tgz#9405a73c360d449b232839919a86c396d379fd9d"
-  integrity sha512-jlX3FGdWvYf4Q3LFfFWS1QvPg3IGCGWxIc8QBFdPTbpTJnt/v17FHXYVAn7C8sHf1yUXo2c7yIM0isDryfYtHQ==
-  dependencies:
-    https-proxy-agent "^2.2.1"
-
-saucelabs@^4.6.3:
+saucelabs@4.7.8, saucelabs@^1.5.0, saucelabs@^4.6.3:
   version "4.7.8"
   resolved "https://registry.yarnpkg.com/saucelabs/-/saucelabs-4.7.8.tgz#099a7ddacee297b34420acd5ddc155eb1ad0efde"
   integrity sha512-K2qaRUixc7+8JiAwpTvEsIQVzzUkYwa0mAfs0akGagRlWXUR1JrsmgJRyz28qkwpERW1KDuByn3Ju96BuW1V7Q==
@@ -14111,6 +14103,11 @@ typescript@^3.9.5, typescript@^3.9.7:
   version "3.9.10"
   resolved "https://registry.yarnpkg.com/typescript/-/typescript-3.9.10.tgz#70f3910ac7a51ed6bef79da7800690b19bf778b8"
   integrity sha512-w6fIxVE/H1PkLKcCPsFqKE7Kv7QUwhU8qQY2MueZXWx5cPZdwFupLgKK3vntcK98BtNHZtAF4LA/yl2a7k8R6Q==
+
+typescript@~4.5.2:
+  version "4.5.2"
+  resolved "https://registry.yarnpkg.com/typescript/-/typescript-4.5.2.tgz#8ac1fba9f52256fdb06fb89e4122fa6a346c2998"
+  integrity sha512-5BlMof9H1yGt0P8/WF+wPNw6GfctgGjXp5hkblpyT+8rkASSmkUKMXrxR0Xg8ThVCi/JnHQiKXeBaEwCeQwMFw==
 
 ua-parser-js@^0.7.21, ua-parser-js@^0.7.30:
   version "0.7.31"
