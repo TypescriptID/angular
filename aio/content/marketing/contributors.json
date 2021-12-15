@@ -134,7 +134,7 @@
     "picture": "aristeidis.jpg",
     "twitter": "abampakos",
     "website": "https://medium.com/@abampakos",
-    "bio": "Aristeidis is a web development team lead at Plex-Earth working with Angular. He is a co-organizer of the Angular Athens meetup and the author of Learning Angular - 3rd Edition and Angular Projects - 2nd Edition books. He is also a senior Angular instructor at Code.Hub where he teaches the Angular framework to other developers.",
+    "bio": "Aristeidis is a web development team lead at Plex-Earth working with Angular. He is the author of two books about Angular: Learning Angular - 3rd Edition and Angular Projects - 2nd Edition. He also works as an Angular senior tech instructor at Code.Hub where he teaches the Angular framework to other developers and professionals.",
     "groups": ["GDE"]
   },
   "bbrennan": {
@@ -990,6 +990,14 @@
     "twitter": "willmendesneto",
     "website": "https://willmendesneto.github.io",
     "bio": "GDE (Google Developer Expert) Angular and Web Technologies, GDG Salvador organizer, passionate about technology and active in communities with a focus on web development, including Angular, JavaScript, HTML5, CSS3, Workflow, web performance, security and Internet of things. Participates in events organization, speaker at conferences in Brazil and other countries and contributes to several open source projects.",
+    "groups": ["GDE"]
+  },
+  "yharaskrik": {
+    "name": "Jay Bell",
+    "picture": "jaybell.jpg",
+    "twitter": "jaycooperbell",
+    "website": "tech.trellis.org",
+    "bio": "Jay is the CTO and Co-Founder of a Social Enterprise in Canada that is using Angular and technology to empower global collective impact in the non-profit and charity industries. He is an avid contributor to Nx and loves Angular, NgRx and Nest. Jay loves to share knowledge he has learned from figuring out problems (complex or otherwise) so that others can solve them easier the next time.",
     "groups": ["GDE"]
   },
   "yjaaidi": {
