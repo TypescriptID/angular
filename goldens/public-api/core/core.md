@@ -194,7 +194,7 @@ export interface ComponentDecorator {
     new (obj: Component): Component;
 }
 
-// @public
+// @public @deprecated
 export abstract class ComponentFactory<C> {
     abstract get componentType(): Type<any>;
     abstract create(injector: Injector, projectableNodes?: any[][], rootSelectorOrNode?: string | any, ngModule?: NgModuleRef<any>): ComponentRef<C>;
@@ -210,7 +210,7 @@ export abstract class ComponentFactory<C> {
     abstract get selector(): string;
 }
 
-// @public
+// @public @deprecated
 export abstract class ComponentFactoryResolver {
     // (undocumented)
     static NULL: ComponentFactoryResolver;
@@ -839,6 +839,7 @@ export abstract class NgModuleFactory<T> {
 
 // @public
 export abstract class NgModuleRef<T> {
+    // @deprecated
     abstract get componentFactoryResolver(): ComponentFactoryResolver;
     abstract destroy(): void;
     abstract get injector(): Injector;
@@ -1237,7 +1238,7 @@ export type StaticProvider = ValueProvider | ExistingProvider | StaticClassProvi
 
 // @public
 export abstract class TemplateRef<C> {
-    abstract createEmbeddedView(context: C): EmbeddedViewRef<C>;
+    abstract createEmbeddedView(context: C, injector?: Injector): EmbeddedViewRef<C>;
     abstract readonly elementRef: ElementRef;
 }
 
@@ -1383,6 +1384,10 @@ export abstract class ViewContainerRef {
     }): ComponentRef<C>;
     // @deprecated
     abstract createComponent<C>(componentFactory: ComponentFactory<C>, index?: number, injector?: Injector, projectableNodes?: any[][], ngModuleRef?: NgModuleRef<any>): ComponentRef<C>;
+    abstract createEmbeddedView<C>(templateRef: TemplateRef<C>, context?: C, options?: {
+        index?: number;
+        injector?: Injector;
+    }): EmbeddedViewRef<C>;
     abstract createEmbeddedView<C>(templateRef: TemplateRef<C>, context?: C, index?: number): EmbeddedViewRef<C>;
     abstract detach(index?: number): ViewRef | null;
     abstract get element(): ElementRef;
