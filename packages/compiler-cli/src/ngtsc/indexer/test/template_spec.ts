@@ -35,6 +35,20 @@ runInEachFileSystem(() => {
       });
     });
 
+    it('should handle svg elements on templates', () => {
+      const template = '<svg *ngIf="true"></svg>';
+      const refs = getTemplateIdentifiers(bind(template));
+
+      const [ref] = Array.from(refs);
+      expect(ref).toEqual({
+        kind: IdentifierKind.Template,
+        name: 'svg',
+        span: new AbsoluteSourceSpan(1, 4),
+        usedDirectives: new Set(),
+        attributes: new Set(),
+      });
+    });
+
     it('should handle comments in interpolations', () => {
       const template = '{{foo // comment}}';
       const refs = getTemplateIdentifiers(bind(template));
@@ -44,6 +58,19 @@ runInEachFileSystem(() => {
         name: 'foo',
         kind: IdentifierKind.Property,
         span: new AbsoluteSourceSpan(2, 5),
+        target: null,
+      });
+    });
+
+    it('should handle whitespace and comments in interpolations', () => {
+      const template = '{{   foo // comment   }}';
+      const refs = getTemplateIdentifiers(bind(template));
+
+      const [ref] = Array.from(refs);
+      expect(ref).toEqual({
+        name: 'foo',
+        kind: IdentifierKind.Property,
+        span: new AbsoluteSourceSpan(5, 8),
         target: null,
       });
     });

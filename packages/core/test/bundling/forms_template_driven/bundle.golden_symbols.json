@@ -30,6 +30,9 @@
     "name": "AbstractFormGroupDirective"
   },
   {
+    "name": "AbstractValidatorDirective"
+  },
+  {
     "name": "AnonymousSubject"
   },
   {
@@ -76,9 +79,6 @@
   },
   {
     "name": "COMPOSITION_BUFFER_MODE"
-  },
-  {
-    "name": "ChainedInjector"
   },
   {
     "name": "ChangeDetectionStrategy"
@@ -1311,6 +1311,9 @@
     "name": "notFoundValueOrThrow"
   },
   {
+    "name": "nullValidator"
+  },
+  {
     "name": "observable"
   },
   {
@@ -1399,6 +1402,9 @@
   },
   {
     "name": "renderView"
+  },
+  {
+    "name": "requiredValidator"
   },
   {
     "name": "resetPreOrderHookFlags"

@@ -247,6 +247,33 @@ This essentially does the following:
 
 </div>
 
+#### `cacheOpaqueResponses`
+
+Whether the Angular service worker should cache opaque responses or not.
+
+If not specified, the default value depends on the data group's configured strategy:
+
+- For groups with the `freshness` strategy, the default value is `true` (cache opaque responses).
+  These groups will request the data anew every time, only falling back to the cached response when offline or on a slow network.
+  Therefore, it doesn't matter if the service worker caches an error response.
+
+- For groups with the `performance` strategy, the default value is `false` (do not cache opaque responses).
+  These groups would continue to return a cached response until `maxAge` expires, even if the error was due to a temporary network or server issue.
+  Therefore, it would be problematic for the service worker to cache an error response.
+
+<div class="callout is-important">
+
+  <header>Note on opaque responses</header>
+
+  In case you are not familiar, an [opaque response][opaque-response] is a special type of response returned when requesting a resource that is on a different origin which doesn't return CORS headers.
+  One of the characteristics of an opaque response is that the service worker is not allowed to read its status, meaning it can't check if the request was successful or not.
+  See [Introduction to fetch()][response-types] for more details.
+
+
+  If you are not able to implement CORS&mdash;for example, if you don't control the origin&mdash;prefer using the `freshness` strategy for resources that result in opaque responses.
+
+</div>
+
 ### `cacheQueryOptions`
 
 See [assetGroups](#assetgroups) for details.
@@ -321,3 +348,7 @@ The `freshness` strategy usually results in more requests sent to the server, wh
 It is recommended that you use the default performance strategy whenever possible.
 
 </div>
+
+
+[opaque-response]: https://fetch.spec.whatwg.org/#concept-filtered-response-opaque
+[response-types]: https://developers.google.com/web/updates/2015/03/introduction-to-fetch#response_types
