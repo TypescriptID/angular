@@ -1205,6 +1205,26 @@ groups:
         - josephperrott
 
   # =========================================================
+  #  Angular DevTools
+  # =========================================================
+  devtools:
+    <<: *defaults
+    conditions:
+      - *can-be-global-approved
+      - *can-be-global-docs-approved
+      - >
+        contains_any_globs(files, [
+          'devtools/**',
+          ])
+    reviewers:
+      users:
+        - aleksanderbodurri
+        - devversion
+        - josephperrott
+        - mgechev
+        - twerske
+
+  # =========================================================
   #  Dev-infra
   # =========================================================
   dev-infra:
