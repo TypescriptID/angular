@@ -11,10 +11,10 @@ import {Compiler, Injectable, Injector, NgModuleRef, NgZone, Type, ɵConsole as 
 import {BehaviorSubject, EMPTY, Observable, of, Subject, SubscriptionLike} from 'rxjs';
 import {catchError, filter, finalize, map, switchMap, tap} from 'rxjs/operators';
 
-import {QueryParamsHandling, Route, Routes} from './config';
 import {createRouterState} from './create_router_state';
 import {createUrlTree} from './create_url_tree';
 import {Event, GuardsCheckEnd, GuardsCheckStart, NavigationCancel, NavigationEnd, NavigationError, NavigationStart, NavigationTrigger, ResolveEnd, ResolveStart, RouteConfigLoadEnd, RouteConfigLoadStart, RoutesRecognized} from './events';
+import {QueryParamsHandling, Route, Routes} from './models';
 import {activateRoutes} from './operators/activate_routes';
 import {applyRedirects} from './operators/apply_redirects';
 import {checkGuards} from './operators/check_guards';
@@ -274,7 +274,7 @@ export interface Navigation {
    * The target URL passed into the `Router#navigateByUrl()` call before navigation. This is
    * the value before the router has parsed or applied redirects to it.
    */
-  initialUrl: string|UrlTree;
+  initialUrl: UrlTree;
   /**
    * The initial target URL after being parsed with `UrlSerializer.extract()`.
    */
@@ -650,7 +650,7 @@ export class Router {
                      tap(t => {
                        this.currentNavigation = {
                          id: t.id,
-                         initialUrl: t.currentRawUrl,
+                         initialUrl: t.rawUrl,
                          extractedUrl: t.extractedUrl,
                          trigger: t.source,
                          extras: t.extras,

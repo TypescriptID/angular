@@ -963,6 +963,7 @@ export class NgCompiler {
     const localMetaRegistry = new LocalMetadataRegistry();
     const localMetaReader: MetadataReader = localMetaRegistry;
     const depScopeReader = new MetadataDtsModuleScopeResolver(dtsReader, aliasingHost);
+    const metaReader = new CompoundMetadataReader([localMetaReader, dtsReader]);
     const scopeRegistry =
         new LocalModuleScopeRegistry(localMetaReader, depScopeReader, refEmitter, aliasingHost);
     const scopeReader: ComponentScopeReader = scopeRegistry;
@@ -970,7 +971,6 @@ export class NgCompiler {
     const metaRegistry = new CompoundMetadataRegistry([localMetaRegistry, scopeRegistry]);
     const injectableRegistry = new InjectableClassRegistry(reflector);
 
-    const metaReader = new CompoundMetadataReader([localMetaReader, dtsReader]);
     const typeCheckScopeRegistry = new TypeCheckScopeRegistry(scopeReader, metaReader);
 
 
@@ -1009,15 +1009,15 @@ export class NgCompiler {
     // Set up the IvyCompilation, which manages state for the Ivy transformer.
     const handlers: DecoratorHandler<unknown, unknown, SemanticSymbol|null, unknown>[] = [
       new ComponentDecoratorHandler(
-          reflector, evaluator, metaRegistry, metaReader, scopeReader, scopeRegistry,
-          typeCheckScopeRegistry, resourceRegistry, isCore, this.resourceManager,
+          reflector, evaluator, metaRegistry, metaReader, scopeReader, depScopeReader,
+          scopeRegistry, typeCheckScopeRegistry, resourceRegistry, isCore, this.resourceManager,
           this.adapter.rootDirs, this.options.preserveWhitespaces || false,
           this.options.i18nUseExternalIds !== false,
           this.options.enableI18nLegacyMessageIdFormat !== false, this.usePoisonedData,
-          this.options.i18nNormalizeLineEndingsInICUs, this.moduleResolver, this.cycleAnalyzer,
-          cycleHandlingStrategy, refEmitter, this.incrementalCompilation.depGraph,
-          injectableRegistry, semanticDepGraphUpdater, this.closureCompilerEnabled,
-          this.delegatingPerfRecorder),
+          this.options.i18nNormalizeLineEndingsInICUs === true, this.moduleResolver,
+          this.cycleAnalyzer, cycleHandlingStrategy, refEmitter,
+          this.incrementalCompilation.depGraph, injectableRegistry, semanticDepGraphUpdater,
+          this.closureCompilerEnabled, this.delegatingPerfRecorder),
 
       // TODO(alxhub): understand why the cast here is necessary (something to do with `null`
       // not being assignable to `unknown` when wrapped in `Readonly`).

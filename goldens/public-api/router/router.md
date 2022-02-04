@@ -268,7 +268,7 @@ export interface Navigation {
     extras: NavigationExtras;
     finalUrl?: UrlTree;
     id: number;
-    initialUrl: string | UrlTree;
+    initialUrl: UrlTree;
     previousNavigation: Navigation | null;
     trigger: 'imperative' | 'popstate' | 'hashchange';
 }
@@ -453,7 +453,7 @@ export interface Route {
     redirectTo?: string;
     resolve?: ResolveData;
     runGuardsAndResolvers?: RunGuardsAndResolvers;
-    title?: string | unknown;
+    title?: string | Type<Resolve<string>>;
 }
 
 // @public
