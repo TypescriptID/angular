@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Directive, forwardRef, Input, OnChanges, SimpleChanges, StaticProvider} from '@angular/core';
+import {Directive, forwardRef, Input, OnChanges, SimpleChanges, StaticProvider, ɵcoerceToBoolean as coerceToBoolean} from '@angular/core';
 import {Observable} from 'rxjs';
 
 import {AbstractControl} from '../model';
@@ -20,16 +20,6 @@ import {emailValidator, maxLengthValidator, maxValidator, minLengthValidator, mi
  */
 function toInteger(value: string|number): number {
   return typeof value === 'number' ? value : parseInt(value, 10);
-}
-
-/**
- * Method that converts null, false or 'false' string to boolean.
- *
- * @param value input value.
- * @returns value of parameter converted to boolean.
- */
-function toBoolean(input: unknown): boolean {
-  return input != null && input !== false && `${input}` !== 'false';
 }
 
 /**
@@ -380,7 +370,7 @@ export class RequiredValidator extends AbstractValidatorDirective {
   override inputName = 'required';
 
   /** @internal */
-  override normalizeInput = (input: unknown): boolean => toBoolean(input);
+  override normalizeInput = coerceToBoolean;
 
   /** @internal */
   override createValidator = (input: boolean): ValidatorFn => requiredValidator;
@@ -472,11 +462,7 @@ export class EmailValidator extends AbstractValidatorDirective {
   override inputName = 'email';
 
   /** @internal */
-  override normalizeInput = (input: unknown): boolean =>
-      // Avoid TSLint requirement to omit semicolon, see
-      // https://github.com/palantir/tslint/issues/1476
-      // tslint:disable-next-line:semicolon
-      (input === '' || input === true || input === 'true');
+  override normalizeInput = coerceToBoolean;
 
   /** @internal */
   override createValidator = (input: number): ValidatorFn => emailValidator;
@@ -652,12 +638,9 @@ export const PATTERN_VALIDATOR: any = {
 @Directive({
   selector: '[pattern][formControlName],[pattern][formControl],[pattern][ngModel]',
   providers: [PATTERN_VALIDATOR],
-  host: {'[attr.pattern]': 'pattern ? pattern : null'}
+  host: {'[attr.pattern]': '_enabled ? pattern : null'}
 })
-export class PatternValidator implements Validator, OnChanges {
-  private _validator: ValidatorFn = nullValidator;
-  private _onChange?: () => void;
-
+export class PatternValidator extends AbstractValidatorDirective {
   /**
    * @description
    * Tracks changes to the pattern bound to this directive.
@@ -665,31 +648,12 @@ export class PatternValidator implements Validator, OnChanges {
   @Input()
   pattern!: string|RegExp;  // This input is always defined, since the name matches selector.
 
-  /** @nodoc */
-  ngOnChanges(changes: SimpleChanges): void {
-    if ('pattern' in changes) {
-      this._createValidator();
-      if (this._onChange) this._onChange();
-    }
-  }
+  /** @internal */
+  override inputName = 'pattern';
 
-  /**
-   * Method that validates whether the value matches the pattern requirement.
-   * @nodoc
-   */
-  validate(control: AbstractControl): ValidationErrors|null {
-    return this._validator(control);
-  }
+  /** @internal */
+  override normalizeInput = (input: string|RegExp): string|RegExp => input;
 
-  /**
-   * Registers a callback function to call when the validator inputs change.
-   * @nodoc
-   */
-  registerOnValidatorChange(fn: () => void): void {
-    this._onChange = fn;
-  }
-
-  private _createValidator(): void {
-    this._validator = patternValidator(this.pattern);
-  }
+  /** @internal */
+  override createValidator = (input: string|RegExp): ValidatorFn => patternValidator(input);
 }

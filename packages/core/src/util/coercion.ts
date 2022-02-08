@@ -6,8 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {platformBrowserDynamic} from '@angular/platform-browser-dynamic';
-
-import {TestsAppModule} from './test_module';
-
-platformBrowserDynamic().bootstrapModule(TestsAppModule);
+/** Coerces a value (typically a string) to a boolean. */
+export function coerceToBoolean(value: unknown): boolean {
+  return typeof value === 'boolean' ? value : (value != null && value !== 'false');
+}
