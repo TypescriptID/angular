@@ -54,7 +54,6 @@
 # =========================================================
 #  Used for approving minor documentation-only changes that don't require engineering review.
 #
-# aikidave
 # gkalpak
 # josmar-crwdstffng
 # ileil
@@ -174,8 +173,8 @@ groups:
       reviewed_for: ignored # All reviews apply to this group whether noted via Reviewed-for or not
     reviewers:
       users:
-        - aikidave # Dave Shevitz
         - alan-agius4 # Alan Agius
+        - aleksanderbodurri # Aleksander Bodurri
         - alxhub # Alex Rickabaugh
         - AndrewKushnir # Andrew Kushnir
         - andrewseguin # Andrew Seguin
@@ -956,7 +955,6 @@ groups:
           ])
     reviewers:
       users:
-        - aikidave
         - AndrewKushnir
         - jessicajaniuk
 
@@ -979,7 +977,6 @@ groups:
           ])
     reviewers:
       users:
-        - aikidave
         - MarkTechson
         - mgechev
         - twerske
