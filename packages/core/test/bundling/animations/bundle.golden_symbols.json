@@ -6,16 +6,10 @@
     "name": "ANIMATION_MODULE_TYPE"
   },
   {
-    "name": "APPLICATION_MODULE_PROVIDERS"
-  },
-  {
     "name": "APP_BOOTSTRAP_LISTENER"
   },
   {
     "name": "APP_ID"
-  },
-  {
-    "name": "APP_ID_RANDOM_PROVIDER"
   },
   {
     "name": "APP_INITIALIZER"
@@ -123,9 +117,6 @@
     "name": "CommonModule"
   },
   {
-    "name": "Compiler"
-  },
-  {
     "name": "ComponentFactory"
   },
   {
@@ -153,9 +144,6 @@
     "name": "DASH_CASE_REGEXP"
   },
   {
-    "name": "DEFAULT_CURRENCY_CODE"
-  },
-  {
     "name": "DEFAULT_NOOP_PREVIOUS_NODE"
   },
   {
@@ -172,18 +160,6 @@
   },
   {
     "name": "DefaultDomRenderer2"
-  },
-  {
-    "name": "DefaultIterableDiffer"
-  },
-  {
-    "name": "DefaultIterableDifferFactory"
-  },
-  {
-    "name": "DefaultKeyValueDiffer"
-  },
-  {
-    "name": "DefaultKeyValueDifferFactory"
   },
   {
     "name": "DomEventsPlugin"
@@ -249,9 +225,6 @@
     "name": "INJECTOR_SCOPE"
   },
   {
-    "name": "Inject"
-  },
-  {
     "name": "InjectFlags"
   },
   {
@@ -261,19 +234,7 @@
     "name": "Injector"
   },
   {
-    "name": "IterableChangeRecord_"
-  },
-  {
-    "name": "IterableDiffers"
-  },
-  {
     "name": "KeyEventsPlugin"
-  },
-  {
-    "name": "KeyValueChangeRecord_"
-  },
-  {
-    "name": "KeyValueDiffers"
   },
   {
     "name": "LEAVE_TOKEN_REGEX"
@@ -369,9 +330,6 @@
     "name": "NgLocalization"
   },
   {
-    "name": "NgModuleFactory2"
-  },
-  {
     "name": "NgModuleRef"
   },
   {
@@ -400,9 +358,6 @@
   },
   {
     "name": "Observable"
-  },
-  {
-    "name": "Optional"
   },
   {
     "name": "PARAM_REGEX"
@@ -444,9 +399,6 @@
     "name": "RuntimeError"
   },
   {
-    "name": "SCHEDULER"
-  },
-  {
     "name": "SELF_TOKEN_REGEX"
   },
   {
@@ -474,9 +426,6 @@
     "name": "SimpleOuterSubscriber"
   },
   {
-    "name": "SkipSelf"
-  },
-  {
     "name": "SpecialCasedStyles"
   },
   {
@@ -502,6 +451,9 @@
   },
   {
     "name": "THROW_IF_NOT_FOUND"
+  },
+  {
+    "name": "TRACKED_LVIEWS"
   },
   {
     "name": "TRANSITION_ID"
@@ -546,9 +498,6 @@
     "name": "_DOM"
   },
   {
-    "name": "_DuplicateMap"
-  },
-  {
     "name": "_IS_WEBKIT"
   },
   {
@@ -582,6 +531,9 @@
     "name": "_currentInjector"
   },
   {
+    "name": "_documentElement"
+  },
+  {
     "name": "_enable_super_gross_mode_that_will_cause_bad_things"
   },
   {
@@ -607,9 +559,6 @@
   },
   {
     "name": "_renderCompCount"
-  },
-  {
-    "name": "_symbolIterator"
   },
   {
     "name": "_testabilityGetter"
@@ -649,9 +598,6 @@
   },
   {
     "name": "applyView"
-  },
-  {
-    "name": "attachInjectFlag"
   },
   {
     "name": "attachPatchData"
@@ -700,6 +646,9 @@
   },
   {
     "name": "collectNativeNodes"
+  },
+  {
+    "name": "compileNgModuleFactory"
   },
   {
     "name": "computeStaticStyling"
@@ -778,18 +727,6 @@
   },
   {
     "name": "defaultErrorLogger"
-  },
-  {
-    "name": "defaultIterableDiffers"
-  },
-  {
-    "name": "defaultIterableDiffersFactory"
-  },
-  {
-    "name": "defaultKeyValueDiffers"
-  },
-  {
-    "name": "defaultKeyValueDiffersFactory"
   },
   {
     "name": "defaultScheduler"
@@ -954,6 +891,9 @@
     "name": "getOwnDefinition"
   },
   {
+    "name": "getParentElement"
+  },
+  {
     "name": "getParentInjectorIndex"
   },
   {
@@ -966,9 +906,6 @@
     "name": "getPlatform"
   },
   {
-    "name": "getPreviousIndex"
-  },
-  {
     "name": "getProjectionNodes"
   },
   {
@@ -979,9 +916,6 @@
   },
   {
     "name": "getStyleAttributeString"
-  },
-  {
-    "name": "getSymbolIterator"
   },
   {
     "name": "getSymbolIterator2"
@@ -1012,6 +946,9 @@
   },
   {
     "name": "initTNodeFlags"
+  },
+  {
+    "name": "inject"
   },
   {
     "name": "injectArgs"
@@ -1089,16 +1026,10 @@
     "name": "isInlineTemplate"
   },
   {
-    "name": "isJsObject"
-  },
-  {
     "name": "isLContainer"
   },
   {
     "name": "isLView"
-  },
-  {
-    "name": "isListLikeIterable"
   },
   {
     "name": "isNode"
@@ -1140,9 +1071,6 @@
     "name": "iteratorToArray"
   },
   {
-    "name": "keyValDiff"
-  },
-  {
     "name": "leaveDI"
   },
   {
@@ -1165,9 +1093,6 @@
   },
   {
     "name": "makeLambdaFromStates"
-  },
-  {
-    "name": "makeParamDecorator"
   },
   {
     "name": "makeRecord"
@@ -1422,13 +1347,13 @@
     "name": "toRefArray"
   },
   {
-    "name": "trackByIdentity"
-  },
-  {
     "name": "transition"
   },
   {
     "name": "u"
+  },
+  {
+    "name": "uniqueIdCounter"
   },
   {
     "name": "unwrapRNode"

@@ -82,10 +82,10 @@ cldr_data_repository(
 # sass rules
 http_archive(
     name = "io_bazel_rules_sass",
-    sha256 = "903858e0fb5eda0b36d37e1ce4cbcfbe03f65a5f153d894dc8a9894a4884e564",
-    strip_prefix = "rules_sass-1.49.0",
+    sha256 = "6cca1c3b77185ad0a421888b90679e345d7b6db7a8c9c905807fe4581ea6839a",
+    strip_prefix = "rules_sass-1.49.8",
     urls = [
-        "https://github.com/bazelbuild/rules_sass/archive/1.49.0.zip",
+        "https://github.com/bazelbuild/rules_sass/archive/1.49.8.zip",
     ],
 )
 

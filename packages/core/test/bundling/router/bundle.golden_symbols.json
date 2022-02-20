@@ -6,9 +6,6 @@
     "name": "ANALYZE_FOR_ENTRY_COMPONENTS"
   },
   {
-    "name": "APPLICATION_MODULE_PROVIDERS"
-  },
-  {
     "name": "APP_BASE_HREF"
   },
   {
@@ -16,9 +13,6 @@
   },
   {
     "name": "APP_ID"
-  },
-  {
-    "name": "APP_ID_RANDOM_PROVIDER"
   },
   {
     "name": "APP_INITIALIZER"
@@ -138,9 +132,6 @@
     "name": "DATA_URL_PATTERN"
   },
   {
-    "name": "DEFAULT_CURRENCY_CODE"
-  },
-  {
     "name": "DEFAULT_SERIALIZER"
   },
   {
@@ -157,18 +148,6 @@
   },
   {
     "name": "DefaultIfEmptySubscriber"
-  },
-  {
-    "name": "DefaultIterableDiffer"
-  },
-  {
-    "name": "DefaultIterableDifferFactory"
-  },
-  {
-    "name": "DefaultKeyValueDiffer"
-  },
-  {
-    "name": "DefaultKeyValueDifferFactory"
   },
   {
     "name": "DefaultTitleStrategy"
@@ -270,19 +249,7 @@
     "name": "ItemComponent"
   },
   {
-    "name": "IterableChangeRecord_"
-  },
-  {
-    "name": "IterableDiffers"
-  },
-  {
     "name": "KeyEventsPlugin"
-  },
-  {
-    "name": "KeyValueChangeRecord_"
-  },
-  {
-    "name": "KeyValueDiffers"
   },
   {
     "name": "LOCALE_DATA"
@@ -609,9 +576,6 @@
     "name": "SAFE_URL_PATTERN"
   },
   {
-    "name": "SCHEDULER"
-  },
-  {
     "name": "SEGMENT_RE"
   },
   {
@@ -682,6 +646,9 @@
   },
   {
     "name": "TQuery_"
+  },
+  {
+    "name": "TRACKED_LVIEWS"
   },
   {
     "name": "TRANSITION_ID"
@@ -772,9 +739,6 @@
   },
   {
     "name": "_DOM"
-  },
-  {
-    "name": "_DuplicateMap"
   },
   {
     "name": "_NullComponentFactoryResolver"
@@ -1030,18 +994,6 @@
   },
   {
     "name": "defaultIfEmpty"
-  },
-  {
-    "name": "defaultIterableDiffers"
-  },
-  {
-    "name": "defaultIterableDiffersFactory"
-  },
-  {
-    "name": "defaultKeyValueDiffers"
-  },
-  {
-    "name": "defaultKeyValueDiffersFactory"
   },
   {
     "name": "defaultMalformedUriErrorHandler"
@@ -1332,9 +1284,6 @@
     "name": "getPlatform"
   },
   {
-    "name": "getPreviousIndex"
-  },
-  {
     "name": "getProjectionNodes"
   },
   {
@@ -1408,6 +1357,9 @@
   },
   {
     "name": "initTNodeFlags"
+  },
+  {
+    "name": "inject"
   },
   {
     "name": "injectArgs"
@@ -1497,16 +1449,10 @@
     "name": "isInlineTemplate"
   },
   {
-    "name": "isJsObject"
-  },
-  {
     "name": "isLContainer"
   },
   {
     "name": "isLView"
-  },
-  {
-    "name": "isListLikeIterable"
   },
   {
     "name": "isMatrixParams"
@@ -1555,9 +1501,6 @@
   },
   {
     "name": "joinWithSlash"
-  },
-  {
-    "name": "keyValDiff"
   },
   {
     "name": "last2"
@@ -1944,13 +1887,13 @@
     "name": "toRefArray"
   },
   {
-    "name": "trackByIdentity"
-  },
-  {
     "name": "tree"
   },
   {
     "name": "u"
+  },
+  {
+    "name": "uniqueIdCounter"
   },
   {
     "name": "unwrapElementRef"
