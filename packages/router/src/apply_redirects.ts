@@ -7,7 +7,7 @@
  */
 
 import {Injector, NgModuleRef} from '@angular/core';
-import {EmptyError, from, Observable, Observer, of} from 'rxjs';
+import {EmptyError, from, Observable, Observer, of, throwError} from 'rxjs';
 import {catchError, concatMap, first, last, map, mergeMap, scan, tap} from 'rxjs/operators';
 
 import {CanLoadFn, LoadedRouterConfig, Route, Routes} from './models';
@@ -33,26 +33,22 @@ class AbsoluteRedirect {
 }
 
 function noMatch(segmentGroup: UrlSegmentGroup): Observable<UrlSegmentGroup> {
-  return new Observable<UrlSegmentGroup>(
-      (obs: Observer<UrlSegmentGroup>) => obs.error(new NoMatch(segmentGroup)));
+  return throwError(new NoMatch(segmentGroup));
 }
 
 function absoluteRedirect(newTree: UrlTree): Observable<any> {
-  return new Observable<UrlSegmentGroup>(
-      (obs: Observer<UrlSegmentGroup>) => obs.error(new AbsoluteRedirect(newTree)));
+  return throwError(new AbsoluteRedirect(newTree));
 }
 
 function namedOutletsRedirect(redirectTo: string): Observable<any> {
-  return new Observable<UrlSegmentGroup>(
-      (obs: Observer<UrlSegmentGroup>) => obs.error(new Error(
-          `Only absolute redirects can have named outlets. redirectTo: '${redirectTo}'`)));
+  return throwError(
+      new Error(`Only absolute redirects can have named outlets. redirectTo: '${redirectTo}'`));
 }
 
 function canLoadFails(route: Route): Observable<LoadedRouterConfig> {
-  return new Observable<LoadedRouterConfig>(
-      (obs: Observer<LoadedRouterConfig>) => obs.error(
-          navigationCancelingError(`Cannot load children because the guard of the route "path: '${
-              route.path}'" returned false`)));
+  return throwError(
+      navigationCancelingError(`Cannot load children because the guard of the route "path: '${
+          route.path}'" returned false`));
 }
 
 /**
@@ -258,7 +254,7 @@ class ApplyRedirects {
   private expandRegularSegmentAgainstRouteUsingRedirect(
       ngModule: NgModuleRef<any>, segmentGroup: UrlSegmentGroup, routes: Route[], route: Route,
       segments: UrlSegment[], outlet: string): Observable<UrlSegmentGroup> {
-    const {matched, consumedSegments, lastChild, positionalParamSegments} =
+    const {matched, consumedSegments, remainingSegments, positionalParamSegments} =
         match(segmentGroup, route, segments);
     if (!matched) return noMatch(segmentGroup);
 
@@ -270,8 +266,7 @@ class ApplyRedirects {
 
     return this.lineralizeSegments(route, newTree).pipe(mergeMap((newSegments: UrlSegment[]) => {
       return this.expandSegment(
-          ngModule, segmentGroup, routes, newSegments.concat(segments.slice(lastChild)), outlet,
-          false);
+          ngModule, segmentGroup, routes, newSegments.concat(remainingSegments), outlet, false);
     }));
   }
 
@@ -291,10 +286,9 @@ class ApplyRedirects {
       return of(new UrlSegmentGroup(segments, {}));
     }
 
-    const {matched, consumedSegments, lastChild} = match(rawSegmentGroup, route, segments);
+    const {matched, consumedSegments, remainingSegments} = match(rawSegmentGroup, route, segments);
     if (!matched) return noMatch(rawSegmentGroup);
 
-    const rawSlicedSegments = segments.slice(lastChild);
     const childConfig$ = this.getChildConfig(ngModule, route, segments);
 
     return childConfig$.pipe(mergeMap((routerConfig: LoadedRouterConfig) => {
@@ -302,7 +296,7 @@ class ApplyRedirects {
       const childConfig = routerConfig.routes;
 
       const {segmentGroup: splitSegmentGroup, slicedSegments} =
-          split(rawSegmentGroup, consumedSegments, rawSlicedSegments, childConfig);
+          split(rawSegmentGroup, consumedSegments, remainingSegments, childConfig);
       // See comment on the other call to `split` about why this is necessary.
       const segmentGroup =
           new UrlSegmentGroup(splitSegmentGroup.segments, splitSegmentGroup.children);
