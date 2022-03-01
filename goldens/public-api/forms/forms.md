@@ -43,6 +43,7 @@ export abstract class AbstractControl {
     readonly errors: ValidationErrors | null;
     get(path: Array<string | number> | string): AbstractControl | null;
     getError(errorCode: string, path?: Array<string | number> | string): any;
+    getRawValue(): any;
     hasAsyncValidator(validator: AsyncValidatorFn): boolean;
     hasError(errorCode: string, path?: Array<string | number> | string): boolean;
     hasValidator(validator: ValidatorFn): boolean;
@@ -142,9 +143,6 @@ export class AbstractFormGroupDirective extends ControlContainer implements OnIn
     // (undocumented)
     static ɵfac: i0.ɵɵFactoryDeclaration<AbstractFormGroupDirective, never>;
 }
-
-// @public
-export type AnyForUntypedForms = any;
 
 // @public
 export interface AsyncValidator extends Validator {
@@ -724,6 +722,24 @@ export class SelectMultipleControlValueAccessor extends BuiltInControlValueAcces
     // (undocumented)
     static ɵfac: i0.ɵɵFactoryDeclaration<SelectMultipleControlValueAccessor, never>;
 }
+
+// @public
+export type UntypedFormArray = FormArray;
+
+// @public (undocumented)
+export const UntypedFormArray: UntypedFormArrayCtor;
+
+// @public
+export type UntypedFormControl = FormControl;
+
+// @public (undocumented)
+export const UntypedFormControl: UntypedFormControlCtor;
+
+// @public
+export type UntypedFormGroup = FormGroup;
+
+// @public (undocumented)
+export const UntypedFormGroup: UntypedFormGroupCtor;
 
 // @public
 export type ValidationErrors = {
