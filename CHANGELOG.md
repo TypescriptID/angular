@@ -1,3 +1,77 @@
+<a name="14.0.0-next.5"></a>
+# 14.0.0-next.5 (2022-03-02)
+## Breaking Changes
+### router
+- The type of `Route.pathMatch` is now more strict. Places that use
+`pathMatch` will likely need to be updated to have an explicit
+`Route`/`Routes` type so that TypeScript does not infer the type as
+`string`.
+
+- Previously, resolvers were waiting to be completed
+before proceeding with the navigation and the Router would take the last
+value emitted from the resolver.
+The router now takes only the first emitted value by the resolvers
+and then proceeds with navigation. This is now consistent with `Observables`
+returned by other guards: only the first value is used.
+### common
+| Commit | Type | Description |
+| -- | -- | -- |
+| [7671a1e40d](https://github.com/angular/angular/commit/7671a1e40d0f2abe1cb7e9d84d5ac47a5adb546a) | fix | canceled JSONP requests won't throw console error with missing callback function ([#36807](https://github.com/angular/angular/pull/36807)) |
+| [05d50b849b](https://github.com/angular/angular/commit/05d50b849bb891c37c3eefab81a45099057dfd78) | perf | make `NgLocalization` token tree-shakable ([#45118](https://github.com/angular/angular/pull/45118)) |
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [69018c9f42](https://github.com/angular/angular/commit/69018c9f42d14c1c7aa8271b406d6d247de1c564) | feat | allow for injector to be specified when creating an embedded view ([#45156](https://github.com/angular/angular/pull/45156)) |
+| [c5df474c7c](https://github.com/angular/angular/commit/c5df474c7c744305c9412090b5e19bb6d4f7128d) | fix | remove individual commands for updating gold files ([#45198](https://github.com/angular/angular/pull/45198)) |
+| [88f1168506](https://github.com/angular/angular/commit/88f1168506befd0665125da1fca2a719cb27dbb5) | perf | only track LViews that are referenced in __ngContext__ ([#45172](https://github.com/angular/angular/pull/45172)) |
+### forms
+| Commit | Type | Description |
+| -- | -- | -- |
+| [7ee121f595](https://github.com/angular/angular/commit/7ee121f595a47338b31098ae51a6f91d80c8fdce) | feat | Add untyped versions of the model classes for use in migration. ([#45205](https://github.com/angular/angular/pull/45205)) |
+### localize
+| Commit | Type | Description |
+| -- | -- | -- |
+| [ca5603b09b](https://github.com/angular/angular/commit/ca5603b09b06481529dce78ff995d674383e274f) | fix | avoid imports into `compiler-cli` package ([#45180](https://github.com/angular/angular/pull/45180)) |
+### router
+| Commit | Type | Description |
+| -- | -- | -- |
+| [7fd416d060](https://github.com/angular/angular/commit/7fd416d060bd873bc88dffed41946c51aa649ec1) | fix | Fix type of Route.pathMatch to be more accurate ([#45176](https://github.com/angular/angular/pull/45176)) |
+| [c9679760b2](https://github.com/angular/angular/commit/c9679760b2bf5c607c957c20482b9cea7a21702b) | refactor | take only the first emitted value of every resolver to make it consistent with guards ([#44573](https://github.com/angular/angular/pull/44573)) |
+## Special Thanks
+Andrew Kushnir, Andrew Scott, Charles Lyding, Dmitrij Kuba, Dylan Hunn, Guillaume Bonnet, Jessica Janiuk, JiaLiPassion, JoostK, Kristiyan Kostadinov, Martin Sikora, Paul Gschwendtner, Theodore Brown and dario-piotrowicz
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="13.2.5"></a>
+# 13.2.5 (2022-03-02)
+### animations
+| Commit | Type | Description |
+| -- | -- | -- |
+| [6c61d20476](https://github.com/angular/angular/commit/6c61d20476bf214176994dff4e46d6452bd821cf) | fix | allow animations with unsupported CSS properties ([#45185](https://github.com/angular/angular/pull/45185)) |
+### common
+| Commit | Type | Description |
+| -- | -- | -- |
+| [64da1daa78](https://github.com/angular/angular/commit/64da1daa7827ca99c6d0b3992ac10b1ea0ec5b4a) | fix | canceled JSONP requests won't throw console error with missing callback function ([#36807](https://github.com/angular/angular/pull/36807)) |
+| [56ca7d385b](https://github.com/angular/angular/commit/56ca7d385b263411cf231808fd54ec67ff643b58) | perf | make `NgLocalization` token tree-shakable ([#45118](https://github.com/angular/angular/pull/45118)) ([#45226](https://github.com/angular/angular/pull/45226)) |
+### compiler-cli
+| Commit | Type | Description |
+| -- | -- | -- |
+| [6c906a5bb9](https://github.com/angular/angular/commit/6c906a5bb9f7d7c86122bfc36275d6e6b81a0631) | fix | Support resolve animation name from the DTS ([#45169](https://github.com/angular/angular/pull/45169)) |
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [e8fd452bd2](https://github.com/angular/angular/commit/e8fd452bd24985f23ab6316690bb9431bbbe8ed8) | fix | remove individual commands for updating gold files ([#45198](https://github.com/angular/angular/pull/45198)) |
+| [82d772857c](https://github.com/angular/angular/commit/82d772857ce2d6f07af4c99380676b6bf2cf7912) | perf | make `Compiler`, `ApplicationRef` and `ApplicationInitStatus` tree-shakable ([#45102](https://github.com/angular/angular/pull/45102)) ([#45222](https://github.com/angular/angular/pull/45222)) |
+| [71ff12c1cc](https://github.com/angular/angular/commit/71ff12c1cc009e50977b77f1cba1fe03c2f81946) | perf | make `LOCALE_ID` and other tokens from `ApplicationModule` tree-shakable ([#45102](https://github.com/angular/angular/pull/45102)) ([#45222](https://github.com/angular/angular/pull/45222)) |
+### localize
+| Commit | Type | Description |
+| -- | -- | -- |
+| [d388522745](https://github.com/angular/angular/commit/d388522745835b8e30b66597560254f0e821c040) | fix | avoid imports into `compiler-cli` package ([#45180](https://github.com/angular/angular/pull/45180)) |
+## Special Thanks
+Andrew Kushnir, Andrew Scott, Charles Lyding, Guillaume Bonnet, Jessica Janiuk, JoostK, Martin Sikora, Paul Gschwendtner, Theodore Brown, dario-piotrowicz and ivanwonder
+
+<!-- CHANGELOG SPLIT MARKER -->
+
 <a name="14.0.0-next.4"></a>
 # 14.0.0-next.4 (2022-02-23)
 ## Breaking Changes
