@@ -1,3 +1,40 @@
+<a name="14.0.0-next.7"></a>
+# 14.0.0-next.7 (2022-03-16)
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [225e4f2dbe](https://github.com/angular/angular/commit/225e4f2dbeac5982982fb94eac65ea931c44247a) | feat | triggerEventHandler accept optional eventObj ([#45279](https://github.com/angular/angular/pull/45279)) |
+### forms
+| Commit | Type | Description |
+| -- | -- | -- |
+| [9db9091349](https://github.com/angular/angular/commit/9db9091349e0e9761855d3c55729004674eec3c5) | fix | improve error message for invalid value accessors ([#45192](https://github.com/angular/angular/pull/45192)) |
+## Special Thanks
+Alan Agius, Alistair Kane, Amer Yousuf, Andrew Kushnir, Andrew Scott, Derek Cormier, Jessica Janiuk, JiaLiPassion, Lee Cooper, Paul Gschwendtner, alirezaghey and why520crazy
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="13.3.0"></a>
+# 13.3.0-rc.0 (2022-03-16)
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [b5bb614c74](https://github.com/angular/angular/commit/61a316c68fd27bc2375b1b3043afd8b5bb614c74) | feat | support TypeScript 4.6 ([#45190](https://github.com/angular/angular/pull/45190)) |
+## Special Thanks
+Alistair Kane, Andrew Scott and Kristiyan Kostadinov
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="13.2.7"></a>
+# 13.2.7 (2022-03-16)
+### forms
+| Commit | Type | Description |
+| -- | -- | -- |
+| [eac94f0945](https://github.com/angular/angular/commit/eac94f094500b8b2d73b2f1fd621adb6f2d990a0) | fix | improve error message for invalid value accessors ([#45192](https://github.com/angular/angular/pull/45192)) |
+## Special Thanks
+Alistair Kane, Amer Yousuf, Andrew Scott, Jessica Janiuk, Lee Cooper, alirezaghey and why520crazy
+
+<!-- CHANGELOG SPLIT MARKER -->
+
 <a name="13.3.0-rc.0"></a>
 # 13.3.0-rc.0 (2022-03-10)
 ### core
