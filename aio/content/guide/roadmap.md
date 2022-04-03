@@ -1,6 +1,6 @@
 # Angular Roadmap
 
-<p class="roadmap-last-updated">Last updated: 2022-03-22</p>
+<p class="roadmap-last-updated">Last updated: 2022-04-01</p>
 
 Angular receives a large number of feature requests, both from inside Google and from the broader open-source community. At the same time, our list of projects contains plenty of maintenance tasks, code refactorings, and potential performance improvements. We bring together representatives from developer relations, product management, and engineering to prioritize this list. As new projects come into the queue, we regularly position them based on relative priority to other projects. As work gets done, projects move up in the queue.
 
@@ -45,6 +45,10 @@ We're evaluating components in Angular Material against accessibility standards 
 Ensure all existing documentation fits into a consistent set of content types. Update excessive use of tutorial-style documentation into independent topics. We want to ensure the content outside the main tutorials is self-sufficient without being tightly coupled to a series of guides.
 
 ## Future
+
+### Explore hydration and server-side rendering usability improvements
+
+As part of this effort we'll explore the problem space of hydration with server-side rendering, different approaches, and opportunities for Angular. As outcome of this project we'll have validation of the effort as well as a plan for action.
 
 ### Revamp performance dashboards to detect regressions
 
