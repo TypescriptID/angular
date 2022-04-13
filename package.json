@@ -1,6 +1,6 @@
 {
   "name": "angular-srcs",
-  "version": "14.0.0-next.11",
+  "version": "14.0.0-next.12",
   "private": true,
   "description": "Angular - a web framework for modern web apps",
   "homepage": "https://github.com/angular/angular",
@@ -37,8 +37,9 @@
     "ts-circular-deps:approve": "yarn -s ng-dev ts-circular-deps approve --config ./packages/circular-deps-test.conf.js",
     "check-tooling-setup": "yarn tsc --project .ng-dev/tsconfig.json",
     "devtools:devserver": "ibazel run //devtools/src:devserver",
-    "devtools:build:chrome": "bazelisk build --config snapshot //devtools/projects/shell-chrome/src:prodapp",
-    "devtools:test": "bazelisk test --config snapshot //devtools/..."
+    "devtools:build:chrome": "bazelisk build --config snapshot --//devtools/projects/shell-browser/src:flag_browser=chrome -- devtools/projects/shell-browser/src:prodapp",
+    "devtools:build:firefox": "bazelisk build --config snapshot --//devtools/projects/shell-browser/src:flag_browser=firefox -- devtools/projects/shell-browser/src:prodapp",
+    "devtools:test": "bazelisk test --config snapshot --//devtools/projects/shell-browser/src:flag_browser=chrome -- //devtools/..."
   },
   "// 1": "dependencies are used locally and by bazel",
   "dependencies": {
@@ -193,7 +194,7 @@
     "cldrjs": "0.5.5",
     "conventional-changelog": "^3.1.24",
     "firebase-tools": "^9.0.0",
-    "glob": "7.2.0",
+    "glob": "8.0.1",
     "gulp": "^4.0.2",
     "gulp-conventional-changelog": "^2.0.35",
     "husky": "7.0.4",
