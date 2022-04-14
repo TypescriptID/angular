@@ -423,6 +423,9 @@
     "name": "PLATFORM_INITIALIZER"
   },
   {
+    "name": "PLATFORM_ON_DESTROY"
+  },
+  {
     "name": "PathLocationStrategy"
   },
   {
@@ -762,7 +765,7 @@
     "name": "_keyMap"
   },
   {
-    "name": "_platform"
+    "name": "_platformInjector"
   },
   {
     "name": "_randomChar"
@@ -1141,6 +1144,9 @@
   },
   {
     "name": "getChildRouteGuards"
+  },
+  {
+    "name": "getClosestLoadedConfig"
   },
   {
     "name": "getClosureSafeProperty"
