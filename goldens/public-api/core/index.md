@@ -81,6 +81,9 @@ export class ApplicationRef {
     bootstrap<C>(componentFactory: ComponentFactory<C>, rootSelectorOrNode?: string | any): ComponentRef<C>;
     readonly components: ComponentRef<any>[];
     readonly componentTypes: Type<any>[];
+    // (undocumented)
+    destroy(): void;
+    get destroyed(): boolean;
     detachView(viewRef: ViewRef): void;
     readonly isStable: Observable<boolean>;
     tick(): void;
@@ -200,7 +203,7 @@ export interface ComponentDecorator {
 // @public @deprecated
 export abstract class ComponentFactory<C> {
     abstract get componentType(): Type<any>;
-    abstract create(injector: Injector, projectableNodes?: any[][], rootSelectorOrNode?: string | any, ngModule?: NgModuleRef<any>): ComponentRef<C>;
+    abstract create(injector: Injector, projectableNodes?: any[][], rootSelectorOrNode?: string | any, environmentInjector?: EnvironmentInjector | NgModuleRef<any>): ComponentRef<C>;
     abstract get inputs(): {
         propName: string;
         templateName: string;
@@ -282,6 +285,9 @@ export interface ContentChildrenDecorator {
         read?: any;
     }): Query;
 }
+
+// @public
+export function createEnvironmentInjector(providers: Provider[], parent?: EnvironmentInjector | null, debugName?: string | null): EnvironmentInjector;
 
 // @public
 export function createNgModuleRef<T>(ngModule: Type<T>, parentInjector?: Injector): NgModuleRef<T>;
@@ -437,6 +443,15 @@ export abstract class EmbeddedViewRef<C> extends ViewRef {
 
 // @public
 export function enableProdMode(): void;
+
+// @public
+export abstract class EnvironmentInjector implements Injector {
+    // (undocumented)
+    abstract destroy(): void;
+    abstract get<T>(token: ProviderToken<T>, notFoundValue?: T, flags?: InjectFlags): T;
+    // @deprecated (undocumented)
+    abstract get(token: any, notFoundValue?: any): any;
+}
 
 // @public
 export class ErrorHandler {
@@ -652,6 +667,9 @@ export abstract class Injector {
 }
 
 // @public
+export const INJECTOR_INITIALIZER: InjectionToken<() => void>;
+
+// @public
 export interface InjectorType<T> extends Type<T> {
     // (undocumented)
     ɵfac?: unknown;
@@ -837,7 +855,7 @@ export abstract class NgModuleRef<T> {
     // @deprecated
     abstract get componentFactoryResolver(): ComponentFactoryResolver;
     abstract destroy(): void;
-    abstract get injector(): Injector;
+    abstract get injector(): EnvironmentInjector;
     abstract get instance(): T;
     abstract onDestroy(callback: () => void): void;
 }
@@ -965,7 +983,6 @@ export class PlatformRef {
     // @deprecated
     bootstrapModuleFactory<M>(moduleFactory: NgModuleFactory<M>, options?: BootstrapOptions): Promise<NgModuleRef<M>>;
     destroy(): void;
-    // (undocumented)
     get destroyed(): boolean;
     get injector(): Injector;
     onDestroy(callback: () => void): void;
@@ -1375,10 +1392,11 @@ export abstract class ViewContainerRef {
         index?: number;
         injector?: Injector;
         ngModuleRef?: NgModuleRef<unknown>;
+        environmentInjector?: EnvironmentInjector | NgModuleRef<unknown>;
         projectableNodes?: Node[][];
     }): ComponentRef<C>;
     // @deprecated
-    abstract createComponent<C>(componentFactory: ComponentFactory<C>, index?: number, injector?: Injector, projectableNodes?: any[][], ngModuleRef?: NgModuleRef<any>): ComponentRef<C>;
+    abstract createComponent<C>(componentFactory: ComponentFactory<C>, index?: number, injector?: Injector, projectableNodes?: any[][], environmentInjector?: EnvironmentInjector | NgModuleRef<any>): ComponentRef<C>;
     abstract createEmbeddedView<C>(templateRef: TemplateRef<C>, context?: C, options?: {
         index?: number;
         injector?: Injector;
@@ -1414,7 +1432,7 @@ export abstract class ViewRef extends ChangeDetectorRef {
 // @public
 export function ɵɵdefineInjectable<T>(opts: {
     token: unknown;
-    providedIn?: Type<any> | 'root' | 'platform' | 'any' | null;
+    providedIn?: Type<any> | 'root' | 'platform' | 'any' | 'env' | null;
     factory: () => T;
 }): unknown;
 

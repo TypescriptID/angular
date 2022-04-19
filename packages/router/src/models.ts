@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {NgModuleFactory, NgModuleRef, Type} from '@angular/core';
+import {EnvironmentInjector, NgModuleFactory, Type} from '@angular/core';
 import {Observable} from 'rxjs';
 
 import {ActivatedRouteSnapshot, RouterStateSnapshot} from './router_state';
@@ -478,20 +478,23 @@ export interface Route {
    * parameters of the route change.
    */
   runGuardsAndResolvers?: RunGuardsAndResolvers;
+
   /**
-   * Filled for routes with `loadChildren` once the module has been loaded
+   * Filled for routes with `loadChildren` once the routes are loaded.
    * @internal
    */
-  _loadedConfig?: LoadedRouterConfig;
+  _loadedRoutes?: Route[];
+
   /**
-   * Filled for routes with `loadChildren` during load
+   * Filled for routes with `loadChildren` once the routes are loaded
    * @internal
    */
-  _loader$?: Observable<LoadedRouterConfig>;
+  _loadedInjector?: EnvironmentInjector;
 }
 
-export class LoadedRouterConfig {
-  constructor(public routes: Route[], public module: NgModuleRef<any>) {}
+export interface LoadedRouterConfig {
+  routes: Route[];
+  injector: EnvironmentInjector|undefined;
 }
 
 /**
