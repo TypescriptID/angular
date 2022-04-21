@@ -195,6 +195,9 @@
     "name": "EnvironmentInjector"
   },
   {
+    "name": "EnvironmentNgModuleRefAdapter"
+  },
+  {
     "name": "ErrorHandler"
   },
   {
@@ -924,6 +927,9 @@
     "name": "createEmptyState"
   },
   {
+    "name": "createEnvironmentInjector"
+  },
+  {
     "name": "createInjector"
   },
   {
@@ -1086,9 +1092,6 @@
     "name": "extractDirectiveDef"
   },
   {
-    "name": "extractPipeDef"
-  },
-  {
     "name": "filter"
   },
   {
@@ -1155,7 +1158,7 @@
     "name": "getChildRouteGuards"
   },
   {
-    "name": "getClosestLoadedInjector"
+    "name": "getClosestRouteInjector"
   },
   {
     "name": "getClosureSafeProperty"
@@ -1273,6 +1276,9 @@
   },
   {
     "name": "getPathIndexShift"
+  },
+  {
+    "name": "getPipeDef"
   },
   {
     "name": "getPlatform"
@@ -1629,6 +1635,9 @@
     "name": "nodeChildrenAsMap"
   },
   {
+    "name": "nonNull"
+  },
+  {
     "name": "noop"
   },
   {
@@ -1845,7 +1854,7 @@
     "name": "stringify"
   },
   {
-    "name": "stringify9"
+    "name": "stringify10"
   },
   {
     "name": "stringifyCSSSelector"

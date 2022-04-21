@@ -181,9 +181,13 @@ export interface Component extends Directive {
     encapsulation?: ViewEncapsulation;
     // @deprecated
     entryComponents?: Array<Type<any> | any[]>;
+    // (undocumented)
+    imports?: (Type<any> | any[])[];
     interpolation?: [string, string];
     moduleId?: string;
     preserveWhitespaces?: boolean;
+    // (undocumented)
+    standalone?: boolean;
     styles?: string[];
     styleUrls?: string[];
     template?: string;
@@ -407,6 +411,8 @@ export interface Directive {
         [key: string]: any;
     };
     selector?: string;
+    // (undocumented)
+    standalone?: boolean;
 }
 
 // @public
@@ -570,6 +576,9 @@ export interface HostListenerDecorator {
     // (undocumented)
     new (eventName: string, args?: string[]): any;
 }
+
+// @public
+export function importProvidersFrom(...types: Array<Type<unknown>>): Provider[];
 
 // @public
 export interface Inject {
@@ -951,6 +960,8 @@ export const PACKAGE_ROOT_URL: InjectionToken<string>;
 export interface Pipe {
     name: string;
     pure?: boolean;
+    // (undocumented)
+    standalone?: boolean;
 }
 
 // @public (undocumented)
@@ -1432,7 +1443,7 @@ export abstract class ViewRef extends ChangeDetectorRef {
 // @public
 export function ɵɵdefineInjectable<T>(opts: {
     token: unknown;
-    providedIn?: Type<any> | 'root' | 'platform' | 'any' | 'env' | null;
+    providedIn?: Type<any> | 'root' | 'platform' | 'any' | 'environment' | null;
     factory: () => T;
 }): unknown;
 
