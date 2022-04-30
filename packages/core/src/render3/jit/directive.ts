@@ -8,7 +8,7 @@
 
 import {getCompilerFacade, JitCompilerUsage, R3DirectiveMetadataFacade} from '../../compiler/compiler_facade';
 import {R3ComponentMetadataFacade, R3QueryMetadataFacade} from '../../compiler/compiler_facade_interface';
-import {resolveForwardRef} from '../../di/forward_ref';
+import {isForwardRef, resolveForwardRef} from '../../di/forward_ref';
 import {getReflect, reflectDependencies} from '../../di/jit/util';
 import {Type} from '../../interface/type';
 import {Query} from '../../metadata/di';
@@ -26,6 +26,7 @@ import {stringifyForError} from '../util/stringify_utils';
 import {angularCoreEnv} from './environment';
 import {getJitOptions} from './jit_options';
 import {flushModuleScopingQueueAsMuchAsPossible, patchComponentDefWithScope, transitiveScopesFor} from './module';
+import {isModuleWithProviders} from './util';
 
 /**
  * Keep track of the compilation depth to avoid reentrancy issues during JIT compilation. This
@@ -167,12 +168,65 @@ export function compileComponent(type: Type<any>, metadata: Component): void {
           const scopes = transitiveScopesFor(type.ngSelectorScope);
           patchComponentDefWithScope(ngComponentDef, scopes);
         }
+
+        if (metadata.schemas) {
+          if (metadata.standalone) {
+            ngComponentDef.schemas = metadata.schemas;
+          } else {
+            throw new Error(`The 'schemas' was specified for the ${
+                stringifyForError(type)} but is only valid on a component that is standalone.`);
+          }
+        } else if (metadata.standalone) {
+          ngComponentDef.schemas = [];
+        }
       }
       return ngComponentDef;
     },
     // Make the property configurable in dev mode to allow overriding in tests
     configurable: !!ngDevMode,
   });
+}
+
+function getDependencyTypeForError(type: Type<any>) {
+  if (getComponentDef(type)) return 'component';
+  if (getDirectiveDef(type)) return 'directive';
+  if (getPipeDef(type)) return 'pipe';
+  return 'type';
+}
+
+function verifyStandaloneImport(depType: Type<unknown>, importingType: Type<unknown>) {
+  if (isForwardRef(depType)) {
+    depType = resolveForwardRef(depType);
+    if (!depType) {
+      throw new Error(`Expected forwardRef function, imported from "${
+          stringifyForError(importingType)}", to return a standalone entity or NgModule but got "${
+          stringifyForError(depType) || depType}".`);
+    }
+  }
+
+  if (getNgModuleDef(depType) == null) {
+    const def = getComponentDef(depType) || getDirectiveDef(depType) || getPipeDef(depType);
+    if (def != null) {
+      // if a component, directive or pipe is imported make sure that it is standalone
+      if (!def.standalone) {
+        throw new Error(`The "${stringifyForError(depType)}" ${
+            getDependencyTypeForError(depType)}, imported from "${
+            stringifyForError(
+                importingType)}", is not standalone. Did you forget to add the standalone: true flag?`);
+      }
+    } else {
+      // it can be either a module with provider or an unknown (not annotated) type
+      if (isModuleWithProviders(depType)) {
+        throw new Error(`A module with providers was imported from "${
+            stringifyForError(
+                importingType)}". Modules with providers are not supported in standalone components imports.`);
+      } else {
+        throw new Error(`The "${stringifyForError(depType)}" type, imported from "${
+            stringifyForError(
+                importingType)}", must be a standalone component / directive / pipe or an NgModule. Did you forget to add the required @Component / @Directive / @Pipe or @NgModule annotation?`);
+      }
+    }
+  }
 }
 
 /**
@@ -194,8 +248,9 @@ function getStandaloneDefFunctions(type: Type<any>, imports: Type<any>[]): {
       cachedDirectiveDefs = [getComponentDef(type)!];
 
       for (const rawDep of imports) {
-        const dep = resolveForwardRef(rawDep);
+        ngDevMode && verifyStandaloneImport(rawDep, type);
 
+        const dep = resolveForwardRef(rawDep);
         if (!!getNgModuleDef(dep)) {
           const scope = transitiveScopesFor(dep);
           for (const dir of scope.exported.directives) {

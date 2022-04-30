@@ -7,7 +7,7 @@
  */
 
 import {CommonModule} from '@angular/common';
-import {Component, createEnvironmentInjector, Directive, EnvironmentInjector, forwardRef, Injector, Input, NgModule, OnInit, Pipe, PipeTransform, ViewChild, ViewContainerRef} from '@angular/core';
+import {Component, createEnvironmentInjector, Directive, EnvironmentInjector, forwardRef, Injector, Input, NgModule, NO_ERRORS_SCHEMA, OnInit, Pipe, PipeTransform, ViewChild, ViewContainerRef} from '@angular/core';
 import {TestBed} from '@angular/core/testing';
 
 describe('standalone components, directives and pipes', () => {
@@ -398,5 +398,312 @@ describe('standalone components, directives and pipes', () => {
     const fixture = TestBed.createComponent(StandaloneCmpC);
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toBe('((A)B)C');
+  });
+
+  it('should collect ambient providers from exported NgModule', () => {
+    class Service {
+      value = 'service';
+    }
+
+    @NgModule({providers: [Service]})
+    class ModuleWithAService {
+    }
+
+    @NgModule({exports: [ModuleWithAService]})
+    class ExportingModule {
+    }
+    @Component({
+      selector: 'standalone',
+      standalone: true,
+      imports: [ExportingModule],
+      template: `({{service.value}})`
+    })
+    class TestComponent {
+      constructor(readonly service: Service) {}
+    }
+
+    const fixture = TestBed.createComponent(TestComponent);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toBe('(service)');
+  });
+
+  it('should support nested arrays in @Component.imports', () => {
+    @Directive({selector: '[red]', standalone: true, host: {'[attr.red]': 'true'}})
+    class RedIdDirective {
+    }
+
+    @Pipe({name: 'blue', pure: true, standalone: true})
+    class BluePipe implements PipeTransform {
+      transform() {
+        return 'blue';
+      }
+    }
+
+    @Component({
+      selector: 'standalone',
+      standalone: true,
+      template: `<div red>{{'' | blue}}</div>`,
+      imports: [[RedIdDirective, [BluePipe]]],
+    })
+    class TestComponent {
+    }
+
+    const fixture = TestBed.createComponent(TestComponent);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.innerHTML).toBe('<div red="true">blue</div>');
+  });
+
+  it('should error when forwardRef does not resolve to a truthy value', () => {
+    @Component({
+      selector: 'test',
+      standalone: true,
+      imports: [forwardRef(() => null)],
+      template: '',
+    })
+    class TestComponent {
+    }
+    expect(() => {
+      TestBed.createComponent(TestComponent);
+    })
+        .toThrowError(
+            'Expected forwardRef function, imported from "TestComponent", to return a standalone entity or NgModule but got "null".');
+  });
+
+  it('should error when a non-standalone component is imported', () => {
+    @Component({
+      selector: 'not-a-standalone',
+      template: '',
+    })
+    class NonStandaloneCmp {
+    }
+
+    @Component({
+      selector: 'standalone',
+      standalone: true,
+      template: '',
+      imports: [NonStandaloneCmp],
+    })
+    class StandaloneCmp {
+    }
+
+    expect(() => {
+      TestBed.createComponent(StandaloneCmp);
+    })
+        .toThrowError(
+            'The "NonStandaloneCmp" component, imported from "StandaloneCmp", is not standalone. Did you forget to add the standalone: true flag?');
+  });
+
+  it('should error when a non-standalone directive is imported', () => {
+    @Directive({selector: '[not-a-standalone]'})
+    class NonStandaloneDirective {
+    }
+
+    @Component({
+      selector: 'standalone',
+      standalone: true,
+      template: '',
+      imports: [NonStandaloneDirective],
+    })
+    class StandaloneCmp {
+    }
+
+    expect(() => {
+      TestBed.createComponent(StandaloneCmp);
+    })
+        .toThrowError(
+            'The "NonStandaloneDirective" directive, imported from "StandaloneCmp", is not standalone. Did you forget to add the standalone: true flag?');
+  });
+
+  it('should error when a non-standalone pipe is imported', () => {
+    @Pipe({name: 'not-a-standalone'})
+    class NonStandalonePipe {
+    }
+
+    @Component({
+      selector: 'standalone',
+      standalone: true,
+      template: '',
+      imports: [NonStandalonePipe],
+    })
+    class StandaloneCmp {
+    }
+
+    expect(() => {
+      TestBed.createComponent(StandaloneCmp);
+    })
+        .toThrowError(
+            'The "NonStandalonePipe" pipe, imported from "StandaloneCmp", is not standalone. Did you forget to add the standalone: true flag?');
+  });
+
+  it('should error when an unknown type is imported', () => {
+    class SthElse {}
+
+    @Component({
+      selector: 'standalone',
+      standalone: true,
+      template: '',
+      imports: [SthElse],
+    })
+    class StandaloneCmp {
+    }
+
+    expect(() => {
+      TestBed.createComponent(StandaloneCmp);
+    })
+        .toThrowError(
+            'The "SthElse" type, imported from "StandaloneCmp", must be a standalone component / directive / pipe or an NgModule. Did you forget to add the required @Component / @Directive / @Pipe or @NgModule annotation?');
+  });
+
+  it('should error when a module with providers is imported', () => {
+    @NgModule()
+    class OtherModule {
+    }
+
+    @NgModule()
+    class LibModule {
+      static forComponent() {
+        return {ngModule: OtherModule};
+      }
+    }
+
+    @Component({
+      standalone: true,
+      template: '',
+      // we need to import a module with a provider in a nested array since module with providers
+      // are disallowed on the type level
+      imports: [[LibModule.forComponent()]],
+    })
+    class StandaloneCmp {
+    }
+
+    expect(() => {
+      TestBed.createComponent(StandaloneCmp);
+    })
+        .toThrowError(
+            'A module with providers was imported from "StandaloneCmp". Modules with providers are not supported in standalone components imports.');
+  });
+
+  it('should support forwardRef imports', () => {
+    @Component({
+      selector: 'test',
+      standalone: true,
+      imports: [forwardRef(() => StandaloneComponent)],
+      template: `(<other-standalone></other-standalone>)`
+    })
+    class TestComponent {
+    }
+
+    @Component({selector: 'other-standalone', standalone: true, template: `standalone component`})
+    class StandaloneComponent {
+    }
+
+    const fixture = TestBed.createComponent(TestComponent);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toBe('(standalone component)');
+  });
+
+  describe('schemas', () => {
+    it('should allow schemas in standalone component', () => {
+      @Component({
+        standalone: true,
+        template: '<maybe-custom-elm></maybe-custom-elm>',
+        schemas: [NO_ERRORS_SCHEMA]
+      })
+      class AppCmp {
+      }
+
+      const fixture = TestBed.createComponent(AppCmp);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.innerHTML).toBe('<maybe-custom-elm></maybe-custom-elm>');
+    });
+
+    it('should error when schemas are specified for a non-standalone component', () => {
+      @Component({template: '', schemas: [NO_ERRORS_SCHEMA]})
+      class AppCmp {
+      }
+
+      expect(() => {
+        TestBed.createComponent(AppCmp);
+      })
+          .toThrowError(
+              `The 'schemas' was specified for the AppCmp but is only valid on a component that is standalone.`);
+    });
+  });
+
+  /*
+    The following test verify that we don't impose limits when it comes to extending components of
+    various type (standalone vs. non-standalone).
+
+    This is based on the reasoning that the "template"
+    / "templateUrl", "imports", "schemas" and "standalone" properties are all related and they
+    specify how to compile a template. As of today extending a component means providing a new
+    template and this implies providing compiler configuration for a new template. In this sense
+    neither a template nor its compiler configuration is carried over from a class being extended
+    (we can think of each component being a "fresh copy" when it comes to a template and its
+    compiler configuration).
+   */
+  describe('inheritance', () => {
+    it('should allow extending a regular component and turn it into a standalone one', () => {
+      @Component({selector: 'regular', template: 'regular: {{in}}'})
+      class RegularCmp {
+        @Input() in : string|undefined;
+      }
+
+      @Component({selector: 'standalone', template: 'standalone: {{in}}', standalone: true})
+      class StandaloneCmp extends RegularCmp {
+      }
+
+      const fixture = TestBed.createComponent(StandaloneCmp);
+      fixture.componentInstance.in = 'input value';
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toBe('standalone: input value');
+    });
+
+    it('should allow extending a regular component and turn it into a standalone one', () => {
+      @Component({selector: 'standalone', template: 'standalone: {{in}}', standalone: true})
+      class StandaloneCmp {
+        @Input() in : string|undefined;
+      }
+
+      @Component({selector: 'regular', template: 'regular: {{in}}'})
+      class RegularCmp extends StandaloneCmp {
+      }
+
+      const fixture = TestBed.createComponent(RegularCmp);
+      fixture.componentInstance.in = 'input value';
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toBe('regular: input value');
+    });
+
+    it('should ?', () => {
+      @Component({
+        selector: 'inner',
+        template: 'inner',
+        standalone: true,
+      })
+      class InnerCmp {
+      }
+
+      @Component({
+        selector: 'standalone',
+        standalone: true,
+        template: 'standalone: {{in}}; (<inner></inner>)',
+        imports: [InnerCmp]
+      })
+      class StandaloneCmp {
+        @Input() in : string|undefined;
+      }
+
+      @Component({selector: 'regular'})
+      class RegularCmp extends StandaloneCmp {
+      }
+
+      const fixture = TestBed.createComponent(RegularCmp);
+      fixture.componentInstance.in = 'input value';
+      fixture.detectChanges();
+      // the assumption here is that not providing a template is equivalent to providing an empty
+      // one
+      expect(fixture.nativeElement.textContent).toBe('');
+    });
   });
 });

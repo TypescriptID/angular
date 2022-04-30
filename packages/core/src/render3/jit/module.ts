@@ -9,11 +9,12 @@
 import {getCompilerFacade, JitCompilerUsage, R3InjectorMetadataFacade} from '../../compiler/compiler_facade';
 import {resolveForwardRef} from '../../di/forward_ref';
 import {NG_INJ_DEF} from '../../di/interface/defs';
+import {ModuleWithProviders} from '../../di/interface/provider';
 import {reflectDependencies} from '../../di/jit/util';
 import {Type} from '../../interface/type';
 import {registerNgModuleType} from '../../linker/ng_module_registration';
 import {Component} from '../../metadata/directives';
-import {ModuleWithProviders, NgModule} from '../../metadata/ng_module';
+import {NgModule} from '../../metadata/ng_module';
 import {NgModuleDef, NgModuleTransitiveScopes, NgModuleType} from '../../metadata/ng_module_def';
 import {deepForEach, flatten} from '../../util/array_utils';
 import {assertDefined} from '../../util/assert';
@@ -26,6 +27,7 @@ import {stringifyForError} from '../util/stringify_utils';
 
 import {angularCoreEnv} from './environment';
 import {patchModuleCompilation} from './module_patch';
+import {isModuleWithProviders, isNgModule} from './util';
 
 interface ModuleQueueItem {
   moduleType: Type<any>;
@@ -205,7 +207,7 @@ function verifySemanticsOfNgModuleDef(
     importingModule?: NgModuleType): void {
   if (verifiedNgModule.get(moduleType)) return;
 
-  // skip verifications of standalone components, direcrtives and pipes
+  // skip verifications of standalone components, directives and pipes
   if (isStandalone(moduleType)) return;
 
   verifiedNgModule.set(moduleType, true);
@@ -230,6 +232,7 @@ function verifySemanticsOfNgModuleDef(
   const exports = maybeUnwrapFn(ngModuleDef.exports);
   declarations.forEach(verifyDeclarationsHaveDefinitions);
   declarations.forEach(verifyDirectivesHaveSelector);
+  declarations.forEach((declarationType) => verifyNotStandalone(declarationType, moduleType));
   const combinedDeclarations: Type<any>[] = [
     ...declarations.map(resolveForwardRef),
     ...flatten(imports.map(computeCombinedExports)).map(resolveForwardRef),
@@ -270,6 +273,17 @@ function verifySemanticsOfNgModuleDef(
     const def = getDirectiveDef(type);
     if (!getComponentDef(type) && def && def.selectors.length == 0) {
       errors.push(`Directive ${stringifyForError(type)} has no selector, please add it!`);
+    }
+  }
+
+  function verifyNotStandalone(type: Type<any>, moduleType: NgModuleType): void {
+    type = resolveForwardRef(type);
+    const def = getComponentDef(type) || getDirectiveDef(type) || getPipeDef(type);
+    if (def?.standalone) {
+      errors.push(`Unexpected "${stringifyForError(type)}" declaration in "${
+          stringifyForError(moduleType)}" NgModule. "${
+          stringifyForError(
+              type)}" is marked as standalone and can't be declared in any NgModule - did you intend to import it?`);
     }
   }
 
@@ -608,12 +622,4 @@ function expandModuleWithProviders(value: Type<any>|ModuleWithProviders<{}>): Ty
     return value.ngModule;
   }
   return value;
-}
-
-function isModuleWithProviders(value: any): value is ModuleWithProviders<{}> {
-  return (value as {ngModule?: any}).ngModule !== undefined;
-}
-
-function isNgModule<T>(value: Type<T>): value is Type<T>&{ɵmod: NgModuleDef<T>} {
-  return !!getNgModuleDef(value);
 }

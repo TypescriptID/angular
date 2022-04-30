@@ -187,6 +187,8 @@ export interface Component extends Directive {
     moduleId?: string;
     preserveWhitespaces?: boolean;
     // (undocumented)
+    schemas?: SchemaMetadata[];
+    // (undocumented)
     standalone?: boolean;
     styles?: string[];
     styleUrls?: string[];
@@ -578,7 +580,10 @@ export interface HostListenerDecorator {
 }
 
 // @public
-export function importProvidersFrom(...types: Array<Type<unknown>>): Provider[];
+export function importProvidersFrom(...sources: ImportProvidersSource[]): Provider[];
+
+// @public
+export type ImportProvidersSource = Type<unknown> | ModuleWithProviders<unknown> | Array<ImportProvidersSource>;
 
 // @public
 export interface Inject {

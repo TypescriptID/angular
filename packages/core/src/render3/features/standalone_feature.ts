@@ -18,14 +18,10 @@ import {createEnvironmentInjector} from '../ng_module_ref';
  * created on demand in case of dynamic component instantiation and contain ambient providers
  * collected from the imports graph rooted at a given standalone component.
  */
-export class StandaloneService implements OnDestroy {
+class StandaloneService implements OnDestroy {
   cachedInjectors = new Map<ComponentDef<unknown>, EnvironmentInjector|null>();
 
   constructor(private _injector: EnvironmentInjector) {}
-
-  setInjector(componentDef: ComponentDef<unknown>, injector: EnvironmentInjector) {
-    this.cachedInjectors.set(componentDef, injector);
-  }
 
   getOrCreateStandaloneInjector(componentDef: ComponentDef<unknown>): EnvironmentInjector|null {
     if (!componentDef.standalone) {
@@ -47,7 +43,7 @@ export class StandaloneService implements OnDestroy {
   ngOnDestroy() {
     try {
       for (const injector of this.cachedInjectors.values()) {
-        if (injector !== null && injector !== this._injector) {
+        if (injector !== null) {
           injector.destroy();
         }
       }
@@ -56,6 +52,7 @@ export class StandaloneService implements OnDestroy {
     }
   }
 
+  /** @nocollapse */
   static ɵprov = /** @pureOrBreakMyCode */ defineInjectable({
     token: StandaloneService,
     providedIn: 'environment',
