@@ -10,13 +10,13 @@ import {AnimationTriggerNames, compileClassMetadata, compileComponentFromMetadat
 import ts from 'typescript';
 
 import {Cycle, CycleAnalyzer, CycleHandlingStrategy} from '../../../cycles';
-import {ErrorCode, FatalDiagnosticError, makeDiagnostic} from '../../../diagnostics';
+import {ErrorCode, FatalDiagnosticError, makeDiagnostic, makeRelatedInformation} from '../../../diagnostics';
 import {absoluteFrom, relative} from '../../../file_system';
 import {assertSuccessfulReferenceEmit, ImportedFile, ModuleResolver, Reference, ReferenceEmitter} from '../../../imports';
 import {DependencyTracker} from '../../../incremental/api';
 import {extractSemanticTypeParameters, SemanticDepGraphUpdater} from '../../../incremental/semantic_graph';
 import {IndexingContext} from '../../../indexer';
-import {DirectiveMeta, extractDirectiveTypeCheckMeta, InjectableClassRegistry, MetadataReader, MetadataRegistry, MetaKind, PipeMeta, ResourceRegistry} from '../../../metadata';
+import {DirectiveMeta, extractDirectiveTypeCheckMeta, MetadataReader, MetadataRegistry, MetaKind, PipeMeta, ResourceRegistry} from '../../../metadata';
 import {PartialEvaluator} from '../../../partial_evaluator';
 import {PerfEvent, PerfRecorder} from '../../../perf';
 import {ClassDeclaration, DeclarationNode, Decorator, ReflectionHost, reflectObjectLiteral} from '../../../reflection';
@@ -26,13 +26,13 @@ import {TypeCheckContext} from '../../../typecheck/api';
 import {ExtendedTemplateChecker} from '../../../typecheck/extended/api';
 import {getSourceFile} from '../../../util/src/typescript';
 import {Xi18nContext} from '../../../xi18n';
-import {compileDeclareFactory, compileNgFactoryDefField, compileResults, extractClassMetadata, extractSchemas, findAngularDecorator, getDirectiveDiagnostics, getProviderDiagnostics, isExpressionForwardReference, readBaseClass, resolveEnumValue, resolveImportedFile, resolveLiteral, resolveProvidersRequiringFactory, ResourceLoader, toFactoryMetadata, wrapFunctionExpressionsInParens} from '../../common';
+import {compileDeclareFactory, compileNgFactoryDefField, compileResults, extractClassMetadata, extractSchemas, findAngularDecorator, getDirectiveDiagnostics, getProviderDiagnostics, InjectableClassRegistry, isExpressionForwardReference, readBaseClass, resolveEnumValue, resolveImportedFile, resolveLiteral, resolveProvidersRequiringFactory, ResourceLoader, toFactoryMetadata, wrapFunctionExpressionsInParens} from '../../common';
 import {extractDirectiveMetadata, parseFieldArrayValue} from '../../directive';
 import {NgModuleSymbol} from '../../ng_module';
 
 import {checkCustomElementSelectorForErrors, makeCyclicImportInfo} from './diagnostics';
 import {ComponentAnalysisData, ComponentResolutionData} from './metadata';
-import {_extractTemplateStyleUrls, extractComponentStyleUrls, extractStyleResources, extractTemplate, makeResourceNotFoundError, ParsedTemplateWithSource, parseTemplateDeclaration, preloadAndParseTemplate, ResourceTypeForDiagnostics, StyleUrlMeta, transformDecoratorToInlineResources} from './resources';
+import {_extractTemplateStyleUrls, extractComponentStyleUrls, extractStyleResources, extractTemplate, makeResourceNotFoundError, ParsedTemplateWithSource, parseTemplateDeclaration, preloadAndParseTemplate, ResourceTypeForDiagnostics, StyleUrlMeta, transformDecoratorResources} from './resources';
 import {ComponentSymbol} from './symbol';
 import {animationTriggerResolver, collectAnimationNames, validateAndFlattenComponentImports} from './util';
 
@@ -51,12 +51,13 @@ export class ComponentDecoratorHandler implements
       private scopeRegistry: LocalModuleScopeRegistry,
       private typeCheckScopeRegistry: TypeCheckScopeRegistry,
       private resourceRegistry: ResourceRegistry, private isCore: boolean,
-      private resourceLoader: ResourceLoader, private rootDirs: ReadonlyArray<string>,
-      private defaultPreserveWhitespaces: boolean, private i18nUseExternalIds: boolean,
-      private enableI18nLegacyMessageIdFormat: boolean, private usePoisonedData: boolean,
-      private i18nNormalizeLineEndingsInICUs: boolean, private moduleResolver: ModuleResolver,
-      private cycleAnalyzer: CycleAnalyzer, private cycleHandlingStrategy: CycleHandlingStrategy,
-      private refEmitter: ReferenceEmitter, private depTracker: DependencyTracker|null,
+      private strictCtorDeps: boolean, private resourceLoader: ResourceLoader,
+      private rootDirs: ReadonlyArray<string>, private defaultPreserveWhitespaces: boolean,
+      private i18nUseExternalIds: boolean, private enableI18nLegacyMessageIdFormat: boolean,
+      private usePoisonedData: boolean, private i18nNormalizeLineEndingsInICUs: boolean,
+      private moduleResolver: ModuleResolver, private cycleAnalyzer: CycleAnalyzer,
+      private cycleHandlingStrategy: CycleHandlingStrategy, private refEmitter: ReferenceEmitter,
+      private depTracker: DependencyTracker|null,
       private injectableRegistry: InjectableClassRegistry,
       private semanticDepGraphUpdater: SemanticDepGraphUpdater|null,
       private annotateForClosureCompiler: boolean, private perf: PerfRecorder) {}
@@ -259,7 +260,12 @@ export class ComponentDecoratorHandler implements
       }
       diagnostics.push(makeDiagnostic(
           ErrorCode.COMPONENT_NOT_STANDALONE, component.get('imports')!,
-          `'imports' is only valid on a component that is standalone.`));
+          `'imports' is only valid on a component that is standalone.`,
+          [makeRelatedInformation(
+              node.name, `Did you forget to add 'standalone: true' to this @Component?`)]));
+      // Poison the component so that we don't spam further template type-checking errors that
+      // result from misconfigured imports.
+      isPoisoned = true;
     } else if (component.has('imports')) {
       const expr = component.get('imports')!;
       const imported = this.evaluator.evaluate(expr);
@@ -275,16 +281,6 @@ export class ComponentDecoratorHandler implements
           diagnostics = [];
         }
         diagnostics.push(...importDiagnostics);
-      }
-
-      const validationDiagnostics =
-          validateStandaloneImports(resolvedImports, rawImports, this.metaReader, this.scopeReader);
-      if (validationDiagnostics.length > 0) {
-        isPoisoned = true;
-        if (diagnostics === undefined) {
-          diagnostics = [];
-        }
-        diagnostics.push(...validationDiagnostics);
       }
     }
 
@@ -430,7 +426,7 @@ export class ComponentDecoratorHandler implements
         typeCheckMeta: extractDirectiveTypeCheckMeta(node, inputs, this.reflector),
         classMetadata: extractClassMetadata(
             node, this.reflector, this.isCore, this.annotateForClosureCompiler,
-            dec => transformDecoratorToInlineResources(dec, component, styles, template)),
+            dec => transformDecoratorResources(dec, component, styles, template)),
         template,
         providersRequiringFactory,
         viewProvidersRequiringFactory,
@@ -487,7 +483,9 @@ export class ComponentDecoratorHandler implements
     });
 
     this.resourceRegistry.registerResources(analysis.resources, node);
-    this.injectableRegistry.registerInjectable(node);
+    this.injectableRegistry.registerInjectable(node, {
+      ctorDeps: analysis.meta.deps,
+    });
   }
 
   index(
@@ -801,6 +799,12 @@ export class ComponentDecoratorHandler implements
       }
     }
 
+    if (analysis.resolvedImports !== null && analysis.rawImports !== null) {
+      const standaloneDiagnostics = validateStandaloneImports(
+          analysis.resolvedImports, analysis.rawImports, this.metaReader, this.scopeReader);
+      diagnostics.push(...standaloneDiagnostics);
+    }
+
     if (analysis.providersRequiringFactory !== null &&
         analysis.meta.providers instanceof WrappedNodeExpr) {
       const providerDiagnostics = getProviderDiagnostics(
@@ -818,7 +822,8 @@ export class ComponentDecoratorHandler implements
     }
 
     const directiveDiagnostics = getDirectiveDiagnostics(
-        node, this.metaReader, this.evaluator, this.reflector, this.scopeRegistry, 'Component');
+        node, this.injectableRegistry, this.evaluator, this.reflector, this.scopeRegistry,
+        this.strictCtorDeps, 'Component');
     if (directiveDiagnostics !== null) {
       diagnostics.push(...directiveDiagnostics);
     }
@@ -873,7 +878,7 @@ export class ComponentDecoratorHandler implements
       styles.push(styleText);
     }
 
-    analysis.meta.styles = styles;
+    analysis.meta.styles = styles.filter(s => s.trim().length > 0);
   }
 
   compileFull(

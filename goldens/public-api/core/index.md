@@ -81,7 +81,6 @@ export class ApplicationRef {
     bootstrap<C>(componentFactory: ComponentFactory<C>, rootSelectorOrNode?: string | any): ComponentRef<C>;
     readonly components: ComponentRef<any>[];
     readonly componentTypes: Type<any>[];
-    // (undocumented)
     destroy(): void;
     get destroyed(): boolean;
     detachView(viewRef: ViewRef): void;
@@ -181,14 +180,11 @@ export interface Component extends Directive {
     encapsulation?: ViewEncapsulation;
     // @deprecated
     entryComponents?: Array<Type<any> | any[]>;
-    // (undocumented)
     imports?: (Type<any> | any[])[];
     interpolation?: [string, string];
     moduleId?: string;
     preserveWhitespaces?: boolean;
-    // (undocumented)
     schemas?: SchemaMetadata[];
-    // (undocumented)
     standalone?: boolean;
     styles?: string[];
     styleUrls?: string[];
@@ -293,7 +289,7 @@ export interface ContentChildrenDecorator {
 }
 
 // @public
-export function createEnvironmentInjector(providers: Provider[], parent?: EnvironmentInjector | null, debugName?: string | null): EnvironmentInjector;
+export function createEnvironmentInjector(providers: Array<Provider | ImportedNgModuleProviders>, parent?: EnvironmentInjector | null, debugName?: string | null): EnvironmentInjector;
 
 // @public
 export function createNgModuleRef<T>(ngModule: Type<T>, parentInjector?: Injector): NgModuleRef<T>;
@@ -413,7 +409,6 @@ export interface Directive {
         [key: string]: any;
     };
     selector?: string;
-    // (undocumented)
     standalone?: boolean;
 }
 
@@ -451,6 +446,9 @@ export abstract class EmbeddedViewRef<C> extends ViewRef {
 
 // @public
 export function enableProdMode(): void;
+
+// @public
+export const ENVIRONMENT_INITIALIZER: InjectionToken<() => void>;
 
 // @public
 export abstract class EnvironmentInjector implements Injector {
@@ -580,7 +578,13 @@ export interface HostListenerDecorator {
 }
 
 // @public
-export function importProvidersFrom(...sources: ImportProvidersSource[]): Provider[];
+export interface ImportedNgModuleProviders {
+    // (undocumented)
+    ɵproviders: Provider[];
+}
+
+// @public
+export function importProvidersFrom(...sources: ImportProvidersSource[]): ImportedNgModuleProviders;
 
 // @public
 export type ImportProvidersSource = Type<unknown> | ModuleWithProviders<unknown> | Array<ImportProvidersSource>;
@@ -679,9 +683,6 @@ export abstract class Injector {
     // (undocumented)
     static ɵprov: unknown;
 }
-
-// @public
-export const INJECTOR_INITIALIZER: InjectionToken<() => void>;
 
 // @public
 export interface InjectorType<T> extends Type<T> {
@@ -965,7 +966,6 @@ export const PACKAGE_ROOT_URL: InjectionToken<string>;
 export interface Pipe {
     name: string;
     pure?: boolean;
-    // (undocumented)
     standalone?: boolean;
 }
 

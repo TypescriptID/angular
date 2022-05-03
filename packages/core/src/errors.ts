@@ -30,6 +30,7 @@ export const enum RuntimeErrorCode {
   MISSING_INJECTION_CONTEXT = 203,
   INVALID_INJECTION_TOKEN = 204,
   INJECTOR_ALREADY_DESTROYED = 205,
+  PROVIDER_IN_WRONG_CONTEXT = 207,
 
   // Template Errors
   MULTIPLE_COMPONENTS_MATCH = -300,
@@ -55,6 +56,9 @@ export const enum RuntimeErrorCode {
 
   // i18n Errors
   INVALID_I18N_STRUCTURE = 700,
+
+  // standalone errors
+  IMPORT_PROVIDERS_FROM_STANDALONE = 800,
 
   // JIT Compilation Errors
   // Other

@@ -215,6 +215,8 @@ export class TestComponentRenderer {
 
 // @public (undocumented)
 export interface TestEnvironmentOptions {
+    errorOnUnknownElements?: boolean;
+    errorOnUnknownProperties?: boolean;
     teardown?: ModuleTeardownOptions;
 }
 
@@ -225,6 +227,8 @@ export type TestModuleMetadata = {
     imports?: any[];
     schemas?: Array<SchemaMetadata | any[]>;
     teardown?: ModuleTeardownOptions;
+    errorOnUnknownElements?: boolean;
+    errorOnUnknownProperties?: boolean;
 };
 
 // @public

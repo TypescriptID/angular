@@ -75,6 +75,9 @@
     "name": "BROWSER_MODULE_PROVIDERS"
   },
   {
+    "name": "BROWSER_MODULE_PROVIDERS_MARKER"
+  },
+  {
     "name": "BROWSER_NOOP_ANIMATIONS_PROVIDERS"
   },
   {
@@ -189,6 +192,9 @@
     "name": "ENTER_TOKEN_REGEX"
   },
   {
+    "name": "ENVIRONMENT_INITIALIZER"
+  },
+  {
     "name": "EVENT_MANAGER_PLUGINS"
   },
   {
@@ -223,9 +229,6 @@
   },
   {
     "name": "INJECTOR_DEF_TYPES"
-  },
-  {
-    "name": "INJECTOR_INITIALIZER"
   },
   {
     "name": "INJECTOR_SCOPE"
@@ -768,13 +771,13 @@
     "name": "findAttrIndexInNode"
   },
   {
-    "name": "flatten"
-  },
-  {
     "name": "flattenStyles"
   },
   {
     "name": "flattenUnsubscriptionErrors"
+  },
+  {
+    "name": "forEachSingleProvider"
   },
   {
     "name": "forwardRef"
@@ -960,6 +963,9 @@
     "name": "instructionState"
   },
   {
+    "name": "internalImportProvidersFrom"
+  },
+  {
     "name": "interpolateParams"
   },
   {
@@ -1006,6 +1012,9 @@
   },
   {
     "name": "isFunction"
+  },
+  {
+    "name": "isImportedNgModuleProviders"
   },
   {
     "name": "isInCheckNoChangesMode"

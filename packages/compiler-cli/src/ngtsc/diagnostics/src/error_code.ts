@@ -72,6 +72,12 @@ export enum ErrorCode {
    */
   COMPONENT_UNKNOWN_IMPORT = 2012,
 
+  /**
+   * Raised when a type with Angular decorator inherits its constructor from a base class
+   * which has a constructor that is incompatible with Angular DI.
+   */
+  INJECTABLE_INHERITS_INVALID_CONSTRUCTOR = 2013,
+
   SYMBOL_NOT_EXPORTED = 3001,
   SYMBOL_EXPORTED_UNDER_DIFFERENT_NAME = 3002,
   /**
@@ -144,6 +150,11 @@ export enum ErrorCode {
    * Raised when a standalone directive/pipe is part of the declarations of an NgModule.
    */
   NGMODULE_DECLARATION_IS_STANDALONE = 6008,
+
+  /**
+   * Raised when a standalone component is part of the bootstrap list of an NgModule.
+   */
+  NGMODULE_BOOTSTRAP_IS_STANDALONE = 6009,
 
   /**
    * Indicates that an NgModule is declared with `id: module.id`. This is an anti-pattern that is

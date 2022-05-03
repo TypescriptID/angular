@@ -24,10 +24,14 @@ import {
   ProviderToken,
   Type,
   ɵflushModuleScopingQueueAsMuchAsPossible as flushModuleScopingQueueAsMuchAsPossible,
+  ɵgetUnknownElementStrictMode as getUnknownElementStrictMode,
+  ɵgetUnknownPropertyStrictMode as getUnknownPropertyStrictMode,
   ɵRender3ComponentFactory as ComponentFactory,
   ɵRender3NgModuleRef as NgModuleRef,
   ɵresetCompiledComponents as resetCompiledComponents,
   ɵsetAllowDuplicateNgModuleIdsForTest as setAllowDuplicateNgModuleIdsForTest,
+  ɵsetUnknownElementStrictMode as setUnknownElementStrictMode,
+  ɵsetUnknownPropertyStrictMode as setUnknownPropertyStrictMode,
   ɵstringify as stringify,
 } from '@angular/core';
 
@@ -37,7 +41,7 @@ import {ComponentFixture} from './component_fixture';
 import {MetadataOverride} from './metadata_override';
 import {R3TestBedCompiler} from './r3_test_bed_compiler';
 import {TestBed} from './test_bed';
-import {ComponentFixtureAutoDetect, ComponentFixtureNoNgZone, ModuleTeardownOptions, TEARDOWN_TESTING_MODULE_ON_DESTROY_DEFAULT, TestBedStatic, TestComponentRenderer, TestEnvironmentOptions, TestModuleMetadata} from './test_bed_common';
+import {ComponentFixtureAutoDetect, ComponentFixtureNoNgZone, ModuleTeardownOptions, TEARDOWN_TESTING_MODULE_ON_DESTROY_DEFAULT, TestBedStatic, TestComponentRenderer, TestEnvironmentOptions, TestModuleMetadata, THROW_ON_UNKNOWN_ELEMENTS_DEFAULT, THROW_ON_UNKNOWN_PROPERTIES_DEFAULT} from './test_bed_common';
 
 let _nextRootElementId = 0;
 
@@ -60,10 +64,46 @@ export class TestBedRender3 implements TestBed {
   private static _environmentTeardownOptions: ModuleTeardownOptions|undefined;
 
   /**
+   * "Error on unknown elements" option that has been configured at the environment level.
+   * Used as a fallback if no instance-level option has been provided.
+   */
+  private static _environmentErrorOnUnknownElementsOption: boolean|undefined;
+
+  /**
+   * "Error on unknown properties" option that has been configured at the environment level.
+   * Used as a fallback if no instance-level option has been provided.
+   */
+  private static _environmentErrorOnUnknownPropertiesOption: boolean|undefined;
+
+  /**
    * Teardown options that have been configured at the `TestBed` instance level.
-   * These options take precedence over the environemnt-level ones.
+   * These options take precedence over the environment-level ones.
    */
   private _instanceTeardownOptions: ModuleTeardownOptions|undefined;
+
+  /**
+   * "Error on unknown elements" option that has been configured at the `TestBed` instance level.
+   * This option takes precedence over the environment-level one.
+   */
+  private _instanceErrorOnUnknownElementsOption: boolean|undefined;
+
+  /**
+   * "Error on unknown properties" option that has been configured at the `TestBed` instance level.
+   * This option takes precedence over the environment-level one.
+   */
+  private _instanceErrorOnUnknownPropertiesOption: boolean|undefined;
+
+  /**
+   * Stores the previous "Error on unknown elements" option value,
+   * allowing to restore it in the reset testing module logic.
+   */
+  private _previousErrorOnUnknownElementsOption: boolean|undefined;
+
+  /**
+   * Stores the previous "Error on unknown properties" option value,
+   * allowing to restore it in the reset testing module logic.
+   */
+  private _previousErrorOnUnknownPropertiesOption: boolean|undefined;
 
   /**
    * Initialize the environment for testing with a compiler factory, a PlatformRef, and an
@@ -237,6 +277,10 @@ export class TestBedRender3 implements TestBed {
 
     TestBedRender3._environmentTeardownOptions = options?.teardown;
 
+    TestBedRender3._environmentErrorOnUnknownElementsOption = options?.errorOnUnknownElements;
+
+    TestBedRender3._environmentErrorOnUnknownPropertiesOption = options?.errorOnUnknownProperties;
+
     this.platform = platform;
     this.ngModule = ngModule;
     this._compiler = new R3TestBedCompiler(this.platform, this.ngModule);
@@ -269,6 +313,12 @@ export class TestBedRender3 implements TestBed {
       this.compiler.restoreOriginalState();
     }
     this._compiler = new R3TestBedCompiler(this.platform, this.ngModule);
+    // Restore the previous value of the "error on unknown elements" option
+    setUnknownElementStrictMode(
+        this._previousErrorOnUnknownElementsOption ?? THROW_ON_UNKNOWN_ELEMENTS_DEFAULT);
+    // Restore the previous value of the "error on unknown properties" option
+    setUnknownPropertyStrictMode(
+        this._previousErrorOnUnknownPropertiesOption ?? THROW_ON_UNKNOWN_PROPERTIES_DEFAULT);
 
     // We have to chain a couple of try/finally blocks, because each step can
     // throw errors and we don't want it to interrupt the next step and we also
@@ -283,6 +333,8 @@ export class TestBedRender3 implements TestBed {
       } finally {
         this._testModuleRef = null;
         this._instanceTeardownOptions = undefined;
+        this._instanceErrorOnUnknownElementsOption = undefined;
+        this._instanceErrorOnUnknownPropertiesOption = undefined;
       }
     }
   }
@@ -306,9 +358,17 @@ export class TestBedRender3 implements TestBed {
     // description for additional info.
     this.checkGlobalCompilationFinished();
 
-    // Always re-assign the teardown options, even if they're undefined.
-    // This ensures that we don't carry the options between tests.
+    // Always re-assign the options, even if they're undefined.
+    // This ensures that we don't carry them between tests.
     this._instanceTeardownOptions = moduleDef.teardown;
+    this._instanceErrorOnUnknownElementsOption = moduleDef.errorOnUnknownElements;
+    this._instanceErrorOnUnknownPropertiesOption = moduleDef.errorOnUnknownProperties;
+    // Store the current value of the strict mode option,
+    // so we can restore it later
+    this._previousErrorOnUnknownElementsOption = getUnknownElementStrictMode();
+    setUnknownElementStrictMode(this.shouldThrowErrorOnUnknownElements());
+    this._previousErrorOnUnknownPropertiesOption = getUnknownPropertyStrictMode();
+    setUnknownPropertyStrictMode(this.shouldThrowErrorOnUnknownProperties());
     this.compiler.configureTestingModule(moduleDef);
   }
 
@@ -387,8 +447,7 @@ export class TestBedRender3 implements TestBed {
     const componentDef = (type as any).ɵcmp;
 
     if (!componentDef) {
-      throw new Error(
-          `It looks like '${stringify(type)}' has not been IVY compiled - it has no 'ɵcmp' field`);
+      throw new Error(`It looks like '${stringify(type)}' has not been compiled.`);
     }
 
     // TODO: Don't cast as `InjectionToken<boolean>`, proper type is boolean[]
@@ -481,7 +540,7 @@ export class TestBedRender3 implements TestBed {
     }
   }
 
-  shouldRethrowTeardownErrors() {
+  shouldRethrowTeardownErrors(): boolean {
     const instanceOptions = this._instanceTeardownOptions;
     const environmentOptions = TestBedRender3._environmentTeardownOptions;
 
@@ -493,6 +552,20 @@ export class TestBedRender3 implements TestBed {
     // Otherwise use the configured behavior or default to rethrowing.
     return instanceOptions?.rethrowErrors ?? environmentOptions?.rethrowErrors ??
         this.shouldTearDownTestingModule();
+  }
+
+  shouldThrowErrorOnUnknownElements(): boolean {
+    // Check if a configuration has been provided to throw when an unknown element is found
+    return this._instanceErrorOnUnknownElementsOption ??
+        TestBedRender3._environmentErrorOnUnknownElementsOption ??
+        THROW_ON_UNKNOWN_ELEMENTS_DEFAULT;
+  }
+
+  shouldThrowErrorOnUnknownProperties(): boolean {
+    // Check if a configuration has been provided to throw when an unknown property is found
+    return this._instanceErrorOnUnknownPropertiesOption ??
+        TestBedRender3._environmentErrorOnUnknownPropertiesOption ??
+        THROW_ON_UNKNOWN_PROPERTIES_DEFAULT;
   }
 
   shouldTearDownTestingModule(): boolean {
