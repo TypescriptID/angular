@@ -277,10 +277,16 @@ export class FormArrayName extends ControlContainer implements OnInit, OnDestroy
 // @public
 export class FormBuilder {
     array<T>(controls: Array<T>, validatorOrOpts?: ValidatorFn | ValidatorFn[] | AbstractControlOptions | null, asyncValidator?: AsyncValidatorFn | AsyncValidatorFn[] | null): FormArray<ɵElement<T, null>>;
-    // (undocumented)
+    // @deprecated (undocumented)
     control<T>(formState: T | FormControlState<T>, opts: FormControlOptions & {
         initialValueIsDefault: true;
     }): FormControl<T>;
+    // (undocumented)
+    control<T>(formState: T | FormControlState<T>, opts: FormControlOptions & {
+        nonNullable: true;
+    }): FormControl<T>;
+    // @deprecated (undocumented)
+    control<T>(formState: T | FormControlState<T>, opts: FormControlOptions, asyncValidator: AsyncValidatorFn | AsyncValidatorFn[]): FormControl<T | null>;
     // (undocumented)
     control<T>(formState: T | FormControlState<T>, validatorOrOpts?: ValidatorFn | ValidatorFn[] | FormControlOptions | null, asyncValidator?: AsyncValidatorFn | AsyncValidatorFn[] | null): FormControl<T | null>;
     group<T extends {}>(controls: T, options?: AbstractControlOptions | null): FormGroup<{
@@ -374,7 +380,9 @@ export class FormControlName extends NgControl implements OnChanges, OnDestroy {
 
 // @public
 export interface FormControlOptions extends AbstractControlOptions {
+    // @deprecated (undocumented)
     initialValueIsDefault?: boolean;
+    nonNullable?: boolean;
 }
 
 // @public

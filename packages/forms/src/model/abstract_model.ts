@@ -9,7 +9,7 @@
 import {EventEmitter, ɵRuntimeError as RuntimeError} from '@angular/core';
 import {Observable} from 'rxjs';
 
-import {missingControlError, missingControlValueError, noControlsError} from '../directives/reactive_errors';
+import {asyncValidatorsDroppedWithOptsWarning, missingControlError, missingControlValueError, noControlsError} from '../directives/reactive_errors';
 import {AsyncValidatorFn, ValidationErrors, ValidatorFn} from '../directives/validators';
 import {RuntimeErrorCode} from '../errors';
 import {FormArray, FormGroup} from '../forms';
@@ -88,6 +88,11 @@ export function pickAsyncValidators(
     asyncValidator?: AsyncValidatorFn|AsyncValidatorFn[]|null,
     validatorOrOpts?: ValidatorFn|ValidatorFn[]|AbstractControlOptions|null): AsyncValidatorFn|
     AsyncValidatorFn[]|null {
+  if (typeof ngDevMode === 'undefined' || ngDevMode) {
+    if (isOptionsObj(validatorOrOpts) && asyncValidator) {
+      console.warn(asyncValidatorsDroppedWithOptsWarning);
+    }
+  }
   return (isOptionsObj(validatorOrOpts) ? validatorOrOpts.asyncValidators : asyncValidator) || null;
 }
 
@@ -171,7 +176,7 @@ export type ɵTypedOrUntyped<T, Typed, Untyped> = ɵIsAny<T, Untyped, Typed>;
  * Note that the resulting type will follow the same rules as `.value` on your control, group, or
  * array, including `undefined` for each group element which might be disabled.
  *
- * If you are trying to extract a value type for a data model, you probably want {@see RawValue},
+ * If you are trying to extract a value type for a data model, you probably want {@link RawValue},
  * which will not have `undefined` in group keys.
  *
  * @usageNotes
@@ -227,7 +232,8 @@ export type ɵValue<T extends AbstractControl|undefined> =
  * group, or array. This means that all controls inside a group will be required, not optional,
  * regardless of their disabled state.
  *
- * You may also wish to use {@see Value}, which will have `undefined` in group keys (which can be disabled).
+ * You may also wish to use {@link ɵValue}, which will have `undefined` in group keys (which can be
+ * disabled).
  *
  * @usageNotes
  *
@@ -255,7 +261,7 @@ export type ɵRawValue<T extends AbstractControl|undefined> = T extends Abstract
 
 // Disable clang-format to produce clearer formatting for these multiline types.
 // clang-format off
- 
+
 /**
 * Tokenize splits a string literal S by a delimeter D.
 */
@@ -269,7 +275,7 @@ export type ɵTokenize<S extends string, D extends string> =
 * CoerceStrArrToNumArr accepts an array of strings, and converts any numeric string to a number.
 */
 export type ɵCoerceStrArrToNumArr<S> =
-    // Extract the head of the array.                                       
+    // Extract the head of the array.
     S extends [infer Head, ...infer Tail] ?
     // Using a template literal type, coerce the head to `number` if possible.
     // Then, recurse on the tail.
@@ -281,7 +287,7 @@ export type ɵCoerceStrArrToNumArr<S> =
 /**
 * Navigate takes a type T and an array K, and returns the type of T[K[0]][K[1]][K[2]]...
 */
-export type ɵNavigate<T, K extends(Array<string|number>)> = 
+export type ɵNavigate<T, K extends(Array<string|number>)> =
     T extends object ? /* T must be indexable (object or array) */
     (K extends [infer Head, ...infer Tail] ? /* Split K into head and tail */
         (Head extends keyof T ? /* head(K) must index T */
@@ -312,7 +318,7 @@ export type ɵWriteable<T> = {
  */
 export type ɵGetProperty<T, K> =
     // K is a string
-    K extends string ? ɵGetProperty<T, ɵCoerceStrArrToNumArr<ɵTokenize<K, '.'>>> : 
+    K extends string ? ɵGetProperty<T, ɵCoerceStrArrToNumArr<ɵTokenize<K, '.'>>> :
     // Is is an array
     ɵWriteable<K> extends Array<string|number> ? ɵNavigate<T, ɵWriteable<K>> :
     // Fall through permissively if we can't calculate the type of K.
