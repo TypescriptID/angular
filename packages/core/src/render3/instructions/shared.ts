@@ -269,6 +269,31 @@ export function createTNodeAtIndex(
 }
 
 /**
+ * WARNING: this is a **dev-mode only** function (thus should always be guarded by the `ngDevMode`)
+ * and must **not** be used in production bundles. The function makes megamorphic reads, which might
+ * be too slow for production mode and also it relies on the constructor function being available.
+ *
+ * Gets a reference to the host component def (where a current component is declared).
+ *
+ * @param lView An `LView` that represents a current component that is being rendered.
+ */
+function getDeclarationComponentDef(lView: LView): ComponentDef<unknown>|null {
+  !ngDevMode && throwError('Must never be called in production mode');
+
+  const declarationLView = lView[DECLARATION_COMPONENT_VIEW] as LView<Type<unknown>>;
+  const context = declarationLView[CONTEXT];
+
+  // Unable to obtain a context.
+  if (!context) return null;
+
+  return context.constructor ? getComponentDef(context.constructor) : null;
+}
+
+/**
+ * WARNING: this is a **dev-mode only** function (thus should always be guarded by the `ngDevMode`)
+ * and must **not** be used in production bundles. The function makes megamorphic reads, which might
+ * be too slow for production mode.
+ *
  * Checks if the current component is declared inside of a standalone component template.
  *
  * @param lView An `LView` that represents a current component that is being rendered.
@@ -276,14 +301,27 @@ export function createTNodeAtIndex(
 export function isHostComponentStandalone(lView: LView): boolean {
   !ngDevMode && throwError('Must never be called in production mode');
 
-  const declarationLView = lView[DECLARATION_COMPONENT_VIEW] as LView<Type<unknown>>;
-  const context = declarationLView[CONTEXT];
-
-  // Unable to obtain a context, fall back to the non-standalone scenario.
-  if (!context) return false;
-
-  const componentDef = getComponentDef(context.constructor);
+  const componentDef = getDeclarationComponentDef(lView);
+  // Treat host component as non-standalone if we can't obtain the def.
   return !!(componentDef?.standalone);
+}
+
+/**
+ * WARNING: this is a **dev-mode only** function (thus should always be guarded by the `ngDevMode`)
+ * and must **not** be used in production bundles. The function makes megamorphic reads, which might
+ * be too slow for production mode.
+ *
+ * Constructs a string describing the location of the host component template. The function is used
+ * in dev mode to produce error messages.
+ *
+ * @param lView An `LView` that represents a current component that is being rendered.
+ */
+export function getTemplateLocationDetails(lView: LView): string {
+  !ngDevMode && throwError('Must never be called in production mode');
+
+  const hostComponentDef = getDeclarationComponentDef(lView);
+  const componentClassName = hostComponentDef?.type?.name;
+  return componentClassName ? ` (used in the '${componentClassName}' component template)` : '';
 }
 
 /**
@@ -1053,7 +1091,7 @@ export function elementPropertyInternal<T>(
       validateAgainstEventProperties(propName);
       if (!validateProperty(element, tNode.value, propName, tView.schemas)) {
         // Return here since we only log warnings for unknown properties.
-        handleUnknownPropertyError(propName, tNode);
+        handleUnknownPropertyError(propName, tNode, lView);
         return;
       }
       ngDevMode.rendererSetProperty++;
@@ -1072,7 +1110,7 @@ export function elementPropertyInternal<T>(
     // If the node is a container and the property didn't
     // match any of the inputs or schemas we should throw.
     if (ngDevMode && !matchingSchemas(tView.schemas, tNode.value)) {
-      handleUnknownPropertyError(propName, tNode);
+      handleUnknownPropertyError(propName, tNode, lView);
     }
   }
 }
@@ -1185,11 +1223,21 @@ export function matchingSchemas(schemas: SchemaMetadata[]|null, tagName: string|
 }
 
 /**
- * Logs or throws an error that a property is not supported on an element.
- * @param propName Name of the invalid property.
- * @param tagName Name of the node on which we encountered the property.
+ * The set of known control flow directives.
+ * We use this set to produce a more precises error message with a note
+ * that the `CommonModule` should also be included.
  */
-function handleUnknownPropertyError(propName: string, tNode: TNode): void {
+export const KNOWN_CONTROL_FLOW_DIRECTIVES =
+    new Set(['ngIf', 'ngFor', 'ngSwitch', 'ngSwitchCase', 'ngSwitchDefault']);
+
+/**
+ * Logs or throws an error that a property is not supported on an element.
+ *
+ * @param propName Name of the invalid property.
+ * @param tNode A `TNode` that represents a current component that is being rendered.
+ * @param lView An `LView` that represents a current component that is being rendered.
+ */
+function handleUnknownPropertyError(propName: string, tNode: TNode, lView: LView): void {
   let tagName = tNode.value;
 
   // Special-case a situation when a structural directive is applied to
@@ -1201,7 +1249,39 @@ function handleUnknownPropertyError(propName: string, tNode: TNode): void {
   if (!tagName && tNode.type === TNodeType.Container) {
     tagName = 'ng-template';
   }
-  const message = `Can't bind to '${propName}' since it isn't a known property of '${tagName}'.`;
+
+  const isHostStandalone = isHostComponentStandalone(lView);
+  const templateLocation = getTemplateLocationDetails(lView);
+
+  let message = `Can't bind to '${propName}' since it isn't a known property of '${tagName}'${
+      templateLocation}.`;
+
+  const schemas = `'${isHostStandalone ? '@Component' : '@NgModule'}.schemas'`;
+  const importLocation = isHostStandalone ?
+      'included in the \'@Component.imports\' of this component' :
+      'a part of an @NgModule where this component is declared';
+  if (KNOWN_CONTROL_FLOW_DIRECTIVES.has(propName)) {
+    // Most likely this is a control flow directive (such as `*ngIf`) used in
+    // a template, but the `CommonModule` is not imported.
+    message += `\nIf the '${propName}' is an Angular control flow directive, ` +
+        `please make sure that the 'CommonModule' is ${importLocation}.`;
+  } else {
+    // May be an Angular component, which is not imported/declared?
+    message += `\n1. If '${tagName}' is an Angular component and it has the ` +
+        `'${propName}' input, then verify that it is ${importLocation}.`;
+    // May be a Web Component?
+    if (tagName && tagName.indexOf('-') > -1) {
+      message += `\n2. If '${tagName}' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' ` +
+          `to the ${schemas} of this component to suppress this message.`;
+      message += `\n3. To allow any property add 'NO_ERRORS_SCHEMA' to ` +
+          `the ${schemas} of this component.`;
+    } else {
+      // If it's expected, the error can be suppressed by the `NO_ERRORS_SCHEMA` schema.
+      message += `\n2. To allow any property add 'NO_ERRORS_SCHEMA' to ` +
+          `the ${schemas} of this component.`;
+    }
+  }
+
   if (shouldThrowErrorOnUnknownProperty) {
     throw new RuntimeError(RuntimeErrorCode.UNKNOWN_BINDING, message);
   } else {
