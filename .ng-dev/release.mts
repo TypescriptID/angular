@@ -1,5 +1,4 @@
 import {ReleaseConfig} from '@angular/dev-infra-private/ng-dev';
-import {join} from 'path';
 
 /** Configuration for the `ng-dev release` command. */
 export const release: ReleaseConfig = {
@@ -24,10 +23,10 @@ export const release: ReleaseConfig = {
     {name: '@angular/upgrade'},
   ],
   buildPackages: async () => {
-    // The buildTargetPackages function is loaded at runtime as the loading the script causes an
-    // invocation of bazel.
-    const {buildTargetPackages} = require(join(__dirname, '../scripts/build/package-builder'));
-    return buildTargetPackages('dist/release-output', false, 'Release', /* isRelease */ true);
+    // The buildTargetPackages function is loaded at runtime as the loading the script
+    // causes an invocation of Bazel.
+    const {performNpmReleaseBuild} = await import('../scripts/build/package-builder.mjs');
+    return performNpmReleaseBuild();
   },
   releaseNotes: {
     hiddenScopes: ['aio', 'bazel', 'dev-infra', 'docs-infra', 'zone.js', 'devtools'],
