@@ -1,3 +1,67 @@
+<a name="14.1.0-next.3"></a>
+# 14.1.0-next.3 (2022-06-29)
+### animations
+| Commit | Type | Description |
+| -- | -- | -- |
+| [4eb1ca11f0](https://github.com/angular/angular/commit/4eb1ca11f0fbc7683115fc382420b3e75f248b4c) | fix | cleanup DOM elements when the root view is removed ([#45143](https://github.com/angular/angular/pull/45143)) |
+| [b417370383](https://github.com/angular/angular/commit/b41737038377af480763226a904b67e7d8e283ae) | fix | enable shadowElements to leave when their parent does ([#46459](https://github.com/angular/angular/pull/46459)) |
+### common
+| Commit | Type | Description |
+| -- | -- | -- |
+| [4a2e7335b1](https://github.com/angular/angular/commit/4a2e7335b180190800cf2c5db8ed1c8841dbf473) | feat | make the `CommonModule` pipes standalone ([#46401](https://github.com/angular/angular/pull/46401)) |
+| [a7597dd080](https://github.com/angular/angular/commit/a7597dd08026a4071758323d54ccbfb382e0c780) | feat | make the CommonModule directives standalone ([#46469](https://github.com/angular/angular/pull/46469)) |
+| [1c39aace0e](https://github.com/angular/angular/commit/1c39aace0e74b02338729e5fb61e322ab06a9e14) | fix | handle CSS custom properties in NgStyle ([#46451](https://github.com/angular/angular/pull/46451)) |
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [8b6f4215a3](https://github.com/angular/angular/commit/8b6f4215a3c13a44d989d6068f6fb4625f3bab67) | fix | trigger `ApplicationRef.destroy` when Platform is destroyed ([#46497](https://github.com/angular/angular/pull/46497)) |
+| [606d94299a](https://github.com/angular/angular/commit/606d94299ac929243e8fa10fe7e00dee6d40064b) | fix | Update ngfor error code to be negative ([#46555](https://github.com/angular/angular/pull/46555)) |
+| [f86e0948f8](https://github.com/angular/angular/commit/f86e0948f80d398a8c4da9032372e083acc5d7a2) | fix | Updates error to use RuntimeError code ([#46526](https://github.com/angular/angular/pull/46526)) |
+### forms
+| Commit | Type | Description |
+| -- | -- | -- |
+| [0a5c8c0bc4](https://github.com/angular/angular/commit/0a5c8c0bc45ec58bcd297c7b001b88aec5c5e14d) | fix | Convert existing reactive errors to use RuntimeErrorCode. ([#46560](https://github.com/angular/angular/pull/46560)) |
+| [f6a096e3d4](https://github.com/angular/angular/commit/f6a096e3d4db9dfc31ab9228f37e119b87e5f8cf) | fix | Update a Forms validator error to use RuntimeError ([#46537](https://github.com/angular/angular/pull/46537)) |
+### router
+| Commit | Type | Description |
+| -- | -- | -- |
+| [ee39cf62bc](https://github.com/angular/angular/commit/ee39cf62bc3f3d60d1dfe7064fe34565e5429b84) | fix | Ensure that new `RouterOutlet` instances work after old ones are destroyed ([#46554](https://github.com/angular/angular/pull/46554)) |
+## Special Thanks
+Alan Agius, Alex Rickabaugh, Andrew Kushnir, Andrew Scott, Bezael, Chad Ramos, Chellappan, Cédric Exbrayat, Dylan Hunn, George Kalpakas, Jeremy Meiss, Jessica Janiuk, Joey Perrott, KMathy, Kristiyan Kostadinov, Paul Gschwendtner, Pawel Kozlowski, Ramesh Thiruchelvam, Vaibhav Kumar, arturovt, dario-piotrowicz and renovate[bot]
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="14.0.4"></a>
+# 14.0.4 (2022-06-29)
+### animations
+| Commit | Type | Description |
+| -- | -- | -- |
+| [51be9bbe29](https://github.com/angular/angular/commit/51be9bbe29e12ae0e8d4777cdac5c7466c8b6184) | fix | cleanup DOM elements when the root view is removed ([#45143](https://github.com/angular/angular/pull/45143)) |
+| [999aca86c8](https://github.com/angular/angular/commit/999aca86c89030b6a9023cd2835636ee487334f2) | fix | enable shadowElements to leave when their parent does ([#46459](https://github.com/angular/angular/pull/46459)) |
+### common
+| Commit | Type | Description |
+| -- | -- | -- |
+| [42aed6b13e](https://github.com/angular/angular/commit/42aed6b13efef59c1c33472adc4f2df5d52d4c20) | fix | handle CSS custom properties in NgStyle ([#46451](https://github.com/angular/angular/pull/46451)) |
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [1e7f22f00a](https://github.com/angular/angular/commit/1e7f22f00ab10a6ae01729e3355871e51bc8bf4d) | fix | trigger `ApplicationRef.destroy` when Platform is destroyed ([#46497](https://github.com/angular/angular/pull/46497)) |
+| [8bde2dbc71](https://github.com/angular/angular/commit/8bde2dbc714a0d9f7cda80c7893ab213d1e3f931) | fix | Update ngfor error code to be negative ([#46555](https://github.com/angular/angular/pull/46555)) |
+| [57e8fc00eb](https://github.com/angular/angular/commit/57e8fc00eba92618c2cf063589ba1a88d3b30055) | fix | Updates error to use RuntimeError code ([#46526](https://github.com/angular/angular/pull/46526)) |
+### forms
+| Commit | Type | Description |
+| -- | -- | -- |
+| [74a26d870e](https://github.com/angular/angular/commit/74a26d870e2437f779c8c70f0b811f1d0bf8d4ee) | fix | Convert existing reactive errors to use RuntimeErrorCode. ([#46560](https://github.com/angular/angular/pull/46560)) |
+| [747872212d](https://github.com/angular/angular/commit/747872212d12660eee59024202840e7d3ebfc866) | fix | Update a Forms validator error to use RuntimeError ([#46537](https://github.com/angular/angular/pull/46537)) |
+### router
+| Commit | Type | Description |
+| -- | -- | -- |
+| [d6fac9e914](https://github.com/angular/angular/commit/d6fac9e914ad13f1ed63ea6a3738c245e547eaae) | fix | Ensure that new `RouterOutlet` instances work after old ones are destroyed ([#46554](https://github.com/angular/angular/pull/46554)) |
+## Special Thanks
+Alan Agius, Alex Rickabaugh, Andrew Kushnir, Andrew Scott, Bezael, Chad Ramos, Chellappan, Cédric Exbrayat, Dylan Hunn, George Kalpakas, Jeremy Meiss, Jessica Janiuk, Joey Perrott, KMathy, Kristiyan Kostadinov, Paul Gschwendtner, Pawel Kozlowski, Ramesh Thiruchelvam, Vaibhav Kumar, arturovt, dario-piotrowicz and renovate[bot]
+
+<!-- CHANGELOG SPLIT MARKER -->
+
 <a name="14.1.0-next.2"></a>
 # 14.1.0-next.2 (2022-06-22)
 ### animations
