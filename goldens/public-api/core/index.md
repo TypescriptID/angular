@@ -235,6 +235,7 @@ export abstract class ComponentRef<C> {
     abstract get instance(): C;
     abstract get location(): ElementRef;
     abstract onDestroy(callback: Function): void;
+    abstract setInput(name: string, value: unknown): void;
 }
 
 // @public
@@ -257,11 +258,13 @@ export const ContentChild: ContentChildDecorator;
 // @public
 export interface ContentChildDecorator {
     (selector: ProviderToken<unknown> | Function | string, opts?: {
+        descendants?: boolean;
         read?: any;
         static?: boolean;
     }): any;
     // (undocumented)
     new (selector: ProviderToken<unknown> | Function | string, opts?: {
+        descendants?: boolean;
         read?: any;
         static?: boolean;
     }): ContentChild;
@@ -457,6 +460,7 @@ export abstract class EnvironmentInjector implements Injector {
     abstract get<T>(token: ProviderToken<T>, notFoundValue?: T, flags?: InjectFlags): T;
     // @deprecated (undocumented)
     abstract get(token: any, notFoundValue?: any): any;
+    abstract runInContext<ReturnT>(fn: () => ReturnT): ReturnT;
 }
 
 // @public
@@ -600,8 +604,16 @@ export const Inject: InjectDecorator;
 // @public (undocumented)
 export function inject<T>(token: ProviderToken<T>): T;
 
-// @public (undocumented)
+// @public @deprecated (undocumented)
 export function inject<T>(token: ProviderToken<T>, flags?: InjectFlags): T | null;
+
+// @public (undocumented)
+export function inject<T>(token: ProviderToken<T>, options: InjectOptions & {
+    optional?: false;
+}): T;
+
+// @public (undocumented)
+export function inject<T>(token: ProviderToken<T>, options: InjectOptions): T | null;
 
 // @public
 export interface Injectable {
@@ -641,7 +653,7 @@ export interface InjectDecorator {
     new (token: any): Inject;
 }
 
-// @public
+// @public @deprecated
 export enum InjectFlags {
     Default = 0,
     Host = 1,
@@ -662,6 +674,14 @@ export class InjectionToken<T> {
     toString(): string;
     // (undocumented)
     readonly ɵprov: unknown;
+}
+
+// @public
+export interface InjectOptions {
+    host?: boolean;
+    optional?: boolean;
+    self?: boolean;
+    skipSelf?: boolean;
 }
 
 // @public
