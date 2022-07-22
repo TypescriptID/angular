@@ -50,6 +50,7 @@ export class ActivatedRoute {
     get root(): ActivatedRoute;
     get routeConfig(): Route | null;
     snapshot: ActivatedRouteSnapshot;
+    readonly title: Observable<string | undefined>;
     // (undocumented)
     toString(): string;
     url: Observable<UrlSegment[]>;
@@ -73,6 +74,7 @@ export class ActivatedRouteSnapshot {
     queryParams: Params;
     get root(): ActivatedRouteSnapshot;
     readonly routeConfig: Route | null;
+    readonly title?: string;
     // (undocumented)
     toString(): string;
     url: UrlSegment[];
@@ -737,11 +739,11 @@ export class RouterLinkWithHref implements OnChanges, OnDestroy {
 
 // @public
 export class RouterModule {
-    constructor(guard: any, router: Router);
+    constructor(guard: any);
     static forChild(routes: Routes): ModuleWithProviders<RouterModule>;
     static forRoot(routes: Routes, config?: ExtraOptions): ModuleWithProviders<RouterModule>;
     // (undocumented)
-    static ɵfac: i0.ɵɵFactoryDeclaration<RouterModule, [{ optional: true; }, { optional: true; }]>;
+    static ɵfac: i0.ɵɵFactoryDeclaration<RouterModule, [{ optional: true; }]>;
     // (undocumented)
     static ɵinj: i0.ɵɵInjectorDeclaration<RouterModule>;
     // (undocumented)
