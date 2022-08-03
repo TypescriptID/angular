@@ -7,7 +7,7 @@
  */
 
 import {HashLocationStrategy, Location, LOCATION_INITIALIZED, LocationStrategy, PathLocationStrategy, ViewportScroller} from '@angular/common';
-import {ANALYZE_FOR_ENTRY_COMPONENTS, APP_BOOTSTRAP_LISTENER, APP_INITIALIZER, ApplicationRef, ComponentRef, ENVIRONMENT_INITIALIZER, inject, Inject, InjectFlags, InjectionToken, Injector, ModuleWithProviders, NgModule, NgProbeToken, Optional, Provider, SkipSelf, Type, ɵRuntimeError as RuntimeError} from '@angular/core';
+import {APP_BOOTSTRAP_LISTENER, APP_INITIALIZER, ApplicationRef, ComponentRef, ENVIRONMENT_INITIALIZER, inject, Inject, InjectFlags, InjectionToken, Injector, ModuleWithProviders, NgModule, NgProbeToken, Optional, Provider, SkipSelf, Type, ɵRuntimeError as RuntimeError} from '@angular/core';
 import {of, Subject} from 'rxjs';
 import {filter, map, take} from 'rxjs/operators';
 
@@ -202,9 +202,8 @@ export function provideForRootGuard(router: Router): any {
  *
  * @publicApi
  */
-export function provideRoutes(routes: Routes): any {
+export function provideRoutes(routes: Routes): Provider[] {
   return [
-    {provide: ANALYZE_FOR_ENTRY_COMPONENTS, multi: true, useValue: routes},
     {provide: ROUTES, multi: true, useValue: routes},
   ];
 }
@@ -250,7 +249,7 @@ function provideInitialNavigation(config: Pick<ExtraOptions, 'initialNavigation'
   ];
 }
 
-function provideRouterInitializer(): ReadonlyArray<Provider> {
+function provideRouterInitializer(): Provider[] {
   return [
     // ROUTER_INITIALIZER token should be removed. It's public API but shouldn't be. We can just
     // have `getBootstrapListener` directly attached to APP_BOOTSTRAP_LISTENER.
