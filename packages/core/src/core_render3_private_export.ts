@@ -24,6 +24,7 @@ export {
 export {
   NG_INJ_DEF as ɵNG_INJ_DEF,
   NG_PROV_DEF as ɵNG_PROV_DEF,
+  isInjectable as ɵisInjectable,
 } from './di/interface/defs';
 export {createInjector as ɵcreateInjector} from './di/create_injector';
 export {
@@ -57,7 +58,6 @@ export {
   getDirectives as ɵgetDirectives,
   getHostElement as ɵgetHostElement,
   LifecycleHooksFeature as ɵLifecycleHooksFeature,
-  markDirty as ɵmarkDirty,
   NgModuleFactory as ɵNgModuleFactory,
   NgModuleRef as ɵRender3NgModuleRef,
   NgModuleType as ɵNgModuleType,
@@ -67,7 +67,6 @@ export {
   setClassMetadata as ɵsetClassMetadata,
   setLocaleId as ɵsetLocaleId,
   store as ɵstore,
-  whenRendered as ɵwhenRendered,
   ɵɵadvance,
   ɵɵattribute,
   ɵɵattributeInterpolate1,
@@ -254,9 +253,7 @@ export {
 export {
   compilePipe as ɵcompilePipe,
 } from './render3/jit/pipe';
-export {
-  isStandalone as ɵisStandalone,
-} from './render3/jit/module';
+export { isStandalone as ɵisStandalone} from './render3/definition';
 export { Profiler as ɵProfiler, ProfilerEvent as ɵProfilerEvent } from './render3/profiler';
 export {
   publishDefaultGlobalUtils as ɵpublishDefaultGlobalUtils
