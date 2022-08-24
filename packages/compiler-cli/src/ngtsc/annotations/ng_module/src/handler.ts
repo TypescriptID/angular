@@ -43,6 +43,7 @@ export interface NgModuleAnalysis {
   providersRequiringFactory: Set<Reference<ClassDeclaration>>|null;
   providers: ts.Expression|null;
   remoteScopesMayRequireCycleProtection: boolean;
+  decorator: ts.Decorator|null;
 }
 
 export interface NgModuleResolution {
@@ -201,7 +202,7 @@ export class NgModuleDecoratorHandler implements
       // Look through the declarations to make sure they're all a part of the current compilation.
       for (const ref of declarationRefs) {
         if (ref.node.getSourceFile().isDeclarationFile) {
-          const errorNode: ts.Expression = ref.getOriginForDiagnostics(rawDeclarations);
+          const errorNode = ref.getOriginForDiagnostics(rawDeclarations);
 
           diagnostics.push(makeDiagnostic(
               ErrorCode.NGMODULE_INVALID_DECLARATION, errorNode,
@@ -442,6 +443,7 @@ export class NgModuleDecoratorHandler implements
             node, this.reflector, this.isCore, this.annotateForClosureCompiler),
         factorySymbolName: node.name.text,
         remoteScopesMayRequireCycleProtection,
+        decorator: decorator?.node as ts.Decorator | null ?? null,
       },
     };
   }
@@ -464,6 +466,7 @@ export class NgModuleDecoratorHandler implements
       rawDeclarations: analysis.rawDeclarations,
       rawImports: analysis.rawImports,
       rawExports: analysis.rawExports,
+      decorator: analysis.decorator,
     });
 
     if (this.factoryTracker !== null) {

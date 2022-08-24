@@ -367,7 +367,36 @@ describe('Image directive', () => {
                 `${ABSOLUTE_SRCSET_DENSITY_CAP}x. The human eye cannot distinguish between image densities ` +
                 `greater than ${
                     RECOMMENDED_SRCSET_DENSITY_CAP}x - which makes them unnecessary for ` +
-                `most use cases. Images that will be pinch-zoomed are typically the primary use case for` +
+                `most use cases. Images that will be pinch-zoomed are typically the primary use case for ` +
+                `${ABSOLUTE_SRCSET_DENSITY_CAP}x images. Please remove the high density descriptor and try again.`);
+      });
+
+
+      it('should throw if rawSrcset exceeds the density cap with multiple digits', () => {
+        const imageLoader = (config: ImageLoaderConfig) => {
+          const width = config.width ? `-${config.width}` : ``;
+          return window.location.origin + `/path/${config.src}${width}.png`;
+        };
+        setupTestingModule({imageLoader});
+
+        const template = `
+            <img rawSrc="img" rawSrcset="1x, 200x" width="100" height="50">
+          `;
+        expect(() => {
+          const fixture = createTestComponent(template);
+          fixture.detectChanges();
+        })
+            .toThrowError(
+                `NG0${
+                    RuntimeErrorCode
+                        .INVALID_INPUT}: The NgOptimizedImage directive (activated on an <img> element with the \`rawSrc="img"\`) ` +
+                `has detected that the \`rawSrcset\` contains an unsupported image density:` +
+                `\`1x, 200x\`. NgOptimizedImage generally recommends a max image density of ` +
+                `${RECOMMENDED_SRCSET_DENSITY_CAP}x but supports image densities up to ` +
+                `${ABSOLUTE_SRCSET_DENSITY_CAP}x. The human eye cannot distinguish between image densities ` +
+                `greater than ${
+                    RECOMMENDED_SRCSET_DENSITY_CAP}x - which makes them unnecessary for ` +
+                `most use cases. Images that will be pinch-zoomed are typically the primary use case for ` +
                 `${ABSOLUTE_SRCSET_DENSITY_CAP}x images. Please remove the high density descriptor and try again.`);
       });
 
@@ -966,7 +995,7 @@ describe('Image directive', () => {
         setupTestingModule({imageLoader});
 
         const template = `
-           <img rawSrc="img.png" rawSrcset="1x, 2.5x, 3x" width="100" height="50">
+           <img rawSrc="img.png" rawSrcset="1.75x, 2.5x, 3x" width="100" height="50">
          `;
         const fixture = createTestComponent(template);
         fixture.detectChanges();
@@ -976,7 +1005,7 @@ describe('Image directive', () => {
         expect(img.src).toBe(`${IMG_BASE_URL}/img.png`);
         expect(img.srcset)
             .toBe(
-                `${IMG_BASE_URL}/img.png?w=100 1x, ` +
+                `${IMG_BASE_URL}/img.png?w=175 1.75x, ` +
                 `${IMG_BASE_URL}/img.png?w=250 2.5x, ` +
                 `${IMG_BASE_URL}/img.png?w=300 3x`);
       });
