@@ -62,9 +62,8 @@
 
 version: 3
 
-availability:
-  users_unavailable:
-    - atscott # August 15 - September 20 (at least)
+# availability:
+#   users_unavailable:
 
 # Meta field that goes unused by PullApprove to allow for defining aliases to be
 # used throughout the config.
@@ -1085,7 +1084,7 @@ groups:
           ])
     reviewers:
       users:
-        - aleksanderbodurri
+        - AleksanderBodurri
         - devversion
         - josephperrott
         - mgechev
@@ -1323,7 +1322,7 @@ groups:
     reviewers:
       users:
         - alan-agius4 # Alan Agius
-        - aleksanderbodurri # Aleksander Bodurri
+        - AleksanderBodurri # Aleksander Bodurri
         - alxhub # Alex Rickabaugh
         - AndrewKushnir # Andrew Kushnir
         - andrewseguin # Andrew Seguin
