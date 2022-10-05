@@ -31,7 +31,6 @@ import { SimpleChanges } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { Type } from '@angular/core';
 import { Version } from '@angular/core';
-import { ViewContainerRef } from '@angular/core';
 
 // @public
 export class ActivatedRoute {
@@ -214,6 +213,11 @@ export type Data = {
 export type DebugTracingFeature = RouterFeature<RouterFeatureKind.DebugTracingFeature>;
 
 // @public
+export interface DefaultExport<T> {
+    default: T;
+}
+
+// @public
 export class DefaultTitleStrategy extends TitleStrategy {
     constructor(title: Title);
     // (undocumented)
@@ -357,10 +361,10 @@ export interface IsActiveMatchOptions {
 }
 
 // @public
-export type LoadChildren = LoadChildrenCallback;
+export type LoadChildren = LoadChildrenCallback | ɵDeprecatedLoadChildren;
 
 // @public
-export type LoadChildrenCallback = () => Type<any> | NgModuleFactory<any> | Routes | Observable<Type<any> | Routes> | Promise<NgModuleFactory<any> | Type<any> | Routes>;
+export type LoadChildrenCallback = () => Type<any> | NgModuleFactory<any> | Routes | Observable<Type<any> | Routes | DefaultExport<Type<any>> | DefaultExport<Routes>> | Promise<NgModuleFactory<any> | Type<any> | Routes | DefaultExport<Type<any>> | DefaultExport<Routes>>;
 
 // @public
 export interface Navigation {
@@ -589,7 +593,7 @@ export interface Route {
     component?: Type<any>;
     data?: Data;
     loadChildren?: LoadChildren;
-    loadComponent?: () => Type<unknown> | Observable<Type<unknown>> | Promise<Type<unknown>>;
+    loadComponent?: () => Type<unknown> | Observable<Type<unknown> | DefaultExport<Type<unknown>>> | Promise<Type<unknown> | DefaultExport<Type<unknown>>>;
     matcher?: UrlMatcher;
     outlet?: string;
     path?: string;
@@ -778,7 +782,6 @@ export class RouterLinkActive implements OnChanges, OnDestroy, AfterContentInit 
 
 // @public
 export class RouterLinkWithHref extends RouterLink {
-    constructor(router: Router, route: ActivatedRoute, locationStrategy: LocationStrategy);
     // (undocumented)
     static ɵdir: i0.ɵɵDirectiveDeclaration<RouterLinkWithHref, "a[routerLink],area[routerLink]", never, {}, {}, never, never, true, never>;
     // (undocumented)
@@ -800,7 +803,6 @@ export class RouterModule {
 
 // @public
 export class RouterOutlet implements OnDestroy, OnInit, RouterOutletContract {
-    constructor(parentContexts: ChildrenOutletContexts, location: ViewContainerRef, name: string, changeDetector: ChangeDetectorRef, environmentInjector: EnvironmentInjector);
     // (undocumented)
     get activatedRoute(): ActivatedRoute;
     // (undocumented)
@@ -821,14 +823,17 @@ export class RouterOutlet implements OnDestroy, OnInit, RouterOutletContract {
     detachEvents: EventEmitter<unknown>;
     // (undocumented)
     get isActivated(): boolean;
+    name: string;
+    // (undocumented)
+    ngOnChanges(changes: SimpleChanges): void;
     // (undocumented)
     ngOnDestroy(): void;
     // (undocumented)
     ngOnInit(): void;
     // (undocumented)
-    static ɵdir: i0.ɵɵDirectiveDeclaration<RouterOutlet, "router-outlet", ["outlet"], {}, { "activateEvents": "activate"; "deactivateEvents": "deactivate"; "attachEvents": "attach"; "detachEvents": "detach"; }, never, never, true, never>;
+    static ɵdir: i0.ɵɵDirectiveDeclaration<RouterOutlet, "router-outlet", ["outlet"], { "name": "name"; }, { "activateEvents": "activate"; "deactivateEvents": "deactivate"; "attachEvents": "attach"; "detachEvents": "detach"; }, never, never, true, never>;
     // (undocumented)
-    static ɵfac: i0.ɵɵFactoryDeclaration<RouterOutlet, [null, null, { attribute: "name"; }, null, null]>;
+    static ɵfac: i0.ɵɵFactoryDeclaration<RouterOutlet, never>;
 }
 
 // @public
