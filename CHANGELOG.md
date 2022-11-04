@@ -1,3 +1,37 @@
+<a name="15.0.0-rc.2"></a>
+# 15.0.0-rc.2 (2022-11-04)
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [96c0e42e61](https://github.com/angular/angular/commit/96c0e42e61b8a4fced1354da0162c06e7b029cf3) | fix | allow readonly arrays for standalone imports ([#47851](https://github.com/angular/angular/pull/47851)) |
+### platform-browser
+| Commit | Type | Description |
+| -- | -- | -- |
+| [d5cd79f885](https://github.com/angular/angular/commit/d5cd79f88542cc19aa6cc907a8097881ebd8aea1) | perf | resolve memory leak when using animations with shadow DOM ([#47903](https://github.com/angular/angular/pull/47903)) |
+### platform-server
+| Commit | Type | Description |
+| -- | -- | -- |
+| [31a7ce1268](https://github.com/angular/angular/commit/31a7ce12681d45cda33070b6fcf29d4815814cdf) | fix | call `onSerialize` when state is empty ([#47888](https://github.com/angular/angular/pull/47888)) |
+## Special Thanks
+Alan Agius, Alex Rickabaugh, Andrew Kushnir, Charles Lyding, Kristiyan Kostadinov, Paul Gschwendtner, Pawel Kozlowski, Virginia Dooley and mgechev
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="14.2.9"></a>
+# 14.2.9 (2022-11-03)
+### platform-browser
+| Commit | Type | Description |
+| -- | -- | -- |
+| [92d28bdd99](https://github.com/angular/angular/commit/92d28bdd99d3e18f42f6ed8494344b72b15d0104) | perf | resolve memory leak when using animations with shadow DOM ([#47903](https://github.com/angular/angular/pull/47903)) |
+### platform-server
+| Commit | Type | Description |
+| -- | -- | -- |
+| [d2d9bbf5ce](https://github.com/angular/angular/commit/d2d9bbf5ce5a2f5e95e7c836fbca67d90db62371) | fix | call `onSerialize` when state is empty ([#47888](https://github.com/angular/angular/pull/47888)) |
+## Special Thanks
+Alan Agius, Kristiyan Kostadinov, Virginia Dooley and mgechev
+
+<!-- CHANGELOG SPLIT MARKER -->
+
 <a name="15.0.0-rc.1"></a>
 # 15.0.0-rc.1 (2022-10-26)
 ### common
