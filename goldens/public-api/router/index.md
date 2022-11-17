@@ -133,11 +133,11 @@ export type CanActivateFn = (route: ActivatedRouteSnapshot, state: RouterStateSn
 // @public
 export interface CanDeactivate<T> {
     // (undocumented)
-    canDeactivate(component: T, currentRoute: ActivatedRouteSnapshot, currentState: RouterStateSnapshot, nextState?: RouterStateSnapshot): Observable<boolean | UrlTree> | Promise<boolean | UrlTree> | boolean | UrlTree;
+    canDeactivate(component: T, currentRoute: ActivatedRouteSnapshot, currentState: RouterStateSnapshot, nextState: RouterStateSnapshot): Observable<boolean | UrlTree> | Promise<boolean | UrlTree> | boolean | UrlTree;
 }
 
 // @public
-export type CanDeactivateFn<T> = (component: T, currentRoute: ActivatedRouteSnapshot, currentState: RouterStateSnapshot, nextState?: RouterStateSnapshot) => Observable<boolean | UrlTree> | Promise<boolean | UrlTree> | boolean | UrlTree;
+export type CanDeactivateFn<T> = (component: T, currentRoute: ActivatedRouteSnapshot, currentState: RouterStateSnapshot, nextState: RouterStateSnapshot) => Observable<boolean | UrlTree> | Promise<boolean | UrlTree> | boolean | UrlTree;
 
 // @public
 export interface CanLoad {
@@ -630,11 +630,13 @@ export class RouteConfigLoadStart {
 // @public
 export class Router {
     constructor(rootComponentType: Type<any> | null, urlSerializer: UrlSerializer, rootContexts: ChildrenOutletContexts, location: Location_2, injector: Injector, compiler: Compiler, config: Routes);
+    // @deprecated
     canceledNavigationResolution: 'replace' | 'computed';
     // (undocumented)
     config: Routes;
     createUrlTree(commands: any[], navigationExtras?: UrlCreationOptions): UrlTree;
     dispose(): void;
+    // @deprecated
     errorHandler: ErrorHandler;
     readonly events: Observable<Event_2>;
     getCurrentNavigation(): Navigation | null;
@@ -642,23 +644,30 @@ export class Router {
     // @deprecated
     isActive(url: string | UrlTree, exact: boolean): boolean;
     isActive(url: string | UrlTree, matchOptions: IsActiveMatchOptions): boolean;
+    // @deprecated
     malformedUriErrorHandler: (error: URIError, urlSerializer: UrlSerializer, url: string) => UrlTree;
     navigate(commands: any[], extras?: NavigationExtras): Promise<boolean>;
     navigateByUrl(url: string | UrlTree, extras?: NavigationBehaviorOptions): Promise<boolean>;
     navigated: boolean;
     // (undocumented)
     ngOnDestroy(): void;
+    // @deprecated
     onSameUrlNavigation: 'reload' | 'ignore';
+    // @deprecated
     paramsInheritanceStrategy: 'emptyOnly' | 'always';
     parseUrl(url: string): UrlTree;
     resetConfig(config: Routes): void;
+    // @deprecated
     routeReuseStrategy: RouteReuseStrategy;
     readonly routerState: RouterState;
     serializeUrl(url: UrlTree): string;
     setUpLocationChangeListener(): void;
+    // @deprecated
     titleStrategy?: TitleStrategy;
     get url(): string;
+    // @deprecated
     urlHandlingStrategy: UrlHandlingStrategy;
+    // @deprecated
     urlUpdateStrategy: 'deferred' | 'eager';
     // (undocumented)
     static ɵfac: i0.ɵɵFactoryDeclaration<Router, never>;
@@ -690,6 +699,10 @@ export abstract class RouteReuseStrategy {
     abstract shouldDetach(route: ActivatedRouteSnapshot): boolean;
     abstract shouldReuseRoute(future: ActivatedRouteSnapshot, curr: ActivatedRouteSnapshot): boolean;
     abstract store(route: ActivatedRouteSnapshot, handle: DetachedRouteHandle | null): void;
+    // (undocumented)
+    static ɵfac: i0.ɵɵFactoryDeclaration<RouteReuseStrategy, never>;
+    // (undocumented)
+    static ɵprov: i0.ɵɵInjectableDeclaration<RouteReuseStrategy>;
 }
 
 // @public
@@ -941,6 +954,10 @@ export abstract class UrlHandlingStrategy {
     abstract extract(url: UrlTree): UrlTree;
     abstract merge(newUrlPart: UrlTree, rawUrl: UrlTree): UrlTree;
     abstract shouldProcessUrl(url: UrlTree): boolean;
+    // (undocumented)
+    static ɵfac: i0.ɵɵFactoryDeclaration<UrlHandlingStrategy, never>;
+    // (undocumented)
+    static ɵprov: i0.ɵɵInjectableDeclaration<UrlHandlingStrategy>;
 }
 
 // @public

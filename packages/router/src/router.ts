@@ -23,14 +23,14 @@ import {checkGuards} from './operators/check_guards';
 import {recognize} from './operators/recognize';
 import {resolveData} from './operators/resolve_data';
 import {switchTap} from './operators/switch_tap';
-import {DefaultTitleStrategy, TitleStrategy} from './page_title_strategy';
-import {DefaultRouteReuseStrategy, RouteReuseStrategy} from './route_reuse_strategy';
+import {TitleStrategy} from './page_title_strategy';
+import {RouteReuseStrategy} from './route_reuse_strategy';
 import {ErrorHandler, ExtraOptions, ROUTER_CONFIGURATION} from './router_config';
 import {RouterConfigLoader, ROUTES} from './router_config_loader';
 import {ChildrenOutletContexts} from './router_outlet_context';
 import {ActivatedRoute, ActivatedRouteSnapshot, createEmptyState, RouterState, RouterStateSnapshot} from './router_state';
 import {Params} from './shared';
-import {DefaultUrlHandlingStrategy, UrlHandlingStrategy} from './url_handling_strategy';
+import {UrlHandlingStrategy} from './url_handling_strategy';
 import {containsTree, IsActiveMatchOptions, isUrlTree, UrlSerializer, UrlTree} from './url_tree';
 import {flatten} from './utils/collection';
 import {standardizeConfig, validateConfig} from './utils/config';
@@ -252,7 +252,6 @@ export interface NavigationTransition {
   id: number;
   targetPageId: number;
   currentUrlTree: UrlTree;
-  currentRawUrl: UrlTree;
   extractedUrl: UrlTree;
   urlAfterRedirects?: UrlTree;
   rawUrl: UrlTree;
@@ -326,22 +325,8 @@ export function setupRouter() {
   const compiler = inject(Compiler);
   const config = inject(ROUTES, {optional: true}) ?? [];
   const opts = inject(ROUTER_CONFIGURATION, {optional: true}) ?? {};
-  const defaultTitleStrategy = inject(DefaultTitleStrategy);
-  const titleStrategy = inject(TitleStrategy, {optional: true});
-  const urlHandlingStrategy = inject(UrlHandlingStrategy, {optional: true});
-  const routeReuseStrategy = inject(RouteReuseStrategy, {optional: true});
   const router =
       new Router(null, urlSerializer, contexts, location, injector, compiler, flatten(config));
-
-  if (urlHandlingStrategy) {
-    router.urlHandlingStrategy = urlHandlingStrategy;
-  }
-
-  if (routeReuseStrategy) {
-    router.routeReuseStrategy = routeReuseStrategy;
-  }
-
-  router.titleStrategy = titleStrategy ?? defaultTitleStrategy;
 
   assignExtraOptionsToRouter(opts, router);
 
@@ -384,6 +369,21 @@ export class Router {
    * rawUrlTree to be a combination of the urlAfterRedirects (again, this might only apply to part
    * of the initial url) and the rawUrl of the transition (which was the original navigation url in
    * its full form).
+   *
+   * Note that this is _only_ here to support `UrlHandlingStrategy.extract` and
+   * `UrlHandlingStrategy.shouldProcessUrl`. If those didn't exist, we could get by with
+   * `currentUrlTree` alone. If a new Router were to be provided (i.e. one that works with the
+   * browser navigation API), we should think about whether this complexity should be carried over.
+   *
+   * - extract: `rawUrlTree` is needed because `extract` may only return part
+   * of the navigation URL. Thus, `currentUrlTree` may only represent _part_ of the browser URL.
+   * When a navigation gets cancelled and we need to reset the URL or a new navigation occurs, we
+   * need to know the _whole_ browser URL, not just the part handled by UrlHandlingStrategy.
+   * - shouldProcessUrl: When this returns `false`, the router just ignores the navigation but still
+   * updates the `rawUrlTree` with the assumption that the navigation was caused by the location
+   * change listener due to a URL update by the AngularJS router. In this case, we still need to
+   * know what the browser's URL is for future navigations.
+   *
    */
   private rawUrlTree: UrlTree;
   /**
@@ -444,6 +444,8 @@ export class Router {
 
   /**
    * A handler for navigation errors in this NgModule.
+   *
+   * @deprecated Subscribe to the `Router` events and watch for `NavigationError` instead.
    */
   errorHandler: ErrorHandler = defaultErrorHandler;
 
@@ -452,6 +454,10 @@ export class Router {
    * when `url` contains an invalid character.
    * The most common case is a `%` sign
    * that's not encoded and is not part of a percent encoded sequence.
+   *
+   * @deprecated Configure this through `RouterModule.forRoot` instead:
+   *   `RouterModule.forRoot(routes, {malformedUriErrorHandler: myHandler})`
+   * @see `RouterModule`
    */
   malformedUriErrorHandler:
       (error: URIError, urlSerializer: UrlSerializer,
@@ -475,18 +481,27 @@ export class Router {
   /**
    * A strategy for extracting and merging URLs.
    * Used for AngularJS to Angular migrations.
+   *
+   * @deprecated Configure using `providers` instead:
+   *   `{provide: UrlHandlingStrategy, useClass: MyStrategy}`.
    */
-  urlHandlingStrategy: UrlHandlingStrategy = new DefaultUrlHandlingStrategy();
+  urlHandlingStrategy = inject(UrlHandlingStrategy);
 
   /**
    * A strategy for re-using routes.
+   *
+   * @deprecated Configure using `providers` instead:
+   *   `{provide: RouteReuseStrategy, useClass: MyStrategy}`.
    */
-  routeReuseStrategy: RouteReuseStrategy = new DefaultRouteReuseStrategy();
+  routeReuseStrategy = inject(RouteReuseStrategy);
 
   /**
    * A strategy for setting the title based on the `routerState`.
+   *
+   * @deprecated Configure using `providers` instead:
+   *   `{provide: TitleStrategy, useClass: MyStrategy}`.
    */
-  titleStrategy?: TitleStrategy;
+  titleStrategy?: TitleStrategy = inject(TitleStrategy);
 
   /**
    * How to handle a navigation request to the current URL. One of:
@@ -500,6 +515,11 @@ export class Router {
    * component first. This behavior is configured by the `RouteReuseStrategy`. In order to reload
    * routed components on same url navigation, you need to set `onSameUrlNavigation` to `'reload'`
    * _and_ provide a `RouteReuseStrategy` which returns `false` for `shouldReuseRoute`.
+   *
+   * @deprecated Configure this through `provideRouter` or `RouterModule.forRoot` instead.
+   * @see `withRouterConfig`
+   * @see `provideRouter`
+   * @see `RouterModule`
    */
   onSameUrlNavigation: 'reload'|'ignore' = 'ignore';
 
@@ -511,6 +531,11 @@ export class Router {
    * for path-less or component-less routes.
    * - `'always'` : Inherit parent parameters, data, and resolved data
    * for all child routes.
+   *
+   * @deprecated Configure this through `provideRouter` or `RouterModule.forRoot` instead.
+   * @see `withRouterConfig`
+   * @see `provideRouter`
+   * @see `RouterModule`
    */
   paramsInheritanceStrategy: 'emptyOnly'|'always' = 'emptyOnly';
 
@@ -520,6 +545,11 @@ export class Router {
    * Set to `'eager'` to update the browser URL at the beginning of navigation.
    * You can choose to update early so that, if navigation fails,
    * you can show an error message with the URL that failed.
+   *
+   * @deprecated Configure this through `provideRouter` or `RouterModule.forRoot` instead.
+   * @see `withRouterConfig`
+   * @see `provideRouter`
+   * @see `RouterModule`
    */
   urlUpdateStrategy: 'deferred'|'eager' = 'deferred';
 
@@ -544,6 +574,10 @@ export class Router {
    *
    * The default value is `replace`.
    *
+   * @deprecated Configure this through `provideRouter` or `RouterModule.forRoot` instead.
+   * @see `withRouterConfig`
+   * @see `provideRouter`
+   * @see `RouterModule`
    */
   canceledNavigationResolution: 'replace'|'computed' = 'replace';
 
@@ -577,7 +611,6 @@ export class Router {
       id: 0,
       targetPageId: 0,
       currentUrlTree: this.currentUrlTree,
-      currentRawUrl: this.currentUrlTree,
       extractedUrl: this.urlHandlingStrategy.extract(this.currentUrlTree),
       urlAfterRedirects: this.urlHandlingStrategy.extract(this.currentUrlTree),
       rawUrl: this.currentUrlTree,
@@ -1332,7 +1365,6 @@ export class Router {
       resolve = priorPromise.resolve;
       reject = priorPromise.reject;
       promise = priorPromise.promise;
-
     } else {
       promise = new Promise<boolean>((res, rej) => {
         resolve = res;
@@ -1372,7 +1404,6 @@ export class Router {
       source,
       restoredState,
       currentUrlTree: this.currentUrlTree,
-      currentRawUrl: this.rawUrlTree,
       rawUrl,
       extras,
       resolve,
@@ -1382,11 +1413,7 @@ export class Router {
       currentRouterState: this.routerState
     });
 
-    // Make sure that the error is propagated even though `processNavigations` catch
-    // handler does not rethrow
-    return promise.catch((e: any) => {
-      return Promise.reject(e);
-    });
+    return promise;
   }
 
   private setBrowserUrl(url: UrlTree, t: NavigationTransition) {
