@@ -248,7 +248,7 @@ export type DisabledInitialNavigationFeature = RouterFeature<RouterFeatureKind.D
 export type EnabledBlockingInitialNavigationFeature = RouterFeature<RouterFeatureKind.EnabledBlockingInitialNavigationFeature>;
 
 // @public
-type Event_2 = RouterEvent | NavigationStart | NavigationEnd | NavigationCancel | NavigationError | RoutesRecognized | GuardsCheckStart | GuardsCheckEnd | RouteConfigLoadStart | RouteConfigLoadEnd | ChildActivationStart | ChildActivationEnd | ActivationStart | ActivationEnd | Scroll | ResolveStart | ResolveEnd;
+type Event_2 = RouterEvent | NavigationStart | NavigationEnd | NavigationCancel | NavigationError | RoutesRecognized | GuardsCheckStart | GuardsCheckEnd | RouteConfigLoadStart | RouteConfigLoadEnd | ChildActivationStart | ChildActivationEnd | ActivationStart | ActivationEnd | Scroll | ResolveStart | ResolveEnd | NavigationSkipped;
 export { Event_2 as Event }
 
 // @public
@@ -271,6 +271,8 @@ export const enum EventType {
     NavigationEnd = 1,
     // (undocumented)
     NavigationError = 3,
+    // (undocumented)
+    NavigationSkipped = 16,
     // (undocumented)
     NavigationStart = 0,
     // (undocumented)
@@ -377,6 +379,7 @@ export interface Navigation {
 
 // @public
 export interface NavigationBehaviorOptions {
+    onSameUrlNavigation?: Extract<OnSameUrlNavigation, 'reload'>;
     replaceUrl?: boolean;
     skipLocationChange?: boolean;
     state?: {
@@ -442,6 +445,25 @@ export interface NavigationExtras extends UrlCreationOptions, NavigationBehavior
 }
 
 // @public
+export class NavigationSkipped extends RouterEvent {
+    constructor(
+    id: number,
+    url: string,
+    reason: string,
+    code?: NavigationSkippedCode | undefined);
+    readonly code?: NavigationSkippedCode | undefined;
+    reason: string;
+    // (undocumented)
+    readonly type = EventType.NavigationSkipped;
+}
+
+// @public
+export const enum NavigationSkippedCode {
+    IgnoredByUrlHandlingStrategy = 1,
+    IgnoredSameUrlNavigation = 0
+}
+
+// @public
 export class NavigationStart extends RouterEvent {
     constructor(
     id: number,
@@ -471,6 +493,9 @@ export class NoPreloading implements PreloadingStrategy {
     // (undocumented)
     static ɵprov: i0.ɵɵInjectableDeclaration<NoPreloading>;
 }
+
+// @public
+export type OnSameUrlNavigation = 'reload' | 'ignore';
 
 // @public
 export class OutletContext {
@@ -629,7 +654,11 @@ export class RouteConfigLoadStart {
 
 // @public
 export class Router {
-    constructor(rootComponentType: Type<any> | null, urlSerializer: UrlSerializer, rootContexts: ChildrenOutletContexts, location: Location_2, injector: Injector, compiler: Compiler, config: Routes);
+    constructor(
+    rootComponentType: Type<any> | null,
+    urlSerializer: UrlSerializer,
+    rootContexts: ChildrenOutletContexts,
+    location: Location_2, injector: Injector, compiler: Compiler, config: Routes);
     // @deprecated
     canceledNavigationResolution: 'replace' | 'computed';
     // (undocumented)
@@ -652,7 +681,7 @@ export class Router {
     // (undocumented)
     ngOnDestroy(): void;
     // @deprecated
-    onSameUrlNavigation: 'reload' | 'ignore';
+    onSameUrlNavigation: OnSameUrlNavigation;
     // @deprecated
     paramsInheritanceStrategy: 'emptyOnly' | 'always';
     parseUrl(url: string): UrlTree;
@@ -684,7 +713,7 @@ export const ROUTER_INITIALIZER: InjectionToken<(compRef: ComponentRef<any>) => 
 // @public
 export interface RouterConfigOptions {
     canceledNavigationResolution?: 'replace' | 'computed';
-    onSameUrlNavigation?: 'reload' | 'ignore';
+    onSameUrlNavigation?: OnSameUrlNavigation;
     paramsInheritanceStrategy?: 'emptyOnly' | 'always';
     urlUpdateStrategy?: 'deferred' | 'eager';
 }
@@ -699,6 +728,10 @@ export abstract class RouteReuseStrategy {
     abstract shouldDetach(route: ActivatedRouteSnapshot): boolean;
     abstract shouldReuseRoute(future: ActivatedRouteSnapshot, curr: ActivatedRouteSnapshot): boolean;
     abstract store(route: ActivatedRouteSnapshot, handle: DetachedRouteHandle | null): void;
+    // (undocumented)
+    static ɵfac: i0.ɵɵFactoryDeclaration<RouteReuseStrategy, never>;
+    // (undocumented)
+    static ɵprov: i0.ɵɵInjectableDeclaration<RouteReuseStrategy>;
 }
 
 // @public
@@ -950,6 +983,10 @@ export abstract class UrlHandlingStrategy {
     abstract extract(url: UrlTree): UrlTree;
     abstract merge(newUrlPart: UrlTree, rawUrl: UrlTree): UrlTree;
     abstract shouldProcessUrl(url: UrlTree): boolean;
+    // (undocumented)
+    static ɵfac: i0.ɵɵFactoryDeclaration<UrlHandlingStrategy, never>;
+    // (undocumented)
+    static ɵprov: i0.ɵɵInjectableDeclaration<UrlHandlingStrategy>;
 }
 
 // @public
