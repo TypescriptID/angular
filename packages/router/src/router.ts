@@ -7,18 +7,18 @@
  */
 
 import {Location} from '@angular/common';
-import {Compiler, inject, Injectable, Injector, NgModuleRef, NgZone, Type, ɵConsole as Console, ɵRuntimeError as RuntimeError} from '@angular/core';
-import {BehaviorSubject, Observable, of, Subject, SubscriptionLike} from 'rxjs';
+import {Compiler, inject, Injectable, Injector, NgZone, Type, ɵConsole as Console, ɵRuntimeError as RuntimeError} from '@angular/core';
+import {BehaviorSubject, Observable, of, SubscriptionLike} from 'rxjs';
 
 import {createUrlTree} from './create_url_tree';
 import {RuntimeErrorCode} from './errors';
-import {Event, NavigationCancel, NavigationCancellationCode, NavigationEnd, NavigationTrigger, RouteConfigLoadEnd, RouteConfigLoadStart} from './events';
-import {NavigationBehaviorOptions, OnSameUrlNavigation, Route, Routes} from './models';
+import {Event, NavigationTrigger} from './events';
+import {NavigationBehaviorOptions, OnSameUrlNavigation, Routes} from './models';
 import {Navigation, NavigationExtras, NavigationTransition, NavigationTransitions, RestoredState, UrlCreationOptions} from './navigation_transition';
 import {TitleStrategy} from './page_title_strategy';
 import {RouteReuseStrategy} from './route_reuse_strategy';
 import {ErrorHandler, ExtraOptions, ROUTER_CONFIGURATION} from './router_config';
-import {RouterConfigLoader, ROUTES} from './router_config_loader';
+import {ROUTES} from './router_config_loader';
 import {ChildrenOutletContexts} from './router_outlet_context';
 import {createEmptyState, RouterState} from './router_state';
 import {Params} from './shared';
@@ -175,14 +175,14 @@ export class Router {
    * @internal
    */
   browserUrlTree: UrlTree;
-  /** @internal */
-  readonly transitions: BehaviorSubject<NavigationTransition>;
-  private navigations: Observable<NavigationTransition>;
   private disposed = false;
 
   private locationSubscription?: SubscriptionLike;
-  /** @internal */
-  navigationId: number = 0;
+  // TODO(b/260747083): This should not exist and navigationId should be private in
+  // `NavigationTransitions`
+  private get navigationId() {
+    return this.navigationTransitions.navigationId;
+  }
 
   /**
    * The id of the currently active page in the router.
@@ -201,17 +201,19 @@ export class Router {
   private get browserPageId(): number|undefined {
     return (this.location.getState() as RestoredState | null)?.ɵrouterPageId;
   }
-  /** @internal */
-  configLoader: RouterConfigLoader;
-  /** @internal */
-  ngModule: NgModuleRef<any>;
   private console: Console;
   private isNgZoneEnabled: boolean = false;
 
   /**
-   * An event stream for routing events in this NgModule.
+   * An event stream for routing events.
    */
-  public readonly events: Observable<Event> = new Subject<Event>();
+  public get events(): Observable<Event> {
+    // TODO(atscott): This _should_ be events.asObservable(). However, this change requires internal
+    // cleanup: tests are doing `(route.events as Subject<Event>).next(...)`. This isn't
+    // allowed/supported but we still have to fix these or file bugs against the teams before making
+    // the change.
+    return this.navigationTransitions.events;
+  }
   /**
    * The current state of routing in this NgModule.
    */
@@ -347,7 +349,7 @@ export class Router {
    */
   canceledNavigationResolution: 'replace'|'computed' = 'replace';
 
-  private readonly navigationTransitions = new NavigationTransitions(this);
+  private readonly navigationTransitions = inject(NavigationTransitions);
 
   /**
    * Creates the router service.
@@ -356,23 +358,13 @@ export class Router {
   constructor(
       /** @internal */
       public rootComponentType: Type<any>|null,
-      /** @internal */
-      readonly urlSerializer: UrlSerializer,
-      /** @internal */
-      readonly rootContexts: ChildrenOutletContexts,
-      /** @internal */
-      readonly location: Location,
+      private readonly urlSerializer: UrlSerializer,
+      private readonly rootContexts: ChildrenOutletContexts,
+      private readonly location: Location,
       injector: Injector,
       compiler: Compiler,
       public config: Routes,
   ) {
-    const onLoadStart = (r: Route) => this.triggerEvent(new RouteConfigLoadStart(r));
-    const onLoadEnd = (r: Route) => this.triggerEvent(new RouteConfigLoadEnd(r));
-    this.configLoader = injector.get(RouterConfigLoader);
-    this.configLoader.onLoadEndListener = onLoadEnd;
-    this.configLoader.onLoadStartListener = onLoadStart;
-
-    this.ngModule = injector.get(NgModuleRef);
     this.console = injector.get(Console);
     const ngZone = injector.get(NgZone);
     this.isNgZoneEnabled = ngZone instanceof NgZone && NgZone.isInAngularZone();
@@ -384,29 +376,14 @@ export class Router {
 
     this.routerState = createEmptyState(this.currentUrlTree, this.rootComponentType);
 
-    this.transitions = new BehaviorSubject<NavigationTransition>({
-      id: 0,
-      targetPageId: 0,
-      currentUrlTree: this.currentUrlTree,
-      extractedUrl: this.urlHandlingStrategy.extract(this.currentUrlTree),
-      urlAfterRedirects: this.urlHandlingStrategy.extract(this.currentUrlTree),
-      rawUrl: this.currentUrlTree,
-      extras: {},
-      resolve: null,
-      reject: null,
-      promise: Promise.resolve(true),
-      source: 'imperative',
-      restoredState: null,
-      currentSnapshot: this.routerState.snapshot,
-      targetSnapshot: null,
-      currentRouterState: this.routerState,
-      targetRouterState: null,
-      guards: {canActivateChecks: [], canDeactivateChecks: []},
-      guardsResult: null,
-    });
-    this.navigations = this.navigationTransitions.setupNavigations(this.transitions);
-
-    this.processNavigations();
+    this.navigationTransitions.setupNavigations(this).subscribe(
+        t => {
+          this.lastSuccessfulId = t.id;
+          this.currentPageId = t.targetPageId;
+        },
+        e => {
+          this.console.warn(`Unhandled Navigation Error: ${e}`);
+        });
   }
 
   /**
@@ -420,16 +397,12 @@ export class Router {
     this.routerState.root.component = this.rootComponentType;
   }
 
-  private setTransition(t: Partial<NavigationTransition>): void {
-    this.transitions.next({...this.transitions.value, ...t});
-  }
-
   /**
    * Sets up the location change listener and performs the initial navigation.
    */
   initialNavigation(): void {
     this.setUpLocationChangeListener();
-    if (this.navigationId === 0) {
+    if (!this.navigationTransitions.hasRequestedNavigation) {
       this.navigateByUrl(this.location.path(true), {replaceUrl: true});
     }
   }
@@ -494,11 +467,6 @@ export class Router {
     return this.navigationTransitions.currentNavigation;
   }
 
-  /** @internal */
-  triggerEvent(event: Event): void {
-    (this.events as Subject<Event>).next(event);
-  }
-
   /**
    * Resets the route configuration used for navigation and generating links.
    *
@@ -529,7 +497,7 @@ export class Router {
 
   /** Disposes of the router. */
   dispose(): void {
-    this.transitions.complete();
+    this.navigationTransitions.complete();
     if (this.locationSubscription) {
       this.locationSubscription.unsubscribe();
       this.locationSubscription = undefined;
@@ -743,23 +711,6 @@ export class Router {
     }, {});
   }
 
-  private processNavigations(): void {
-    this.navigations.subscribe(
-        t => {
-          this.navigated = true;
-          this.lastSuccessfulId = t.id;
-          this.currentPageId = t.targetPageId;
-          (this.events as Subject<Event>)
-              .next(new NavigationEnd(
-                  t.id, this.serializeUrl(t.extractedUrl), this.serializeUrl(this.currentUrlTree)));
-          this.titleStrategy?.updateTitle(this.routerState.snapshot);
-          t.resolve(true);
-        },
-        e => {
-          this.console.warn(`Unhandled Navigation Error: ${e}`);
-        });
-  }
-
   /** @internal */
   scheduleNavigation(
       rawUrl: UrlTree, source: NavigationTrigger, restoredState: RestoredState|null,
@@ -783,7 +734,6 @@ export class Router {
       });
     }
 
-    const id = ++this.navigationId;
     let targetPageId: number;
     if (this.canceledNavigationResolution === 'computed') {
       const isInitialPage = this.currentPageId === 0;
@@ -809,12 +759,12 @@ export class Router {
       targetPageId = 0;
     }
 
-    this.setTransition({
-      id,
+    this.navigationTransitions.handleNavigationRequest({
       targetPageId,
       source,
       restoredState,
       currentUrlTree: this.currentUrlTree,
+      currentRawUrl: this.currentUrlTree,
       rawUrl,
       extras,
       resolve,
@@ -905,15 +855,6 @@ export class Router {
     this.location.replaceState(
         this.urlSerializer.serialize(this.rawUrlTree), '',
         this.generateNgRouterState(this.lastSuccessfulId, this.currentPageId));
-  }
-
-  /** @internal */
-  cancelNavigationTransition(
-      transition: NavigationTransition, reason: string, code: NavigationCancellationCode) {
-    const navCancel = new NavigationCancel(
-        transition.id, this.serializeUrl(transition.extractedUrl), reason, code);
-    this.triggerEvent(navCancel);
-    transition.resolve(false);
   }
 
   private generateNgRouterState(navigationId: number, routerPageId?: number) {
