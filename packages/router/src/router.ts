@@ -61,48 +61,6 @@ export const subsetMatchOptions: IsActiveMatchOptions = {
   queryParams: 'subset'
 };
 
-export function assignExtraOptionsToRouter(opts: ExtraOptions, router: Router): void {
-  if (opts.errorHandler) {
-    router.errorHandler = opts.errorHandler;
-  }
-
-  if (opts.malformedUriErrorHandler) {
-    router.malformedUriErrorHandler = opts.malformedUriErrorHandler;
-  }
-
-  if (opts.onSameUrlNavigation) {
-    router.onSameUrlNavigation = opts.onSameUrlNavigation;
-  }
-
-  if (opts.paramsInheritanceStrategy) {
-    router.paramsInheritanceStrategy = opts.paramsInheritanceStrategy;
-  }
-
-  if (opts.urlUpdateStrategy) {
-    router.urlUpdateStrategy = opts.urlUpdateStrategy;
-  }
-
-  if (opts.canceledNavigationResolution) {
-    router.canceledNavigationResolution = opts.canceledNavigationResolution;
-  }
-}
-
-export function setupRouter() {
-  const urlSerializer = inject(UrlSerializer);
-  const contexts = inject(ChildrenOutletContexts);
-  const location = inject(Location);
-  const injector = inject(Injector);
-  const compiler = inject(Compiler);
-  const config = inject(ROUTES, {optional: true}) ?? [];
-  const opts = inject(ROUTER_CONFIGURATION, {optional: true}) ?? {};
-  const router =
-      new Router(null, urlSerializer, contexts, location, injector, compiler, flatten(config));
-
-  assignExtraOptionsToRouter(opts, router);
-
-  return router;
-}
-
 /**
  * @description
  *
@@ -115,10 +73,7 @@ export function setupRouter() {
  *
  * @publicApi
  */
-@Injectable({
-  providedIn: 'root',
-  useFactory: setupRouter,
-})
+@Injectable({providedIn: 'root'})
 export class Router {
   /**
    * Represents the activated `UrlTree` that the `Router` is configured to handle (through
@@ -201,7 +156,7 @@ export class Router {
   private get browserPageId(): number|undefined {
     return (this.location.getState() as RestoredState | null)?.ɵrouterPageId;
   }
-  private console: Console;
+  private console = inject(Console);
   private isNgZoneEnabled: boolean = false;
 
   /**
@@ -219,12 +174,14 @@ export class Router {
    */
   public readonly routerState: RouterState;
 
+  private options = inject(ROUTER_CONFIGURATION, {optional: true}) || {};
+
   /**
    * A handler for navigation errors in this NgModule.
    *
    * @deprecated Subscribe to the `Router` events and watch for `NavigationError` instead.
    */
-  errorHandler: ErrorHandler = defaultErrorHandler;
+  errorHandler = this.options.errorHandler || defaultErrorHandler;
 
   /**
    * A handler for errors thrown by `Router.parseUrl(url)`
@@ -236,9 +193,8 @@ export class Router {
    *   `RouterModule.forRoot(routes, {malformedUriErrorHandler: myHandler})`
    * @see `RouterModule`
    */
-  malformedUriErrorHandler:
-      (error: URIError, urlSerializer: UrlSerializer,
-       url: string) => UrlTree = defaultMalformedUriErrorHandler;
+  malformedUriErrorHandler =
+      this.options.malformedUriErrorHandler || defaultMalformedUriErrorHandler;
 
   /**
    * True if at least one navigation event has occurred,
@@ -289,7 +245,7 @@ export class Router {
    * @see `provideRouter`
    * @see `RouterModule`
    */
-  onSameUrlNavigation: OnSameUrlNavigation = 'ignore';
+  onSameUrlNavigation: OnSameUrlNavigation = this.options.onSameUrlNavigation || 'ignore';
 
   /**
    * How to merge parameters, data, resolved data, and title from parent to child
@@ -305,7 +261,8 @@ export class Router {
    * @see `provideRouter`
    * @see `RouterModule`
    */
-  paramsInheritanceStrategy: 'emptyOnly'|'always' = 'emptyOnly';
+  paramsInheritanceStrategy: 'emptyOnly'|'always' =
+      this.options.paramsInheritanceStrategy || 'emptyOnly';
 
   /**
    * Determines when the router updates the browser URL.
@@ -319,7 +276,7 @@ export class Router {
    * @see `provideRouter`
    * @see `RouterModule`
    */
-  urlUpdateStrategy: 'deferred'|'eager' = 'deferred';
+  urlUpdateStrategy: 'deferred'|'eager' = this.options.urlUpdateStrategy || 'deferred';
 
   /**
    * Configures how the Router attempts to restore state when a navigation is cancelled.
@@ -347,29 +304,22 @@ export class Router {
    * @see `provideRouter`
    * @see `RouterModule`
    */
-  canceledNavigationResolution: 'replace'|'computed' = 'replace';
+  canceledNavigationResolution: 'replace'|'computed' =
+      this.options.canceledNavigationResolution || 'replace';
+
+  config: Routes = flatten(inject(ROUTES, {optional: true}) ?? []);
 
   private readonly navigationTransitions = inject(NavigationTransitions);
+  private readonly urlSerializer = inject(UrlSerializer);
+  private readonly location = inject(Location);
 
-  /**
-   * Creates the router service.
-   */
-  // TODO: vsavkin make internal after the final is out.
-  constructor(
-      /** @internal */
-      public rootComponentType: Type<any>|null,
-      private readonly urlSerializer: UrlSerializer,
-      private readonly rootContexts: ChildrenOutletContexts,
-      private readonly location: Location,
-      injector: Injector,
-      compiler: Compiler,
-      public config: Routes,
-  ) {
-    this.console = injector.get(Console);
-    const ngZone = injector.get(NgZone);
-    this.isNgZoneEnabled = ngZone instanceof NgZone && NgZone.isInAngularZone();
+  /** @internal */
+  rootComponentType: Type<any>|null = null;
 
-    this.resetConfig(config);
+  constructor() {
+    this.isNgZoneEnabled = inject(NgZone) instanceof NgZone && NgZone.isInAngularZone();
+
+    this.resetConfig(this.config);
     this.currentUrlTree = new UrlTree();
     this.rawUrlTree = this.currentUrlTree;
     this.browserUrlTree = this.currentUrlTree;
@@ -386,10 +336,7 @@ export class Router {
         });
   }
 
-  /**
-   * @internal
-   * TODO: this should be removed once the constructor of the router made internal
-   */
+  /** @internal */
   resetRootComponentType(rootComponentType: Type<any>): void {
     this.rootComponentType = rootComponentType;
     // TODO: vsavkin router 4.0 should make the root component set to null
