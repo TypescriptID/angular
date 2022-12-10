@@ -68,6 +68,12 @@ export class Location implements OnDestroy {
   constructor(locationStrategy: LocationStrategy) {
     this._locationStrategy = locationStrategy;
     const baseHref = this._locationStrategy.getBaseHref();
+    // Note: This class's interaction with base HREF does not fully follow the rules
+    // outlined in the spec https://www.freesoft.org/CIE/RFC/1808/18.htm.
+    // Instead of trying to fix individual bugs with more and more code, we should
+    // investigate using the URL constructor and providing the base as a second
+    // argument.
+    // https://developer.mozilla.org/en-US/docs/Web/API/URL/URL#parameters
     this._basePath = _stripOrigin(stripTrailingSlash(_stripIndexHtml(baseHref)));
     this._locationStrategy.onPopState((ev) => {
       this._subject.emit({
@@ -303,7 +309,13 @@ function _stripIndexHtml(url: string): string {
 }
 
 function _stripOrigin(baseHref: string): string {
-  if (/^(https?:)?\/\//.test(baseHref)) {
+  // DO NOT REFACTOR! Previously, this check looked like this:
+  // `/^(https?:)?\/\//.test(baseHref)`, but that resulted in
+  // syntactically incorrect code after Closure Compiler minification.
+  // This was likely caused by a bug in Closure Compiler, but
+  // for now, the check is rewritten to use `new RegExp` instead.
+  const isAbsoluteUrl = (new RegExp('^(https?:)?//')).test(baseHref);
+  if (isAbsoluteUrl) {
     const [, pathname] = baseHref.split(/\/\/[^\/]+/);
     return pathname;
   }
