@@ -28,6 +28,7 @@ http_archive(
     patches = [
         # TODO(devversion): remove when https://github.com/bazelbuild/rules_nodejs/pull/3605 is available.
         "//tools:bazel-repo-patches/rules_nodejs__#3605.patch",
+        "//tools/esm-interop:patches/bazel/nodejs_binary_esm_support.patch",
     ],
     sha256 = "c29944ba9b0b430aadcaf3bf2570fece6fc5ebfb76df145c6cdad40d65c20811",
     urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/5.7.0/rules_nodejs-5.7.0.tar.gz"],
@@ -104,6 +105,11 @@ yarn_install(
         "//:scripts/puppeteer-chromedriver-versions.js",
         "//:scripts/webdriver-manager-update.js",
         "//tools:postinstall-patches.js",
+        "//tools/esm-interop:patches/npm/@angular+build-tooling+0.0.0-246cebbf2a78566ff1fe9b88fdde2459606568dc.patch",
+        "//tools/esm-interop:patches/npm/@bazel+concatjs+5.7.1.patch",
+        "//tools/esm-interop:patches/npm/@bazel+esbuild+5.7.1.patch",
+        "//tools/esm-interop:patches/npm/@bazel+protractor+5.7.1.patch",
+        "//tools/esm-interop:patches/npm/rxjs+6.6.7.patch",
     ],
     # Currently disabled due to:
     #  1. Missing Windows support currently.
