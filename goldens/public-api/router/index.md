@@ -291,8 +291,10 @@ export const enum EventType {
 // @public
 export interface ExtraOptions extends InMemoryScrollingOptions, RouterConfigOptions {
     enableTracing?: boolean;
-    errorHandler?: ErrorHandler;
+    // @deprecated
+    errorHandler?: (error: any) => any;
     initialNavigation?: InitialNavigation;
+    // @deprecated
     malformedUriErrorHandler?: (error: URIError, urlSerializer: UrlSerializer, url: string) => UrlTree;
     preloadingStrategy?: any;
     scrollOffset?: [number, number] | (() => [number, number]);
@@ -438,6 +440,9 @@ export class NavigationError extends RouterEvent {
     // (undocumented)
     readonly type = EventType.NavigationError;
 }
+
+// @public
+export type NavigationErrorHandlerFeature = RouterFeature<RouterFeatureKind.NavigationErrorHandlerFeature>;
 
 // @public
 export interface NavigationExtras extends UrlCreationOptions, NavigationBehaviorOptions {
@@ -662,7 +667,7 @@ export class Router {
     createUrlTree(commands: any[], navigationExtras?: UrlCreationOptions): UrlTree;
     dispose(): void;
     // @deprecated
-    errorHandler: ErrorHandler;
+    errorHandler: (error: any) => any;
     get events(): Observable<Event_2>;
     getCurrentNavigation(): Navigation | null;
     initialNavigation(): void;
@@ -748,7 +753,7 @@ export interface RouterFeature<FeatureKind extends RouterFeatureKind> {
 }
 
 // @public
-export type RouterFeatures = PreloadingFeature | DebugTracingFeature | InitialNavigationFeature | InMemoryScrollingFeature | RouterConfigurationFeature;
+export type RouterFeatures = PreloadingFeature | DebugTracingFeature | InitialNavigationFeature | InMemoryScrollingFeature | RouterConfigurationFeature | NavigationErrorHandlerFeature;
 
 // @public
 export type RouterHashLocationFeature = RouterFeature<RouterFeatureKind.RouterHashLocationFeature>;
@@ -1076,6 +1081,9 @@ export function withHashLocation(): RouterConfigurationFeature;
 
 // @public
 export function withInMemoryScrolling(options?: InMemoryScrollingOptions): InMemoryScrollingFeature;
+
+// @public
+export function withNavigationErrorHandler(fn: (error: NavigationError) => void): NavigationErrorHandlerFeature;
 
 // @public
 export function withPreloading(preloadingStrategy: Type<PreloadingStrategy>): PreloadingFeature;
