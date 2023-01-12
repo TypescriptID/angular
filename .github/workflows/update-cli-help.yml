@@ -25,10 +25,12 @@ jobs:
           # account that is attempted to be used for authentication, instead the remote is set to
           # an authenticated URL.
           persist-credentials: false
+          # This is needed as otherwise the PR creation will fail with `shallow update not allowed` when the forked branch is not in sync.
+          fetch-depth: 0
       - name: Generate CLI help
         run: node aio/scripts/update-cli-help/index.mjs
         env:
-          ANGULAR_CLI_BUILDS_READONLY_GITHUB_TOKEN: ${secrets.ANGULAR_CLI_BUILDS_READONLY_GITHUB_TOKEN}
+          ANGULAR_CLI_BUILDS_READONLY_GITHUB_TOKEN: ${{ secrets.ANGULAR_CLI_BUILDS_READONLY_GITHUB_TOKEN }}
       - name: Create a PR (if necessary)
         uses: angular/dev-infra/github-actions/create-pr-for-changes@ad1374e8222825244b36a91d0f085f8fc3c7126d
         with:
