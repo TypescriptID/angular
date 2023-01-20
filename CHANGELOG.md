@@ -1,3 +1,49 @@
+<a name="15.2.0-next.1"></a>
+# 15.2.0-next.1 (2023-01-18)
+## Deprecations
+### 
+- Class and `InjectionToken` guards and resolvers are
+  deprecated. Instead, write guards as plain JavaScript functions and
+  inject dependencies with `inject` from `@angular/core`.
+### 
+| Commit | Type | Description |
+| -- | -- | -- |
+| [926c35f4ac](https://github.com/angular/angular/commit/926c35f4ac70f5e4d142e545d6d056dd67aac97b) | docs | Deprecate class and InjectionToken and resolvers ([#47924](https://github.com/angular/angular/pull/47924)) |
+### common
+| Commit | Type | Description |
+| -- | -- | -- |
+| [8802b4aab9](https://github.com/angular/angular/commit/8802b4aab9600870f3e09f198c993845587e9622) | fix | Update `Location` to get a normalized URL valid in case a represented URL starts with the substring equals `APP_BASE_HREF` ([#48489](https://github.com/angular/angular/pull/48489)) |
+| [5f21c6d627](https://github.com/angular/angular/commit/5f21c6d627892dfad942b55f13861c213f9c0afb) | perf | avoid excessive DOM mutation in NgClass ([#48433](https://github.com/angular/angular/pull/48433)) |
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [f00bf71411](https://github.com/angular/angular/commit/f00bf714110100549111bd27345943ab8830128c) | fix | makeEnvironmentProviders should accept EnvironmentProviders ([#48720](https://github.com/angular/angular/pull/48720)) |
+### language-service
+| Commit | Type | Description |
+| -- | -- | -- |
+| [4ae384fd61](https://github.com/angular/angular/commit/4ae384fd619a13eaadf737d08a97f07e1f6b273c) | feat | Allow auto-imports of a pipe via quick fix when its selector is used, both directly and via reexports. ([#48354](https://github.com/angular/angular/pull/48354)) |
+| [141333411e](https://github.com/angular/angular/commit/141333411e67769d752c7162e4cb03376022f5e1) | feat | Introduce a new NgModuleIndex, and use it to suggest re-exports. ([#48354](https://github.com/angular/angular/pull/48354)) |
+## Special Thanks
+Alex Rickabaugh, Andrew Kushnir, Andrew Scott, Aristeidis Bampakos, Bob Watson, Dylan Hunn, Jens, Konstantin Kharitonov, Kristiyan Kostadinov, Matthieu Riegler, Paul Gschwendtner, Pawel Kozlowski, Vladyslav Slipchenko, ced, dario-piotrowicz, mgechev and ノウラ
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="15.1.1"></a>
+# 15.1.1 (2023-01-18)
+### common
+| Commit | Type | Description |
+| -- | -- | -- |
+| [68ce4f6ab4](https://github.com/angular/angular/commit/68ce4f6ab495f78858281b902e6433fe90ed6dbf) | fix | Update `Location` to get a normalized URL valid in case a represented URL starts with the substring equals `APP_BASE_HREF` ([#48489](https://github.com/angular/angular/pull/48489)) |
+| [032b2bd689](https://github.com/angular/angular/commit/032b2bd689e24ece61e23bfe9a39a11676958b8d) | perf | avoid excessive DOM mutation in NgClass ([#48433](https://github.com/angular/angular/pull/48433)) |
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [dd54f6bd96](https://github.com/angular/angular/commit/dd54f6bd963f859d18af90d5b3834c443ec073f9) | fix | makeEnvironmentProviders should accept EnvironmentProviders ([#48720](https://github.com/angular/angular/pull/48720)) |
+## Special Thanks
+Alan Agius, Alex Rickabaugh, Andrew Scott, Aristeidis Bampakos, Bob Watson, Jens, Konstantin Kharitonov, Kristiyan Kostadinov, Matthieu Riegler, Paul Gschwendtner, Pawel Kozlowski, Vladyslav Slipchenko, ced, dario-piotrowicz, mgechev and ノウラ
+
+<!-- CHANGELOG SPLIT MARKER -->
+
 <a name="15.2.0-next.0"></a>
 # 15.2.0-next.0 (2023-01-11)
 ### router
