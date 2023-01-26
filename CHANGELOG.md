@@ -1,3 +1,46 @@
+<a name="15.2.0-next.2"></a>
+# 15.2.0-next.2 (2023-01-25)
+### compiler
+| Commit | Type | Description |
+| -- | -- | -- |
+| [bc8cfa2552](https://github.com/angular/angular/commit/bc8cfa25520c3b8b0a506c69a269e42a63f097d6) | fix | handle css selectors with space after an escaped character. ([#48558](https://github.com/angular/angular/pull/48558)) |
+### compiler-cli
+| Commit | Type | Description |
+| -- | -- | -- |
+| [4da1f2948c](https://github.com/angular/angular/commit/4da1f2948cc67b68527a91579ee14bb1a22b0c58) | fix | resolve deprecation warning ([#48812](https://github.com/angular/angular/pull/48812)) |
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [a154db8a81](https://github.com/angular/angular/commit/a154db8a81cbdfed8c3d0db1e2a5bf43aa3e0bbf) | feat | add ng generate schematic to convert declarations to standalone ([#48790](https://github.com/angular/angular/pull/48790)) |
+| [e7318fc758](https://github.com/angular/angular/commit/e7318fc758d9e64d1a7f60a2c7071a769b73e7d8) | feat | add ng generate schematic to remove unnecessary modules ([#48832](https://github.com/angular/angular/pull/48832)) |
+### router
+| Commit | Type | Description |
+| -- | -- | -- |
+| [4dcab333ae](https://github.com/angular/angular/commit/4dcab333ae009f923cf3864e20ee47e43d32dfe6) | fix | 'createUrlTreeFromSnapshot' with empty paths and named outlets ([#48734](https://github.com/angular/angular/pull/48734)) |
+## Special Thanks
+Alan Agius, AleksanderBodurri, Andrew Kushnir, Andrew Scott, Charles Lyding, Dylan Hunn, Jessica Janiuk, JoostK, Kristiyan Kostadinov, Matthieu Riegler, Paul Gschwendtner, Payam Valadkhan, Virginia Dooley, Yann Thomas LE MOIGNE and dario-piotrowicz
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="15.1.2"></a>
+# 15.1.2 (2023-01-25)
+### compiler
+| Commit | Type | Description |
+| -- | -- | -- |
+| [98ccb57117](https://github.com/angular/angular/commit/98ccb571176632cf4d434e9e54b086bb63601148) | fix | handle css selectors with space after an escaped character. ([#48558](https://github.com/angular/angular/pull/48558)) |
+### compiler-cli
+| Commit | Type | Description |
+| -- | -- | -- |
+| [145f848a10](https://github.com/angular/angular/commit/145f848a10b4dc791cbf42b803983357735d5f86) | fix | resolve deprecation warning ([#48812](https://github.com/angular/angular/pull/48812)) |
+### router
+| Commit | Type | Description |
+| -- | -- | -- |
+| [a6b10f6e59](https://github.com/angular/angular/commit/a6b10f6e597e666a55ef1cd2aecdf3a309cebad8) | fix | 'createUrlTreeFromSnapshot' with empty paths and named outlets ([#48734](https://github.com/angular/angular/pull/48734)) |
+## Special Thanks
+Alan Agius, AleksanderBodurri, Andrew Kushnir, Andrew Scott, Charles Lyding, Dylan Hunn, JoostK, Matthieu Riegler, Paul Gschwendtner, Payam Valadkhan, Virginia Dooley, Yann Thomas LE MOIGNE and dario-piotrowicz
+
+<!-- CHANGELOG SPLIT MARKER -->
+
 <a name="15.2.0-next.1"></a>
 # 15.2.0-next.1 (2023-01-18)
 ## Deprecations
