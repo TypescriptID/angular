@@ -15,7 +15,7 @@ import {getImportSpecifier} from '../../utils/typescript/imports';
 import {closestNode} from '../../utils/typescript/nodes';
 import {isReferenceToImport} from '../../utils/typescript/symbol';
 
-import {ChangesByFile, ChangeTracker, findClassDeclaration, findLiteralProperty, NamedClassDeclaration} from './util';
+import {ChangesByFile, ChangeTracker, findClassDeclaration, findLiteralProperty, ImportRemapper, NamedClassDeclaration} from './util';
 
 /**
  * Converts all declarations in the specified files to standalone.
@@ -24,13 +24,14 @@ import {ChangesByFile, ChangeTracker, findClassDeclaration, findLiteralProperty,
  * @param printer
  */
 export function toStandalone(
-    sourceFiles: ts.SourceFile[], program: NgtscProgram, printer: ts.Printer): ChangesByFile {
+    sourceFiles: ts.SourceFile[], program: NgtscProgram, printer: ts.Printer,
+    importRemapper?: ImportRemapper): ChangesByFile {
   const templateTypeChecker = program.compiler.getTemplateTypeChecker();
   const typeChecker = program.getTsProgram().getTypeChecker();
   const modulesToMigrate: ts.ClassDeclaration[] = [];
   const testObjectsToMigrate: ts.ObjectLiteralExpression[] = [];
   const declarations: Reference<ts.ClassDeclaration>[] = [];
-  const tracker = new ChangeTracker(printer);
+  const tracker = new ChangeTracker(printer, importRemapper);
 
   for (const sourceFile of sourceFiles) {
     const {modules, testObjects} = findModulesToMigrate(sourceFile, typeChecker);
@@ -286,11 +287,11 @@ function addPropertyToAngularDecorator(
     return node;
   }
 
-  return ts.factory.updateDecorator(
-      node,
-      ts.factory.createCallExpression(node.expression.expression, node.expression.typeArguments, [
-        ts.factory.createObjectLiteralExpression(literalProperties, literalProperties.length > 1)
-      ]));
+  // Use `createDecorator` instead of `updateDecorator`, because
+  // the latter ends up duplicating the node's leading comment.
+  return ts.factory.createDecorator(ts.factory.createCallExpression(
+      node.expression.expression, node.expression.typeArguments,
+      [ts.factory.createObjectLiteralExpression(literalProperties, literalProperties.length > 1)]));
 }
 
 /** Checks if a node is a `PropertyAssignment` with a name. */
@@ -310,6 +311,7 @@ function findImportLocation(
     target: Reference<NamedClassDeclaration>, inComponent: Reference<ts.ClassDeclaration>,
     importMode: PotentialImportMode, typeChecker: TemplateTypeChecker): PotentialImport|null {
   const importLocations = typeChecker.getPotentialImportsFor(target, inComponent.node, importMode);
+  let firstSameFileImport: PotentialImport|null = null;
   let firstModuleImport: PotentialImport|null = null;
 
   for (const location of importLocations) {
@@ -318,12 +320,17 @@ function findImportLocation(
     if (location.kind === PotentialImportKind.Standalone) {
       return location;
     }
-    if (location.kind === PotentialImportKind.NgModule && !firstModuleImport) {
+    if (!location.moduleSpecifier && !firstSameFileImport) {
+      firstSameFileImport = location;
+    }
+    if (location.kind === PotentialImportKind.NgModule && !firstModuleImport &&
+        // ɵ is used for some internal Angular modules that we want to skip over.
+        !location.symbolName.startsWith('ɵ')) {
       firstModuleImport = location;
     }
   }
 
-  return firstModuleImport;
+  return firstSameFileImport || firstModuleImport || importLocations[0] || null;
 }
 
 /**
