@@ -18,7 +18,7 @@ import {canMigrateFile, createProgramOptions} from '../../utils/typescript/compi
 import {pruneNgModules} from './prune-modules';
 import {toStandaloneBootstrap} from './standalone-bootstrap';
 import {toStandalone} from './to-standalone';
-import {ChangesByFile} from './util';
+import {ChangesByFile, normalizePath} from './util';
 
 enum MigrationMode {
   toStandalone = 'convert-to-standalone',
@@ -30,8 +30,6 @@ interface Options {
   path: string;
   mode: MigrationMode;
 }
-
-const normalizePath = (path: string): string => path.replace(/\\/g, '/');
 
 export default function(options: Options): Rule {
   return async (tree) => {
@@ -61,18 +59,23 @@ export default function(options: Options): Rule {
 
 function standaloneMigration(
     tree: Tree, tsconfigPath: string, basePath: string, pathToMigrate: string,
-    options: Options): number {
-  if (options.path.startsWith('..')) {
+    schematicOptions: Options): number {
+  if (schematicOptions.path.startsWith('..')) {
     throw new SchematicsException(
         'Cannot run standalone migration outside of the current project.');
   }
 
-  const {host, rootNames} = createProgramOptions(tree, tsconfigPath, basePath);
-  const program = createProgram({
-                    rootNames,
-                    host,
-                    options: {_enableTemplateTypeChecker: true, compileNonExportedClasses: true}
-                  }) as NgtscProgram;
+  const {host, options, rootNames} = createProgramOptions(
+      tree, tsconfigPath, basePath, undefined, undefined,
+      {
+        _enableTemplateTypeChecker: true,  // Required for the template type checker to work.
+        compileNonExportedClasses: true,   // We want to migrate non-exported classes too.
+        // Avoid checking libraries to speed up the migration.
+        skipLibCheck: true,
+        skipDefaultLibCheck: true,
+      });
+  const referenceLookupExcludedFiles = /node_modules|\.ngtypecheck\.ts/;
+  const program = createProgram({rootNames, host, options}) as NgtscProgram;
   const printer = ts.createPrinter();
 
   if (existsSync(pathToMigrate) && !statSync(pathToMigrate).isDirectory()) {
@@ -80,10 +83,9 @@ function standaloneMigration(
         pathToMigrate} has to be a directory. Cannot run the standalone migration.`);
   }
 
-  const sourceFiles = program.getTsProgram().getSourceFiles().filter(sourceFile => {
-    return sourceFile.fileName.startsWith(pathToMigrate) &&
-        canMigrateFile(basePath, sourceFile, program.getTsProgram());
-  });
+  const sourceFiles = program.getTsProgram().getSourceFiles().filter(
+      sourceFile => sourceFile.fileName.startsWith(pathToMigrate) &&
+          canMigrateFile(basePath, sourceFile, program.getTsProgram()));
 
   if (sourceFiles.length === 0) {
     return 0;
@@ -92,15 +94,18 @@ function standaloneMigration(
   let pendingChanges: ChangesByFile;
   let filesToRemove: Set<ts.SourceFile>|null = null;
 
-  if (options.mode === MigrationMode.pruneModules) {
-    const result = pruneNgModules(program, host, basePath, rootNames, sourceFiles, printer);
+  if (schematicOptions.mode === MigrationMode.pruneModules) {
+    const result = pruneNgModules(
+        program, host, basePath, rootNames, sourceFiles, printer, undefined,
+        referenceLookupExcludedFiles);
     pendingChanges = result.pendingChanges;
     filesToRemove = result.filesToRemove;
-  } else if (options.mode === MigrationMode.standaloneBootstrap) {
-    pendingChanges =
-        toStandaloneBootstrap(program, host, basePath, rootNames, sourceFiles, printer);
+  } else if (schematicOptions.mode === MigrationMode.standaloneBootstrap) {
+    pendingChanges = toStandaloneBootstrap(
+        program, host, basePath, rootNames, sourceFiles, printer, undefined,
+        referenceLookupExcludedFiles);
   } else {
-    /** MigrationMode.toStandalone */
+    // This shouldn't happen, but default to `MigrationMode.toStandalone` just in case.
     pendingChanges = toStandalone(sourceFiles, program, printer);
   }
 

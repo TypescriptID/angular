@@ -930,6 +930,41 @@ describe('standalone migration', () => {
     `));
   });
 
+  it('should migrate tests where the declaration is already standalone', async () => {
+    writeFile('comp.ts', `
+      import {Component} from '@angular/core';
+
+      @Component({selector: 'comp', template: '', standalone: true})
+      export class MyComp {}
+    `);
+
+    writeFile('app.spec.ts', `
+      import {TestBed} from '@angular/core/testing';
+      import {MyComp} from './comp';
+
+      describe('bootrstrapping an app', () => {
+        it('should work', () => {
+          TestBed.configureTestingModule({declarations: [MyComp]});
+          expect(() => TestBed.createComponent(MyComp)).not.toThrow();
+        });
+      });
+    `);
+
+    await runMigration('convert-to-standalone');
+
+    expect(stripWhitespace(tree.readContent('app.spec.ts'))).toContain(stripWhitespace(`
+      import {TestBed} from '@angular/core/testing';
+      import {MyComp} from './comp';
+
+      describe('bootrstrapping an app', () => {
+        it('should work', () => {
+          TestBed.configureTestingModule({imports: [MyComp]});
+          expect(() => TestBed.createComponent(MyComp)).not.toThrow();
+        });
+      });
+    `));
+  });
+
   it('should import the module that declares a template dependency', async () => {
     writeFile('./should-migrate/module.ts', `
       import {NgModule} from '@angular/core';
@@ -1091,6 +1126,47 @@ describe('standalone migration', () => {
         TestBed.configureTestingModule({imports: [MatCardModule, App, Hello]});
         const fixture = TestBed.createComponent(App);
         expect(fixture.nativeElement.innerHTML).toBe('<hello>Hello</hello>');
+      });
+    `));
+  });
+
+  it('should not add ModuleWithProviders imports to the `imports` in a test', async () => {
+    writeFile('app.spec.ts', `
+      import {NgModule, Component} from '@angular/core';
+      import {TestBed} from '@angular/core/testing';
+      import {MatCardModule} from '@angular/material/card';
+
+      describe('bootrstrapping an app', () => {
+        it('should work', () => {
+          TestBed.configureTestingModule({
+            declarations: [App],
+            imports: [MatCardModule.forRoot({})]
+          });
+          const fixture = TestBed.createComponent(App);
+          expect(fixture.nativeElement.innerHTML).toBe('hello');
+        });
+      });
+
+      @Component({template: 'hello'})
+      class App {}
+    `);
+
+    await runMigration('convert-to-standalone');
+
+    const content = stripWhitespace(tree.readContent('app.spec.ts'));
+
+    expect(content).toContain(stripWhitespace(`
+      @Component({template: 'hello', standalone: true})
+      class App {}
+    `));
+
+    expect(content).toContain(stripWhitespace(`
+      it('should work', () => {
+        TestBed.configureTestingModule({
+          imports: [MatCardModule.forRoot({}), App]
+        });
+        const fixture = TestBed.createComponent(App);
+        expect(fixture.nativeElement.innerHTML).toBe('hello');
       });
     `));
   });
@@ -1302,6 +1378,46 @@ describe('standalone migration', () => {
       export class RootComp {}
 
       @NgModule({imports: [RootComp], bootstrap: []})
+      export class Mod {}
+    `));
+  });
+
+  it('should migrate declarations that are not being bootstrapped in a root module', async () => {
+    writeFile('dir.ts', `
+      import {Directive} from '@angular/core';
+
+      @Directive({selector: '[foo]'})
+      export class MyDir {}
+    `);
+
+    writeFile('module.ts', `
+      import {NgModule, Component} from '@angular/core';
+      import {MyDir} from './dir';
+
+      @Component({selector: 'root-comp', template: 'hello'})
+      export class RootComp {}
+
+      @NgModule({declarations: [RootComp, MyDir], bootstrap: [RootComp]})
+      export class Mod {}
+    `);
+
+    await runMigration('convert-to-standalone');
+
+    expect(stripWhitespace(tree.readContent('dir.ts'))).toBe(stripWhitespace(`
+      import {Directive} from '@angular/core';
+
+      @Directive({selector: '[foo]', standalone: true})
+      export class MyDir {}
+    `));
+
+    expect(stripWhitespace(tree.readContent('module.ts'))).toBe(stripWhitespace(`
+      import {NgModule, Component} from '@angular/core';
+      import {MyDir} from './dir';
+
+      @Component({selector: 'root-comp', template: 'hello'})
+      export class RootComp {}
+
+      @NgModule({imports: [MyDir], declarations: [RootComp], bootstrap: [RootComp]})
       export class Mod {}
     `));
   });
@@ -2230,6 +2346,65 @@ describe('standalone migration', () => {
     `));
   });
 
+  it('should migrate the root component tests when converting to standalone', async () => {
+    writeFile('main.ts', `
+      import {AppModule} from './app/app.module';
+      import {platformBrowser} from '@angular/platform-browser';
+
+      platformBrowser().bootstrapModule(AppModule).catch(e => console.error(e));
+    `);
+
+    writeFile('./app/app.component.ts', `
+      import {Component} from '@angular/core';
+
+      @Component({template: 'hello'})
+      export class AppComponent {}
+    `);
+
+    writeFile('./app/app.component.spec.ts', `
+      import {TestBed} from '@angular/core/testing';
+      import {AppComponent} from './app.component';
+
+      describe('bootrstrapping an app', () => {
+        it('should work', () => {
+          TestBed.configureTestingModule({declarations: [AppComponent]});
+          const fixture = TestBed.createComponent(AppComponent);
+          expect(fixture.nativeElement.innerHTML).toBe('hello');
+        });
+      });
+    `);
+
+    writeFile('./app/app.module.ts', `
+      import {NgModule} from '@angular/core';
+      import {AppComponent} from './app.component';
+
+      @NgModule({declarations: [AppComponent], bootstrap: [AppComponent]})
+      export class AppModule {}
+    `);
+
+    await runMigration('standalone-bootstrap');
+
+    expect(stripWhitespace(tree.readContent('./app/app.component.ts'))).toBe(stripWhitespace(`
+      import {Component} from '@angular/core';
+
+      @Component({template: 'hello', standalone: true})
+      export class AppComponent {}
+    `));
+
+    expect(stripWhitespace(tree.readContent('./app/app.component.spec.ts'))).toBe(stripWhitespace(`
+      import {TestBed} from '@angular/core/testing';
+      import {AppComponent} from './app.component';
+
+      describe('bootrstrapping an app', () => {
+        it('should work', () => {
+          TestBed.configureTestingModule({imports: [AppComponent]});
+          const fixture = TestBed.createComponent(AppComponent);
+          expect(fixture.nativeElement.innerHTML).toBe('hello');
+        });
+      });
+    `));
+  });
+
   it('should copy providers and the symbols they depend on to the main file', async () => {
     writeFile('main.ts', `
       import {AppModule} from './app/app.module';
@@ -3083,5 +3258,49 @@ describe('standalone migration', () => {
         @Component({template: '<span dir></span>', standalone: true, imports: [Dir]})
         export class AppComponent {}
       `));
+     });
+
+  it('should be able to migrate a bootstrapModule call where the root component does not belong to the bootstrapped component',
+     async () => {
+       writeFile('main.ts', `
+          import {AppModule} from './app/app.module';
+          import {platformBrowser} from '@angular/platform-browser';
+
+          platformBrowser().bootstrapModule(AppModule).catch(e => console.error(e));
+        `);
+
+       writeFile('./app/root.module.ts', `
+          import {NgModule, Component} from '@angular/core';
+
+          @Component({selector: 'root-comp', template: '', standalone: true})
+          export class Root {}
+
+          @NgModule({imports: [Root], exports: [Root]})
+          export class RootModule {}
+        `);
+
+       writeFile('./app/app.module.ts', `
+          import {NgModule, Component} from '@angular/core';
+          import {RootModule, Root} from './root.module';
+
+          @NgModule({
+            imports: [RootModule],
+            bootstrap: [Root]
+          })
+          export class AppModule {}
+        `);
+
+       await runMigration('standalone-bootstrap');
+
+       expect(stripWhitespace(tree.readContent('main.ts'))).toBe(stripWhitespace(`
+          import {AppModule} from './app/app.module';
+          import {platformBrowser, bootstrapApplication} from '@angular/platform-browser';
+          import {importProvidersFrom} from '@angular/core';
+          import {RootModule, Root} from './app/root.module';
+
+          bootstrapApplication(Root, {
+            providers: [importProvidersFrom(RootModule)]
+          }).catch(e => console.error(e));
+        `));
      });
 });

@@ -34,10 +34,20 @@ export function toStandalone(
   const tracker = new ChangeTracker(printer, importRemapper);
 
   for (const sourceFile of sourceFiles) {
-    const {modules, testObjects} = findModulesToMigrate(sourceFile, typeChecker);
-    modules.forEach(
-        module => declarations.push(...extractDeclarationsFromModule(module, templateTypeChecker)));
-    modulesToMigrate.push(...modules);
+    const modules = findNgModuleClassesToMigrate(sourceFile, typeChecker);
+    const testObjects = findTestObjectsToMigrate(sourceFile, typeChecker);
+
+    for (const module of modules) {
+      const allModuleDeclarations = extractDeclarationsFromModule(module, templateTypeChecker);
+      const unbootstrappedDeclarations = filterNonBootstrappedDeclarations(
+          allModuleDeclarations, module, templateTypeChecker, typeChecker);
+
+      if (unbootstrappedDeclarations.length > 0) {
+        modulesToMigrate.push(module);
+        declarations.push(...unbootstrappedDeclarations);
+      }
+    }
+
     testObjectsToMigrate.push(...testObjects);
   }
 
@@ -49,7 +59,8 @@ export function toStandalone(
     migrateNgModuleClass(node, declarations, tracker, typeChecker, templateTypeChecker);
   }
 
-  migrateTestDeclarations(testObjectsToMigrate, declarations, tracker, typeChecker);
+  migrateTestDeclarations(
+      testObjectsToMigrate, declarations, tracker, templateTypeChecker, typeChecker);
   return tracker.recordChanges();
 }
 
@@ -153,12 +164,11 @@ function migrateNgModuleClass(
     node: ts.ClassDeclaration, allDeclarations: Reference<ts.ClassDeclaration>[],
     tracker: ChangeTracker, typeChecker: ts.TypeChecker, templateTypeChecker: TemplateTypeChecker) {
   const decorator = templateTypeChecker.getNgModuleMetadata(node)?.decorator;
+  const metadata = decorator ? extractMetadataLiteral(decorator) : null;
 
-  if (decorator && ts.isCallExpression(decorator.expression) &&
-      decorator.expression.arguments.length === 1 &&
-      ts.isObjectLiteralExpression(decorator.expression.arguments[0])) {
+  if (metadata) {
     moveDeclarationsToImports(
-        decorator.expression.arguments[0], allDeclarations.map(decl => decl.node), typeChecker,
+        metadata, allDeclarations.map(decl => decl.node), typeChecker, templateTypeChecker,
         tracker);
   }
 }
@@ -173,7 +183,8 @@ function migrateNgModuleClass(
  */
 function moveDeclarationsToImports(
     literal: ts.ObjectLiteralExpression, allDeclarations: ts.ClassDeclaration[],
-    typeChecker: ts.TypeChecker, tracker: ChangeTracker): void {
+    typeChecker: ts.TypeChecker, templateTypeChecker: TemplateTypeChecker,
+    tracker: ChangeTracker): void {
   const declarationsProp = findLiteralProperty(literal, 'declarations');
 
   if (!declarationsProp) {
@@ -194,7 +205,12 @@ function moveDeclarationsToImports(
         if (ts.isIdentifier(el)) {
           const correspondingClass = findClassDeclaration(el, typeChecker);
 
-          if (!correspondingClass || allDeclarations.includes(correspondingClass)) {
+          if (!correspondingClass ||
+              // Check whether the declaration is either standalone already or is being converted
+              // in this migration. We need to check if it's standalone already, in order to correct
+              // some cases where the main app and the test files are being migrated in separate
+              // programs.
+              isStandaloneDeclaration(correspondingClass, allDeclarations, templateTypeChecker)) {
             declarationsToCopy.push(el);
           } else {
             declarationsToPreserve.push(el);
@@ -345,47 +361,57 @@ function hasNgModuleMetadataElements(node: ts.Node): node is ts.PropertyAssignme
 }
 
 /** Finds all modules whose declarations can be migrated. */
-function findModulesToMigrate(sourceFile: ts.SourceFile, typeChecker: ts.TypeChecker) {
+function findNgModuleClassesToMigrate(sourceFile: ts.SourceFile, typeChecker: ts.TypeChecker) {
   const modules: ts.ClassDeclaration[] = [];
+
+  if (getImportSpecifier(sourceFile, '@angular/core', 'NgModule')) {
+    sourceFile.forEachChild(function walk(node) {
+      if (ts.isClassDeclaration(node)) {
+        const decorator = getAngularDecorators(typeChecker, ts.getDecorators(node) || [])
+                              .find(current => current.name === 'NgModule');
+        const metadata = decorator ? extractMetadataLiteral(decorator.node) : null;
+
+        if (metadata) {
+          const declarations = findLiteralProperty(metadata, 'declarations');
+
+          if (declarations != null && hasNgModuleMetadataElements(declarations)) {
+            modules.push(node);
+          }
+        }
+      }
+
+      node.forEachChild(walk);
+    });
+  }
+
+  return modules;
+}
+
+/** Finds all testing object literals that need to be migrated. */
+export function findTestObjectsToMigrate(sourceFile: ts.SourceFile, typeChecker: ts.TypeChecker) {
   const testObjects: ts.ObjectLiteralExpression[] = [];
   const testBedImport = getImportSpecifier(sourceFile, '@angular/core/testing', 'TestBed');
   const catalystImport = getImportSpecifier(sourceFile, /testing\/catalyst$/, 'setupModule');
 
-  sourceFile.forEachChild(function walk(node) {
-    if (ts.isClassDeclaration(node)) {
-      const decorator = getAngularDecorators(typeChecker, ts.getDecorators(node) || [])
-                            .find(current => current.name === 'NgModule');
-      const metadata = decorator?.node.expression.arguments[0];
-
-      if (metadata && ts.isObjectLiteralExpression(metadata)) {
-        const declarations = findLiteralProperty(metadata, 'declarations');
-        const bootstrap = findLiteralProperty(metadata, 'bootstrap');
-        const hasDeclarations = declarations != null && hasNgModuleMetadataElements(declarations);
-        const hasBootstrap = bootstrap != null && hasNgModuleMetadataElements(bootstrap);
-
-        // Skip modules that bootstrap components since changing them would also involve
-        // converting `bootstrapModule` calls to `bootstrapApplication`. These declarations
-        // will be converted to standalone in the `standalone-bootstrap` step.
-        if (hasDeclarations && !hasBootstrap) {
-          modules.push(node);
+  if (testBedImport || catalystImport) {
+    sourceFile.forEachChild(function walk(node) {
+      if (ts.isCallExpression(node) && node.arguments.length > 0 &&
+          // `arguments[0]` is the testing module config.
+          ts.isObjectLiteralExpression(node.arguments[0])) {
+        if ((testBedImport && ts.isPropertyAccessExpression(node.expression) &&
+             node.expression.name.text === 'configureTestingModule' &&
+             isReferenceToImport(typeChecker, node.expression.expression, testBedImport)) ||
+            (catalystImport && ts.isIdentifier(node.expression) &&
+             isReferenceToImport(typeChecker, node.expression, catalystImport))) {
+          testObjects.push(node.arguments[0]);
         }
       }
-    } else if (
-        ts.isCallExpression(node) && node.arguments.length > 0 &&
-        ts.isObjectLiteralExpression(node.arguments[0])) {
-      if ((testBedImport && ts.isPropertyAccessExpression(node.expression) &&
-           node.expression.name.text === 'configureTestingModule' &&
-           isReferenceToImport(typeChecker, node.expression.expression, testBedImport)) ||
-          (catalystImport && ts.isIdentifier(node.expression) &&
-           isReferenceToImport(typeChecker, node.expression, catalystImport))) {
-        testObjects.push(node.arguments[0]);
-      }
-    }
 
-    node.forEachChild(walk);
-  });
+      node.forEachChild(walk);
+    });
+  }
 
-  return {modules, testObjects};
+  return testObjects;
 }
 
 /**
@@ -422,25 +448,77 @@ function findTemplateDependencies(
   return results;
 }
 
-/** Extracts classes that are referred to in a module's `declarations` array. */
-function extractDeclarationsFromModule(
+/**
+ * Removes any declarations that are a part of a module's `bootstrap`
+ * array from an array of declarations.
+ * @param declarations Anaalyzed declarations of the module.
+ * @param ngModule Module whote declarations are being filtered.
+ * @param templateTypeChecker
+ * @param typeChecker
+ */
+function filterNonBootstrappedDeclarations(
+    declarations: Reference<ts.ClassDeclaration>[], ngModule: ts.ClassDeclaration,
+    templateTypeChecker: TemplateTypeChecker, typeChecker: ts.TypeChecker) {
+  const metadata = templateTypeChecker.getNgModuleMetadata(ngModule);
+  const metaLiteral =
+      metadata && metadata.decorator ? extractMetadataLiteral(metadata.decorator) : null;
+  const bootstrapProp = metaLiteral ? findLiteralProperty(metaLiteral, 'bootstrap') : null;
+
+  // If there's no `bootstrap`, we can't filter.
+  if (!bootstrapProp) {
+    return declarations;
+  }
+
+  // If we can't analyze the `bootstrap` property, we can't safely determine which
+  // declarations aren't bootstrapped so we assume that all of them are.
+  if (!ts.isPropertyAssignment(bootstrapProp) ||
+      !ts.isArrayLiteralExpression(bootstrapProp.initializer)) {
+    return [];
+  }
+
+  const bootstrappedClasses = new Set<ts.ClassDeclaration>();
+
+  for (const el of bootstrapProp.initializer.elements) {
+    const referencedClass = ts.isIdentifier(el) ? findClassDeclaration(el, typeChecker) : null;
+
+    // If we can resolve an element to a class, we can filter it out,
+    // otherwise assume that the array isn't static.
+    if (referencedClass) {
+      bootstrappedClasses.add(referencedClass);
+    } else {
+      return [];
+    }
+  }
+
+  return declarations.filter(ref => !bootstrappedClasses.has(ref.node));
+}
+
+/**
+ * Extracts all classes that are referenced in a module's `declarations` array.
+ * @param ngModule Module whose declarations are being extraced.
+ * @param templateTypeChecker
+ */
+export function extractDeclarationsFromModule(
     ngModule: ts.ClassDeclaration,
-    typeChecker: TemplateTypeChecker): Reference<ts.ClassDeclaration>[] {
-  return typeChecker.getNgModuleMetadata(ngModule)?.declarations.filter(
-             decl => ts.isClassDeclaration(decl.node)) as Reference<ts.ClassDeclaration>[] ||
-      [];
+    templateTypeChecker: TemplateTypeChecker): Reference<ts.ClassDeclaration>[] {
+  const metadata = templateTypeChecker.getNgModuleMetadata(ngModule);
+  return metadata ? metadata.declarations.filter(decl => ts.isClassDeclaration(decl.node)) as
+          Reference<ts.ClassDeclaration>[] :
+                    [];
 }
 
 /**
  * Migrates the `declarations` from a unit test file to standalone.
  * @param testObjects Object literals used to configure the testing modules.
+ * @param declarationsOutsideOfTestFiles Non-testing declarations that are part of this migration.
  * @param tracker
+ * @param templateTypeChecker
  * @param typeChecker
  */
-function migrateTestDeclarations(
+export function migrateTestDeclarations(
     testObjects: ts.ObjectLiteralExpression[],
     declarationsOutsideOfTestFiles: Reference<ts.ClassDeclaration>[], tracker: ChangeTracker,
-    typeChecker: ts.TypeChecker) {
+    templateTypeChecker: TemplateTypeChecker, typeChecker: ts.TypeChecker) {
   const {decorators, componentImports} = analyzeTestingModules(testObjects, typeChecker);
   const allDeclarations: ts.ClassDeclaration[] =
       declarationsOutsideOfTestFiles.map(ref => ref.node);
@@ -476,7 +554,7 @@ function migrateTestDeclarations(
   }
 
   for (const obj of testObjects) {
-    moveDeclarationsToImports(obj, allDeclarations, typeChecker, tracker);
+    moveDeclarationsToImports(obj, allDeclarations, typeChecker, templateTypeChecker, tracker);
   }
 }
 
@@ -501,7 +579,8 @@ function analyzeTestingModules(
 
     const importsProp = findLiteralProperty(obj, 'imports');
     const importElements = importsProp && hasNgModuleMetadataElements(importsProp) ?
-        importsProp.initializer.elements :
+        // Filter out calls since they may be a `ModuleWithProviders`.
+        importsProp.initializer.elements.filter(el => !ts.isCallExpression(el)) :
         null;
 
     for (const decl of declarations) {
@@ -557,4 +636,31 @@ function extractDeclarationsFromTestObject(
   }
 
   return results;
+}
+
+/** Extracts the metadata object literal from an Angular decorator. */
+function extractMetadataLiteral(decorator: ts.Decorator): ts.ObjectLiteralExpression|null {
+  // `arguments[0]` is the metadata object literal.
+  return ts.isCallExpression(decorator.expression) && decorator.expression.arguments.length === 1 &&
+          ts.isObjectLiteralExpression(decorator.expression.arguments[0]) ?
+      decorator.expression.arguments[0] :
+      null;
+}
+
+/**
+ * Checks whether a class is a standalone declaration.
+ * @param node Class being checked.
+ * @param declarationsInMigration Classes that are being converted to standalone in this migration.
+ * @param templateTypeChecker
+ */
+function isStandaloneDeclaration(
+    node: ts.ClassDeclaration, declarationsInMigration: ts.ClassDeclaration[],
+    templateTypeChecker: TemplateTypeChecker): boolean {
+  if (declarationsInMigration.includes(node)) {
+    return true;
+  }
+
+  const metadata =
+      templateTypeChecker.getDirectiveMetadata(node) || templateTypeChecker.getPipeMetadata(node);
+  return metadata != null && metadata.isStandalone;
 }
