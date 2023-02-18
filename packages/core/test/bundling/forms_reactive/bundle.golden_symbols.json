@@ -408,6 +408,9 @@
     "name": "NodeInjectorFactory"
   },
   {
+    "name": "NoneEncapsulationDomRenderer"
+  },
+  {
     "name": "NullInjector"
   },
   {
@@ -442,6 +445,9 @@
   },
   {
     "name": "R3ViewContainerRef"
+  },
+  {
+    "name": "REMOVE_STYLES_ON_COMPONENT_DESTROY"
   },
   {
     "name": "RadioControlRegistryModule"
@@ -877,9 +883,6 @@
   },
   {
     "name": "findStylingValue"
-  },
-  {
-    "name": "flattenStyles"
   },
   {
     "name": "flattenUnsubscriptionErrors"
@@ -1452,9 +1455,6 @@
     "name": "removeListItem2"
   },
   {
-    "name": "removeStyle"
-  },
-  {
     "name": "removeValidators"
   },
   {
@@ -1555,6 +1555,9 @@
   },
   {
     "name": "shareSubjectFactory"
+  },
+  {
+    "name": "shimStylesContent"
   },
   {
     "name": "shouldSearchParent"
