@@ -6,10 +6,12 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {DOCUMENT} from '@angular/common';
-import {APP_ID, inject, Injectable, NgModule} from '@angular/core';
+import {APP_ID} from './application_tokens';
+import {Injectable} from './di/injectable';
+import {inject} from './di/injector_compatibility';
+import {getDocument} from './render3/interfaces/document';
 
-export function escapeHtml(text: string): string {
+export function escapeTransferStateContent(text: string): string {
   const escapedText: {[k: string]: string} = {
     '&': '&a;',
     '"': '&q;',
@@ -20,7 +22,7 @@ export function escapeHtml(text: string): string {
   return text.replace(/[&"'<>]/g, s => escapedText[s]);
 }
 
-export function unescapeHtml(text: string): string {
+export function unescapeTransferStateContent(text: string): string {
   const unescapedText: {[k: string]: string} = {
     '&a;': '&',
     '&q;': '"',
@@ -89,7 +91,7 @@ export class TransferState {
   private onSerializeCallbacks: {[k: string]: () => unknown | undefined} = {};
 
   constructor() {
-    this.store = retrieveTransferredState(inject(DOCUMENT), inject(APP_ID));
+    this.store = retrieveTransferredState(getDocument(), inject(APP_ID));
   }
 
   /**
@@ -152,7 +154,7 @@ export class TransferState {
   }
 }
 
-export function retrieveTransferredState(doc: Document, appId: string) {
+function retrieveTransferredState(doc: Document, appId: string) {
   // Locate the script tag with the JSON data transferred from the server.
   // The id of the script tag is set to the Angular appId + 'state'.
   const script = doc.getElementById(appId + '-state');
@@ -160,22 +162,10 @@ export function retrieveTransferredState(doc: Document, appId: string) {
   if (script && script.textContent) {
     try {
       // Avoid using any here as it triggers lint errors in google3 (any is not allowed).
-      initialState = JSON.parse(unescapeHtml(script.textContent)) as {};
+      initialState = JSON.parse(unescapeTransferStateContent(script.textContent)) as {};
     } catch (e) {
       console.warn('Exception while restoring TransferState for app ' + appId, e);
     }
   }
   return initialState;
-}
-
-/**
- * NgModule to install on the client side while using the `TransferState` to transfer state from
- * server to client.
- *
- * @publicApi
- * @deprecated no longer needed, you can inject the `TransferState` in an app without providing
- *     this module.
- */
-@NgModule({})
-export class BrowserTransferStateModule {
 }
