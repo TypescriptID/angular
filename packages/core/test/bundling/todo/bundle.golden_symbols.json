@@ -231,6 +231,9 @@
     "name": "NG_ELEMENT_ID"
   },
   {
+    "name": "NG_ENV_ID"
+  },
+  {
     "name": "NG_FACTORY_DEF"
   },
   {
@@ -552,9 +555,6 @@
     "name": "_randomChar"
   },
   {
-    "name": "_symbolIterator"
-  },
-  {
     "name": "_testabilityGetter"
   },
   {
@@ -852,16 +852,10 @@
     "name": "getOrCreateInjectable"
   },
   {
-    "name": "getOrCreateLViewCleanup"
-  },
-  {
     "name": "getOrCreateNodeInjectorForNode"
   },
   {
     "name": "getOrCreateTNode"
-  },
-  {
-    "name": "getOrCreateTViewCleanup"
   },
   {
     "name": "getOrCreateViewRefs"
@@ -904,9 +898,6 @@
   },
   {
     "name": "getSymbolIterator"
-  },
-  {
-    "name": "getSymbolIterator2"
   },
   {
     "name": "getTNode"

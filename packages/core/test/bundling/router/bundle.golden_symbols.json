@@ -138,6 +138,9 @@
     "name": "CreateUrlTreeStrategy"
   },
   {
+    "name": "CreateUrlTreeUsingSnapshot"
+  },
+  {
     "name": "DEFAULT_LOCALE_ID"
   },
   {
@@ -300,9 +303,6 @@
     "name": "LQuery_"
   },
   {
-    "name": "LegacyCreateUrlTree"
-  },
-  {
     "name": "LifecycleHooksFeature"
   },
   {
@@ -370,6 +370,9 @@
   },
   {
     "name": "NG_ELEMENT_ID"
+  },
+  {
+    "name": "NG_ENV_ID"
   },
   {
     "name": "NG_FACTORY_DEF"
@@ -834,9 +837,6 @@
     "name": "_stripIndexHtml"
   },
   {
-    "name": "_symbolIterator"
-  },
-  {
     "name": "_wrapInTimeout"
   },
   {
@@ -1012,9 +1012,6 @@
   },
   {
     "name": "createTemplateRef"
-  },
-  {
-    "name": "createUrlTree"
   },
   {
     "name": "deactivateRouteAndItsChildren"
@@ -1348,9 +1345,6 @@
   },
   {
     "name": "getSymbolIterator"
-  },
-  {
-    "name": "getSymbolIterator2"
   },
   {
     "name": "getTNode"
@@ -1882,9 +1876,6 @@
   },
   {
     "name": "standardizeConfig"
-  },
-  {
-    "name": "storeCleanupWithContext"
   },
   {
     "name": "stringify"
