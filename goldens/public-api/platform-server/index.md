@@ -4,13 +4,13 @@
 
 ```ts
 
+import { ApplicationRef } from '@angular/core';
 import { EnvironmentProviders } from '@angular/core';
 import * as i0 from '@angular/core';
 import * as i1 from '@angular/common/http';
 import * as i2 from '@angular/platform-browser/animations';
 import * as i3 from '@angular/platform-browser';
 import { InjectionToken } from '@angular/core';
-import { NgModuleFactory } from '@angular/core';
 import { PlatformRef } from '@angular/core';
 import { Provider } from '@angular/core';
 import { StaticProvider } from '@angular/core';
@@ -49,6 +49,13 @@ export class PlatformState {
 }
 
 // @public
+export function renderApplication<T>(bootstrap: () => Promise<ApplicationRef>, options: {
+    document?: string | Document;
+    url?: string;
+    platformProviders?: Provider[];
+}): Promise<string>;
+
+// @public
 export function renderApplication<T>(rootComponent: Type<T>, options: {
     appId: string;
     document?: string | Document;
@@ -60,13 +67,6 @@ export function renderApplication<T>(rootComponent: Type<T>, options: {
 // @public
 export function renderModule<T>(moduleType: Type<T>, options: {
     document?: string | Document;
-    url?: string;
-    extraProviders?: StaticProvider[];
-}): Promise<string>;
-
-// @public @deprecated
-export function renderModuleFactory<T>(moduleFactory: NgModuleFactory<T>, options: {
-    document?: string;
     url?: string;
     extraProviders?: StaticProvider[];
 }): Promise<string>;

@@ -6,14 +6,13 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleFactory, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ɵinternalCreateApplication as internalCreateApplication, ɵisPromise} from '@angular/core';
+import {ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ɵgetComponentDef as getComponentDef, ɵinternalCreateApplication as internalCreateApplication, ɵisPromise} from '@angular/core';
 import {BrowserModule, ɵTRANSITION_ID} from '@angular/platform-browser';
 import {first} from 'rxjs/operators';
 
 import {PlatformState} from './platform_state';
-import {platformDynamicServer, platformServer, ServerModule} from './server';
+import {platformDynamicServer, ServerModule} from './server';
 import {BEFORE_APP_SERIALIZED, INITIAL_CONFIG} from './tokens';
-import {TRANSFER_STATE_SERIALIZATION_PROVIDERS} from './transfer_state';
 
 interface PlatformOptions {
   document?: string|Document;
@@ -156,9 +155,35 @@ export function renderModule<T>(moduleType: Type<T>, options: {
 
 /**
  * Bootstraps an instance of an Angular application and renders it to a string.
+
+ * ```typescript
+ * const bootstrap = () => bootstrapApplication(RootComponent, appConfig);
+ * const output: string = await renderApplication(bootstrap);
+ * ```
  *
- * Note: the root component passed into this function *must* be a standalone one (should have the
- * `standalone: true` flag in the `@Component` decorator config).
+ * @param bootstrap A method that when invoked returns a promise that returns an `ApplicationRef`
+ *     instance once resolved.
+ * @param options Additional configuration for the render operation:
+ *  - `document` - the document of the page to render, either as an HTML string or
+ *                 as a reference to the `document` instance.
+ *  - `url` - the URL for the current render request.
+ *  - `platformProviders` - the platform level providers for the current render request.
+ *
+ * @returns A Promise, that returns serialized (to a string) rendered page, once resolved.
+ *
+ * @publicApi
+ * @developerPreview
+ */
+export function renderApplication<T>(bootstrap: () => Promise<ApplicationRef>, options: {
+  document?: string|Document,
+  url?: string,
+  platformProviders?: Provider[],
+}): Promise<string>;
+/**
+ * Bootstraps an instance of an Angular application and renders it to a string.
+ *
+ * Note: the root component passed into this function *must* be a standalone one (should have
+ * the `standalone: true` flag in the `@Component` decorator config).
  *
  * ```typescript
  * @Component({
@@ -187,46 +212,40 @@ export function renderModule<T>(moduleType: Type<T>, options: {
  * @developerPreview
  */
 export function renderApplication<T>(rootComponent: Type<T>, options: {
+  /** @deprecated use `APP_ID` token to set the application ID. */
   appId: string,
   document?: string|Document,
   url?: string,
   providers?: Array<Provider|EnvironmentProviders>,
   platformProviders?: Provider[],
-}): Promise<string> {
-  const {document, url, platformProviders, appId} = options;
+}): Promise<string>;
+export function renderApplication<T>(
+    rootComponentOrBootstrapFn: Type<T>|(() => Promise<ApplicationRef>), options: {
+      appId?: string,
+      document?: string|Document,
+      url?: string,
+      providers?: Array<Provider|EnvironmentProviders>,
+      platformProviders?: Provider[],
+    }): Promise<string> {
+  const {document, url, platformProviders, appId = ''} = options;
   const platform = _getPlatform(platformDynamicServer, {document, url, platformProviders});
+
+  if (isBootstrapFn(rootComponentOrBootstrapFn)) {
+    return _render(platform, rootComponentOrBootstrapFn());
+  }
+
   const appProviders = [
     importProvidersFrom(BrowserModule.withServerTransition({appId})),
     importProvidersFrom(ServerModule),
     ...(options.providers ?? []),
   ];
-  return _render(platform, internalCreateApplication({rootComponent, appProviders}));
+
+  return _render(
+      platform,
+      internalCreateApplication({rootComponent: rootComponentOrBootstrapFn, appProviders}));
 }
 
-/**
- * Bootstraps an application using provided {@link NgModuleFactory} and serializes the page content
- * to string.
- *
- * @param moduleFactory An instance of the {@link NgModuleFactory} that should be used for
- *     bootstrap.
- * @param options Additional configuration for the render operation:
- *  - `document` - the document of the page to render, either as an HTML string or
- *                 as a reference to the `document` instance.
- *  - `url` - the URL for the current render request.
- *  - `extraProviders` - set of platform level providers for the current render request.
- *
- * @publicApi
- *
- * @deprecated
- * This symbol is no longer necessary as of Angular v13.
- * Use {@link renderModule} API instead.
- */
-export function renderModuleFactory<T>(moduleFactory: NgModuleFactory<T>, options: {
-  document?: string,
-  url?: string,
-  extraProviders?: StaticProvider[],
-}): Promise<string> {
-  const {document, url, extraProviders: platformProviders} = options;
-  const platform = _getPlatform(platformServer, {document, url, platformProviders});
-  return _render(platform, platform.bootstrapModuleFactory(moduleFactory));
+function isBootstrapFn(value: unknown): value is() => Promise<ApplicationRef> {
+  // We can differentiate between a component and a bootstrap function by reading `cmp`:
+  return typeof value === 'function' && !getComponentDef(value);
 }

@@ -50,6 +50,11 @@ export const APP_ID: InjectionToken<string>;
 export const APP_INITIALIZER: InjectionToken<readonly (() => Observable<unknown> | Promise<unknown> | void)[]>;
 
 // @public
+export interface ApplicationConfig {
+    providers: Array<Provider | EnvironmentProviders>;
+}
+
+// @public
 export class ApplicationInitStatus {
     constructor(appInits: ReadonlyArray<() => Observable<unknown> | Promise<unknown> | void>);
     // (undocumented)
@@ -906,6 +911,9 @@ export const LOCALE_ID: InjectionToken<string>;
 
 // @public
 export function makeEnvironmentProviders(providers: (Provider | EnvironmentProviders)[]): EnvironmentProviders;
+
+// @public
+export function mergeApplicationConfig(...configs: ApplicationConfig[]): ApplicationConfig;
 
 // @public
 export enum MissingTranslationStrategy {

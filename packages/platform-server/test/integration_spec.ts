@@ -10,10 +10,10 @@ import {animate, AnimationBuilder, state, style, transition, trigger} from '@ang
 import {DOCUMENT, isPlatformServer, PlatformLocation, ɵgetDOM as getDOM} from '@angular/common';
 import {HTTP_INTERCEPTORS, HttpClient, HttpClientModule, HttpEvent, HttpHandler, HttpInterceptor, HttpRequest} from '@angular/common/http';
 import {HttpClientTestingModule, HttpTestingController} from '@angular/common/http/testing';
-import {ApplicationRef, CompilerFactory, Component, destroyPlatform, getPlatform, HostListener, Inject, inject as coreInject, Injectable, Input, NgModule, NgZone, PLATFORM_ID, PlatformRef, ViewEncapsulation} from '@angular/core';
-import {inject, TestBed, waitForAsync} from '@angular/core/testing';
-import {BrowserModule, makeStateKey, Title, TransferState} from '@angular/platform-browser';
-import {BEFORE_APP_SERIALIZED, INITIAL_CONFIG, platformDynamicServer, PlatformState, renderModule, renderModuleFactory, ServerModule} from '@angular/platform-server';
+import {ApplicationRef, Component, destroyPlatform, getPlatform, HostListener, importProvidersFrom, Inject, inject as coreInject, Injectable, Input, NgModule, NgZone, PLATFORM_ID, ViewEncapsulation} from '@angular/core';
+import {TestBed, waitForAsync} from '@angular/core/testing';
+import {bootstrapApplication, BrowserModule, makeStateKey, Title, TransferState} from '@angular/platform-browser';
+import {BEFORE_APP_SERIALIZED, INITIAL_CONFIG, platformDynamicServer, PlatformState, renderModule, ServerModule} from '@angular/platform-server';
 import {Observable} from 'rxjs';
 import {first} from 'rxjs/operators';
 
@@ -202,6 +202,13 @@ function createMyAsyncServerApp(standalone: boolean) {
 
 const MyAsyncServerApp = createMyAsyncServerApp(false);
 const MyAsyncServerAppStandalone = createMyAsyncServerApp(true);
+
+const boostrapMyAsyncServerAppStandalone = () => bootstrapApplication(MyAsyncServerAppStandalone, {
+  providers: [
+    importProvidersFrom(BrowserModule.withServerTransition({appId: 'simple-cmp'})),
+    importProvidersFrom(ServerModule),
+  ]
+});
 
 @NgModule({
   declarations: [MyAsyncServerApp],
@@ -702,17 +709,40 @@ describe('platform-server integration', () => {
              });
        }));
 
-    it('using renderModuleFactory should work',
-       waitForAsync(inject([PlatformRef], (defaultPlatform: PlatformRef) => {
-         const compilerFactory: CompilerFactory =
-             defaultPlatform.injector.get(CompilerFactory, null)!;
-         const moduleFactory =
-             compilerFactory.createCompiler().compileModuleSync(AsyncServerModule);
-         renderModuleFactory(moduleFactory, {document: doc}).then(output => {
-           expect(output).toBe(expectedOutput);
-           called = true;
-         });
-       })));
+    it(`using renderApplication with boostrapping function call works`, waitForAsync(() => {
+         const document = TestBed.inject(DOCUMENT);
+
+         // Append root element based on the app selector.
+         const rootEl = document.createElement('app');
+         document.body.appendChild(rootEl);
+
+         // Append a special marker to verify that we use a correct instance
+         // of the document for rendering.
+         const markerEl = document.createComment('test marker');
+         document.body.appendChild(markerEl);
+
+         const platformProviders = [{
+           provide: SERVER_CONTEXT,
+           useValue: 'ssr',
+         }];
+
+         const render =
+             renderApplication(boostrapMyAsyncServerAppStandalone, {document, platformProviders});
+
+         render
+             .then(output => {
+               expect(output).toBe(
+                   '<html><head><title>fakeTitle</title></head>' +
+                   '<body><app ng-version="0.0.0-PLACEHOLDER" ng-server-context="ssr">' +
+                   'Works!<h1 textcontent="fine">fine</h1></app>' +
+                   '<!--test marker--></body></html>');
+               called = true;
+             })
+             .finally(() => {
+               rootEl.remove();
+               markerEl.remove();
+             });
+       }));
 
     // Run the set of tests with regular and standalone components.
     [true, false].forEach((isStandalone: boolean) => {
