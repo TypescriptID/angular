@@ -276,6 +276,9 @@
     "name": "NoneEncapsulationDomRenderer"
   },
   {
+    "name": "NoopNgZone"
+  },
+  {
     "name": "NullInjector"
   },
   {
@@ -700,6 +703,9 @@
   },
   {
     "name": "incrementInitPhaseFlags"
+  },
+  {
+    "name": "inject"
   },
   {
     "name": "injectArgs"

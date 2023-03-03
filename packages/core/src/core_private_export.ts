@@ -11,7 +11,6 @@ export {APP_ID_RANDOM_PROVIDER as ɵAPP_ID_RANDOM_PROVIDER} from './application_
 export {defaultIterableDiffers as ɵdefaultIterableDiffers, defaultKeyValueDiffers as ɵdefaultKeyValueDiffers} from './change_detection/change_detection';
 export {ChangeDetectorStatus as ɵChangeDetectorStatus, isDefaultChangeDetectionStrategy as ɵisDefaultChangeDetectionStrategy} from './change_detection/constants';
 export {Console as ɵConsole} from './console';
-export {getDebugNodeR2 as ɵgetDebugNodeR2} from './debug/debug_node';
 export {convertToBitFlags as ɵconvertToBitFlags, setCurrentInjector as ɵsetCurrentInjector} from './di/injector_compatibility';
 export {getInjectableDef as ɵgetInjectableDef, ɵɵInjectableDeclaration, ɵɵInjectorDef} from './di/interface/defs';
 export {InternalEnvironmentProviders as ɵInternalEnvironmentProviders, isEnvironmentProviders as ɵisEnvironmentProviders} from './di/interface/provider';
@@ -32,7 +31,6 @@ export {coerceToBoolean as ɵcoerceToBoolean} from './util/coercion';
 export {devModeEqual as ɵdevModeEqual} from './util/comparison';
 export {makeDecorator as ɵmakeDecorator} from './util/decorators';
 export {global as ɵglobal} from './util/global';
-export {isListLikeIterable as ɵisListLikeIterable} from './util/iterable';
 export {isObservable as ɵisObservable, isPromise as ɵisPromise, isSubscribable as ɵisSubscribable} from './util/lang';
 export {stringify as ɵstringify} from './util/stringify';
 export {NOT_FOUND_CHECK_ONLY_ELEMENT_INJECTOR as ɵNOT_FOUND_CHECK_ONLY_ELEMENT_INJECTOR} from './view/provider_flags';
