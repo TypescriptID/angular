@@ -321,6 +321,9 @@
     "name": "PLATFORM_INITIALIZER"
   },
   {
+    "name": "PRESERVE_HOST_CONTENT"
+  },
+  {
     "name": "PlatformRef"
   },
   {
@@ -468,6 +471,9 @@
     "name": "_keyMap"
   },
   {
+    "name": "_locateOrCreateElementNode"
+  },
+  {
     "name": "_platformInjector"
   },
   {
@@ -477,7 +483,13 @@
     "name": "_randomChar"
   },
   {
+    "name": "_retrieveHydrationInfoImpl"
+  },
+  {
     "name": "_testabilityGetter"
+  },
+  {
+    "name": "_wasLastNodeCreated"
   },
   {
     "name": "_wrapInTimeout"
@@ -894,6 +906,9 @@
     "name": "iterator"
   },
   {
+    "name": "lastNodeWasCreated"
+  },
+  {
     "name": "leaveDI"
   },
   {
@@ -1020,6 +1035,9 @@
     "name": "resolveForwardRef"
   },
   {
+    "name": "retrieveHydrationInfo"
+  },
+  {
     "name": "rxSubscriber"
   },
   {
@@ -1120,6 +1138,9 @@
   },
   {
     "name": "walkProviderTree"
+  },
+  {
+    "name": "wasLastNodeCreated"
   },
   {
     "name": "writeDirectClass"

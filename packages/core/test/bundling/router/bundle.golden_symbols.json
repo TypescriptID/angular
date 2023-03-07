@@ -360,10 +360,10 @@
     "name": "NG_COMP_DEF"
   },
   {
-    "name": "NG_DEV_MODE"
+    "name": "NG_DEV_MODE2"
   },
   {
-    "name": "NG_DEV_MODE5"
+    "name": "NG_DEV_MODE6"
   },
   {
     "name": "NG_DIR_DEF"
@@ -508,6 +508,9 @@
   },
   {
     "name": "PLATFORM_INITIALIZER"
+  },
+  {
+    "name": "PRESERVE_HOST_CONTENT"
   },
   {
     "name": "PRIMARY_OUTLET"
@@ -828,6 +831,12 @@
     "name": "_keyMap"
   },
   {
+    "name": "_locateOrCreateElementNode"
+  },
+  {
+    "name": "_locateOrCreateTextNode"
+  },
+  {
     "name": "_platformInjector"
   },
   {
@@ -837,7 +846,13 @@
     "name": "_randomChar"
   },
   {
+    "name": "_retrieveHydrationInfoImpl"
+  },
+  {
     "name": "_stripIndexHtml"
+  },
+  {
+    "name": "_wasLastNodeCreated"
   },
   {
     "name": "_wrapInTimeout"
@@ -1566,6 +1581,9 @@
     "name": "last2"
   },
   {
+    "name": "lastNodeWasCreated"
+  },
+  {
     "name": "leaveDI"
   },
   {
@@ -1776,6 +1794,9 @@
     "name": "resolveForwardRef"
   },
   {
+    "name": "retrieveHydrationInfo"
+  },
+  {
     "name": "rootRoute"
   },
   {
@@ -1972,6 +1993,9 @@
   },
   {
     "name": "walkProviderTree"
+  },
+  {
+    "name": "wasLastNodeCreated"
   },
   {
     "name": "wrapIntoObservable"

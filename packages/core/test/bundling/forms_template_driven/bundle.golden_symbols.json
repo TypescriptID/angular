@@ -285,10 +285,10 @@
     "name": "NG_COMP_DEF"
   },
   {
-    "name": "NG_DEV_MODE3"
+    "name": "NG_DEV_MODE4"
   },
   {
-    "name": "NG_DEV_MODE4"
+    "name": "NG_DEV_MODE5"
   },
   {
     "name": "NG_DIR_DEF"
@@ -427,6 +427,9 @@
   },
   {
     "name": "PLATFORM_INITIALIZER"
+  },
+  {
+    "name": "PRESERVE_HOST_CONTENT"
   },
   {
     "name": "PlatformRef"
@@ -624,6 +627,12 @@
     "name": "_keyMap"
   },
   {
+    "name": "_locateOrCreateElementNode"
+  },
+  {
+    "name": "_locateOrCreateTextNode"
+  },
+  {
     "name": "_platformInjector"
   },
   {
@@ -633,7 +642,13 @@
     "name": "_randomChar"
   },
   {
+    "name": "_retrieveHydrationInfoImpl"
+  },
+  {
     "name": "_testabilityGetter"
+  },
+  {
+    "name": "_wasLastNodeCreated"
   },
   {
     "name": "_wrapInTimeout"
@@ -1224,6 +1239,9 @@
     "name": "keyValueArraySet"
   },
   {
+    "name": "lastNodeWasCreated"
+  },
+  {
     "name": "leaveDI"
   },
   {
@@ -1446,6 +1464,9 @@
     "name": "resolvedPromise2"
   },
   {
+    "name": "retrieveHydrationInfo"
+  },
+  {
     "name": "rxSubscriber"
   },
   {
@@ -1582,6 +1603,9 @@
   },
   {
     "name": "walkProviderTree"
+  },
+  {
+    "name": "wasLastNodeCreated"
   },
   {
     "name": "wrapListener"

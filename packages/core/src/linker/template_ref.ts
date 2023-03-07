@@ -79,10 +79,10 @@ const R3TemplateRef = class TemplateRef<T> extends ViewEngineTemplateRef<T> {
   }
 
   override createEmbeddedView(context: T, injector?: Injector): EmbeddedViewRef<T> {
-    const embeddedTView = this._declarationTContainer.tViews as TView;
+    const embeddedTView = this._declarationTContainer.tView as TView;
     const embeddedLView = createLView(
         this._declarationLView, embeddedTView, context, LViewFlags.CheckAlways, null,
-        embeddedTView.declTNode, null, null, null, null, injector || null);
+        embeddedTView.declTNode, null, null, null, null, injector || null, null);
 
     const declarationLContainer = this._declarationLView[this._declarationTContainer.index];
     ngDevMode && assertLContainer(declarationLContainer);
@@ -117,7 +117,7 @@ export function injectTemplateRef<T>(): TemplateRef<T>|null {
  */
 export function createTemplateRef<T>(hostTNode: TNode, hostLView: LView): TemplateRef<T>|null {
   if (hostTNode.type & TNodeType.Container) {
-    ngDevMode && assertDefined(hostTNode.tViews, 'TView must be allocated');
+    ngDevMode && assertDefined(hostTNode.tView, 'TView must be allocated');
     return new R3TemplateRef(
         hostLView, hostTNode as TContainerNode, createElementRef(hostTNode, hostLView));
   }
