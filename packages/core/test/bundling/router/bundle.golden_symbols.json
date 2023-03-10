@@ -942,9 +942,6 @@
     "name": "compare"
   },
   {
-    "name": "componentDefCount"
-  },
-  {
     "name": "computeStaticStyling"
   },
   {
@@ -1143,6 +1140,9 @@
     "name": "executeViewQueryFn"
   },
   {
+    "name": "extractDefListOrFactory"
+  },
+  {
     "name": "extractDirectiveDef"
   },
   {
@@ -1212,6 +1212,9 @@
     "name": "getComponentDef"
   },
   {
+    "name": "getComponentId"
+  },
+  {
     "name": "getComponentLViewByIndex"
   },
   {
@@ -1276,6 +1279,9 @@
   },
   {
     "name": "getNextLContainer"
+  },
+  {
+    "name": "getNgDirectiveDef"
   },
   {
     "name": "getNgModuleDef"
@@ -1413,6 +1419,9 @@
     "name": "inheritedParamsDataResolve"
   },
   {
+    "name": "initFeatures"
+  },
+  {
     "name": "initializeDirectives"
   },
   {
@@ -1537,9 +1546,6 @@
   },
   {
     "name": "isObject"
-  },
-  {
-    "name": "isObservable"
   },
   {
     "name": "isPositive"

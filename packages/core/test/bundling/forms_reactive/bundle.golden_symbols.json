@@ -492,9 +492,6 @@
     "name": "RuntimeError"
   },
   {
-    "name": "SERVER_TRANSITION_PROVIDERS"
-  },
-  {
     "name": "SIMPLE_CHANGES_STORE"
   },
   {
@@ -556,9 +553,6 @@
   },
   {
     "name": "TRACKED_LVIEWS"
-  },
-  {
-    "name": "TRANSITION_ID"
   },
   {
     "name": "TYPE"
@@ -753,9 +747,6 @@
     "name": "collectStylingFromTAttrs"
   },
   {
-    "name": "componentDefCount"
-  },
-  {
     "name": "compose"
   },
   {
@@ -888,6 +879,9 @@
     "name": "executeViewQueryFn"
   },
   {
+    "name": "extractDefListOrFactory"
+  },
+  {
     "name": "extractDirectiveDef"
   },
   {
@@ -940,6 +934,9 @@
   },
   {
     "name": "getComponentDef"
+  },
+  {
+    "name": "getComponentId"
   },
   {
     "name": "getComponentLViewByIndex"
@@ -1003,6 +1000,9 @@
   },
   {
     "name": "getNextLContainer"
+  },
+  {
+    "name": "getNgDirectiveDef"
   },
   {
     "name": "getNodeInjectable"
@@ -1128,6 +1128,9 @@
     "name": "inheritViewQuery"
   },
   {
+    "name": "initFeatures"
+  },
+  {
     "name": "initializeDirectives"
   },
   {
@@ -1236,9 +1239,6 @@
     "name": "isObject"
   },
   {
-    "name": "isObservable"
-  },
-  {
     "name": "isOptionsObj"
   },
   {
@@ -1258,6 +1258,9 @@
   },
   {
     "name": "isStylingValuePresent"
+  },
+  {
+    "name": "isSubscribable"
   },
   {
     "name": "isTemplateNode"

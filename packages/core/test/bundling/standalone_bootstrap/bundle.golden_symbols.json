@@ -495,9 +495,6 @@
     "name": "collectNativeNodes"
   },
   {
-    "name": "componentDefCount"
-  },
-  {
     "name": "concatStringsWithSpace"
   },
   {
@@ -576,6 +573,9 @@
     "name": "executeViewQueryFn"
   },
   {
+    "name": "extractDefListOrFactory"
+  },
+  {
     "name": "extractDirectiveDef"
   },
   {
@@ -601,6 +601,9 @@
   },
   {
     "name": "getComponentDef"
+  },
+  {
+    "name": "getComponentId"
   },
   {
     "name": "getComponentLViewByIndex"
