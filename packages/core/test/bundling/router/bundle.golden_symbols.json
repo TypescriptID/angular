@@ -276,6 +276,9 @@
     "name": "INJECTOR_SCOPE"
   },
   {
+    "name": "INTERNAL_APPLICATION_ERROR_HANDLER"
+  },
+  {
     "name": "INTERNAL_BROWSER_PLATFORM_PROVIDERS"
   },
   {
@@ -466,6 +469,9 @@
   },
   {
     "name": "NgZone"
+  },
+  {
+    "name": "NgZoneChangeDetectionScheduler"
   },
   {
     "name": "NoMatch"
@@ -801,6 +807,9 @@
     "name": "XSS_SECURITY_URL"
   },
   {
+    "name": "ZONE_IS_STABLE_OBSERVABLE"
+  },
+  {
     "name": "_DOM"
   },
   {
@@ -816,6 +825,9 @@
     "name": "_enable_super_gross_mode_that_will_cause_bad_things"
   },
   {
+    "name": "_findMatchingDehydratedViewImpl"
+  },
+  {
     "name": "_getInsertInFrontOfRNodeWithI18n"
   },
   {
@@ -829,6 +841,9 @@
   },
   {
     "name": "_keyMap"
+  },
+  {
+    "name": "_locateOrCreateAnchorNode"
   },
   {
     "name": "_locateOrCreateElementNode"
@@ -1155,6 +1170,9 @@
     "name": "findAttrIndexInNode"
   },
   {
+    "name": "findMatchingDehydratedView"
+  },
+  {
     "name": "findNode"
   },
   {
@@ -1210,9 +1228,6 @@
   },
   {
     "name": "getComponentDef"
-  },
-  {
-    "name": "getComponentId"
   },
   {
     "name": "getComponentLViewByIndex"
@@ -1563,6 +1578,9 @@
     "name": "isScheduler"
   },
   {
+    "name": "isStableFactory"
+  },
+  {
     "name": "isTemplateNode"
   },
   {
@@ -1683,6 +1701,9 @@
     "name": "ngOnChangesSetInput"
   },
   {
+    "name": "ngZoneApplicationErrorHandlerFactory"
+  },
+  {
     "name": "noLeftoversInUrl"
   },
   {
@@ -1747,6 +1768,9 @@
   },
   {
     "name": "promise"
+  },
+  {
+    "name": "provideNgZoneChangeDetection"
   },
   {
     "name": "redirectIfUrlTree"

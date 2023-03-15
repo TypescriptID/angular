@@ -10,7 +10,7 @@ import {Injector} from '../../di/injector';
 import {ErrorHandler} from '../../error_handler';
 import {RuntimeError, RuntimeErrorCode} from '../../errors';
 import {DehydratedView} from '../../hydration/interfaces';
-import {IS_HYDRATION_FEATURE_ENABLED, PRESERVE_HOST_CONTENT, PRESERVE_HOST_CONTENT_DEFAULT} from '../../hydration/tokens';
+import {PRESERVE_HOST_CONTENT, PRESERVE_HOST_CONTENT_DEFAULT} from '../../hydration/tokens';
 import {retrieveHydrationInfo} from '../../hydration/utils';
 import {DoCheck, OnChanges, OnInit} from '../../interface/lifecycle_hooks';
 import {SchemaMetadata} from '../../metadata/schema';
@@ -575,7 +575,7 @@ export function getOrCreateComponentTView(def: ComponentDef<any>): TView {
     const declTNode = null;
     return def.tView = createTView(
                TViewType.Component, declTNode, def.template, def.decls, def.vars, def.directiveDefs,
-               def.pipeDefs, def.viewQuery, def.schemas, def.consts);
+               def.pipeDefs, def.viewQuery, def.schemas, def.consts, def.id);
   }
 
   return tView;
@@ -599,7 +599,7 @@ export function createTView(
     type: TViewType, declTNode: TNode|null, templateFn: ComponentTemplate<any>|null, decls: number,
     vars: number, directives: DirectiveDefListOrFactory|null, pipes: PipeDefListOrFactory|null,
     viewQuery: ViewQueriesFunction<any>|null, schemas: SchemaMetadata[]|null,
-    constsOrFactory: TConstantsOrFactory|null): TView {
+    constsOrFactory: TConstantsOrFactory|null, ssrId: string|null): TView {
   ngDevMode && ngDevMode.tView++;
   const bindingStartIndex = HEADER_OFFSET + decls;
   // This length does not yet contain host bindings from child directives because at this point,
@@ -638,7 +638,8 @@ export function createTView(
     firstChild: null,
     schemas: schemas,
     consts: consts,
-    incompleteFirstPass: false
+    incompleteFirstPass: false,
+    ssrId,
   };
   if (ngDevMode) {
     // For performance reasons it is important that the tView retains the same shape during runtime.
@@ -1556,6 +1557,7 @@ export function createLContainer(
     native,       // native,
     null,         // view refs
     null,         // moved views
+    null,         // dehydrated views
   ];
   ngDevMode &&
       assertEqual(

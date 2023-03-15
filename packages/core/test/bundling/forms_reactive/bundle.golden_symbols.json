@@ -237,6 +237,9 @@
     "name": "INJECTOR_SCOPE"
   },
   {
+    "name": "INTERNAL_APPLICATION_ERROR_HANDLER"
+  },
+  {
     "name": "InjectFlags"
   },
   {
@@ -405,6 +408,9 @@
     "name": "NgZone"
   },
   {
+    "name": "NgZoneChangeDetectionScheduler"
+  },
+  {
     "name": "NodeInjector"
   },
   {
@@ -540,6 +546,9 @@
     "name": "Subscription"
   },
   {
+    "name": "TEMPLATES"
+  },
+  {
     "name": "TESTABILITY"
   },
   {
@@ -597,6 +606,9 @@
     "name": "ViewRef"
   },
   {
+    "name": "ZONE_IS_STABLE_OBSERVABLE"
+  },
+  {
     "name": "_DOM"
   },
   {
@@ -615,6 +627,9 @@
     "name": "_enable_super_gross_mode_that_will_cause_bad_things"
   },
   {
+    "name": "_findMatchingDehydratedViewImpl"
+  },
+  {
     "name": "_getInsertInFrontOfRNodeWithI18n"
   },
   {
@@ -631,6 +646,12 @@
   },
   {
     "name": "_keyMap"
+  },
+  {
+    "name": "_locateOrCreateAnchorNode"
+  },
+  {
+    "name": "_locateOrCreateContainerAnchor"
   },
   {
     "name": "_locateOrCreateElementNode"
@@ -891,6 +912,9 @@
     "name": "findAttrIndexInNode"
   },
   {
+    "name": "findMatchingDehydratedView"
+  },
+  {
     "name": "findStylingValue"
   },
   {
@@ -910,6 +934,9 @@
   },
   {
     "name": "formGroupNameProvider"
+  },
+  {
+    "name": "formatRuntimeError"
   },
   {
     "name": "forwardRef"
@@ -934,9 +961,6 @@
   },
   {
     "name": "getComponentDef"
-  },
-  {
-    "name": "getComponentId"
   },
   {
     "name": "getComponentLViewByIndex"
@@ -1254,6 +1278,9 @@
     "name": "isPromise2"
   },
   {
+    "name": "isStableFactory"
+  },
+  {
     "name": "isStylingMatch"
   },
   {
@@ -1378,6 +1405,9 @@
   },
   {
     "name": "ngOnChangesSetInput"
+  },
+  {
+    "name": "ngZoneApplicationErrorHandlerFactory"
   },
   {
     "name": "noSideEffects"
