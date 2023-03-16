@@ -19,9 +19,15 @@ import {renderApplication} from '../src/utils';
  * could be found.
  */
 const NGH_ATTR_NAME = 'ngh';
+const EMPTY_TEXT_NODE_COMMENT = 'ngetn';
+const TEXT_NODE_SEPARATOR_COMMENT = 'ngtns';
+
 const SKIP_HYDRATION_ATTR_NAME = 'ngSkipHydration';
 const SKIP_HYDRATION_ATTR_NAME_LOWER_CASE = SKIP_HYDRATION_ATTR_NAME.toLowerCase();
+
 const NGH_ATTR_REGEXP = new RegExp(` ${NGH_ATTR_NAME}=".*?"`, 'g');
+const EMPTY_TEXT_NODE_REGEXP = new RegExp(`<!--${EMPTY_TEXT_NODE_COMMENT}-->`, 'g');
+const TEXT_NODE_SEPARATOR_REGEXP = new RegExp(`<!--${TEXT_NODE_SEPARATOR_COMMENT}-->`, 'g');
 
 /**
  * Drop utility attributes such as `ng-version`, `ng-server-context` and `ngh`,
@@ -31,7 +37,9 @@ function stripUtilAttributes(html: string, keepNgh: boolean): string {
   html = html.replace(/ ng-version=".*?"/g, '')  //
              .replace(/ ng-server-context=".*?"/g, '');
   if (!keepNgh) {
-    html = html.replace(NGH_ATTR_REGEXP, '');
+    html = html.replace(NGH_ATTR_REGEXP, '')
+               .replace(EMPTY_TEXT_NODE_REGEXP, '')
+               .replace(TEXT_NODE_SEPARATOR_REGEXP, '');
   }
   return html;
 }
@@ -1653,6 +1661,109 @@ describe('platform-server integration', () => {
            verifyAllNodesClaimedForHydration(clientRootNode);
            verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
          });
+    });
+
+    describe('corrupted text nodes restoration', () => {
+      it('should support empty text nodes', async () => {
+        @Component({
+          standalone: true,
+          selector: 'app',
+          template: `
+            This is hydrated content.
+            <span>{{spanText}}</span>.
+            <p>{{pText}}</p>
+            <div>{{anotherText}}</div>
+          `,
+        })
+        class SimpleComponent {
+          spanText = '';
+          pText = '';
+          anotherText = '';
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent);
+
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        const clientRootNode = compRef.location.nativeElement;
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
+      });
+
+      it('should support restoration of multiple text nodes in a row', async () => {
+        @Component({
+          standalone: true,
+          selector: 'app',
+          template: `
+            This is hydrated content.<span>{{emptyText}}{{moreText}}{{andMoreText}}</span>.
+            <p>{{secondEmptyText}}{{secondMoreText}}</p>
+          `,
+        })
+        class SimpleComponent {
+          emptyText = '';
+          moreText = '';
+          andMoreText = '';
+          secondEmptyText = '';
+          secondMoreText = '';
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent);
+
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        const clientRootNode = compRef.location.nativeElement;
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
+      });
+
+      it('should support projected text node content with plain text nodes', async () => {
+        @Component({
+          standalone: true,
+          selector: 'app',
+          imports: [NgIf],
+          template: `
+            <div>
+              Hello
+              <ng-container *ngIf="true">Angular</ng-container>
+              <ng-container *ngIf="true">World</ng-container>
+            </div>
+          `,
+        })
+        class SimpleComponent {
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent);
+
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        const clientRootNode = compRef.location.nativeElement;
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
+      });
     });
   });
 });

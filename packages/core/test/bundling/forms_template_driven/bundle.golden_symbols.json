@@ -123,6 +123,9 @@
     "name": "ControlContainer"
   },
   {
+    "name": "DEFAULT_APP_ID"
+  },
+  {
     "name": "DEFAULT_VALUE_ACCESSOR"
   },
   {
@@ -438,6 +441,9 @@
     "name": "PRESERVE_HOST_CONTENT"
   },
   {
+    "name": "PRESERVE_HOST_CONTENT_DEFAULT"
+  },
+  {
     "name": "PlatformRef"
   },
   {
@@ -612,6 +618,9 @@
     "name": "__forward_ref__"
   },
   {
+    "name": "_applyRootElementTransformImpl"
+  },
+  {
     "name": "_currentInjector"
   },
   {
@@ -652,9 +661,6 @@
   },
   {
     "name": "_processI18nInsertBefore"
-  },
-  {
-    "name": "_randomChar"
   },
   {
     "name": "_retrieveHydrationInfoImpl"
