@@ -42,6 +42,9 @@
     "name": "CONTAINER_HEADER_OFFSET"
   },
   {
+    "name": "CSP_NONCE"
+  },
+  {
     "name": "ChangeDetectionStrategy"
   },
   {
@@ -76,6 +79,9 @@
   },
   {
     "name": "DI_DECORATOR_FLAG"
+  },
+  {
+    "name": "DOCUMENT"
   },
   {
     "name": "DOCUMENT2"
@@ -639,6 +645,9 @@
     "name": "getFactoryDef"
   },
   {
+    "name": "getFactoryOf"
+  },
+  {
     "name": "getFirstLContainer"
   },
   {
@@ -777,6 +786,9 @@
     "name": "isEnvironmentProviders"
   },
   {
+    "name": "isForwardRef"
+  },
+  {
     "name": "isFunction"
   },
   {
@@ -862,6 +874,9 @@
   },
   {
     "name": "ngZoneApplicationErrorHandlerFactory"
+  },
+  {
+    "name": "noSideEffects"
   },
   {
     "name": "nonNull"
