@@ -9,6 +9,7 @@
 import {ApplicationRef} from '../application_ref';
 import {collectNativeNodes} from '../render3/collect_native_nodes';
 import {CONTAINER_HEADER_OFFSET, LContainer} from '../render3/interfaces/container';
+import {TI18n} from '../render3/interfaces/i18n';
 import {TNode, TNodeType} from '../render3/interfaces/node';
 import {RElement} from '../render3/interfaces/renderer_dom';
 import {isLContainer, isProjectionTNode, isRootView} from '../render3/interfaces/type_checks';
@@ -16,8 +17,8 @@ import {HEADER_OFFSET, HOST, LView, RENDERER, TView, TVIEW, TViewType} from '../
 import {unwrapRNode} from '../render3/util/view_utils';
 import {TransferState} from '../transfer_state';
 
-import {unsupportedProjectionOfDomNodes} from './error_handling';
-import {CONTAINERS, ELEMENT_CONTAINERS, NODES, NUM_ROOT_NODES, SerializedContainerView, SerializedView, TEMPLATE_ID, TEMPLATES} from './interfaces';
+import {notYetSupportedI18nBlockError, unsupportedProjectionOfDomNodes} from './error_handling';
+import {CONTAINERS, DISCONNECTED_NODES, ELEMENT_CONTAINERS, MULTIPLIER, NODES, NUM_ROOT_NODES, SerializedContainerView, SerializedView, TEMPLATE_ID, TEMPLATES} from './interfaces';
 import {calcPathForNode} from './node_lookup_utils';
 import {isInSkipHydrationBlock, SKIP_HYDRATION_ATTR_NAME} from './skip_hydration';
 import {getComponentLViewForHydration, NGH_ATTR_NAME, NGH_DATA_KEY, TextNodeMarker} from './utils';
@@ -134,6 +135,7 @@ export function annotateForHydration(appRef: ApplicationRef, doc: Document) {
 function serializeLContainer(
     lContainer: LContainer, context: HydrationContext): SerializedContainerView[] {
   const views: SerializedContainerView[] = [];
+  let lastViewAsString: string = '';
 
   for (let i = CONTAINER_HEADER_OFFSET; i < lContainer.length; i++) {
     let childLView = lContainer[i] as LView;
@@ -164,7 +166,19 @@ function serializeLContainer(
       ...serializeLView(lContainer[i] as LView, context),
     };
 
-    views.push(view);
+    // Check if the previous view has the same shape (for example, it was
+    // produced by the *ngFor), in which case bump the counter on the previous
+    // view instead of including the same information again.
+    const currentViewAsString = JSON.stringify(view);
+    if (views.length > 0 && currentViewAsString === lastViewAsString) {
+      const previousView = views[views.length - 1];
+      previousView[MULTIPLIER] ??= 1;
+      previousView[MULTIPLIER]++;
+    } else {
+      // Record this view as most recently added.
+      lastViewAsString = currentViewAsString;
+      views.push(view);
+    }
   }
   return views;
 }
@@ -178,6 +192,16 @@ function appendSerializedNodePath(ngh: SerializedView, tNode: TNode, lView: LVie
   const noOffsetIndex = tNode.index - HEADER_OFFSET;
   ngh[NODES] ??= {};
   ngh[NODES][noOffsetIndex] = calcPathForNode(tNode, lView);
+}
+
+/**
+ * There is no special TNode type for an i18n block, so we verify
+ * whether the structure that we store at the `TView.data[idx]` position
+ * has the `TI18n` shape.
+ */
+function isTI18nNode(obj: unknown): boolean {
+  const tI18n = obj as TI18n;
+  return tI18n.hasOwnProperty('create') && tI18n.hasOwnProperty('update');
 }
 
 /**
@@ -203,6 +227,24 @@ function serializeLView(lView: LView, context: HydrationContext): SerializedView
     if (!tNode) {
       continue;
     }
+
+    // Check if a native node that represents a given TNode is disconnected from the DOM tree.
+    // Such nodes must be excluded from the hydration (since the hydration won't be able to
+    // find them), so the TNode ids are collected and used at runtime to skip the hydration.
+    //
+    // This situation may happen during the content projection, when some nodes don't make it
+    // into one of the content projection slots (for example, when there is no default
+    // <ng-content /> slot in projector component's template).
+    //
+    // Note: we leverage the fact that we have this information available in the DOM emulation
+    // layer (in Domino) for now. Longer-term solution should not rely on the DOM emulation and
+    // only use internal data structures and state to compute this information.
+    if (!(tNode.type & TNodeType.Projection) && !!lView[i] &&
+        !(unwrapRNode(lView[i]) as Node).isConnected) {
+      ngh[DISCONNECTED_NODES] ??= [];
+      ngh[DISCONNECTED_NODES].push(noOffsetIndex);
+      continue;
+    }
     if (Array.isArray(tNode.projection)) {
       for (const projectionHeadTNode of tNode.projection) {
         // We may have `null`s in slots with no projected content.
@@ -226,7 +268,8 @@ function serializeLView(lView: LView, context: HydrationContext): SerializedView
           // accessed via `document.querySelector`, etc) and may be in any state
           // (attached or detached from the DOM tree). As a result, we can not reliably
           // restore the state for such cases during hydration.
-          throw unsupportedProjectionOfDomNodes();
+
+          throw unsupportedProjectionOfDomNodes(unwrapRNode(lView[i]));
         }
       }
     }
@@ -259,6 +302,17 @@ function serializeLView(lView: LView, context: HydrationContext): SerializedView
       if (!(targetNode as HTMLElement).hasAttribute(SKIP_HYDRATION_ATTR_NAME)) {
         annotateHostElementForHydration(targetNode as RElement, lView[i], context);
       }
+    } else if (isTI18nNode(tNode)) {
+      // Hydration for i18n nodes is not *yet* supported.
+      // Produce an error message which would also describe possible
+      // solutions (switching back to the "destructive" hydration or
+      // excluding a component from hydration via `ngSkipHydration`).
+      //
+      // TODO(akushnir): we should find a better way to get a hold of the node that has the `i18n`
+      // attribute on it. For now, we either refer to the host element of the component or to the
+      // previous element in the LView.
+      const targetNode = (i === HEADER_OFFSET) ? lView[HOST]! : unwrapRNode(lView[i - 1]);
+      throw notYetSupportedI18nBlockError(targetNode);
     } else {
       // <ng-container> case
       if (tNode.type & TNodeType.ElementContainer) {

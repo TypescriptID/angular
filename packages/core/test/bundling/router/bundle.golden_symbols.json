@@ -138,12 +138,6 @@
     "name": "Console"
   },
   {
-    "name": "CreateUrlTreeStrategy"
-  },
-  {
-    "name": "CreateUrlTreeUsingSnapshot"
-  },
-  {
     "name": "DEFAULT_APP_ID"
   },
   {
@@ -190,9 +184,6 @@
   },
   {
     "name": "DomRendererFactory2"
-  },
-  {
-    "name": "DomSharedStylesHost"
   },
   {
     "name": "EMPTY"
@@ -370,12 +361,6 @@
   },
   {
     "name": "NG_COMP_DEF"
-  },
-  {
-    "name": "NG_DEV_MODE2"
-  },
-  {
-    "name": "NG_DEV_MODE6"
   },
   {
     "name": "NG_DIR_DEF"
@@ -888,6 +873,9 @@
     "name": "absoluteRedirect"
   },
   {
+    "name": "addEmptyPathsToChildrenIfNeeded"
+  },
+  {
     "name": "addPropertyAlias"
   },
   {
@@ -1003,6 +991,9 @@
   },
   {
     "name": "convertToParamMap"
+  },
+  {
+    "name": "createChildrenForEmptyPaths"
   },
   {
     "name": "createContainerRef"
@@ -1200,9 +1191,6 @@
     "name": "forEachSingleProvider"
   },
   {
-    "name": "formatRuntimeError"
-  },
-  {
     "name": "forwardRef"
   },
   {
@@ -1362,9 +1350,6 @@
     "name": "getParentInjectorView"
   },
   {
-    "name": "getPathIndexShift"
-  },
-  {
     "name": "getPipeDef"
   },
   {
@@ -1384,9 +1369,6 @@
   },
   {
     "name": "getSimpleChangesStore"
-  },
-  {
-    "name": "getSourceSegmentGroup"
   },
   {
     "name": "getSymbolIterator"
@@ -1947,9 +1929,6 @@
     "name": "stringifyCSSSelector"
   },
   {
-    "name": "stringifyForError"
-  },
-  {
     "name": "stripTrailingSlash"
   },
   {
@@ -2080,9 +2059,6 @@
   },
   {
     "name": "ɵɵelementStart"
-  },
-  {
-    "name": "ɵɵgetInheritedFactory"
   },
   {
     "name": "ɵɵinject"

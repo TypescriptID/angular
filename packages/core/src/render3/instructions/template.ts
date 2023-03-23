@@ -8,7 +8,7 @@
 import {validateMatchingNode, validateNodeExists} from '../../hydration/error_handling';
 import {TEMPLATES} from '../../hydration/interfaces';
 import {locateNextRNode, siblingAfter} from '../../hydration/node_lookup_utils';
-import {calcSerializedContainerSize, markRNodeAsClaimedByHydration, setSegmentHead} from '../../hydration/utils';
+import {calcSerializedContainerSize, isDisconnectedNode, markRNodeAsClaimedByHydration, setSegmentHead} from '../../hydration/utils';
 import {assertFirstCreatePass} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
@@ -128,7 +128,8 @@ function createContainerAnchorImpl(
 function locateOrCreateContainerAnchorImpl(
     tView: TView, lView: LView, tNode: TNode, index: number): RComment {
   const hydrationInfo = lView[HYDRATION];
-  const isNodeCreationMode = !hydrationInfo || isInSkipHydrationBlock();
+  const isNodeCreationMode =
+      !hydrationInfo || isInSkipHydrationBlock() || isDisconnectedNode(hydrationInfo, index);
   lastNodeWasCreated(isNodeCreationMode);
 
   // Regular creation mode.
@@ -140,11 +141,8 @@ function locateOrCreateContainerAnchorImpl(
   const currentRNode = locateNextRNode(hydrationInfo, tView, lView, tNode)!;
   ngDevMode && validateNodeExists(currentRNode);
 
+  setSegmentHead(hydrationInfo, index, currentRNode);
   const viewContainerSize = calcSerializedContainerSize(hydrationInfo, index);
-  // If this container is non-empty, store the first node as a segment head,
-  // otherwise, this node is an anchor and segment head doesn't exist (thus `null`).
-  const segmentHead = viewContainerSize > 0 ? currentRNode : null;
-  setSegmentHead(hydrationInfo, index, segmentHead);
   const comment = siblingAfter<RComment>(viewContainerSize, currentRNode)!;
 
   if (ngDevMode) {

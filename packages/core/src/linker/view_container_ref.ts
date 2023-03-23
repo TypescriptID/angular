@@ -11,7 +11,7 @@ import {EnvironmentInjector} from '../di/r3_injector';
 import {validateMatchingNode} from '../hydration/error_handling';
 import {CONTAINERS} from '../hydration/interfaces';
 import {isInSkipHydrationBlock} from '../hydration/skip_hydration';
-import {getSegmentHead, markRNodeAsClaimedByHydration} from '../hydration/utils';
+import {getSegmentHead, isDisconnectedNode, markRNodeAsClaimedByHydration} from '../hydration/utils';
 import {findMatchingDehydratedView, locateDehydratedViewsInContainer} from '../hydration/views';
 import {isType, Type} from '../interface/type';
 import {assertNodeInjector} from '../render3/assert';
@@ -637,7 +637,9 @@ function locateOrCreateAnchorNode(
   if (lContainer[NATIVE] && lContainer[DEHYDRATED_VIEWS]) return;
 
   const hydrationInfo = hostLView[HYDRATION];
-  const isNodeCreationMode = !hydrationInfo || isInSkipHydrationBlock(hostTNode);
+  const noOffsetIndex = hostTNode.index - HEADER_OFFSET;
+  const isNodeCreationMode = !hydrationInfo || isInSkipHydrationBlock(hostTNode) ||
+      isDisconnectedNode(hydrationInfo, noOffsetIndex);
 
   // Regular creation mode.
   if (isNodeCreationMode) {
@@ -645,10 +647,9 @@ function locateOrCreateAnchorNode(
   }
 
   // Hydration mode, looking up an anchor node and dehydrated views in DOM.
-  const index = hostTNode.index - HEADER_OFFSET;
-  const currentRNode: RNode|null = getSegmentHead(hydrationInfo, index);
+  const currentRNode: RNode|null = getSegmentHead(hydrationInfo, noOffsetIndex);
 
-  const serializedViews = hydrationInfo.data[CONTAINERS]?.[index];
+  const serializedViews = hydrationInfo.data[CONTAINERS]?.[noOffsetIndex];
   ngDevMode &&
       assertDefined(
           serializedViews,
@@ -659,7 +660,7 @@ function locateOrCreateAnchorNode(
       locateDehydratedViewsInContainer(currentRNode!, serializedViews!);
 
   if (ngDevMode) {
-    validateMatchingNode(commentNode, Node.COMMENT_NODE, null, hostLView, hostTNode);
+    validateMatchingNode(commentNode, Node.COMMENT_NODE, null, hostLView, hostTNode, true);
     // Do not throw in case this node is already claimed (thus `false` as a second
     // argument). If this container is created based on an `<ng-template>`, the comment
     // node would be already claimed from the `template` instruction. If an element acts

@@ -96,9 +96,6 @@
     "name": "DomRendererFactory2"
   },
   {
-    "name": "DomSharedStylesHost"
-  },
-  {
     "name": "EMPTY_ARRAY"
   },
   {
@@ -211,9 +208,6 @@
   },
   {
     "name": "NG_COMP_DEF"
-  },
-  {
-    "name": "NG_DEV_MODE2"
   },
   {
     "name": "NG_DIR_DEF"
@@ -606,9 +600,6 @@
     "name": "forEachSingleProvider"
   },
   {
-    "name": "formatRuntimeError"
-  },
-  {
     "name": "forwardRef"
   },
   {
@@ -643,9 +634,6 @@
   },
   {
     "name": "getFactoryDef"
-  },
-  {
-    "name": "getFactoryOf"
   },
   {
     "name": "getFirstLContainer"
@@ -786,9 +774,6 @@
     "name": "isEnvironmentProviders"
   },
   {
-    "name": "isForwardRef"
-  },
-  {
     "name": "isFunction"
   },
   {
@@ -874,9 +859,6 @@
   },
   {
     "name": "ngZoneApplicationErrorHandlerFactory"
-  },
-  {
-    "name": "noSideEffects"
   },
   {
     "name": "nonNull"
@@ -1000,9 +982,6 @@
   },
   {
     "name": "stringifyCSSSelector"
-  },
-  {
-    "name": "stringifyForError"
   },
   {
     "name": "subscribeTo"

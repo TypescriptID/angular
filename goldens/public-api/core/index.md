@@ -445,7 +445,7 @@ export function destroyPlatform(): void;
 
 // @public
 export abstract class DestroyRef {
-    abstract onDestroy(callback: () => void): void;
+    abstract onDestroy(callback: () => void): () => void;
 }
 
 // @public
@@ -495,14 +495,12 @@ export interface DoCheck {
 }
 
 // @public
-export interface Effect {
-    readonly consumer: Consumer;
-    destroy(): void;
-    schedule(): void;
-}
+export function effect(effectFn: () => void): EffectRef;
 
 // @public
-export function effect(effectFn: () => void): Effect;
+export interface EffectRef {
+    destroy(): void;
+}
 
 // @public
 export class ElementRef<T = any> {

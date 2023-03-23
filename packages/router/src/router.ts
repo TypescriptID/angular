@@ -10,7 +10,7 @@ import {Location} from '@angular/common';
 import {inject, Injectable, NgZone, Type, ɵConsole as Console, ɵRuntimeError as RuntimeError} from '@angular/core';
 import {Observable, of, SubscriptionLike} from 'rxjs';
 
-import {CreateUrlTreeStrategy} from './create_url_tree_strategy';
+import {createSegmentGroupFromRoute, createUrlTreeFromSegmentGroup} from './create_url_tree';
 import {RuntimeErrorCode} from './errors';
 import {Event, IMPERATIVE_NAVIGATION, NavigationTrigger} from './events';
 import {NavigationBehaviorOptions, OnSameUrlNavigation, Routes} from './models';
@@ -22,11 +22,10 @@ import {ROUTES} from './router_config_loader';
 import {createEmptyState, RouterState} from './router_state';
 import {Params} from './shared';
 import {UrlHandlingStrategy} from './url_handling_strategy';
-import {containsTree, IsActiveMatchOptions, isUrlTree, UrlSerializer, UrlTree} from './url_tree';
+import {containsTree, IsActiveMatchOptions, isUrlTree, UrlSegmentGroup, UrlSerializer, UrlTree} from './url_tree';
 import {standardizeConfig, validateConfig} from './utils/config';
 
 
-const NG_DEV_MODE = typeof ngDevMode === 'undefined' || !!ngDevMode;
 
 function defaultErrorHandler(error: any): any {
   throw error;
@@ -219,9 +218,6 @@ export class Router {
    *   `{provide: RouteReuseStrategy, useClass: MyStrategy}`.
    */
   routeReuseStrategy = inject(RouteReuseStrategy);
-
-  /** Strategy used to create a UrlTree. */
-  private readonly urlCreationStrategy = inject(CreateUrlTreeStrategy);
 
   /**
    * A strategy for setting the title based on the `routerState`.
@@ -444,7 +440,7 @@ export class Router {
    * ```
    */
   resetConfig(config: Routes): void {
-    NG_DEV_MODE && validateConfig(config);
+    (typeof ngDevMode === 'undefined' || ngDevMode) && validateConfig(config);
     this.config = config.map(standardizeConfig);
     this.navigated = false;
     this.lastSuccessfulId = -1;
@@ -531,8 +527,30 @@ export class Router {
     if (q !== null) {
       q = this.removeEmptyProps(q);
     }
-    return this.urlCreationStrategy.createUrlTree(
-        relativeTo, this.routerState, this.currentUrlTree, commands, q, f ?? null);
+
+    let relativeToUrlSegmentGroup: UrlSegmentGroup|undefined;
+    try {
+      const relativeToSnapshot = relativeTo ? relativeTo.snapshot : this.routerState.snapshot.root;
+      relativeToUrlSegmentGroup = createSegmentGroupFromRoute(relativeToSnapshot);
+    } catch (e: unknown) {
+      // This is strictly for backwards compatibility with tests that create
+      // invalid `ActivatedRoute` mocks.
+      // Note: the difference between having this fallback for invalid `ActivatedRoute` setups and
+      // just throwing is ~500 test failures. Fixing all of those tests by hand is not feasible at
+      // the moment.
+      if (typeof commands[0] !== 'string' || !commands[0].startsWith('/')) {
+        // Navigations that were absolute in the old way of creating UrlTrees
+        // would still work because they wouldn't attempt to match the
+        // segments in the `ActivatedRoute` to the `currentUrlTree` but
+        // instead just replace the root segment with the navigation result.
+        // Non-absolute navigations would fail to apply the commands because
+        // the logic could not find the segment to replace (so they'd act like there were no
+        // commands).
+        commands = [];
+      }
+      relativeToUrlSegmentGroup = this.currentUrlTree.root;
+    }
+    return createUrlTreeFromSegmentGroup(relativeToUrlSegmentGroup, commands, q, f ?? null);
   }
 
   /**
@@ -562,7 +580,7 @@ export class Router {
   navigateByUrl(url: string|UrlTree, extras: NavigationBehaviorOptions = {
     skipLocationChange: false
   }): Promise<boolean> {
-    if (NG_DEV_MODE) {
+    if (typeof ngDevMode === 'undefined' || ngDevMode) {
       if (this.isNgZoneEnabled && !NgZone.isInAngularZone()) {
         this.console.warn(
             `Navigation triggered outside Angular zone, did you forget to call 'ngZone.run()'?`);
@@ -831,7 +849,8 @@ function validateCommands(commands: string[]): void {
     if (cmd == null) {
       throw new RuntimeError(
           RuntimeErrorCode.NULLISH_COMMAND,
-          NG_DEV_MODE && `The requested path contains ${cmd} segment at index ${i}`);
+          (typeof ngDevMode === 'undefined' || ngDevMode) &&
+              `The requested path contains ${cmd} segment at index ${i}`);
     }
   }
 }
