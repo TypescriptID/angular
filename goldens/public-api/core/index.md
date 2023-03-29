@@ -99,6 +99,9 @@ export class ApplicationRef {
 export function asNativeElements(debugEls: DebugElement[]): any;
 
 // @public
+export function assertInInjectionContext(debugFn: Function): void;
+
+// @public
 export function assertPlatform(requiredToken: any): PlatformRef;
 
 // @public
@@ -263,7 +266,7 @@ export abstract class ComponentRef<C> {
 }
 
 // @public
-export function computed<T>(computation: () => T, equal?: ValueEqualityFn<T>): Signal<T>;
+export function computed<T>(computation: () => T, options?: CreateComputedOptions<T>): Signal<T>;
 
 // @public
 export interface ConstructorProvider extends ConstructorSansProvider {
@@ -327,6 +330,17 @@ export function createComponent<C>(component: Type<C>, options: {
 }): ComponentRef<C>;
 
 // @public
+export interface CreateComputedOptions<T> {
+    equal?: ValueEqualityFn<T>;
+}
+
+// @public
+export interface CreateEffectOptions {
+    injector?: Injector;
+    manualCleanup?: boolean;
+}
+
+// @public
 export function createEnvironmentInjector(providers: Array<Provider | EnvironmentProviders>, parent: EnvironmentInjector, debugName?: string | null): EnvironmentInjector;
 
 // @public
@@ -340,6 +354,11 @@ export function createPlatform(injector: Injector): PlatformRef;
 
 // @public
 export function createPlatformFactory(parentPlatformFactory: ((extraProviders?: StaticProvider[]) => PlatformRef) | null, name: string, providers?: StaticProvider[]): (extraProviders?: StaticProvider[]) => PlatformRef;
+
+// @public
+export interface CreateSignalOptions<T> {
+    equal?: ValueEqualityFn<T>;
+}
 
 // @public
 export const CSP_NONCE: InjectionToken<string | null>;
@@ -398,6 +417,11 @@ export class DebugNode {
         [key: string]: any;
     };
 }
+
+// @public
+export type DeepReadonly<T> = T extends (infer R)[] ? ReadonlyArray<DeepReadonly<R>> : (T extends Function ? T : (T extends object ? {
+    readonly [P in keyof T]: DeepReadonly<T[P]>;
+} : T));
 
 // @public
 export const DEFAULT_CURRENCY_CODE: InjectionToken<string>;
@@ -491,7 +515,7 @@ export interface DoCheck {
 }
 
 // @public
-export function effect(effectFn: () => void): EffectRef;
+export function effect(effectFn: () => void, options?: CreateEffectOptions): EffectRef;
 
 // @public
 export interface EffectRef {
@@ -1333,22 +1357,15 @@ export interface SelfDecorator {
 }
 
 // @public
-export interface SettableSignal<T> extends Signal<T> {
-    mutate(mutatorFn: (value: T) => void): void;
-    set(value: T): void;
-    update(updateFn: (value: T) => T): void;
-}
-
-// @public
 export function setTestabilityGetter(getter: GetTestability): void;
 
 // @public
-export type Signal<T> = (() => T) & {
-    [SIGNAL]: true;
+export type Signal<T> = (() => DeepReadonly<T>) & {
+    [SIGNAL]: unknown;
 };
 
 // @public
-export function signal<T>(initialValue: T, equal?: ValueEqualityFn<T>): SettableSignal<T>;
+export function signal<T>(initialValue: T, options?: CreateSignalOptions<T>): WritableSignal<T>;
 
 // @public
 export class SimpleChange {
@@ -1581,6 +1598,13 @@ export abstract class ViewRef extends ChangeDetectorRef {
     abstract destroy(): void;
     abstract get destroyed(): boolean;
     abstract onDestroy(callback: Function): any /** TODO #9100, replace by void in a major release*/;
+}
+
+// @public
+export interface WritableSignal<T> extends Signal<T> {
+    mutate(mutatorFn: (value: T) => void): void;
+    set(value: T): void;
+    update(updateFn: (value: T) => T): void;
 }
 
 // @public
