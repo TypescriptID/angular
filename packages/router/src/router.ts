@@ -11,6 +11,7 @@ import {inject, Injectable, NgZone, Type, ɵConsole as Console, ɵInitialRenderP
 import {Observable, of, SubscriptionLike} from 'rxjs';
 
 import {createSegmentGroupFromRoute, createUrlTreeFromSegmentGroup} from './create_url_tree';
+import {INPUT_BINDER} from './directives/router_outlet';
 import {RuntimeErrorCode} from './errors';
 import {Event, IMPERATIVE_NAVIGATION, NavigationTrigger} from './events';
 import {NavigationBehaviorOptions, OnSameUrlNavigation, Routes} from './models';
@@ -307,6 +308,14 @@ export class Router {
   private readonly urlSerializer = inject(UrlSerializer);
   private readonly location = inject(Location);
 
+  /**
+   * Indicates whether the the application has opted in to binding Router data to component inputs.
+   *
+   * This option is enabled by the `withComponentInputBinding` feature of `provideRouter` or
+   * `bindToComponentInputs` in the `ExtraOptions` of `RouterModule.forRoot`.
+   */
+  readonly componentInputBindingEnabled = !!inject(INPUT_BINDER, {optional: true});
+
   constructor() {
     this.isNgZoneEnabled = inject(NgZone) instanceof NgZone && NgZone.isInAngularZone();
 
@@ -588,9 +597,6 @@ export class Router {
         this.console.warn(
             `Navigation triggered outside Angular zone, did you forget to call 'ngZone.run()'?`);
       }
-      if (url instanceof UrlTree && url._warnIfUsedForNavigation) {
-        this.console.warn(url._warnIfUsedForNavigation);
-      }
     }
 
     const urlTree = isUrlTree(url) ? url : this.parseUrl(url);
@@ -742,7 +748,11 @@ export class Router {
 
     // Indicate that the navigation is happening.
     const taskId = this.pendingTasks.add();
-    afterNextNavigation(this, () => this.pendingTasks.remove(taskId));
+    afterNextNavigation(this, () => {
+      // Remove pending task in a microtask to allow for cancelled
+      // initial navigations and redirects within the same task.
+      Promise.resolve().then(() => this.pendingTasks.remove(taskId));
+    });
 
     this.navigationTransitions.handleNavigationRequest({
       targetPageId,

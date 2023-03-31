@@ -9,13 +9,79 @@
 import {assertInInjectionContext} from '../../di/contextual';
 import {Injector} from '../../di/injector';
 import {inject} from '../../di/injector_compatibility';
+import {ɵɵdefineInjectable} from '../../di/interface/defs';
 import {DestroyRef} from '../../linker/destroy_ref';
 import {Watch} from '../../signals';
 
-const globalWatches = new Set<Watch>();
-const queuedWatches = new Map<Watch, Zone>();
+/**
+ * An effect can, optionally, return a cleanup function. If returned, the cleanup is executed before
+ * the next effect run. The cleanup function makes it possible to "cancel" any work that the
+ * previous effect run might have started.
+ *
+ * @developerPreview
+ */
+export type EffectCleanupFn = () => void;
 
-let watchQueuePromise: {promise: Promise<void>; resolveFn: () => void;}|null = null;
+/**
+ * Tracks all effects registered within a given application and runs them via `flush`.
+ */
+export class EffectManager {
+  private all = new Set<Watch>();
+  private queue = new Map<Watch, Zone>();
+
+  create(effectFn: () => void, destroyRef: DestroyRef|null, allowSignalWrites: boolean): EffectRef {
+    const zone = Zone.current;
+    const watch = new Watch(effectFn, (watch) => {
+      if (!this.all.has(watch)) {
+        return;
+      }
+
+      this.queue.set(watch, zone);
+    }, allowSignalWrites);
+
+    this.all.add(watch);
+
+    // Effects start dirty.
+    watch.notify();
+
+    let unregisterOnDestroy: (() => void)|undefined;
+
+    const destroy = () => {
+      watch.cleanup();
+      unregisterOnDestroy?.();
+      this.all.delete(watch);
+      this.queue.delete(watch);
+    };
+
+    unregisterOnDestroy = destroyRef?.onDestroy(destroy);
+
+    return {
+      destroy,
+    };
+  }
+
+  flush(): void {
+    if (this.queue.size === 0) {
+      return;
+    }
+
+    for (const [watch, zone] of this.queue) {
+      this.queue.delete(watch);
+      zone.run(() => watch.run());
+    }
+  }
+
+  get isQueueEmpty(): boolean {
+    return this.queue.size === 0;
+  }
+
+  /** @nocollapse */
+  static ɵprov = /** @pureOrBreakMyCode */ ɵɵdefineInjectable({
+    token: EffectManager,
+    providedIn: 'root',
+    factory: () => new EffectManager(),
+  });
+}
 
 /**
  * A global reactive effect, which can be manually destroyed.
@@ -49,6 +115,14 @@ export interface CreateEffectOptions {
    * with the current `DestroyRef`.
    */
   manualCleanup?: boolean;
+
+  /**
+   * Whether the `effect` should allow writing to signals.
+   *
+   * Using effects to synchronize data by writing to signals can lead to confusing and potentially
+   * incorrect behavior, and should be enabled only when necessary.
+   */
+  allowSignalWrites?: boolean;
 }
 
 /**
@@ -56,63 +130,11 @@ export interface CreateEffectOptions {
  *
  * @developerPreview
  */
-export function effect(effectFn: () => void, options?: CreateEffectOptions): EffectRef {
+export function effect(
+    effectFn: () => EffectCleanupFn | void, options?: CreateEffectOptions): EffectRef {
   !options?.injector && assertInInjectionContext(effect);
-
-  const zone = Zone.current;
-  const watch = new Watch(effectFn, (watch) => queueWatch(watch, zone));
-
   const injector = options?.injector ?? inject(Injector);
+  const effectManager = injector.get(EffectManager);
   const destroyRef = options?.manualCleanup !== true ? injector.get(DestroyRef) : null;
-
-  globalWatches.add(watch);
-
-  // Effects start dirty.
-  watch.notify();
-
-  let unregisterOnDestroy: (() => void)|undefined;
-
-  const destroy = () => {
-    unregisterOnDestroy?.();
-    queuedWatches.delete(watch);
-    globalWatches.delete(watch);
-  };
-
-  unregisterOnDestroy = destroyRef?.onDestroy(destroy);
-
-  return {
-    destroy,
-  };
-}
-
-function queueWatch(watch: Watch, zone: Zone): void {
-  if (queuedWatches.has(watch) || !globalWatches.has(watch)) {
-    return;
-  }
-
-  queuedWatches.set(watch, zone);
-
-  if (watchQueuePromise === null) {
-    Promise.resolve().then(runWatchQueue);
-
-    let resolveFn!: () => void;
-    const promise = new Promise<void>((resolve) => {
-      resolveFn = resolve;
-    });
-
-    watchQueuePromise = {
-      promise,
-      resolveFn,
-    };
-  }
-}
-
-function runWatchQueue(): void {
-  for (const [watch, zone] of queuedWatches) {
-    queuedWatches.delete(watch);
-    zone.run(() => watch.run());
-  }
-
-  watchQueuePromise!.resolveFn();
-  watchQueuePromise = null;
+  return effectManager.create(effectFn, destroyRef, !!options?.allowSignalWrites);
 }

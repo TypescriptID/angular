@@ -7,6 +7,7 @@
  */
 
 import {Sanitizer, Type} from '@angular/core';
+import {EffectManager} from '@angular/core/src/render3/reactivity/effect';
 import {stringifyElement} from '@angular/platform-browser/testing/src/browser_util';
 
 import {extractDirectiveDef} from '../../src/render3/definition';
@@ -69,8 +70,12 @@ export class ViewFixture {
     const hostTView =
         createTView(TViewType.Root, null, null, 1, 0, null, null, null, null, null, null);
     const hostLView = createLView(
-        null, hostTView, {}, LViewFlags.CheckAlways | LViewFlags.IsRoot, null, null,
-        rendererFactory, hostRenderer, sanitizer || null, null, null, null);
+        null, hostTView, {}, LViewFlags.CheckAlways | LViewFlags.IsRoot, null, null, {
+          rendererFactory,
+          sanitizer: sanitizer || null,
+          effectManager: new EffectManager(),
+        },
+        hostRenderer, null, null, null);
 
     let template = noop;
     if (create) {
@@ -92,8 +97,8 @@ export class ViewFixture {
     const hostTNode =
         createTNode(hostTView, null, TNodeType.Element, 0, 'host-element', null) as TElementNode;
     this.lView = createLView(
-        hostLView, this.tView, context || {}, LViewFlags.CheckAlways, this.host, hostTNode,
-        rendererFactory, hostRenderer, null, null, null, null);
+        hostLView, this.tView, context || {}, LViewFlags.CheckAlways, this.host, hostTNode, null,
+        hostRenderer, null, null, null);
 
     if (this.createFn) {
       renderView(this.tView, this.lView, this.context);

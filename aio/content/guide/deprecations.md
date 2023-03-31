@@ -100,7 +100,6 @@ v16 - v19
 | `@angular/platform-server`          | [`ServerTransferStateModule`](#platform-server)                                                            | v14           | v16         |
 | `@angular/service-worker`           | [`SwUpdate#activated`](api/service-worker/SwUpdate#activated)                                              | v13           | v16         |
 | `@angular/service-worker`           | [`SwUpdate#available`](api/service-worker/SwUpdate#available)                                              | v13           | v16         |
-| `@angular/platform-browser`         | [`BrowserModule.withServerTransition`](api/platform-browser/BrowserModule#withservertransition)                                                          | v16           | v18         |
 
 ### Deprecated features that can be removed in v17 or later
 
@@ -120,6 +119,9 @@ v16 - v19
 | Area                                | API or Feature                                                                                             | Deprecated in | May be removed in |
 |:---                                 |:---                                                                                                        |:---           |:---               |
 | `@angular/core` | `EnvironmentInjector.runInContext` | v16 | v18 |
+| `@angular/platform-server`          | [`PlatformConfig.baseUrl` and `PlatformConfig.useAbsoluteUrl` config options](api/platform-server/PlatformConfig) | v16           | v18               |
+| `@angular/platform-browser`         | [`BrowserModule.withServerTransition`](api/platform-browser/BrowserModule#withservertransition)            | v16           | v18         |
+| `@angular/platform-browser`         | [`makeStateKey`, `StateKey` and `TransferState`](#platform-browser), symbols were moved to `@angular/core`                                        | v16           | v18         |
 
 ### Deprecated features with no planned removal version
 
@@ -209,7 +211,7 @@ In the [API reference section](api) of this site, deprecated APIs are indicated 
 |:---                                                              |:---                                                |:---                   |:---     |
 | [`BrowserTransferStateModule`](api/platform-browser/BrowserTransferStateModule) | No replacement needed.  | v14.1                   | The `TransferState` class is available for injection without importing additional modules on the client side of a server-rendered application. |
 | [`BrowserModule.withServerTransition`](api/platform-browser/BrowserModule#withservertransition) | No replacement needed.  | v16.0                   | The `APP_ID`token should be used instead to set the application ID. |
-
+| `makeStateKey`, `StateKey` and `TransferState` | Import from `@angular/core`.  | v16.0                   | Same behavior, but exported from a different package. |
 <a id="platform-browser-dynamic"></a>
 
 ### &commat;angular/platform-browser-dynamic
@@ -226,7 +228,7 @@ In the [API reference section](api) of this site, deprecated APIs are indicated 
 | API                                                              | Replacement                                        | Deprecation announced | Details |
 |:---                                                              |:---                                                |:---                   |:---     |
 | [`ServerTransferStateModule`](api/platform-server/ServerTransferStateModule) | No replacement needed.  | v14.1                   | The `TransferState` class is available for injection without importing additional modules during server side rendering, when `ServerModule` is imported or `renderApplication` function is used for bootstrap. |
-
+| [`PlatformConfig.baseUrl` and `PlatformConfig.useAbsoluteUrl` config options](api/platform-server/PlatformConfig) | none                    | v16                   | This was previously unused.                   |
 <a id="forms"></a>
 
 ### &commat;angular/forms

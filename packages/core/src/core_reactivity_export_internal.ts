@@ -11,7 +11,6 @@ export {
   computed,
   CreateComputedOptions,
   CreateSignalOptions,
-  DeepReadonly,
   isSignal,
   Signal,
   signal,
@@ -23,5 +22,6 @@ export {
   CreateEffectOptions,
   effect,
   EffectRef,
+  EffectCleanupFn,
 } from './render3/reactivity/effect';
 // clang-format on    

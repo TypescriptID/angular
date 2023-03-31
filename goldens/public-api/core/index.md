@@ -336,6 +336,7 @@ export interface CreateComputedOptions<T> {
 
 // @public
 export interface CreateEffectOptions {
+    allowSignalWrites?: boolean;
     injector?: Injector;
     manualCleanup?: boolean;
 }
@@ -417,11 +418,6 @@ export class DebugNode {
         [key: string]: any;
     };
 }
-
-// @public
-export type DeepReadonly<T> = T extends (infer R)[] ? ReadonlyArray<DeepReadonly<R>> : (T extends Function ? T : (T extends object ? {
-    readonly [P in keyof T]: DeepReadonly<T[P]>;
-} : T));
 
 // @public
 export const DEFAULT_CURRENCY_CODE: InjectionToken<string>;
@@ -515,7 +511,10 @@ export interface DoCheck {
 }
 
 // @public
-export function effect(effectFn: () => void, options?: CreateEffectOptions): EffectRef;
+export function effect(effectFn: () => EffectCleanupFn | void, options?: CreateEffectOptions): EffectRef;
+
+// @public
+export type EffectCleanupFn = () => void;
 
 // @public
 export interface EffectRef {
@@ -939,6 +938,9 @@ export const LOCALE_ID: InjectionToken<string>;
 export function makeEnvironmentProviders(providers: (Provider | EnvironmentProviders)[]): EnvironmentProviders;
 
 // @public
+export function makeStateKey<T = void>(key: string): StateKey<T>;
+
+// @public
 export function mergeApplicationConfig(...configs: ApplicationConfig[]): ApplicationConfig;
 
 // @public
@@ -1360,7 +1362,7 @@ export interface SelfDecorator {
 export function setTestabilityGetter(getter: GetTestability): void;
 
 // @public
-export type Signal<T> = (() => DeepReadonly<T>) & {
+export type Signal<T> = (() => T) & {
     [SIGNAL]: unknown;
 };
 
@@ -1398,6 +1400,12 @@ export interface SkipSelfDecorator {
     // (undocumented)
     new (): SkipSelf;
 }
+
+// @public
+export type StateKey<T> = string & {
+    __not_a_string: never;
+    __value_type?: T;
+};
 
 // @public
 export interface StaticClassProvider extends StaticClassSansProvider {
@@ -1457,6 +1465,19 @@ export class TestabilityRegistry {
 export interface TrackByFunction<T> {
     // (undocumented)
     <U extends T>(index: number, item: T & U): any;
+}
+
+// @public
+export class TransferState {
+    get<T>(key: StateKey<T>, defaultValue: T): T;
+    hasKey<T>(key: StateKey<T>): boolean;
+    get isEmpty(): boolean;
+    onSerialize<T>(key: StateKey<T>, callback: () => T): void;
+    remove<T>(key: StateKey<T>): void;
+    set<T>(key: StateKey<T>, value: T): void;
+    toJson(): string;
+    // (undocumented)
+    static ɵprov: unknown;
 }
 
 // @public

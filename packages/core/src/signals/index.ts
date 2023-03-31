@@ -6,10 +6,11 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-export {DeepReadonly, isSignal, Signal, ValueEqualityFn} from './src/api';
+export {isSignal, Signal, ValueEqualityFn} from './src/api';
 export {computed, CreateComputedOptions} from './src/computed';
+export {setThrowInvalidWriteToSignalError} from './src/errors';
 export {setActiveConsumer} from './src/graph';
 export {CreateSignalOptions, signal, WritableSignal} from './src/signal';
 export {untracked} from './src/untracked';
-export {Watch} from './src/watch';
+export {Watch, WatchCleanupFn} from './src/watch';
 export {setAlternateWeakRefImpl} from './src/weak_ref';

@@ -204,6 +204,9 @@
     "name": "EVENT_MANAGER_PLUGINS"
   },
   {
+    "name": "EffectManager"
+  },
+  {
     "name": "ElementRef"
   },
   {
@@ -271,6 +274,9 @@
   },
   {
     "name": "INJECTOR_SCOPE"
+  },
+  {
+    "name": "INPUT_BINDER"
   },
   {
     "name": "INTERNAL_APPLICATION_ERROR_HANDLER"
@@ -403,6 +409,9 @@
   },
   {
     "name": "NONE"
+  },
+  {
+    "name": "NOOP_CLEANUP_FN"
   },
   {
     "name": "NOT_FOUND"
@@ -804,6 +813,9 @@
     "name": "ViewRef"
   },
   {
+    "name": "Watch"
+  },
+  {
     "name": "WeakRefImpl"
   },
   {
@@ -1081,9 +1093,6 @@
   },
   {
     "name": "decodeQuery"
-  },
-  {
-    "name": "decoratePreventDefault"
   },
   {
     "name": "deepForEach"
@@ -1447,6 +1456,9 @@
   },
   {
     "name": "importProvidersFrom"
+  },
+  {
+    "name": "inNotificationPhase"
   },
   {
     "name": "includeViewProviders"
