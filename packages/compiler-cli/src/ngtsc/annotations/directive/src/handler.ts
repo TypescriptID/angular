@@ -55,8 +55,7 @@ export class DirectiveDecoratorHandler implements
       private refEmitter: ReferenceEmitter, private isCore: boolean,
       private strictCtorDeps: boolean,
       private semanticDepGraphUpdater: SemanticDepGraphUpdater|null,
-      private annotateForClosureCompiler: boolean,
-      private compileUndecoratedClassesWithAngularFeatures: boolean, private perf: PerfRecorder) {}
+      private annotateForClosureCompiler: boolean, private perf: PerfRecorder) {}
 
   readonly precedence = HandlerPrecedence.PRIMARY;
   readonly name = DirectiveDecoratorHandler.name;
@@ -65,8 +64,7 @@ export class DirectiveDecoratorHandler implements
       DetectResult<Decorator|null>|undefined {
     // If a class is undecorated but uses Angular features, we detect it as an
     // abstract directive. This is an unsupported pattern as of v10, but we want
-    // to still detect these patterns so that we can report diagnostics, or compile
-    // them for backwards compatibility in ngcc.
+    // to still detect these patterns so that we can report diagnostics.
     if (!decorators) {
       const angularField = this.findClassFieldWithAngularFeatures(node);
       return angularField ? {trigger: angularField.node, decorator: null, metadata: null} :
@@ -83,7 +81,7 @@ export class DirectiveDecoratorHandler implements
     // with Angular features is disabled. Previously in ngtsc, such classes have always
     // been processed, but we want to enforce a consistent decorator mental model.
     // See: https://v9.angular.io/guide/migration-undecorated-classes.
-    if (this.compileUndecoratedClassesWithAngularFeatures === false && decorator === null) {
+    if (decorator === null) {
       // If compiling @angular/core, skip the diagnostic as core occasionally hand-writes
       // definitions.
       if (this.isCore) {

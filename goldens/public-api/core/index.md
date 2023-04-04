@@ -87,6 +87,7 @@ export class ApplicationRef {
     detachView(viewRef: ViewRef): void;
     get injector(): EnvironmentInjector;
     readonly isStable: Observable<boolean>;
+    onDestroy(callback: () => void): VoidFunction;
     tick(): void;
     get viewCount(): number;
     // (undocumented)
@@ -1198,7 +1199,9 @@ export class QueryList<T> implements Iterable<T> {
     destroy(): void;
     // (undocumented)
     readonly dirty = true;
-    filter(fn: (item: T, index: number, array: T[]) => boolean): T[];
+    filter<S extends T>(predicate: (value: T, index: number, array: readonly T[]) => value is S): S[];
+    // (undocumented)
+    filter(predicate: (value: T, index: number, array: readonly T[]) => unknown): T[];
     find(fn: (item: T, index: number, array: T[]) => boolean): T | undefined;
     // (undocumented)
     readonly first: T;

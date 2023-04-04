@@ -43,11 +43,11 @@ export const enum RuntimeErrorCode {
     // (undocumented)
     HYDRATION_I18N_NOT_YET_SUPPORTED = 518,
     // (undocumented)
-    HYDRATION_MISSING_NODE = 502,
+    HYDRATION_MISSING_NODE = -502,
     // (undocumented)
-    HYDRATION_MISSING_SIBLINGS = 501,
+    HYDRATION_MISSING_SIBLINGS = -501,
     // (undocumented)
-    HYDRATION_NODE_MISMATCH = 500,
+    HYDRATION_NODE_MISMATCH = -500,
     // (undocumented)
     IMPORT_PROVIDERS_FROM_STANDALONE = 800,
     // (undocumented)
@@ -67,7 +67,7 @@ export const enum RuntimeErrorCode {
     // (undocumented)
     INVALID_MULTI_PROVIDER = -209,
     // (undocumented)
-    INVALID_SKIP_HYDRATION_HOST = 504,
+    INVALID_SKIP_HYDRATION_HOST = -504,
     // (undocumented)
     MISSING_GENERATED_DEF = 906,
     // (undocumented)
@@ -119,7 +119,7 @@ export const enum RuntimeErrorCode {
     // (undocumented)
     UNSAFE_VALUE_IN_SCRIPT = 905,
     // (undocumented)
-    UNSUPPORTED_PROJECTION_DOM_NODES = 503,
+    UNSUPPORTED_PROJECTION_DOM_NODES = -503,
     // (undocumented)
     VIEW_ALREADY_ATTACHED = 902
 }
