@@ -16,7 +16,7 @@ export {INJECTOR_SCOPE as ɵINJECTOR_SCOPE} from './di/scope';
 export {XSS_SECURITY_URL as ɵXSS_SECURITY_URL} from './error_details_base_url';
 export {formatRuntimeError as ɵformatRuntimeError, RuntimeError as ɵRuntimeError} from './errors';
 export {annotateForHydration as ɵannotateForHydration} from './hydration/annotate';
-export {provideHydrationSupport as ɵprovideHydrationSupport} from './hydration/api';
+export {withDomHydration as ɵwithDomHydration} from './hydration/api';
 export {IS_HYDRATION_FEATURE_ENABLED as ɵIS_HYDRATION_FEATURE_ENABLED} from './hydration/tokens';
 export {CurrencyIndex as ɵCurrencyIndex, ExtraLocaleDataIndex as ɵExtraLocaleDataIndex, findLocaleData as ɵfindLocaleData, getLocaleCurrencyCode as ɵgetLocaleCurrencyCode, getLocalePluralCase as ɵgetLocalePluralCase, LocaleDataIndex as ɵLocaleDataIndex, registerLocaleData as ɵregisterLocaleData, unregisterAllLocaleData as ɵunregisterLocaleData} from './i18n/locale_data_api';
 export {DEFAULT_LOCALE_ID as ɵDEFAULT_LOCALE_ID} from './i18n/localization';
@@ -32,7 +32,6 @@ export {TESTABILITY as ɵTESTABILITY, TESTABILITY_GETTER as ɵTESTABILITY_GETTER
 export {escapeTransferStateContent as ɵescapeTransferStateContent, unescapeTransferStateContent as ɵunescapeTransferStateContent} from './transfer_state';
 export {coerceToBoolean as ɵcoerceToBoolean} from './util/coercion';
 export {devModeEqual as ɵdevModeEqual} from './util/comparison';
-export {makeDecorator as ɵmakeDecorator} from './util/decorators';
 export {global as ɵglobal} from './util/global';
 export {isPromise as ɵisPromise, isSubscribable as ɵisSubscribable} from './util/lang';
 export {stringify as ɵstringify} from './util/stringify';

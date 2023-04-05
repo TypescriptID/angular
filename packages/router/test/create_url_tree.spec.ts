@@ -17,7 +17,6 @@ import {RouterModule} from '../src/router_module';
 import {ActivatedRoute, ActivatedRouteSnapshot} from '../src/router_state';
 import {Params, PRIMARY_OUTLET} from '../src/shared';
 import {DefaultUrlSerializer, UrlTree} from '../src/url_tree';
-import {RouterTestingModule} from '../testing';
 
 describe('createUrlTree', async () => {
   const serializer = new DefaultUrlSerializer();
@@ -205,6 +204,32 @@ describe('createUrlTree', async () => {
       const t = await createRoot(p, ['parent', {outlets: {primary: 'child', secondary: null}}]);
       expect(serializer.serialize(t)).toEqual('/parent/child(rootSecondary:rootPopup)');
     });
+
+    it('works with named children of empty path primary, relative to non-empty parent',
+       async () => {
+         router.resetConfig([{
+           path: 'case',
+           component: class {},
+           children: [
+             {
+               path: '',
+               component: class {},
+               children: [
+                 {path: 'foo', outlet: 'foo', children: []},
+               ],
+             },
+           ]
+         }]);
+         await router.navigateByUrl('/case');
+         expect(router.url).toEqual('/case');
+         expect(router
+                    .createUrlTree(
+                        [{outlets: {'foo': ['foo']}}],
+                        // relative to the 'case' route
+                        {relativeTo: router.routerState.root.firstChild})
+                    .toString())
+             .toEqual('/case/(foo:foo)');
+       });
 
     describe('absolute navigations', () => {
       it('with and pathless root', async () => {
@@ -546,7 +571,7 @@ describe('createUrlTreeFromSnapshot', async () => {
          children: [{path: 'innerRoute', component: ChildComponent}]
        }];
 
-       TestBed.configureTestingModule({imports: [RouterTestingModule.withRoutes(routes)]});
+       TestBed.configureTestingModule({imports: [RouterModule.forRoot(routes)]});
        const router = TestBed.inject(Router);
        const fixture = TestBed.createComponent(RootCmp);
 
@@ -602,7 +627,7 @@ describe('createUrlTreeFromSnapshot', async () => {
          },
        ];
 
-       TestBed.configureTestingModule({imports: [RouterTestingModule.withRoutes(routes)]});
+       TestBed.configureTestingModule({imports: [RouterModule.forRoot(routes)]});
        const router = TestBed.inject(Router);
        const fixture = TestBed.createComponent(RootCmp);
 

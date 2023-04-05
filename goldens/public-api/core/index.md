@@ -880,8 +880,6 @@ export class IterableDiffers {
     // (undocumented)
     static create(factories: IterableDifferFactory[], parent?: IterableDiffers): IterableDiffers;
     static extend(factories: IterableDifferFactory[]): StaticProvider;
-    // @deprecated (undocumented)
-    factories: IterableDifferFactory[];
     // (undocumented)
     find(iterable: any): IterableDifferFactory;
     // (undocumented)
@@ -1225,34 +1223,6 @@ export class QueryList<T> implements Iterable<T> {
 // @public
 export function reflectComponentType<C>(component: Type<C>): ComponentMirror<C> | null;
 
-// @public @deprecated
-export abstract class ReflectiveInjector implements Injector {
-    abstract createChildFromResolved(providers: ResolvedReflectiveProvider[]): ReflectiveInjector;
-    static fromResolvedProviders(providers: ResolvedReflectiveProvider[], parent?: Injector): ReflectiveInjector;
-    // (undocumented)
-    abstract get(token: any, notFoundValue?: any): any;
-    abstract instantiateResolved(provider: ResolvedReflectiveProvider): any;
-    abstract get parent(): Injector | null;
-    static resolve(providers: Provider[]): ResolvedReflectiveProvider[];
-    static resolveAndCreate(providers: Provider[], parent?: Injector): ReflectiveInjector;
-    abstract resolveAndCreateChild(providers: Provider[]): ReflectiveInjector;
-    abstract resolveAndInstantiate(provider: Provider): any;
-}
-
-// @public @deprecated
-export class ReflectiveKey {
-    constructor(token: Object, id: number);
-    // (undocumented)
-    readonly displayName: string;
-    static get(token: Object): ReflectiveKey;
-    // (undocumented)
-    id: number;
-    // (undocumented)
-    static get numberOfKeys(): number;
-    // (undocumented)
-    token: Object;
-}
-
 // @public
 export abstract class Renderer2 {
     abstract addClass(el: any, name: string): void;
@@ -1302,22 +1272,6 @@ export interface RendererType2 {
     encapsulation: ViewEncapsulation;
     id: string;
     styles: string[];
-}
-
-// @public
-export class ResolvedReflectiveFactory {
-    constructor(
-    factory: Function,
-    dependencies: ReflectiveDependency[]);
-    dependencies: ReflectiveDependency[];
-    factory: Function;
-}
-
-// @public
-export interface ResolvedReflectiveProvider {
-    key: ReflectiveKey;
-    multiProvider: boolean;
-    resolvedFactories: ResolvedReflectiveFactory[];
 }
 
 // @public
@@ -1630,7 +1584,7 @@ export enum ViewEncapsulation {
 export abstract class ViewRef extends ChangeDetectorRef {
     abstract destroy(): void;
     abstract get destroyed(): boolean;
-    abstract onDestroy(callback: Function): any /** TODO #9100, replace by void in a major release*/;
+    abstract onDestroy(callback: Function): void;
 }
 
 // @public
