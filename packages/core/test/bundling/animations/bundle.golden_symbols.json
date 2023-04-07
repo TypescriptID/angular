@@ -456,6 +456,9 @@
     "name": "PLATFORM_INITIALIZER"
   },
   {
+    "name": "PLATFORM_SERVER_ID"
+  },
+  {
     "name": "PRESERVE_HOST_CONTENT"
   },
   {
@@ -642,16 +645,10 @@
     "name": "_applyRootElementTransformImpl"
   },
   {
-    "name": "_contains"
-  },
-  {
     "name": "_convertTimeValueToMS"
   },
   {
     "name": "_currentInjector"
-  },
-  {
-    "name": "_documentElement"
   },
   {
     "name": "_enable_super_gross_mode_that_will_cause_bad_things"
@@ -685,9 +682,6 @@
   },
   {
     "name": "_processI18nInsertBefore"
-  },
-  {
-    "name": "_query"
   },
   {
     "name": "_retrieveHydrationInfoImpl"
@@ -766,6 +760,9 @@
   },
   {
     "name": "callHook"
+  },
+  {
+    "name": "callHookInternal"
   },
   {
     "name": "callHooks"
@@ -880,6 +877,9 @@
   },
   {
     "name": "diPublicInInjector"
+  },
+  {
+    "name": "documentElement"
   },
   {
     "name": "empty"
@@ -1062,9 +1062,6 @@
     "name": "getSimpleChangesStore"
   },
   {
-    "name": "getStyleAttributeString"
-  },
-  {
     "name": "getSymbolIterator"
   },
   {
@@ -1155,9 +1152,6 @@
     "name": "isArrayLike"
   },
   {
-    "name": "isBrowser"
-  },
-  {
     "name": "isComponentDef"
   },
   {
@@ -1191,9 +1185,6 @@
     "name": "isLView"
   },
   {
-    "name": "isNode"
-  },
-  {
     "name": "isNodeMatchingSelector"
   },
   {
@@ -1201,6 +1192,9 @@
   },
   {
     "name": "isObject"
+  },
+  {
+    "name": "isPlatformServer"
   },
   {
     "name": "isPositive"
@@ -1264,9 +1258,6 @@
   },
   {
     "name": "markAsComponentHost"
-  },
-  {
-    "name": "markDirtyIfOnPush"
   },
   {
     "name": "markViewDirty"
@@ -1543,9 +1534,6 @@
   },
   {
     "name": "writeDirectClass"
-  },
-  {
-    "name": "writeStyleAttribute"
   },
   {
     "name": "ɵPRE_STYLE"

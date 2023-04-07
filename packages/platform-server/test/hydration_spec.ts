@@ -10,7 +10,7 @@ import '@angular/localize/init';
 
 import {CommonModule, DOCUMENT, isPlatformServer, NgComponentOutlet, NgFor, NgIf, NgTemplateOutlet, PlatformLocation} from '@angular/common';
 import {MockPlatformLocation} from '@angular/common/testing';
-import {ApplicationRef, Component, ComponentRef, createComponent, destroyPlatform, Directive, ElementRef, EnvironmentInjector, ErrorHandler, getPlatform, inject, Injectable, Input, NgZone, PLATFORM_ID, Provider, TemplateRef, Type, ViewChild, ViewContainerRef, ɵsetDocument} from '@angular/core';
+import {ApplicationRef, Component, ComponentRef, createComponent, destroyPlatform, Directive, ElementRef, EnvironmentInjector, ErrorHandler, getPlatform, inject, Injectable, Input, NgZone, PLATFORM_ID, Provider, TemplateRef, Type, ViewChild, ViewContainerRef, ViewEncapsulation, ɵsetDocument} from '@angular/core';
 import {Console} from '@angular/core/src/console';
 import {InitialRenderPendingTasks} from '@angular/core/src/initial_render_pending_tasks';
 import {getComponentDef} from '@angular/core/src/render3/definition';
@@ -44,8 +44,11 @@ const TEXT_NODE_SEPARATOR_REGEXP = new RegExp(`<!--${TEXT_NODE_SEPARATOR_COMMENT
  * so that it's easier to make assertions in tests.
  */
 function stripUtilAttributes(html: string, keepNgh: boolean): string {
-  html = html.replace(/ ng-version=".*?"/g, '')  //
-             .replace(/ ng-server-context=".*?"/g, '');
+  html = html.replace(/ ng-version=".*?"/g, '')
+             .replace(/ ng-server-context=".*?"/g, '')
+             .replace(/ ng-reflect-(.*?)=".*?"/g, '')
+             .replace(/ _nghost(.*?)=""/g, '')
+             .replace(/ _ngcontent(.*?)=""/g, '');
   if (!keepNgh) {
     html = html.replace(NGH_ATTR_REGEXP, '')
                .replace(EMPTY_TEXT_NODE_REGEXP, '')
@@ -1521,10 +1524,10 @@ describe('platform-server integration', () => {
     });
 
     // Note: hydration for i18n blocks is not *yet* supported, so the tests
-    // below verify that we throw error messages at appropriate times and
-    // allow to exclude components with i18n from hydration using `ngSkipHydration` flag.
+    // below verify that components that use i18n are excluded from the hydration
+    // by adding the `ngSkipHydration` flag onto the component host element.
     describe('i18n', () => {
-      it('should throw an error when trying to serialize i18n section', async () => {
+      it('should append skip hydration flag if component uses i18n blocks', async () => {
         @Component({
           standalone: true,
           selector: 'app',
@@ -1535,39 +1538,79 @@ describe('platform-server integration', () => {
         class SimpleComponent {
         }
 
-        try {
-          await ssr(SimpleComponent);
-        } catch (e: unknown) {
-          const errorMessage = (e as Error).toString();
-          expect(errorMessage)
-              .toContain('Hydration for nodes marked with `i18n` is not yet supported.');
-          expect(errorMessage).toContain('<div>…</div>  <-- AT THIS LOCATION');
-        }
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+        expect(ssrContents).toContain('<app ngskiphydration="">');
+
+        resetTViewsFor(SimpleComponent);
+
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        const clientRootNode = compRef.location.nativeElement;
+        verifyNoNodesWereClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
       });
 
-      it('should throw an error when trying to serialize i18n section with ngIf', async () => {
+      it('should keep the skip hydration flag if component uses i18n blocks', async () => {
         @Component({
           standalone: true,
-          imports: [NgIf],
           selector: 'app',
+          host: {ngSkipHydration: 'true'},
           template: `
-            <div *ngIf="true" i18n>Hi!</div>
+            <div i18n>Hi!</div>
           `,
         })
         class SimpleComponent {
         }
 
-        try {
-          await ssr(SimpleComponent);
-        } catch (e: unknown) {
-          const errorMessage = (e as Error).toString();
-          expect(errorMessage)
-              .toContain('Hydration for nodes marked with `i18n` is not yet supported.');
-          expect(errorMessage).toContain('<div>…</div>  <-- AT THIS LOCATION');
-        }
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+        expect(ssrContents).toContain('<app ngskiphydration="true">');
+
+        resetTViewsFor(SimpleComponent);
+
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        const clientRootNode = compRef.location.nativeElement;
+        verifyNoNodesWereClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
       });
 
-      it('should throw an error when trying to serialize i18n section (based on ng-container)',
+      it('should append skip hydration flag if component uses i18n blocks inside embedded views',
+         async () => {
+           @Component({
+             standalone: true,
+             imports: [NgIf],
+             selector: 'app',
+             template: `
+               <main *ngIf="true">
+                 <div *ngIf="true" i18n>Hi!</div>
+               </main>
+              `,
+           })
+           class SimpleComponent {
+           }
+
+           const html = await ssr(SimpleComponent);
+           const ssrContents = getAppContents(html);
+           expect(ssrContents).toContain('<app ngskiphydration="">');
+
+           resetTViewsFor(SimpleComponent);
+
+           const appRef = await hydrate(html, SimpleComponent);
+           const compRef = getComponentRef<SimpleComponent>(appRef);
+           appRef.tick();
+
+           const clientRootNode = compRef.location.nativeElement;
+           verifyNoNodesWereClaimedForHydration(clientRootNode);
+           verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
+         });
+
+      it('should append skip hydration flag if component uses i18n blocks on <ng-container>s',
          async () => {
            @Component({
              standalone: true,
@@ -1579,33 +1622,48 @@ describe('platform-server integration', () => {
            class SimpleComponent {
            }
 
-           try {
-             await ssr(SimpleComponent);
-           } catch (e: unknown) {
-             expect((e as Error).toString())
-                 .toContain('Hydration for nodes marked with `i18n` is not yet supported.');
-           }
+           const html = await ssr(SimpleComponent);
+           const ssrContents = getAppContents(html);
+           expect(ssrContents).toContain('<app ngskiphydration="">');
+
+           resetTViewsFor(SimpleComponent);
+
+           const appRef = await hydrate(html, SimpleComponent);
+           const compRef = getComponentRef<SimpleComponent>(appRef);
+           appRef.tick();
+
+           const clientRootNode = compRef.location.nativeElement;
+           verifyNoNodesWereClaimedForHydration(clientRootNode);
+           verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
          });
 
-      it('should throw an error when trying to serialize i18n section (with *ngIf)', async () => {
-        @Component({
-          standalone: true,
-          imports: [CommonModule],
-          selector: 'app',
-          template: `
+      it('should append skip hydration flag if component uses i18n blocks (with *ngIfs on <ng-container>s)',
+         async () => {
+           @Component({
+             standalone: true,
+             imports: [CommonModule],
+             selector: 'app',
+             template: `
               <ng-container *ngIf="true" i18n>Hi!</ng-container>
             `,
-        })
-        class SimpleComponent {
-        }
+           })
+           class SimpleComponent {
+           }
 
-        try {
-          await ssr(SimpleComponent);
-        } catch (e: unknown) {
-          expect((e as Error).toString())
-              .toContain('Hydration for nodes marked with `i18n` is not yet supported.');
-        }
-      });
+           const html = await ssr(SimpleComponent);
+           const ssrContents = getAppContents(html);
+           expect(ssrContents).toContain('<app ngskiphydration="">');
+
+           resetTViewsFor(SimpleComponent);
+
+           const appRef = await hydrate(html, SimpleComponent);
+           const compRef = getComponentRef<SimpleComponent>(appRef);
+           appRef.tick();
+
+           const clientRootNode = compRef.location.nativeElement;
+           verifyNoNodesWereClaimedForHydration(clientRootNode);
+           verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
+         });
 
       it('should *not* throw when i18n attributes are used', async () => {
         @Component({
@@ -1673,6 +1731,70 @@ describe('platform-server integration', () => {
            const clientRootNode = compRef.location.nativeElement;
            verifyAllNodesClaimedForHydration(clientRootNode);
            verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
+         });
+    });
+
+    describe('ShadowDom encapsulation', () => {
+      it('should append skip hydration flag if component uses ShadowDom encapsulation',
+         async () => {
+           @Component({
+             standalone: true,
+             selector: 'app',
+             encapsulation: ViewEncapsulation.ShadowDom,
+             template: `Hi!`,
+             styles: [':host { color: red; }']
+           })
+           class SimpleComponent {
+           }
+
+           const html = await ssr(SimpleComponent);
+           const ssrContents = getAppContents(html);
+           expect(ssrContents).toContain('<app ngskiphydration="">');
+         });
+
+      it('should append skip hydration flag if component uses ShadowDom encapsulation ' +
+             '(but keep parent and sibling elements hydratable)',
+         async () => {
+           @Component({
+             standalone: true,
+             selector: 'shadow-dom',
+             encapsulation: ViewEncapsulation.ShadowDom,
+             template: `ShadowDom component`,
+             styles: [':host { color: red; }']
+           })
+           class ShadowDomComponent {
+           }
+
+           @Component({
+             standalone: true,
+             selector: 'regular',
+             template: `<p>Regular component</p>`,
+           })
+           class RegularComponent {
+             @Input() id?: string;
+           }
+
+           @Component({
+             standalone: true,
+             selector: 'app',
+             imports: [RegularComponent, ShadowDomComponent],
+             template: `
+                <main>Main content</main>
+                <regular id="1" />
+                <shadow-dom />
+                <regular id="2" />
+              `,
+           })
+           class SimpleComponent {
+           }
+
+           const html = await ssr(SimpleComponent);
+           const ssrContents = getAppContents(html);
+
+           expect(ssrContents).toContain('<app ngh="0">');
+           expect(ssrContents).toContain('<shadow-dom ngskiphydration="">');
+           expect(ssrContents).toContain('<regular id="1" ngh="0">');
+           expect(ssrContents).toContain('<regular id="2" ngh="0">');
          });
     });
 
@@ -2122,7 +2244,16 @@ describe('platform-server integration', () => {
            }
 
            try {
-             await ssr(SimpleComponent);
+             const html = await ssr(SimpleComponent);
+             const ssrContents = getAppContents(html);
+
+             expect(ssrContents).toContain('<app ngh');
+
+             resetTViewsFor(SimpleComponent);
+
+             await hydrate(html, SimpleComponent);
+
+             fail('Expected the hydration process to throw.');
            } catch (e: unknown) {
              expect((e as Error).toString())
                  .toContain(
@@ -2154,14 +2285,24 @@ describe('platform-server integration', () => {
            }
 
            try {
-             await ssr(SimpleComponent);
+             const html = await ssr(SimpleComponent);
+             const ssrContents = getAppContents(html);
+
+             expect(ssrContents).toContain('<app ngh');
+
+             resetTViewsFor(SimpleComponent);
+
+             await hydrate(html, SimpleComponent);
+
+             fail('Expected the hydration process to throw.');
            } catch (e: unknown) {
              const errorMessage = (e as Error).toString();
              expect(errorMessage)
                  .toContain(
                      'The `ngSkipHydration` flag is applied ' +
                      'on a node that doesn\'t act as a component host');
-             expect(errorMessage).toContain('<div></div> <-- AT THIS LOCATION');
+             expect(errorMessage)
+                 .toContain('<div ngskiphydration="true" dir="">…</div>  <-- AT THIS LOCATION');
            }
          });
     });

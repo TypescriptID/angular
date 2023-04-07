@@ -35,7 +35,7 @@ let isHydrationSupportEnabled = false;
 
 /**
  * Brings the necessary hydration code in tree-shakable manner.
- * The code is only present when the `provideHydrationSupport` is
+ * The code is only present when the `provideClientHydration` is
  * invoked. Otherwise, this code is tree-shaken away during the
  * build optimization step.
  *
@@ -75,7 +75,7 @@ function printHydrationStats(console: Console) {
       `and ${ngDevMode!.hydratedNodes} node(s), ` +
       `${ngDevMode!.componentsSkippedHydration} component(s) were skipped. ` +
       `Note: this feature is in Developer Preview mode. ` +
-      `Learn more at https://angular.io/guides/hydration.`;
+      `Learn more at https://next.angular.io/guide/hydration.`;
   // tslint:disable-next-line:no-console
   console.log(message);
 }
