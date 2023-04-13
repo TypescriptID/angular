@@ -11,21 +11,29 @@ import { Observable } from 'rxjs';
 import { Signal } from '@angular/core';
 
 // @public
-export function fromObservable<T>(source: Observable<T>): Signal<T>;
+export function takeUntilDestroyed<T>(destroyRef?: DestroyRef): MonoTypeOperatorFunction<T>;
 
 // @public
-export function fromObservable<T, U extends T | null | undefined>(source: Observable<T>, initialValue: U): Signal<T | U>;
+export function toObservable<T>(source: Signal<T>, options?: toObservableOptions): Observable<T>;
 
 // @public
-export function fromSignal<T>(source: Signal<T>, options?: FromSignalOptions): Observable<T>;
-
-// @public
-export interface FromSignalOptions {
+export interface toObservableOptions {
     injector?: Injector;
 }
 
 // @public
-export function takeUntilDestroyed<T>(destroyRef?: DestroyRef): MonoTypeOperatorFunction<T>;
+export function toSignal<T>(source: Observable<T>): Signal<T | undefined>;
+
+// @public
+export function toSignal<T, U extends T | null | undefined>(source: Observable<T>, options: {
+    initialValue: U;
+    requireSync?: false;
+}): Signal<T | U>;
+
+// @public (undocumented)
+export function toSignal<T>(source: Observable<T>, options: {
+    requireSync: true;
+}): Signal<T>;
 
 // (No @packageDocumentation comment for this package)
 

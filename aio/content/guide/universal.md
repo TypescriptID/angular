@@ -143,9 +143,6 @@ If you throttle your network speed so that the client-side scripts take longer t
 *   The search box on the Dashboard page is ignored
 *   The *Back* and *Save* buttons on the Details page don't work
 
-User events other than `routerLink` clicks aren't supported.
-You must wait for the full client application to bootstrap and run, or buffer the events using libraries like [preboot](https://github.com/angular/preboot), which lets you replay these events once the client-side scripts load.
-
 The transition from the server-rendered application to the client application happens quickly on a development machine, but you should always test your applications in real-world scenarios.
 
 You can simulate a slower network to see the transition more clearly as follows:
@@ -245,6 +242,11 @@ If Angular doesn't provide it, it's possible to write new abstractions that dele
 Similarly, without mouse or keyboard events, a server-side application can't rely on a user clicking a button to show a component.
 The application must determine what to render based solely on the incoming client request.
 This is a good argument for making the application [routable](guide/router).
+
+<a id="service-worker"></a>
+### Universal and the Angular Service Worker
+
+If you are using Universal in conjunction with the Angular service worker, the behavior is different than the normal server side rendering behavior. The initial server request will be rendered on the server as expected. However, after that initial request, subsequent requests are handled by the service worker. For subsequent requests, the `index.html` file is served statically and bypasses server side rendering.
 
 <a id="universal-engine"></a>
 

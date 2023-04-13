@@ -10,11 +10,11 @@ import {assertInInjectionContext, effect, inject, Injector, Signal} from '@angul
 import {Observable} from 'rxjs';
 
 /**
- * Options for `fromSignal`.
+ * Options for `toObservable`.
  *
  * @developerPreview
  */
-export interface FromSignalOptions {
+export interface toObservableOptions {
   /**
    * The `Injector` to use when creating the effect.
    *
@@ -28,27 +28,30 @@ export interface FromSignalOptions {
  *
  * The signal's value will be propagated into the `Observable`'s subscribers using an `effect`.
  *
- * `fromSignal` must be called in an injection context.
+ * `toObservable` must be called in an injection context.
  *
  * @developerPreview
  */
-export function fromSignal<T>(
+export function toObservable<T>(
     source: Signal<T>,
-    options?: FromSignalOptions,
+    options?: toObservableOptions,
     ): Observable<T> {
-  !options?.injector && assertInInjectionContext(fromSignal);
+  !options?.injector && assertInInjectionContext(toObservable);
   const injector = options?.injector ?? inject(Injector);
 
   // Creating a new `Observable` allows the creation of the effect to be lazy. This allows for all
   // references to `source` to be dropped if the `Observable` is fully unsubscribed and thrown away.
   return new Observable(observer => {
     const watcher = effect(() => {
+      let value: T;
       try {
-        observer.next(source());
+        value = source();
       } catch (err) {
         observer.error(err);
+        return;
       }
-    }, {injector, manualCleanup: true});
+      observer.next(value);
+    }, {injector, manualCleanup: true, allowSignalWrites: true});
     return () => watcher.destroy();
   });
 }
