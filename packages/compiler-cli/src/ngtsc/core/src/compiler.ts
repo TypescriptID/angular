@@ -18,7 +18,7 @@ import {AbsoluteModuleStrategy, AliasingHost, AliasStrategy, DefaultImportTracke
 import {IncrementalBuildStrategy, IncrementalCompilation, IncrementalState} from '../../incremental';
 import {SemanticSymbol} from '../../incremental/semantic_graph';
 import {generateAnalysis, IndexedComponent, IndexingContext} from '../../indexer';
-import {ComponentResources, CompoundMetadataReader, CompoundMetadataRegistry, DirectiveMeta, DtsMetadataReader, HostDirectivesResolver, LocalMetadataRegistry, MetadataReader, MetadataReaderWithIndex, PipeMeta, ResourceRegistry} from '../../metadata';
+import {ComponentResources, CompoundMetadataReader, CompoundMetadataRegistry, DirectiveMeta, DtsMetadataReader, ExportedProviderStatusResolver, HostDirectivesResolver, LocalMetadataRegistry, MetadataReader, MetadataReaderWithIndex, PipeMeta, ResourceRegistry} from '../../metadata';
 import {NgModuleIndexImpl} from '../../metadata/src/ng_module_index';
 import {PartialEvaluator} from '../../partial_evaluator';
 import {ActivePerfRecorder, DelegatingPerfRecorder, PerfCheckpoint, PerfEvent, PerfPhase} from '../../perf';
@@ -145,7 +145,7 @@ export function incrementalFromCompilerTicket(
   const oldProgram = oldCompiler.getCurrentProgram();
   const oldState = oldCompiler.incrementalStrategy.getIncrementalState(oldProgram);
   if (oldState === null) {
-    // No incremental step is possible here, since no IncrementalDriver was found for the old
+    // No incremental step is possible here, since no IncrementalState was found for the old
     // program.
     return freshCompilationTicket(
         newProgram, oldCompiler.options, incrementalBuildStrategy, programDriver, perfRecorder,
@@ -364,16 +364,6 @@ export class NgCompiler {
 
   get perfRecorder(): ActivePerfRecorder {
     return this.livePerfRecorder;
-  }
-
-  /**
-   * Exposes the `IncrementalCompilation` under an old property name that the CLI uses, avoiding a
-   * chicken-and-egg problem with the rename to `incrementalCompilation`.
-   *
-   * TODO(alxhub): remove when the CLI uses the new name.
-   */
-  get incrementalDriver(): IncrementalCompilation {
-    return this.incrementalCompilation;
   }
 
   private updateWithChangedResources(
@@ -991,6 +981,7 @@ export class NgCompiler {
     const metaRegistry = new CompoundMetadataRegistry([localMetaRegistry, ngModuleScopeRegistry]);
     const injectableRegistry = new InjectableClassRegistry(reflector, isCore);
     const hostDirectivesResolver = new HostDirectivesResolver(metaReader);
+    const exportedProviderStatusResolver = new ExportedProviderStatusResolver(metaReader);
 
     const typeCheckScopeRegistry =
         new TypeCheckScopeRegistry(scopeReader, metaReader, hostDirectivesResolver);
@@ -1061,9 +1052,9 @@ export class NgCompiler {
           this.delegatingPerfRecorder),
       new NgModuleDecoratorHandler(
           reflector, evaluator, metaReader, metaRegistry, ngModuleScopeRegistry, referencesRegistry,
-          isCore, refEmitter, this.closureCompilerEnabled,
-          this.options.onlyPublishPublicTypingsForNgModules ?? false, injectableRegistry,
-          this.delegatingPerfRecorder),
+          exportedProviderStatusResolver, semanticDepGraphUpdater, isCore, refEmitter,
+          this.closureCompilerEnabled, this.options.onlyPublishPublicTypingsForNgModules ?? false,
+          injectableRegistry, this.delegatingPerfRecorder),
     ];
 
     const traitCompiler = new TraitCompiler(

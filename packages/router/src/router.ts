@@ -153,6 +153,9 @@ export class Router {
    * page id in the browser history is 1 more than the previous entry.
    */
   private get browserPageId(): number|undefined {
+    if (this.canceledNavigationResolution !== 'computed') {
+      return undefined;
+    }
     return (this.location.getState() as RestoredState | null)?.ɵrouterPageId;
   }
   private console = inject(Console);
@@ -725,23 +728,6 @@ export class Router {
       });
     }
 
-    let targetPageId: number;
-    if (this.canceledNavigationResolution === 'computed') {
-      // If the `ɵrouterPageId` exist in the state then `targetpageId` should have the value of
-      // `ɵrouterPageId`. This is the case for something like a page refresh where we assign the
-      // target id to the previously set value for that page.
-      if (restoredState && restoredState.ɵrouterPageId) {
-        targetPageId = restoredState.ɵrouterPageId;
-      } else {
-        // Otherwise, targetPageId should be the next number in the event of a `pushState`
-        // navigation.
-        targetPageId = (this.browserPageId ?? 0) + 1;
-      }
-    } else {
-      // This is unused when `canceledNavigationResolution` is not computed.
-      targetPageId = 0;
-    }
-
     // Indicate that the navigation is happening.
     const taskId = this.pendingTasks.add();
     afterNextNavigation(this, () => {
@@ -751,7 +737,6 @@ export class Router {
     });
 
     this.navigationTransitions.handleNavigationRequest({
-      targetPageId,
       source,
       restoredState,
       currentUrlTree: this.currentUrlTree,
@@ -777,8 +762,7 @@ export class Router {
     const path = this.urlSerializer.serialize(url);
     if (this.location.isCurrentPathEqualTo(path) || !!transition.extras.replaceUrl) {
       // replacements do not update the target page
-      const currentBrowserPageId =
-          this.canceledNavigationResolution === 'computed' ? this.browserPageId : undefined;
+      const currentBrowserPageId = this.browserPageId;
       const state = {
         ...transition.extras.state,
         ...this.generateNgRouterState(transition.id, currentBrowserPageId)
@@ -787,7 +771,7 @@ export class Router {
     } else {
       const state = {
         ...transition.extras.state,
-        ...this.generateNgRouterState(transition.id, transition.targetPageId)
+        ...this.generateNgRouterState(transition.id, (this.browserPageId ?? 0) + 1)
       };
       this.location.go(path, '', state);
     }
