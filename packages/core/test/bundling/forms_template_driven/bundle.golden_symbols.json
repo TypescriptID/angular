@@ -552,9 +552,6 @@
     "name": "Subscription"
   },
   {
-    "name": "TEMPLATES"
-  },
-  {
     "name": "TESTABILITY"
   },
   {
@@ -1684,6 +1681,9 @@
   },
   {
     "name": "writeDirectClass"
+  },
+  {
+    "name": "writeToDirectiveInput"
   },
   {
     "name": "ɵInternalFormsSharedModule"

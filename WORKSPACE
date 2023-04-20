@@ -26,12 +26,10 @@ http_archive(
 http_archive(
     name = "build_bazel_rules_nodejs",
     patches = [
-        # TODO(devversion): remove when https://github.com/bazelbuild/rules_nodejs/pull/3605 is available.
-        "//tools:bazel-repo-patches/rules_nodejs__#3605.patch",
         "//tools/esm-interop:patches/bazel/nodejs_binary_esm_support.patch",
     ],
-    sha256 = "c29944ba9b0b430aadcaf3bf2570fece6fc5ebfb76df145c6cdad40d65c20811",
-    urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/5.7.0/rules_nodejs-5.7.0.tar.gz"],
+    sha256 = "94070eff79305be05b7699207fbac5d2608054dd53e6109f7d00d923919ff45a",
+    urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/5.8.2/rules_nodejs-5.8.2.tar.gz"],
 )
 
 load("@build_bazel_rules_nodejs//:repositories.bzl", "build_bazel_rules_nodejs_dependencies")
@@ -40,6 +38,8 @@ build_bazel_rules_nodejs_dependencies()
 
 # The PKG rules are needed to build tar packages for integration tests. The builtin
 # rule in `@bazel_tools` is not Windows compatible and outdated.
+# NOTE: We cannot move past version 0.6.0 as pkg_tar no longer works on directories, which rules_nodejs
+#       relies on for node_modules setup.
 http_archive(
     name = "rules_pkg",
     sha256 = "62eeb544ff1ef41d786e329e1536c1d541bb9bcad27ae984d57f18f314018e66",
@@ -50,6 +50,8 @@ http_archive(
 )
 
 # Fetch Aspect lib for utilities like write_source_files
+# NOTE: We cannot move past version 1.23.2 of aspect_bazel_lib because it requires us to move to bazel 6.0.0 which
+#       breaks our usage of managed_directories
 http_archive(
     name = "aspect_bazel_lib",
     sha256 = "4b2e774387bae6242879820086b7b738d49bf3d0659522ea5d9363be01a27582",
@@ -192,10 +194,10 @@ cldr_xml_data_repository(
 # sass rules
 http_archive(
     name = "io_bazel_rules_sass",
-    sha256 = "456df159ed48f7df4d40b2c5a41bf9dcb343cacbac561af4b0e5334c5eb14af1",
-    strip_prefix = "rules_sass-3d2ad4702a9610e97dadbe345e3566cc19e72ad6",
+    sha256 = "de516110be32fcce328cb93ec4bf06f7a6e978e60bfd9d628fb5571c4a0afade",
+    strip_prefix = "rules_sass-898e4dd048584152bfbd77abd9ed0c3fe28c86ac",
     urls = [
-        "https://github.com/bazelbuild/rules_sass/archive/3d2ad4702a9610e97dadbe345e3566cc19e72ad6.zip",
+        "https://github.com/bazelbuild/rules_sass/archive/898e4dd048584152bfbd77abd9ed0c3fe28c86ac.zip",
     ],
 )
 

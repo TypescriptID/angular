@@ -23,6 +23,9 @@ import {phaseLocalRefs} from './phases/local_refs';
 import {phaseGenerateVariables} from './phases/generate_variables';
 import {phaseResolveNames} from './phases/resolve_names';
 import {phaseResolveContexts} from './phases/resolve_contexts';
+import {phaseVariableOptimization} from './phases/variable_optimization';
+import {phaseChaining} from './phases/chaining';
+import {phaseMergeNextContext} from './phases/next_context_merging';
 
 /**
  * Run all transformation phases in the correct order against a `ComponentCompilation`. After this
@@ -39,7 +42,10 @@ export function transformTemplate(cpl: ComponentCompilation): void {
   phaseVarCounting(cpl);
   phaseGenerateAdvance(cpl);
   phaseNaming(cpl);
+  phaseVariableOptimization(cpl, {conservative: true});
+  phaseMergeNextContext(cpl);
   phaseReify(cpl);
+  phaseChaining(cpl);
 }
 
 /**
@@ -48,15 +54,22 @@ export function transformTemplate(cpl: ComponentCompilation): void {
  */
 export function emitTemplateFn(tpl: ComponentCompilation, pool: ConstantPool): o.FunctionExpr {
   const rootFn = emitView(tpl.root);
-  for (const view of tpl.views.values()) {
-    if (view === tpl.root) {
+  emitChildViews(tpl.root, pool);
+  return rootFn;
+}
+
+function emitChildViews(parent: ViewCompilation, pool: ConstantPool): void {
+  for (const view of parent.tpl.views.values()) {
+    if (view.parent !== parent.xref) {
       continue;
     }
+
+    // Child views are emitted depth-first.
+    emitChildViews(view, pool);
 
     const viewFn = emitView(view);
     pool.statements.push(viewFn.toDeclStmt(viewFn.name!));
   }
-  return rootFn;
 }
 
 /**
@@ -85,15 +98,28 @@ function emitView(view: ViewCompilation): o.FunctionExpr {
     updateStatements.push(op.statement);
   }
 
-  const rf = o.variable('rf');
-  const createCond = o.ifStmt(
-      new o.BinaryOperatorExpr(o.BinaryOperator.BitwiseAnd, rf, o.literal(1)), createStatements);
-  const updateCond = o.ifStmt(
-      new o.BinaryOperatorExpr(o.BinaryOperator.BitwiseAnd, rf, o.literal(2)), updateStatements);
+  const createCond = maybeGenerateRfBlock(1, createStatements);
+  const updateCond = maybeGenerateRfBlock(2, updateStatements);
   return o.fn(
       [
         new o.FnParam('rf'),
         new o.FnParam('ctx'),
       ],
-      [createCond, updateCond], /* type */ undefined, /* sourceSpan */ undefined, view.fnName);
+      [
+        ...createCond,
+        ...updateCond,
+      ],
+      /* type */ undefined, /* sourceSpan */ undefined, view.fnName);
+}
+
+function maybeGenerateRfBlock(flag: number, statements: o.Statement[]): o.Statement[] {
+  if (statements.length === 0) {
+    return [];
+  }
+
+  return [
+    o.ifStmt(
+        new o.BinaryOperatorExpr(o.BinaryOperator.BitwiseAnd, o.variable('rf'), o.literal(flag)),
+        statements),
+  ];
 }

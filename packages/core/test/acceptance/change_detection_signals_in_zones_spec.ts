@@ -7,7 +7,7 @@
  */
 
 import {NgIf} from '@angular/common';
-import {ChangeDetectionStrategy, Component} from '@angular/core';
+import {ChangeDetectionStrategy, Component, Input, ViewChild} from '@angular/core';
 import {TestBed} from '@angular/core/testing';
 
 import {signal} from '../../src/signals';
@@ -140,6 +140,107 @@ describe('OnPush components with signals', () => {
        fixture.detectChanges();
        expect(instance.numTemplateExecutions).toBe(1);
      });
+
+  it('should not mark components as dirty when signal is read in an input of a child component',
+     () => {
+       const state = signal('initial');
+
+       @Component({
+         selector: 'with-input-setter',
+         standalone: true,
+         template: '{{test}}',
+       })
+       class WithInputSetter {
+         test = '';
+
+         @Input()
+         set testInput(newValue: string) {
+           this.test = state() + ':' + newValue;
+         }
+       }
+
+       @Component({
+         template: `
+            {{incrementTemplateExecutions()}}
+            <!-- Template constructed to execute child component constructor in the update pass of a host component -->
+            <ng-template [ngIf]="true"><with-input-setter [testInput]="'input'" /></ng-template>
+          `,
+         changeDetection: ChangeDetectionStrategy.OnPush,
+         standalone: true,
+         imports: [NgIf, WithInputSetter],
+       })
+       class OnPushCmp {
+         numTemplateExecutions = 0;
+         incrementTemplateExecutions() {
+           this.numTemplateExecutions++;
+           return '';
+         }
+       }
+
+       const fixture = TestBed.createComponent(OnPushCmp);
+       const instance = fixture.componentInstance;
+
+       fixture.detectChanges();
+       expect(instance.numTemplateExecutions).toBe(1);
+       expect(fixture.nativeElement.textContent.trim()).toEqual('initial:input');
+
+       // The "state" signal is not accesses in the template's update function anywhere so it
+       // shouldn't mark components as dirty / impact change detection.
+       state.set('new');
+       fixture.detectChanges();
+       expect(instance.numTemplateExecutions).toBe(1);
+       expect(fixture.nativeElement.textContent.trim()).toEqual('initial:input');
+     });
+
+  it('should not mark components as dirty when signal is read in a query result setter', () => {
+    const state = signal('initial');
+
+    @Component({
+      selector: 'with-query-setter',
+      standalone: true,
+      template: '<div #el>child</div>',
+    })
+    class WithQuerySetter {
+      el: unknown;
+      @ViewChild('el', {static: true})
+      set elQuery(result: unknown) {
+        // read a signal in a setter
+        state();
+        this.el = result;
+      }
+    }
+
+    @Component({
+      template: `
+         {{incrementTemplateExecutions()}}
+         <!-- Template constructed to execute child component constructor in the update pass of a host component -->
+         <ng-template [ngIf]="true"><with-query-setter /></ng-template>
+       `,
+      changeDetection: ChangeDetectionStrategy.OnPush,
+      standalone: true,
+      imports: [NgIf, WithQuerySetter],
+    })
+    class OnPushCmp {
+      numTemplateExecutions = 0;
+      incrementTemplateExecutions() {
+        this.numTemplateExecutions++;
+        return '';
+      }
+    }
+
+    const fixture = TestBed.createComponent(OnPushCmp);
+    const instance = fixture.componentInstance;
+
+    fixture.detectChanges();
+    expect(instance.numTemplateExecutions).toBe(1);
+    expect(fixture.nativeElement.textContent.trim()).toEqual('child');
+
+    // The "state" signal is not accesses in the template's update function anywhere so it
+    // shouldn't mark components as dirty / impact change detection.
+    state.set('new');
+    fixture.detectChanges();
+    expect(instance.numTemplateExecutions).toBe(1);
+  });
 
   it('can read a signal in a host binding', () => {
     @Component({

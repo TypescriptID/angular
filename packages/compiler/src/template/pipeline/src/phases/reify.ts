@@ -29,7 +29,7 @@ export function phaseReify(cpl: ComponentCompilation): void {
 
 function reifyCreateOperations(view: ViewCompilation, ops: ir.OpList<ir.CreateOp>): void {
   for (const op of ops) {
-    ir.transformExpressionsInOp(op, reifyIrExpression);
+    ir.transformExpressionsInOp(op, reifyIrExpression, ir.VisitorContextFlag.None);
 
     switch (op.kind) {
       case ir.OpKind.Text:
@@ -60,7 +60,7 @@ function reifyCreateOperations(view: ViewCompilation, ops: ir.OpList<ir.CreateOp
                 childView.decls!,
                 childView.vars!,
                 op.tag,
-                op.localRefs as number,
+                op.attributes as number,
                 ),
         );
         break;
@@ -74,11 +74,13 @@ function reifyCreateOperations(view: ViewCompilation, ops: ir.OpList<ir.CreateOp
                 ));
         break;
       case ir.OpKind.Variable:
-        if (op.name === null) {
+        if (op.variable.name === null) {
           throw new Error(`AssertionError: unnamed variable ${op.xref}`);
         }
         ir.OpList.replace<ir.CreateOp>(
-            op, ir.createStatementOp(new o.DeclareVarStmt(op.name, op.initializer)));
+            op,
+            ir.createStatementOp(new o.DeclareVarStmt(
+                op.variable.name, op.initializer, undefined, o.StmtModifier.Final)));
         break;
       case ir.OpKind.Statement:
         // Pass statement operations directly through.
@@ -92,7 +94,7 @@ function reifyCreateOperations(view: ViewCompilation, ops: ir.OpList<ir.CreateOp
 
 function reifyUpdateOperations(_view: ViewCompilation, ops: ir.OpList<ir.UpdateOp>): void {
   for (const op of ops) {
-    ir.transformExpressionsInOp(op, reifyIrExpression);
+    ir.transformExpressionsInOp(op, reifyIrExpression, ir.VisitorContextFlag.None);
 
     switch (op.kind) {
       case ir.OpKind.Advance:
@@ -105,11 +107,13 @@ function reifyUpdateOperations(_view: ViewCompilation, ops: ir.OpList<ir.UpdateO
         ir.OpList.replace(op, ng.textInterpolate(op.strings, op.expressions));
         break;
       case ir.OpKind.Variable:
-        if (op.name === null) {
+        if (op.variable.name === null) {
           throw new Error(`AssertionError: unnamed variable ${op.xref}`);
         }
         ir.OpList.replace<ir.UpdateOp>(
-            op, ir.createStatementOp(new o.DeclareVarStmt(op.name, op.initializer)));
+            op,
+            ir.createStatementOp(new o.DeclareVarStmt(
+                op.variable.name, op.initializer, undefined, o.StmtModifier.Final)));
         break;
       case ir.OpKind.Statement:
         // Pass statement operations directly through.
@@ -124,7 +128,7 @@ function reifyUpdateOperations(_view: ViewCompilation, ops: ir.OpList<ir.UpdateO
 function reifyIrExpression(expr: ir.Expression): o.Expression {
   switch (expr.kind) {
     case ir.ExpressionKind.NextContext:
-      return ng.nextContext();
+      return ng.nextContext(expr.steps);
     case ir.ExpressionKind.Reference:
       return ng.reference(expr.slot! + 1 + expr.offset);
     case ir.ExpressionKind.LexicalRead:

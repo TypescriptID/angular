@@ -146,11 +146,22 @@ export class OpList<OpT extends Op<OpT>> {
     while (current !== this.tail) {
       // Guards against corruption of the iterator state by mutations to the tail of the list during
       // iteration.
-      OpList.assertIsOwned(current);
+      OpList.assertIsOwned(current, this.debugListId);
 
       const next = current.next!;
       yield current;
       current = next;
+    }
+  }
+
+  * reversed(): Generator<OpT> {
+    let current = this.tail.prev!;
+    while (current !== this.head) {
+      OpList.assertIsOwned(current, this.debugListId);
+
+      const prev = current.prev!;
+      yield current;
+      current = prev;
     }
   }
 
@@ -261,7 +272,7 @@ export class OpList<OpT extends Op<OpT>> {
     OpList.assertIsNotEnd(op);
 
     OpList.assertIsUnowned(op);
-    OpList.assertIsOwned(before, op.debugListId!);
+    OpList.assertIsOwned(before);
 
     op.debugListId = before.debugListId;
 
