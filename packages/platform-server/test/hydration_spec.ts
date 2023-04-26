@@ -15,6 +15,7 @@ import {Console} from '@angular/core/src/console';
 import {InitialRenderPendingTasks} from '@angular/core/src/initial_render_pending_tasks';
 import {getComponentDef} from '@angular/core/src/render3/definition';
 import {unescapeTransferStateContent} from '@angular/core/src/transfer_state';
+import {NoopNgZone} from '@angular/core/src/zone/ng_zone';
 import {TestBed} from '@angular/core/testing';
 import {bootstrapApplication, HydrationFeature, HydrationFeatureKind, provideClientHydration, withNoDomReuse} from '@angular/platform-browser';
 import {provideRouter, RouterOutlet, Routes} from '@angular/router';
@@ -587,9 +588,16 @@ describe('platform-server integration', () => {
 
           resetTViewsFor(SimpleComponent, NestedComponent);
 
-          const appRef = await hydrate(html, SimpleComponent);
+          const appRef = await hydrate(html, SimpleComponent, [withDebugConsole()]);
           const compRef = getComponentRef<SimpleComponent>(appRef);
           appRef.tick();
+
+          // Make sure there are no extra logs in case
+          // default NgZone is setup for an application.
+          verifyHasNoLog(
+              appRef,
+              'NG05000: Angular detected that hydration was enabled for an application ' +
+                  'that uses a custom or a noop Zone.js implementation.');
 
           const clientRootNode = compRef.location.nativeElement;
           verifyAllNodesClaimedForHydration(clientRootNode);
@@ -3990,6 +3998,78 @@ describe('platform-server integration', () => {
       });
     });
 
+    describe('unsupported Zone.js config', () => {
+      it('should log a warning when a noop zone is used', async () => {
+        @Component({
+          standalone: true,
+          selector: 'app',
+          template: `Hi!`,
+        })
+        class SimpleComponent {
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent);
+
+        const appRef = await hydrate(html, SimpleComponent, [
+          {provide: NgZone, useValue: new NoopNgZone()},
+          withDebugConsole(),
+        ]);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        verifyHasLog(
+            appRef,
+            'NG05000: Angular detected that hydration was enabled for an application ' +
+                'that uses a custom or a noop Zone.js implementation.');
+
+        const clientRootNode = compRef.location.nativeElement;
+
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
+      });
+
+      it('should log a warning when a custom zone is used', async () => {
+        @Component({
+          standalone: true,
+          selector: 'app',
+          template: `Hi!`,
+        })
+        class SimpleComponent {
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent);
+
+        class CustomNgZone extends NgZone {}
+
+        const appRef = await hydrate(html, SimpleComponent, [
+          {provide: NgZone, useValue: new CustomNgZone({})},
+          withDebugConsole(),
+        ]);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        verifyHasLog(
+            appRef,
+            'NG05000: Angular detected that hydration was enabled for an application ' +
+                'that uses a custom or a noop Zone.js implementation.');
+
+        const clientRootNode = compRef.location.nativeElement;
+
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
+      });
+    });
+
     describe('error handling', () => {
       it('should handle text node mismatch', async () => {
         @Component({
@@ -4460,6 +4540,46 @@ describe('platform-server integration', () => {
               'During hydration Angular was unable to locate a node using the "firstChild" path, ' +
               'starting from the <projector-cmp>…</projector-cmp> node');
         });
+      });
+
+      it('should handle a case when a node is not found (invalid DOM)', async () => {
+        @Component({
+          standalone: true,
+          selector: 'app',
+          imports: [CommonModule],
+          template: `
+            <a>
+              <ng-container *ngTemplateOutlet="titleTemplate"></ng-container>
+              <ng-content *ngIf="true"></ng-content>
+            </a>
+
+            <ng-template #titleTemplate>
+              <ng-container *ngIf="true">
+                <a>test</a>
+              </ng-container>
+            </ng-template>
+          `,
+        })
+        class SimpleComponent {
+        }
+
+        try {
+          const html = await ssr(SimpleComponent);
+          const ssrContents = getAppContents(html);
+
+          expect(ssrContents).toContain('<app ngh');
+
+          resetTViewsFor(SimpleComponent);
+          await hydrate(html, SimpleComponent);
+
+          fail('Expected the hydration process to throw.');
+        } catch (e: unknown) {
+          const message = (e as Error).toString();
+          expect(message).toContain(
+              'During hydration, Angular expected an element to be present at this location.');
+          expect(message).toContain('<!-- container -->  <-- AT THIS LOCATION');
+          expect(message).toContain('check to see if your template has valid HTML structure');
+        }
       });
 
       it('should log an warning when there was no hydration info in the TransferState',
