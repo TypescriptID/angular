@@ -33,7 +33,7 @@ export const TVIEW = 1;
 export const FLAGS = 2;
 export const PARENT = 3;
 export const NEXT = 4;
-export const TRANSPLANTED_VIEWS_TO_REFRESH = 5;
+export const DESCENDANT_VIEWS_TO_REFRESH = 5;
 export const T_HOST = 6;
 export const CLEANUP = 7;
 export const CONTEXT = 8;
@@ -322,7 +322,7 @@ export interface LView<T = unknown> extends Array<any> {
    * change detection we should still descend to find those children to refresh, even if the parents
    * are not `Dirty`/`CheckAlways`.
    */
-  [TRANSPLANTED_VIEWS_TO_REFRESH]: number;
+  [DESCENDANT_VIEWS_TO_REFRESH]: number;
 
   /** Unique ID of the view. Used for `__ngContext__` lookups in the `LView` registry. */
   [ID]: number;
@@ -417,26 +417,31 @@ export const enum LViewFlags {
   IsRoot = 1 << 9,
 
   /**
-   * Whether this moved LView was needs to be refreshed at the insertion location because the
-   * declaration was dirty.
+   * Whether this moved LView was needs to be refreshed. Similar to the Dirty flag, but used for
+   * transplanted and signal views where the parent/ancestor views are not marked dirty as well.
+   * i.e. "Refresh just this view". Used in conjunction with the DESCENDANT_VIEWS_TO_REFRESH
+   * counter.
    */
-  RefreshTransplantedView = 1 << 10,
+  RefreshView = 1 << 10,
 
   /** Indicates that the view **or any of its ancestors** have an embedded view injector. */
   HasEmbeddedViewInjector = 1 << 11,
 
+  /** Indicates that the view was created with `signals: true`. */
+  SignalView = 1 << 12,
+
   /**
    * Index of the current init phase on last 21 bits
    */
-  IndexWithinInitPhaseIncrementer = 1 << 12,
+  IndexWithinInitPhaseIncrementer = 1 << 13,
   /**
    * This is the count of the bits the 1 was shifted above (base 10)
    */
-  IndexWithinInitPhaseShift = 12,
+  IndexWithinInitPhaseShift = 13,
 
   // Subtracting 1 gives all 1s to the right of the initial shift
   // So `(1 << 3) - 1` would give 3 1s: 1 << 3 = 0b01000, subtract 1 = 0b00111
-  IndexWithinInitPhaseReset = (1 << 12) - 1,
+  IndexWithinInitPhaseReset = (1 << 13) - 1,
 }
 
 /**
