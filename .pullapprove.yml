@@ -56,9 +56,9 @@
 
 version: 3
 
-# availability:
-#   users_unavailable:
-#     - <name>
+availability:
+  users_unavailable:
+    - atscott
 
 # Meta field that goes unused by PullApprove to allow for defining aliases to be
 # used throughout the config.
@@ -205,6 +205,7 @@ groups:
           'aio/content/guide/architecture-services.md',
           'aio/content/guide/architecture.md',
           'aio/content/examples/architecture/**/{*,.*}',
+          'aio/content/guide/rxjs-interop.md',
           'aio/content/images/guide/architecture/**/{*,.*}',
           'aio/content/guide/attribute-directives.md',
           'aio/content/examples/attribute-directives/**/{*,.*}',
@@ -857,6 +858,7 @@ groups:
           'aio/content/images/guide/toh/**/{*,.*}',
           'aio/content/demos/first-app/**/{*,.*}',
           'aio/content/examples/first-app-*/**/{*,.*}',
+          'aio/content/images/guide/faa/**/{*,.*}',
           'aio/content/examples/toh-pt0/**/{*,.*}',
           'aio/content/examples/toh-pt1/**/{*,.*}',
           'aio/content/examples/toh-pt2/**/{*,.*}',
@@ -951,7 +953,8 @@ groups:
           'aio/content/guide/update-to-latest-version.md',
           'aio/content/guide/versions.md',
           'aio/content/guide/update-to-version-14.md',
-          'aio/content/guide/update-to-version-15.md'
+          'aio/content/guide/update-to-version-15.md',
+          'aio/content/guide/update-to-version-16.md',
           ])
     reviewers:
       users:
@@ -1025,6 +1028,7 @@ groups:
           'aio/content/guide/workspace-config.md',
           'aio/content/guide/migration-solution-style-tsconfig.md',
           'aio/content/guide/migration-update-libraries-tslib.md',
+          'aio/content/guide/esbuild.md',
           ])
     reviewers:
       users:
