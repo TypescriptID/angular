@@ -26,6 +26,8 @@ import {phaseResolveContexts} from './phases/resolve_contexts';
 import {phaseVariableOptimization} from './phases/variable_optimization';
 import {phaseChaining} from './phases/chaining';
 import {phaseMergeNextContext} from './phases/next_context_merging';
+import {phaseNgContainer} from './phases/ng_container';
+import {phaseSaveRestoreView} from './phases/save_restore_view';
 
 /**
  * Run all transformation phases in the correct order against a `ComponentCompilation`. After this
@@ -33,10 +35,10 @@ import {phaseMergeNextContext} from './phases/next_context_merging';
  */
 export function transformTemplate(cpl: ComponentCompilation): void {
   phaseGenerateVariables(cpl);
+  phaseSaveRestoreView(cpl);
   phaseResolveNames(cpl);
   phaseResolveContexts(cpl);
   phaseLocalRefs(cpl);
-  phaseEmptyElements(cpl);
   phaseConstCollection(cpl);
   phaseSlotAllocation(cpl);
   phaseVarCounting(cpl);
@@ -44,6 +46,8 @@ export function transformTemplate(cpl: ComponentCompilation): void {
   phaseNaming(cpl);
   phaseVariableOptimization(cpl, {conservative: true});
   phaseMergeNextContext(cpl);
+  phaseNgContainer(cpl);
+  phaseEmptyElements(cpl);
   phaseReify(cpl);
   phaseChaining(cpl);
 }

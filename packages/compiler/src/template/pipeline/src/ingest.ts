@@ -12,6 +12,7 @@ import * as t from '../../../render3/r3_ast';
 import * as ir from '../ir';
 
 import {ComponentCompilation, ViewCompilation} from './compilation';
+import {BINARY_OPERATORS} from './conversion';
 
 /**
  * Process a template AST and convert it into a `ComponentCompilation` in the intermediate
@@ -131,8 +132,19 @@ function convertAst(ast: e.AST, cpl: ComponentCompilation): o.Expression {
     }
   } else if (ast instanceof e.LiteralPrimitive) {
     return o.literal(ast.value);
+  } else if (ast instanceof e.Binary) {
+    const operator = BINARY_OPERATORS.get(ast.operation);
+    if (operator === undefined) {
+      throw new Error(`AssertionError: unknown binary operator ${ast.operation}`);
+    }
+    return new o.BinaryOperatorExpr(
+        operator, convertAst(ast.left, cpl), convertAst(ast.right, cpl));
   } else if (ast instanceof e.ThisReceiver) {
     return new ir.ContextExpr(cpl.root.xref);
+  } else if (ast instanceof e.KeyedRead) {
+    return new o.ReadKeyExpr(convertAst(ast.receiver, cpl), convertAst(ast.key, cpl));
+  } else if (ast instanceof e.Chain) {
+    throw new Error(`AssertionError: Chain in unknown context`);
   } else {
     throw new Error(`Unhandled expression type: ${ast.constructor.name}`);
   }
@@ -154,7 +166,6 @@ function ingestAttributes(op: ir.ElementOpBase, element: t.Element|t.Template): 
   for (const output of element.outputs) {
     op.attributes.add(ir.ElementAttributeKind.Binding, output.name, null);
   }
-
   if (element instanceof t.Template) {
     for (const attr of element.templateAttrs) {
       // TODO: what do we do about the value here?
@@ -170,12 +181,15 @@ function ingestAttributes(op: ir.ElementOpBase, element: t.Element|t.Template): 
 function ingestBindings(
     view: ViewCompilation, op: ir.ElementOpBase, element: t.Element|t.Template): void {
   if (element instanceof t.Template) {
-    for (const attr of element.templateAttrs) {
-      if (typeof attr.value === 'string') {
-        // TODO: do we need to handle static attribute bindings here?
-      } else {
-        view.update.push(ir.createPropertyOp(op.xref, attr.name, convertAst(attr.value, view.tpl)));
+    // TODO: Are ng-template inputs handled differently from element inputs?
+    // <ng-template dir [foo]="...">
+    // <item-cmp *ngFor="let item of items" [item]="item">
+    for (const input of [...element.templateAttrs, ...element.inputs]) {
+      if (!(input instanceof t.BoundAttribute)) {
+        continue;
       }
+
+      view.update.push(ir.createPropertyOp(op.xref, input.name, convertAst(input.value, view.tpl)));
     }
   } else {
     for (const input of element.inputs) {
@@ -184,8 +198,32 @@ function ingestBindings(
 
     for (const output of element.outputs) {
       const listenerOp = ir.createListenerOp(op.xref, output.name, op.tag);
-      listenerOp.handlerOps.push(
-          ir.createStatementOp(new o.ReturnStatement(convertAst(output.handler, view.tpl))));
+      // if output.handler is a chain, then push each statement from the chain separately, and
+      // return the last one?
+      let inputExprs: e.AST[];
+      let handler: e.AST = output.handler;
+      if (handler instanceof e.ASTWithSource) {
+        handler = handler.ast;
+      }
+
+      if (handler instanceof e.Chain) {
+        inputExprs = handler.expressions;
+      } else {
+        inputExprs = [handler];
+      }
+
+      if (inputExprs.length === 0) {
+        throw new Error('Expected listener to have non-empty expression list.');
+      }
+
+      const expressions = inputExprs.map(expr => convertAst(expr, view.tpl));
+      const returnExpr = expressions.pop()!;
+
+      for (const expr of expressions) {
+        const stmtOp = ir.createStatementOp<ir.UpdateOp>(new o.ExpressionStatement(expr));
+        listenerOp.handlerOps.push(stmtOp);
+      }
+      listenerOp.handlerOps.push(ir.createStatementOp(new o.ReturnStatement(returnExpr)));
       view.create.push(listenerOp);
     }
   }
