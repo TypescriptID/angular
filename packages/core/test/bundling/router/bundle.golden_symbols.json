@@ -1455,6 +1455,9 @@
     "name": "hasEmptyPathConfig"
   },
   {
+    "name": "hasInSkipHydrationBlockFlag"
+  },
+  {
     "name": "hasParentInjector"
   },
   {
@@ -1993,9 +1996,6 @@
   },
   {
     "name": "subsetMatchOptions"
-  },
-  {
-    "name": "supportsState"
   },
   {
     "name": "switchMap"
