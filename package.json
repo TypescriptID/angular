@@ -70,7 +70,7 @@
     "@jridgewell/sourcemap-codec": "^1.4.14",
     "@microsoft/api-extractor": "^7.24.2",
     "@rollup/plugin-babel": "^6.0.0",
-    "@rollup/plugin-commonjs": "^24.0.0",
+    "@rollup/plugin-commonjs": "^25.0.0",
     "@rollup/plugin-node-resolve": "^13.0.4",
     "@schematics/angular": "16.0.0-rc.4",
     "@types/angular": "^1.6.47",
@@ -192,7 +192,7 @@
   "// 6": "Ensure that a single instance of the `saucelabs` package is used. Protractor and the Karma sauce launcher pull this package as dependency. A single instance allows for e.g. easier patching in the Karma config.",
   "resolutions": {
     "**/graceful-fs": "4.2.11",
-    "**/https-proxy-agent": "6.0.0",
+    "**/https-proxy-agent": "6.1.0",
     "**/saucelabs": "7.2.1"
   }
 }
