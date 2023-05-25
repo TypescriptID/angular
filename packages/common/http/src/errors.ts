@@ -6,8 +6,10 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-// returns the script path for the current platform
-module.exports = function platformScriptPath(path) {
-  const os = require('os');
-  return /^win/.test(os.platform()) ? `${path}.cmd` : path;
-};
+/**
+ * The list of error codes used in runtime code of the `common/http` package.
+ * Reserved error code range: 2800-2899.
+ */
+export const enum RuntimeErrorCode {
+  MISSING_JSONP_MODULE = -2800,
+}

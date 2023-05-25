@@ -1,3 +1,32 @@
+<a name="16.1.0-next.2"></a>
+# 16.1.0-next.2 (2023-05-24)
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [75fdbcb8f2](https://github.com/angular/angular/commit/75fdbcb8f285ef17b5a73fb820b983137e40cab7) | fix | fix `Self` flag inside embedded views with custom injectors ([#50270](https://github.com/angular/angular/pull/50270)) |
+| [8b44ba3170](https://github.com/angular/angular/commit/8b44ba31701a1c1cf1ec92d2a26f9cf657f5408b) | fix | host directives incorrectly validating aliased bindings ([#50364](https://github.com/angular/angular/pull/50364)) |
+### http
+| Commit | Type | Description |
+| -- | -- | -- |
+| [2cdb4c5911](https://github.com/angular/angular/commit/2cdb4c5911965aa273f11432e04502e52b5e1b9b) | fix | create macrotask during request handling instead of load start ([#50406](https://github.com/angular/angular/pull/50406)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="16.0.3"></a>
+# 16.0.3 (2023-05-24)
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [c11041e372](https://github.com/angular/angular/commit/c11041e37260ac658e96e98fde5dea6d85b24aae) | fix | adds missing symbols for animation standalone bundling test ([#50434](https://github.com/angular/angular/pull/50434)) |
+| [98e8fdf40e](https://github.com/angular/angular/commit/98e8fdf40e598f2c2a4d0c11de302ea13e586a1a) | fix | fix `Self` flag inside embedded views with custom injectors ([#50270](https://github.com/angular/angular/pull/50270)) |
+| [199ff4fe7f](https://github.com/angular/angular/commit/199ff4fe7f2cd4b561703e8520c2d6ccc1e2afb7) | fix | host directives incorrectly validating aliased bindings ([#50364](https://github.com/angular/angular/pull/50364)) |
+### http
+| Commit | Type | Description |
+| -- | -- | -- |
+| [080bbd2137](https://github.com/angular/angular/commit/080bbd21377d099c91aa0c6ea8ca634423cd8125) | fix | create macrotask during request handling instead of load start ([#50406](https://github.com/angular/angular/pull/50406)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
 <a name="16.1.0-next.1"></a>
 # 16.1.0-next.1 (2023-05-17)
 ### core
