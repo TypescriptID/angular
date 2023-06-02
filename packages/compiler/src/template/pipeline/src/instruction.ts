@@ -83,6 +83,13 @@ export function listener(name: string, handlerFn: o.Expression): ir.CreateOp {
   ]);
 }
 
+export function pipe(slot: number, name: string): ir.CreateOp {
+  return call(Identifiers.pipe, [
+    o.literal(slot),
+    o.literal(name),
+  ]);
+}
+
 export function advance(delta: number): ir.UpdateOp {
   return call(Identifiers.advance, [
     o.literal(delta),
@@ -133,6 +140,34 @@ export function property(name: string, expression: o.Expression): ir.UpdateOp {
   ]);
 }
 
+const PIPE_BINDINGS: o.ExternalReference[] = [
+  Identifiers.pipeBind1,
+  Identifiers.pipeBind2,
+  Identifiers.pipeBind3,
+  Identifiers.pipeBind4,
+];
+
+export function pipeBind(slot: number, varOffset: number, args: o.Expression[]): o.Expression {
+  if (args.length < 1 || args.length > PIPE_BINDINGS.length) {
+    throw new Error(`pipeBind() argument count out of bounds`);
+  }
+
+  const instruction = PIPE_BINDINGS[args.length - 1];
+  return o.importExpr(instruction).callFn([
+    o.literal(slot),
+    o.literal(varOffset),
+    ...args,
+  ]);
+}
+
+export function pipeBindV(slot: number, varOffset: number, args: o.Expression): o.Expression {
+  return o.importExpr(Identifiers.pipeBindV).callFn([
+    o.literal(slot),
+    o.literal(varOffset),
+    args,
+  ]);
+}
+
 export function textInterpolate(strings: string[], expressions: o.Expression[]): ir.UpdateOp {
   if (strings.length < 1 || expressions.length !== strings.length - 1) {
     throw new Error(
@@ -151,10 +186,43 @@ export function textInterpolate(strings: string[], expressions: o.Expression[]):
     interpolationArgs.push(o.literal(strings[idx]));
   }
 
-  return callInterpolation(TEXT_INTERPOLATE_CONFIG, [], interpolationArgs);
+  return callVariadicInstruction(TEXT_INTERPOLATE_CONFIG, [], interpolationArgs);
 }
 
 
+export function propertyInterpolate(
+    name: string, strings: string[], expressions: o.Expression[]): ir.UpdateOp {
+  if (strings.length < 1 || expressions.length !== strings.length - 1) {
+    throw new Error(
+        `AssertionError: expected specific shape of args for strings/expressions in interpolation`);
+  }
+  const interpolationArgs: o.Expression[] = [];
+
+  if (expressions.length === 1 && strings[0] === '' && strings[1] === '') {
+    interpolationArgs.push(expressions[0]);
+  } else {
+    let idx: number;
+    for (idx = 0; idx < expressions.length; idx++) {
+      interpolationArgs.push(o.literal(strings[idx]), expressions[idx]);
+    }
+    // idx points at the last string.
+    interpolationArgs.push(o.literal(strings[idx]));
+  }
+
+  return callVariadicInstruction(PROPERTY_INTERPOLATE_CONFIG, [o.literal(name)], interpolationArgs);
+}
+
+export function pureFunction(
+    varOffset: number, fn: o.Expression, args: o.Expression[]): o.Expression {
+  return callVariadicInstructionExpr(
+      PURE_FUNCTION_CONFIG,
+      [
+        o.literal(varOffset),
+        fn,
+      ],
+      args,
+  );
+}
 
 function call<OpT extends ir.CreateOp|ir.UpdateOp>(
     instruction: o.ExternalReference, args: o.Expression[]): OpT {
@@ -162,18 +230,19 @@ function call<OpT extends ir.CreateOp|ir.UpdateOp>(
 }
 
 /**
- * Describes a specific flavor of instruction used to represent interpolations, which have some
- * number of variants for specific argument counts.
+ * Describes a specific flavor of instruction used to represent variadic instructions, which have
+ * some number of variants for specific argument counts.
  */
-interface InterpolationConfig {
+interface VariadicInstructionConfig {
   constant: o.ExternalReference[];
-  variable: o.ExternalReference;
+  variable: o.ExternalReference|null;
+  mapping: (argCount: number) => number;
 }
 
 /**
  * `InterpolationConfig` for the `textInterpolate` instruction.
  */
-const TEXT_INTERPOLATE_CONFIG: InterpolationConfig = {
+const TEXT_INTERPOLATE_CONFIG: VariadicInstructionConfig = {
   constant: [
     Identifiers.textInterpolate,
     Identifiers.textInterpolate1,
@@ -186,20 +255,73 @@ const TEXT_INTERPOLATE_CONFIG: InterpolationConfig = {
     Identifiers.textInterpolate8,
   ],
   variable: Identifiers.textInterpolateV,
+  mapping: n => {
+    if (n % 2 === 0) {
+      throw new Error(`Expected odd number of arguments`);
+    }
+    return (n - 1) / 2;
+  },
 };
 
-function callInterpolation(
-    config: InterpolationConfig, baseArgs: o.Expression[],
-    interpolationArgs: o.Expression[]): ir.UpdateOp {
-  if (interpolationArgs.length % 2 === 0) {
-    throw new Error(`Expected odd number of interpolation arguments`);
-  }
-  const n = (interpolationArgs.length - 1) / 2;
+
+/**
+ * `InterpolationConfig` for the `propertyInterpolate` instruction.
+ */
+const PROPERTY_INTERPOLATE_CONFIG: VariadicInstructionConfig = {
+  constant: [
+    Identifiers.propertyInterpolate,
+    Identifiers.propertyInterpolate1,
+    Identifiers.propertyInterpolate2,
+    Identifiers.propertyInterpolate3,
+    Identifiers.propertyInterpolate4,
+    Identifiers.propertyInterpolate5,
+    Identifiers.propertyInterpolate6,
+    Identifiers.propertyInterpolate7,
+    Identifiers.propertyInterpolate8,
+  ],
+  variable: Identifiers.propertyInterpolateV,
+  mapping: n => {
+    if (n % 2 === 0) {
+      throw new Error(`Expected odd number of arguments`);
+    }
+    return (n - 1) / 2;
+  },
+};
+
+const PURE_FUNCTION_CONFIG: VariadicInstructionConfig = {
+  constant: [
+    Identifiers.pureFunction0,
+    Identifiers.pureFunction1,
+    Identifiers.pureFunction2,
+    Identifiers.pureFunction3,
+    Identifiers.pureFunction4,
+    Identifiers.pureFunction5,
+    Identifiers.pureFunction6,
+    Identifiers.pureFunction7,
+    Identifiers.pureFunction8,
+  ],
+  variable: Identifiers.pureFunctionV,
+  mapping: n => n,
+};
+
+function callVariadicInstructionExpr(
+    config: VariadicInstructionConfig, baseArgs: o.Expression[],
+    interpolationArgs: o.Expression[]): o.Expression {
+  const n = config.mapping(interpolationArgs.length);
   if (n < config.constant.length) {
     // Constant calling pattern.
-    return call(config.constant[n], [...baseArgs, ...interpolationArgs]);
-  } else {
+    return o.importExpr(config.constant[n]).callFn([...baseArgs, ...interpolationArgs]);
+  } else if (config.variable !== null) {
     // Variable calling pattern.
-    return call(config.variable, [...baseArgs, o.literalArr(interpolationArgs)]);
+    return o.importExpr(config.variable).callFn([...baseArgs, o.literalArr(interpolationArgs)]);
+  } else {
+    throw new Error(`AssertionError: unable to call variadic function`);
   }
+}
+
+function callVariadicInstruction(
+    config: VariadicInstructionConfig, baseArgs: o.Expression[],
+    interpolationArgs: o.Expression[]): ir.UpdateOp {
+  return ir.createStatementOp(
+      callVariadicInstructionExpr(config, baseArgs, interpolationArgs).toStmt());
 }

@@ -28,12 +28,20 @@ import {phaseChaining} from './phases/chaining';
 import {phaseMergeNextContext} from './phases/next_context_merging';
 import {phaseNgContainer} from './phases/ng_container';
 import {phaseSaveRestoreView} from './phases/save_restore_view';
+import {phasePureFunctionExtraction} from './phases/pure_function_extraction';
+import {phasePipeCreation} from './phases/pipe_creation';
+import {phasePipeVariadic} from './phases/pipe_variadic';
+import {phasePureLiteralStructures} from './phases/pure_literal_structures';
+import {phaseAlignPipeVariadicVarOffset} from './phases/align_pipe_variadic_var_offset';
 
 /**
  * Run all transformation phases in the correct order against a `ComponentCompilation`. After this
  * processing, the compilation should be in a state where it can be emitted via `emitTemplateFn`.s
  */
 export function transformTemplate(cpl: ComponentCompilation): void {
+  phasePipeCreation(cpl);
+  phasePipeVariadic(cpl);
+  phasePureLiteralStructures(cpl);
   phaseGenerateVariables(cpl);
   phaseSaveRestoreView(cpl);
   phaseResolveNames(cpl);
@@ -48,6 +56,8 @@ export function transformTemplate(cpl: ComponentCompilation): void {
   phaseMergeNextContext(cpl);
   phaseNgContainer(cpl);
   phaseEmptyElements(cpl);
+  phasePureFunctionExtraction(cpl);
+  phaseAlignPipeVariadicVarOffset(cpl);
   phaseReify(cpl);
   phaseChaining(cpl);
 }

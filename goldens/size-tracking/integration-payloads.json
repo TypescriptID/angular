@@ -9,7 +9,7 @@
   "cli-hello-world-ivy-i18n": {
     "uncompressed": {
       "runtime": 926,
-      "main": 126740,
+      "main": 131777,
       "polyfills": 34676
     }
   },
@@ -52,7 +52,7 @@
   "standalone-bootstrap": {
     "uncompressed": {
       "runtime": 918,
-      "main": 87081,
+      "main": 91485,
       "polyfills": 33802
     }
   }

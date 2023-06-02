@@ -6,6 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {ConstantPool} from '../../../constant_pool';
 import * as e from '../../../expression_parser/ast';
 import * as o from '../../../output/output_ast';
 import * as t from '../../../render3/r3_ast';
@@ -18,8 +19,9 @@ import {BINARY_OPERATORS} from './conversion';
  * Process a template AST and convert it into a `ComponentCompilation` in the intermediate
  * representation.
  */
-export function ingest(componentName: string, template: t.Node[]): ComponentCompilation {
-  const cpl = new ComponentCompilation(componentName);
+export function ingest(
+    componentName: string, template: t.Node[], constantPool: ConstantPool): ComponentCompilation {
+  const cpl = new ComponentCompilation(componentName, constantPool);
   ingestNodes(cpl.root, template);
   return cpl;
 }
@@ -123,6 +125,14 @@ function convertAst(ast: e.AST, cpl: ComponentCompilation): o.Expression {
     } else {
       return new o.ReadPropExpr(convertAst(ast.receiver, cpl), ast.name);
     }
+  } else if (ast instanceof e.PropertyWrite) {
+    return new o.WritePropExpr(convertAst(ast.receiver, cpl), ast.name, convertAst(ast.value, cpl));
+  } else if (ast instanceof e.KeyedWrite) {
+    return new o.WriteKeyExpr(
+        convertAst(ast.receiver, cpl),
+        convertAst(ast.key, cpl),
+        convertAst(ast.value, cpl),
+    );
   } else if (ast instanceof e.Call) {
     if (ast.receiver instanceof e.ImplicitReceiver) {
       throw new Error(`Unexpected ImplicitReceiver`);
@@ -145,6 +155,29 @@ function convertAst(ast: e.AST, cpl: ComponentCompilation): o.Expression {
     return new o.ReadKeyExpr(convertAst(ast.receiver, cpl), convertAst(ast.key, cpl));
   } else if (ast instanceof e.Chain) {
     throw new Error(`AssertionError: Chain in unknown context`);
+  } else if (ast instanceof e.LiteralMap) {
+    const entries = ast.keys.map((key, idx) => {
+      const value = ast.values[idx];
+      return new o.LiteralMapEntry(key.key, convertAst(value, cpl), key.quoted);
+    });
+    return new o.LiteralMapExpr(entries);
+  } else if (ast instanceof e.LiteralArray) {
+    return new o.LiteralArrayExpr(ast.expressions.map(expr => convertAst(expr, cpl)));
+  } else if (ast instanceof e.Conditional) {
+    return new o.ConditionalExpr(
+        convertAst(ast.condition, cpl),
+        convertAst(ast.trueExp, cpl),
+        convertAst(ast.falseExp, cpl),
+    );
+  } else if (ast instanceof e.BindingPipe) {
+    return new ir.PipeBindingExpr(
+        cpl.allocateXrefId(),
+        ast.name,
+        [
+          convertAst(ast.exp, cpl),
+          ...ast.args.map(arg => convertAst(arg, cpl)),
+        ],
+    );
   } else {
     throw new Error(`Unhandled expression type: ${ast.constructor.name}`);
   }
@@ -181,19 +214,15 @@ function ingestAttributes(op: ir.ElementOpBase, element: t.Element|t.Template): 
 function ingestBindings(
     view: ViewCompilation, op: ir.ElementOpBase, element: t.Element|t.Template): void {
   if (element instanceof t.Template) {
-    // TODO: Are ng-template inputs handled differently from element inputs?
-    // <ng-template dir [foo]="...">
-    // <item-cmp *ngFor="let item of items" [item]="item">
-    for (const input of [...element.templateAttrs, ...element.inputs]) {
-      if (!(input instanceof t.BoundAttribute)) {
+    for (const attr of [...element.templateAttrs, ...element.inputs]) {
+      if (!(attr instanceof t.BoundAttribute)) {
         continue;
       }
-
-      view.update.push(ir.createPropertyOp(op.xref, input.name, convertAst(input.value, view.tpl)));
+      ingestPropertyBinding(view, op.xref, attr.name, attr.value);
     }
   } else {
     for (const input of element.inputs) {
-      view.update.push(ir.createPropertyOp(op.xref, input.name, convertAst(input.value, view.tpl)));
+      ingestPropertyBinding(view, op.xref, input.name, input.value);
     }
 
     for (const output of element.outputs) {
@@ -226,6 +255,19 @@ function ingestBindings(
       listenerOp.handlerOps.push(ir.createStatementOp(new o.ReturnStatement(returnExpr)));
       view.create.push(listenerOp);
     }
+  }
+}
+
+function ingestPropertyBinding(
+    view: ViewCompilation, xref: ir.XrefId, name: string, value: e.AST): void {
+  if (value instanceof e.ASTWithSource) {
+    value = value.ast;
+  }
+  if (value instanceof e.Interpolation) {
+    view.update.push(ir.createInterpolatePropertyOp(
+        xref, name, value.strings, value.expressions.map(expr => convertAst(expr, view.tpl))));
+  } else {
+    view.update.push(ir.createPropertyOp(xref, name, convertAst(value, view.tpl)));
   }
 }
 
