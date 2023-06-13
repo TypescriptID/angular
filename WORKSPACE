@@ -28,8 +28,8 @@ http_archive(
     patches = [
         "//tools/esm-interop:patches/bazel/nodejs_binary_esm_support.patch",
     ],
-    sha256 = "94070eff79305be05b7699207fbac5d2608054dd53e6109f7d00d923919ff45a",
-    urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/5.8.2/rules_nodejs-5.8.2.tar.gz"],
+    sha256 = "5dd1e5dea1322174c57d3ca7b899da381d516220793d0adef3ba03b9d23baa8e",
+    urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/5.8.3/rules_nodejs-5.8.3.tar.gz"],
 )
 
 load("@build_bazel_rules_nodejs//:repositories.bzl", "build_bazel_rules_nodejs_dependencies")
@@ -199,10 +199,10 @@ cldr_xml_data_repository(
 # sass rules
 http_archive(
     name = "io_bazel_rules_sass",
-    sha256 = "44e325c09a8a97c0b6f918400c10836fa61753c576e77ca74ec682c6ecc518c0",
-    strip_prefix = "rules_sass-236d2fc016738820e8dc6bea483074034c66ec0a",
+    sha256 = "3ea31a241f8a5930278d54e9b5dcb9654d622e1daecfa784f9ce98dd7bbf5cea",
+    strip_prefix = "rules_sass-6e0915ee27679aa61965bbb41de1891de3614fac",
     urls = [
-        "https://github.com/bazelbuild/rules_sass/archive/236d2fc016738820e8dc6bea483074034c66ec0a.zip",
+        "https://github.com/bazelbuild/rules_sass/archive/6e0915ee27679aa61965bbb41de1891de3614fac.zip",
     ],
 )
 
