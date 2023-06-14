@@ -58,7 +58,6 @@ function ingestElement(view: ViewCompilation, element: t.Element): void {
   const startOp = ir.createElementStartOp(element.name, id);
   view.create.push(startOp);
 
-  ingestAttributes(startOp, element);
   ingestBindings(view, startOp, element);
   ingestReferences(startOp, element);
 
@@ -76,7 +75,6 @@ function ingestTemplate(view: ViewCompilation, tmpl: t.Template): void {
   const tplOp = ir.createTemplateOp(childView.xref, tmpl.tagName ?? 'ng-template');
   view.create.push(tplOp);
 
-  ingestAttributes(tplOp, tmpl);
   ingestBindings(view, tplOp, tmpl);
   ingestReferences(tplOp, tmpl);
 
@@ -169,6 +167,9 @@ function convertAst(ast: e.AST, cpl: ComponentCompilation): o.Expression {
         convertAst(ast.trueExp, cpl),
         convertAst(ast.falseExp, cpl),
     );
+  } else if (ast instanceof e.NonNullAssert) {
+    // A non-null assertion shouldn't impact generated instructions, so we can just drop it.
+    return convertAst(ast.expression, cpl);
   } else if (ast instanceof e.BindingPipe) {
     return new ir.PipeBindingExpr(
         cpl.allocateXrefId(),
@@ -178,32 +179,15 @@ function convertAst(ast: e.AST, cpl: ComponentCompilation): o.Expression {
           ...ast.args.map(arg => convertAst(arg, cpl)),
         ],
     );
+  } else if (ast instanceof e.SafeKeyedRead) {
+    return new ir.SafeKeyedReadExpr(convertAst(ast.receiver, cpl), convertAst(ast.key, cpl));
+  } else if (ast instanceof e.SafePropertyRead) {
+    return new ir.SafePropertyReadExpr(convertAst(ast.receiver, cpl), ast.name);
+  } else if (ast instanceof e.SafeCall) {
+    return new ir.SafeInvokeFunctionExpr(
+        convertAst(ast.receiver, cpl), ast.args.map(a => convertAst(a, cpl)));
   } else {
     throw new Error(`Unhandled expression type: ${ast.constructor.name}`);
-  }
-}
-
-/**
- * Process all of the attributes on an element-like structure in the template AST and convert them
- * to their IR representation.
- */
-function ingestAttributes(op: ir.ElementOpBase, element: t.Element|t.Template): void {
-  ir.assertIsElementAttributes(op.attributes);
-  for (const attr of element.attributes) {
-    op.attributes.add(ir.ElementAttributeKind.Attribute, attr.name, o.literal(attr.value));
-  }
-
-  for (const input of element.inputs) {
-    op.attributes.add(ir.ElementAttributeKind.Binding, input.name, null);
-  }
-  for (const output of element.outputs) {
-    op.attributes.add(ir.ElementAttributeKind.Binding, output.name, null);
-  }
-  if (element instanceof t.Template) {
-    for (const attr of element.templateAttrs) {
-      // TODO: what do we do about the value here?
-      op.attributes.add(ir.ElementAttributeKind.Template, attr.name, null);
-    }
   }
 }
 
@@ -214,66 +198,91 @@ function ingestAttributes(op: ir.ElementOpBase, element: t.Element|t.Template): 
 function ingestBindings(
     view: ViewCompilation, op: ir.ElementOpBase, element: t.Element|t.Template): void {
   if (element instanceof t.Template) {
-    for (const attr of [...element.templateAttrs, ...element.inputs]) {
-      if (!(attr instanceof t.BoundAttribute)) {
-        continue;
-      }
-      ingestPropertyBinding(view, op.xref, attr.name, attr.value);
-    }
-  } else {
-    for (const input of element.inputs) {
-      ingestPropertyBinding(view, op.xref, input.name, input.value);
-    }
-
-    for (const output of element.outputs) {
-      const listenerOp = ir.createListenerOp(op.xref, output.name, op.tag);
-      // if output.handler is a chain, then push each statement from the chain separately, and
-      // return the last one?
-      let inputExprs: e.AST[];
-      let handler: e.AST = output.handler;
-      if (handler instanceof e.ASTWithSource) {
-        handler = handler.ast;
-      }
-
-      if (handler instanceof e.Chain) {
-        inputExprs = handler.expressions;
+    for (const attr of element.templateAttrs) {
+      if (attr instanceof t.TextAttribute) {
+        view.update.push(ir.createAttributeOp(
+            op.xref, ir.ElementAttributeKind.Template, attr.name, o.literal(attr.value)));
       } else {
-        inputExprs = [handler];
+        ingestPropertyBinding(view, op.xref, ir.ElementAttributeKind.Template, attr);
       }
-
-      if (inputExprs.length === 0) {
-        throw new Error('Expected listener to have non-empty expression list.');
-      }
-
-      const expressions = inputExprs.map(expr => convertAst(expr, view.tpl));
-      const returnExpr = expressions.pop()!;
-
-      for (const expr of expressions) {
-        const stmtOp = ir.createStatementOp<ir.UpdateOp>(new o.ExpressionStatement(expr));
-        listenerOp.handlerOps.push(stmtOp);
-      }
-      listenerOp.handlerOps.push(ir.createStatementOp(new o.ReturnStatement(returnExpr)));
-      view.create.push(listenerOp);
     }
+  }
+
+  for (const attr of element.attributes) {
+    view.update.push(ir.createAttributeOp(
+        op.xref, ir.ElementAttributeKind.Attribute, attr.name, o.literal(attr.value)));
+  }
+
+  for (const input of element.inputs) {
+    ingestPropertyBinding(view, op.xref, ir.ElementAttributeKind.Binding, input);
+  }
+
+  for (const output of element.outputs) {
+    const listenerOp = ir.createListenerOp(op.xref, output.name, op.tag);
+    // if output.handler is a chain, then push each statement from the chain separately, and
+    // return the last one?
+    let inputExprs: e.AST[];
+    let handler: e.AST = output.handler;
+    if (handler instanceof e.ASTWithSource) {
+      handler = handler.ast;
+    }
+
+    if (handler instanceof e.Chain) {
+      inputExprs = handler.expressions;
+    } else {
+      inputExprs = [handler];
+    }
+
+    if (inputExprs.length === 0) {
+      throw new Error('Expected listener to have non-empty expression list.');
+    }
+
+    const expressions = inputExprs.map(expr => convertAst(expr, view.tpl));
+    const returnExpr = expressions.pop()!;
+
+    for (const expr of expressions) {
+      const stmtOp = ir.createStatementOp<ir.UpdateOp>(new o.ExpressionStatement(expr));
+      listenerOp.handlerOps.push(stmtOp);
+    }
+    listenerOp.handlerOps.push(ir.createStatementOp(new o.ReturnStatement(returnExpr)));
+    view.create.push(listenerOp);
   }
 }
 
 function ingestPropertyBinding(
-    view: ViewCompilation, xref: ir.XrefId, name: string, value: e.AST): void {
+    view: ViewCompilation, xref: ir.XrefId,
+    bindingKind: ir.ElementAttributeKind.Binding|ir.ElementAttributeKind.Template,
+    {name, value, type}: t.BoundAttribute): void {
   if (value instanceof e.ASTWithSource) {
     value = value.ast;
   }
+
   if (value instanceof e.Interpolation) {
-    view.update.push(ir.createInterpolatePropertyOp(
-        xref, name, value.strings, value.expressions.map(expr => convertAst(expr, view.tpl))));
+    switch (type) {
+      case e.BindingType.Property:
+        view.update.push(ir.createInterpolatePropertyOp(
+            xref, bindingKind, name, value.strings,
+            value.expressions.map(expr => convertAst(expr, view.tpl))));
+        break;
+      default:
+        // TODO: implement remaining binding types.
+        throw Error(`Interpolated property binding type not handled: ${type}`);
+    }
   } else {
-    view.update.push(ir.createPropertyOp(xref, name, convertAst(value, view.tpl)));
+    switch (type) {
+      case e.BindingType.Property:
+        view.update.push(ir.createPropertyOp(xref, bindingKind, name, convertAst(value, view.tpl)));
+        break;
+      default:
+        // TODO: implement remaining binding types.
+        throw Error(`Property binding type not handled: ${type}`);
+    }
   }
 }
 
 /**
- * Process all of the local references on an element-like structure in the template AST and convert
- * them to their IR representation.
+ * Process all of the local references on an element-like structure in the template AST and
+ * convert them to their IR representation.
  */
 function ingestReferences(op: ir.ElementOpBase, element: t.Element|t.Template): void {
   assertIsArray<ir.LocalRef>(op.localRefs);

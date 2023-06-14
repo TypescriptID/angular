@@ -19,9 +19,10 @@ import type {UpdateOp} from './ops/update';
 /**
  * An `o.Expression` subtype representing a logical expression in the intermediate representation.
  */
-export type Expression = LexicalReadExpr|ReferenceExpr|ContextExpr|NextContextExpr|
-    GetCurrentViewExpr|RestoreViewExpr|ResetViewExpr|ReadVariableExpr|PureFunctionExpr|
-    PureFunctionParameterExpr|PipeBindingExpr|PipeBindingVariadicExpr;
+export type Expression =
+    LexicalReadExpr|ReferenceExpr|ContextExpr|NextContextExpr|GetCurrentViewExpr|RestoreViewExpr|
+    ResetViewExpr|ReadVariableExpr|PureFunctionExpr|PureFunctionParameterExpr|PipeBindingExpr|
+    PipeBindingVariadicExpr|SafePropertyReadExpr|SafeKeyedReadExpr|SafeInvokeFunctionExpr;
 
 /**
  * Transformer type which converts expressions into general `o.Expression`s (which may be an
@@ -75,6 +76,10 @@ export class LexicalReadExpr extends ExpressionBase {
   }
 
   override transformInternalExpressions(): void {}
+
+  override clone(): LexicalReadExpr {
+    return new LexicalReadExpr(this.name);
+  }
 }
 
 /**
@@ -102,6 +107,12 @@ export class ReferenceExpr extends ExpressionBase implements UsesSlotIndexTrait 
   }
 
   override transformInternalExpressions(): void {}
+
+  override clone(): ReferenceExpr {
+    const expr = new ReferenceExpr(this.target, this.offset);
+    expr.slot = this.slot;
+    return expr;
+  }
 }
 
 /**
@@ -125,6 +136,10 @@ export class ContextExpr extends ExpressionBase {
   }
 
   override transformInternalExpressions(): void {}
+
+  override clone(): ContextExpr {
+    return new ContextExpr(this.view);
+  }
 }
 
 /**
@@ -150,6 +165,12 @@ export class NextContextExpr extends ExpressionBase {
   }
 
   override transformInternalExpressions(): void {}
+
+  override clone(): NextContextExpr {
+    const expr = new NextContextExpr();
+    expr.steps = this.steps;
+    return expr;
+  }
 }
 
 /**
@@ -176,6 +197,10 @@ export class GetCurrentViewExpr extends ExpressionBase {
   }
 
   override transformInternalExpressions(): void {}
+
+  override clone(): GetCurrentViewExpr {
+    return new GetCurrentViewExpr();
+  }
 }
 
 /**
@@ -216,6 +241,10 @@ export class RestoreViewExpr extends ExpressionBase {
       this.view = transformExpressionsInExpression(this.view, transform, flags);
     }
   }
+
+  override clone(): RestoreViewExpr {
+    return new RestoreViewExpr(this.view instanceof o.Expression ? this.view.clone() : this.view);
+  }
 }
 
 /**
@@ -244,6 +273,10 @@ export class ResetViewExpr extends ExpressionBase {
       void {
     this.expr = transformExpressionsInExpression(this.expr, transform, flags);
   }
+
+  override clone(): ResetViewExpr {
+    return new ResetViewExpr(this.expr.clone());
+  }
 }
 
 /**
@@ -267,6 +300,12 @@ export class ReadVariableExpr extends ExpressionBase {
   }
 
   override transformInternalExpressions(): void {}
+
+  override clone(): ReadVariableExpr {
+    const expr = new ReadVariableExpr(this.xref);
+    expr.name = this.name;
+    return expr;
+  }
 }
 
 export class PureFunctionExpr extends ExpressionBase implements ConsumesVarsTrait,
@@ -297,7 +336,7 @@ export class PureFunctionExpr extends ExpressionBase implements ConsumesVarsTrai
    */
   fn: o.Expression|null = null;
 
-  constructor(expression: o.Expression, args: o.Expression[]) {
+  constructor(expression: o.Expression|null, args: o.Expression[]) {
     super();
     this.body = expression;
     this.args = args;
@@ -337,6 +376,14 @@ export class PureFunctionExpr extends ExpressionBase implements ConsumesVarsTrai
       this.args[i] = transformExpressionsInExpression(this.args[i], transform, flags);
     }
   }
+
+  override clone(): PureFunctionExpr {
+    const expr =
+        new PureFunctionExpr(this.body?.clone() ?? null, this.args.map(arg => arg.clone()));
+    expr.fn = this.fn?.clone() ?? null;
+    expr.varOffset = this.varOffset;
+    return expr;
+  }
 }
 
 export class PureFunctionParameterExpr extends ExpressionBase {
@@ -357,6 +404,10 @@ export class PureFunctionParameterExpr extends ExpressionBase {
   }
 
   override transformInternalExpressions(): void {}
+
+  override clone(): PureFunctionParameterExpr {
+    return new PureFunctionParameterExpr(this.index);
+  }
 }
 
 export class PipeBindingExpr extends ExpressionBase implements UsesSlotIndexTrait,
@@ -394,6 +445,13 @@ export class PipeBindingExpr extends ExpressionBase implements UsesSlotIndexTrai
       this.args[idx] = transformExpressionsInExpression(this.args[idx], transform, flags);
     }
   }
+
+  override clone() {
+    const r = new PipeBindingExpr(this.target, this.name, this.args.map(a => a.clone()));
+    r.slot = this.slot;
+    r.varOffset = this.varOffset;
+    return r;
+  }
 }
 
 export class PipeBindingVariadicExpr extends ExpressionBase implements UsesSlotIndexTrait,
@@ -428,6 +486,126 @@ export class PipeBindingVariadicExpr extends ExpressionBase implements UsesSlotI
   override transformInternalExpressions(transform: ExpressionTransform, flags: VisitorContextFlag):
       void {
     this.args = transformExpressionsInExpression(this.args, transform, flags);
+  }
+
+  override clone(): PipeBindingVariadicExpr {
+    const r = new PipeBindingVariadicExpr(this.target, this.name, this.args.clone(), this.numArgs);
+    r.slot = this.slot;
+    r.varOffset = this.varOffset;
+    return r;
+  }
+}
+
+export class SafePropertyReadExpr extends ExpressionBase {
+  override readonly kind = ExpressionKind.SafePropertyRead;
+
+  constructor(public receiver: o.Expression, public name: string) {
+    super();
+  }
+
+  override visitExpression(visitor: o.ExpressionVisitor, context: any): any {}
+
+  override isEquivalent(): boolean {
+    return false;
+  }
+
+  override isConstant(): boolean {
+    return false;
+  }
+
+  override transformInternalExpressions(transform: ExpressionTransform, flags: VisitorContextFlag):
+      void {
+    this.receiver = transformExpressionsInExpression(this.receiver, transform, flags);
+  }
+
+  override clone(): SafePropertyReadExpr {
+    return new SafePropertyReadExpr(this.receiver.clone(), this.name);
+  }
+}
+
+export class SafeKeyedReadExpr extends ExpressionBase {
+  override readonly kind = ExpressionKind.SafeKeyedRead;
+
+  constructor(public receiver: o.Expression, public index: o.Expression) {
+    super();
+  }
+
+  override visitExpression(visitor: o.ExpressionVisitor, context: any): any {}
+
+  override isEquivalent(): boolean {
+    return false;
+  }
+
+  override isConstant(): boolean {
+    return false;
+  }
+
+  override transformInternalExpressions(transform: ExpressionTransform, flags: VisitorContextFlag):
+      void {
+    this.receiver = transformExpressionsInExpression(this.receiver, transform, flags);
+    this.index = transformExpressionsInExpression(this.index, transform, flags);
+  }
+
+  override clone(): SafeKeyedReadExpr {
+    return new SafeKeyedReadExpr(this.receiver.clone(), this.index.clone());
+  }
+}
+
+export class SafeInvokeFunctionExpr extends ExpressionBase {
+  override readonly kind = ExpressionKind.SafeInvokeFunction;
+
+  constructor(public receiver: o.Expression, public args: o.Expression[]) {
+    super();
+  }
+
+  override visitExpression(visitor: o.ExpressionVisitor, context: any): any {}
+
+  override isEquivalent(): boolean {
+    return false;
+  }
+
+  override isConstant(): boolean {
+    return false;
+  }
+
+  override transformInternalExpressions(transform: ExpressionTransform, flags: VisitorContextFlag):
+      void {
+    this.receiver = transformExpressionsInExpression(this.receiver, transform, flags);
+    for (let i = 0; i < this.args.length; i++) {
+      this.args[i] = transformExpressionsInExpression(this.args[i], transform, flags);
+    }
+  }
+
+  override clone(): SafeInvokeFunctionExpr {
+    return new SafeInvokeFunctionExpr(this.receiver.clone(), this.args.map(a => a.clone()));
+  }
+}
+
+export class SafeTernaryExpr extends ExpressionBase {
+  override readonly kind = ExpressionKind.SafeTernaryExpr;
+
+  constructor(public guard: o.Expression, public expr: o.Expression) {
+    super();
+  }
+
+  override visitExpression(visitor: o.ExpressionVisitor, context: any): any {}
+
+  override isEquivalent(): boolean {
+    return false;
+  }
+
+  override isConstant(): boolean {
+    return false;
+  }
+
+  override transformInternalExpressions(transform: ExpressionTransform, flags: VisitorContextFlag):
+      void {
+    this.guard = transformExpressionsInExpression(this.guard, transform, flags);
+    this.expr = transformExpressionsInExpression(this.expr, transform, flags);
+  }
+
+  override clone(): SafeTernaryExpr {
+    return new SafeTernaryExpr(this.guard.clone(), this.expr.clone());
   }
 }
 
@@ -466,6 +644,11 @@ export function transformExpressionsInOp(
       break;
     case OpKind.Statement:
       transformExpressionsInStatement(op.statement, transform, flags);
+      break;
+    case OpKind.Attribute:
+      if (op.value) {
+        transformExpressionsInExpression(op.value, transform, flags);
+      }
       break;
     case OpKind.Variable:
       op.initializer = transformExpressionsInExpression(op.initializer, transform, flags);
