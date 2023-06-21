@@ -30,7 +30,11 @@ await yargs(process.argv.slice(2))
     'Runs a benchmark between two SHAs',
     (argv) =>
       argv
-        .positional('compare-ref', {description: 'Comparison SHA', type: 'string', demandOption: true})
+        .positional('compare-ref', {
+          description: 'Comparison SHA',
+          type: 'string',
+          demandOption: true,
+        })
         .positional('bazel-target', {description: 'Bazel target', type: 'string'}),
     (args) => runCompare(args.bazelTarget, args.compareRef)
   )
@@ -41,10 +45,10 @@ await yargs(process.argv.slice(2))
     (args) => runBenchmarkCmd(args.bazelTarget)
   )
   .command(
-    'extract-compare-comment <comment-body>',
+    'prepare-for-github-action <comment-body>',
     false, // Do not show in help.
     (argv) => argv.positional('comment-body', {demandOption: true, type: 'string'}),
-    (args) => extractCompareComment(args.commentBody)
+    (args) => prepareForGitHubAction(args.commentBody)
   )
   .demandCommand()
   .scriptName('$0')
@@ -67,20 +71,40 @@ async function promptForBenchmarkTarget(): Promise<string> {
 }
 
 /**
- * Extracts arguments from a benchmark compare comment.
+ * Prepares a benchmark comparison running via GitHub action. This command is
+ * used by the GitHub action YML workflow and is responsible for extracting
+ * e.g. command information or fetching/resolving Git refs of the comparison range.
  *
  * This is a helper used by the GitHub action to perform benchmark
  * comparisons. Commands follow the format of: `/benchmark-compare <sha> <target>`.
  */
-async function extractCompareComment(commentBody: string): Promise<void> {
+async function prepareForGitHubAction(commentBody: string): Promise<void> {
   const matches = /\/[^ ]+ ([^ ]+) ([^ ]+)/.exec(commentBody);
   if (matches === null) {
     Log.error('Could not extract information from comment', commentBody);
     process.exit(1);
   }
 
-  setOutput('compareRef', matches[1]);
-  setOutput('benchmarkTarget', matches[2]);
+  const git = await GitClient.get();
+  const [_, compareRefRaw, benchmarkTarget] = matches;
+
+  // We assume the PR is checked out and therefore `HEAD` is the PR head SHA.
+  const prHeadSha = git.run(['rev-parse', 'HEAD']).stdout.trim();
+
+  setOutput('benchmarkTarget', benchmarkTarget);
+  setOutput('prHeadSha', prHeadSha);
+
+  // Attempt to find the compare SHA. The commit may be either part of the
+  // pull request, or might be a commit unrelated to the PR- but part of the
+  // upstream repository. We attempt to fetch/resolve the SHA in both remotes.
+  const compareRefResolve = git.runGraceful(['rev-parse', compareRefRaw]);
+  let compareRefSha = compareRefResolve.stdout.trim();
+  if (compareRefSha === '' || compareRefResolve.status !== 0) {
+    git.run(['fetch', '--depth=1', git.getRepoGitUrl(), compareRefRaw]);
+    compareRefSha = git.run(['rev-parse', 'FETCH_HEAD']).stdout.trim();
+  }
+
+  setOutput('compareSha', compareRefSha);
 }
 
 /** Runs a specified benchmark, or a benchmark selected via prompt. */
@@ -149,18 +173,18 @@ async function runCompare(bazelTargetRaw: string | undefined, compareRef: string
   // If we are running in a GitHub action, expose the benchmark text
   // results as outputs. Useful if those are exposed as a GitHub comment then.
   if (process.env.GITHUB_ACTION !== undefined) {
-    setOutput('comparisonResultsText', comparisonResults.textSummary);
-    setOutput('workingStageResultsText', workingDirResults.textSummary);
+    setOutput('comparisonResultsText', comparisonResults.summaryMarkdownText);
+    setOutput('workingStageResultsText', workingDirResults.summaryMarkdownText);
   }
 
   Log.info('\n\n\n');
   Log.info(bold(green('Results!')));
 
   Log.info(bold(yellow('Comparison results')), '\n');
-  Log.info(comparisonResults.textSummary);
+  Log.info(comparisonResults.summaryConsoleText);
 
   Log.info(bold(yellow('Working stage results')), '\n');
-  Log.info(workingDirResults.textSummary);
+  Log.info(workingDirResults.summaryConsoleText);
 }
 
 function restoreWorkingStage(git: GitClient, initialRef: string) {
