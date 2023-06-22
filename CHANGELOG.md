@@ -1,3 +1,26 @@
+<a name="16.2.0-next.0"></a>
+# 16.2.0-next.0 (2023-06-21)
+### compiler-cli
+| Commit | Type | Description |
+| -- | -- | -- |
+| [12bad6576d](https://github.com/angular/angular/commit/12bad6576d2ffe4667118b214d9c7598ed3d8edb) | fix | libraries compiled with v16.1+ breaking with Angular framework v16.0.x ([#50714](https://github.com/angular/angular/pull/50714)) |
+### router
+| Commit | Type | Description |
+| -- | -- | -- |
+| [0b14e4ef74](https://github.com/angular/angular/commit/0b14e4ef742b1c0f73d873e2c337683b60f46845) | feat | exposes the `fixture` of the `RouterTestingHarness` ([#50280](https://github.com/angular/angular/pull/50280)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="16.1.2"></a>
+# 16.1.2 (2023-06-21)
+### http
+| Commit | Type | Description |
+| -- | -- | -- |
+| [9488a3fd46](https://github.com/angular/angular/commit/9488a3fd4640b902243f441cf54776160da1a0fe) | fix | Send query params on fetch request ([#50740](https://github.com/angular/angular/pull/50740)) |
+| [5ae001829c](https://github.com/angular/angular/commit/5ae001829c3f3594e3c10f30e0b89ea1eb2b84fb) | fix | use serializeBody to support JSON payload in FetchBackend ([#50776](https://github.com/angular/angular/pull/50776)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
 <a name="16.1.1"></a>
 # 16.1.1 (2023-06-14)
 ### compiler-cli
