@@ -17,8 +17,9 @@ import {ListEndOp, NEW_OP, StatementOp, VariableOp} from './shared';
 /**
  * An operation usable on the update side of the IR.
  */
-export type UpdateOp = ListEndOp<UpdateOp>|StatementOp<UpdateOp>|PropertyOp|InterpolatePropertyOp|
-    AttributeOp|InterpolateTextOp|AdvanceOp|VariableOp<UpdateOp>;
+export type UpdateOp = ListEndOp<UpdateOp>|StatementOp<UpdateOp>|PropertyOp|StylePropOp|StyleMapOp|
+    InterpolatePropertyOp|InterpolateStylePropOp|InterpolateStyleMapOp|AttributeOp|
+    InterpolateTextOp|AdvanceOp|VariableOp<UpdateOp>;
 
 /**
  * A logical operation to perform string interpolation on a text node.
@@ -104,6 +105,77 @@ export function createPropertyOp(
     target: xref,
     bindingKind,
     name,
+    expression,
+    ...TRAIT_DEPENDS_ON_SLOT_CONTEXT,
+    ...TRAIT_CONSUMES_VARS,
+    ...NEW_OP,
+  };
+}
+
+/**
+ * A logical operation representing binding to a style property in the update IR.
+ */
+export interface StylePropOp extends Op<UpdateOp>, ConsumesVarsTrait, DependsOnSlotContextOpTrait {
+  kind: OpKind.StyleProp;
+
+  /**
+   * Reference to the element on which the property is bound.
+   */
+  target: XrefId;
+
+  /**
+   * Name of the bound property.
+   */
+  name: string;
+
+  /**
+   * Expression which is bound to the property.
+   */
+  expression: o.Expression;
+
+  /**
+   * The unit of the bound value.
+   */
+  unit: string|null;
+}
+
+/** Create a `StylePropOp`. */
+export function createStylePropOp(
+    xref: XrefId, name: string, expression: o.Expression, unit: string|null): StylePropOp {
+  return {
+    kind: OpKind.StyleProp,
+    target: xref,
+    name,
+    expression,
+    unit,
+    ...TRAIT_DEPENDS_ON_SLOT_CONTEXT,
+    ...TRAIT_CONSUMES_VARS,
+    ...NEW_OP,
+  };
+}
+
+/**
+ * A logical operation representing binding to a style map in the update IR.
+ */
+export interface StyleMapOp extends Op<UpdateOp>, ConsumesVarsTrait, DependsOnSlotContextOpTrait {
+  kind: OpKind.StyleMap;
+
+  /**
+   * Reference to the element on which the property is bound.
+   */
+  target: XrefId;
+
+  /**
+   * Expression which is bound to the property.
+   */
+  expression: o.Expression;
+}
+
+/** Create a `StyleMapOp`. */
+export function createStyleMapOp(xref: XrefId, expression: o.Expression): StyleMapOp {
+  return {
+    kind: OpKind.StyleMap,
+    target: xref,
     expression,
     ...TRAIT_DEPENDS_ON_SLOT_CONTEXT,
     ...TRAIT_CONSUMES_VARS,
@@ -210,6 +282,104 @@ export function createInterpolatePropertyOp(
   };
 }
 
+/**
+ * A logical operation representing binding an interpolation to a style property in the update IR.
+ */
+export interface InterpolateStylePropOp extends Op<UpdateOp>, ConsumesVarsTrait,
+                                                DependsOnSlotContextOpTrait {
+  kind: OpKind.InterpolateStyleProp;
+
+  /**
+   * Reference to the element on which the property is bound.
+   */
+  target: XrefId;
+
+  /**
+   * Name of the bound property.
+   */
+  name: string;
+
+  /**
+   * All of the literal strings in the property interpolation, in order.
+   *
+   * Conceptually interwoven around the `expressions`.
+   */
+  strings: string[];
+
+  /**
+   * All of the dynamic expressions in the property interpolation, in order.
+   *
+   * Conceptually interwoven in between the `strings`.
+   */
+  expressions: o.Expression[];
+
+  /**
+   * The unit of the bound value.
+   */
+  unit: string|null;
+}
+
+/**
+ * Create a `InterpolateStyleProp`.
+ */
+export function createInterpolateStylePropOp(
+    xref: XrefId, name: string, strings: string[], expressions: o.Expression[],
+    unit: string|null): InterpolateStylePropOp {
+  return {
+    kind: OpKind.InterpolateStyleProp,
+    target: xref,
+    name,
+    strings,
+    expressions,
+    unit,
+    ...TRAIT_DEPENDS_ON_SLOT_CONTEXT,
+    ...TRAIT_CONSUMES_VARS,
+    ...NEW_OP,
+  };
+}
+
+/**
+ * A logical operation representing binding an interpolation to a style mapping in the update IR.
+ */
+export interface InterpolateStyleMapOp extends Op<UpdateOp>, ConsumesVarsTrait,
+                                               DependsOnSlotContextOpTrait {
+  kind: OpKind.InterpolateStyleMap;
+
+  /**
+   * Reference to the element on which the property is bound.
+   */
+  target: XrefId;
+
+  /**
+   * All of the literal strings in the property interpolation, in order.
+   *
+   * Conceptually interwoven around the `expressions`.
+   */
+  strings: string[];
+
+  /**
+   * All of the dynamic expressions in the property interpolation, in order.
+   *
+   * Conceptually interwoven in between the `strings`.
+   */
+  expressions: o.Expression[];
+}
+
+/**
+ * Create a `InterpolateStyleMap`.
+ */
+export function createInterpolateStyleMapOp(
+    xref: XrefId, strings: string[], expressions: o.Expression[]): InterpolateStyleMapOp {
+  return {
+    kind: OpKind.InterpolateStyleMap,
+    target: xref,
+    strings,
+    expressions,
+    ...TRAIT_DEPENDS_ON_SLOT_CONTEXT,
+    ...TRAIT_CONSUMES_VARS,
+    ...NEW_OP,
+  };
+}
 
 
 /**

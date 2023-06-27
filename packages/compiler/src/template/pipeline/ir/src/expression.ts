@@ -22,7 +22,7 @@ import type {UpdateOp} from './ops/update';
 export type Expression =
     LexicalReadExpr|ReferenceExpr|ContextExpr|NextContextExpr|GetCurrentViewExpr|RestoreViewExpr|
     ResetViewExpr|ReadVariableExpr|PureFunctionExpr|PureFunctionParameterExpr|PipeBindingExpr|
-    PipeBindingVariadicExpr|SafePropertyReadExpr|SafeKeyedReadExpr|SafeInvokeFunctionExpr;
+    PipeBindingVariadicExpr|SafePropertyReadExpr|SafeKeyedReadExpr|SafeInvokeFunctionExpr|EmptyExpr;
 
 /**
  * Transformer type which converts expressions into general `o.Expression`s (which may be an
@@ -609,6 +609,26 @@ export class SafeTernaryExpr extends ExpressionBase {
   }
 }
 
+export class EmptyExpr extends ExpressionBase {
+  override readonly kind = ExpressionKind.EmptyExpr;
+
+  override visitExpression(visitor: o.ExpressionVisitor, context: any): any {}
+
+  override isEquivalent(e: Expression): boolean {
+    return e instanceof EmptyExpr;
+  }
+
+  override isConstant() {
+    return true;
+  }
+
+  override clone(): EmptyExpr {
+    return new EmptyExpr();
+  }
+
+  override transformInternalExpressions(): void {}
+}
+
 /**
  * Visits all `Expression`s in the AST of `op` with the `visitor` function.
  */
@@ -635,9 +655,14 @@ export function transformExpressionsInOp(
     op: CreateOp|UpdateOp, transform: ExpressionTransform, flags: VisitorContextFlag): void {
   switch (op.kind) {
     case OpKind.Property:
+    case OpKind.StyleProp:
+    case OpKind.StyleMap:
       op.expression = transformExpressionsInExpression(op.expression, transform, flags);
       break;
     case OpKind.InterpolateProperty:
+    case OpKind.InterpolateStyleProp:
+    case OpKind.InterpolateStyleMap:
+    case OpKind.InterpolateText:
       for (let i = 0; i < op.expressions.length; i++) {
         op.expressions[i] = transformExpressionsInExpression(op.expressions[i], transform, flags);
       }
@@ -652,11 +677,6 @@ export function transformExpressionsInOp(
       break;
     case OpKind.Variable:
       op.initializer = transformExpressionsInExpression(op.initializer, transform, flags);
-      break;
-    case OpKind.InterpolateText:
-      for (let i = 0; i < op.expressions.length; i++) {
-        op.expressions[i] = transformExpressionsInExpression(op.expressions[i], transform, flags);
-      }
       break;
     case OpKind.Listener:
       for (const innerOp of op.handlerOps) {
