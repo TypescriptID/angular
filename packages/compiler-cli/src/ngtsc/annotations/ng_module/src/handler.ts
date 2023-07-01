@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {compileClassMetadata, compileDeclareClassMetadata, compileDeclareInjectorFromMetadata, compileDeclareNgModuleFromMetadata, compileInjector, compileNgModule, Expression, ExternalExpr, FactoryTarget, FunctionExpr, InvokeFunctionExpr, LiteralArrayExpr, R3ClassMetadata, R3CompiledExpression, R3FactoryMetadata, R3Identifiers, R3InjectorMetadata, R3NgModuleMetadata, R3Reference, R3SelectorScopeMode, ReturnStatement, SchemaMetadata, Statement, WrappedNodeExpr,} from '@angular/compiler';
+import {compileClassMetadata, compileDeclareClassMetadata, compileDeclareInjectorFromMetadata, compileDeclareNgModuleFromMetadata, compileInjector, compileNgModule, Expression, ExternalExpr, FactoryTarget, FunctionExpr, InvokeFunctionExpr, LiteralArrayExpr, R3ClassMetadata, R3CompiledExpression, R3FactoryMetadata, R3Identifiers, R3InjectorMetadata, R3NgModuleMetadata, R3NgModuleMetadataKind, R3Reference, R3SelectorScopeMode, ReturnStatement, SchemaMetadata, Statement, WrappedNodeExpr} from '@angular/compiler';
 import ts from 'typescript';
 
 import {ErrorCode, FatalDiagnosticError, makeDiagnostic, makeRelatedInformation} from '../../../diagnostics';
@@ -18,7 +18,7 @@ import {PerfEvent, PerfRecorder} from '../../../perf';
 import {ClassDeclaration, DeclarationNode, Decorator, ReflectionHost, reflectObjectLiteral,} from '../../../reflection';
 import {LocalModuleScopeRegistry, ScopeData} from '../../../scope';
 import {getDiagnosticNode} from '../../../scope/src/util';
-import {AnalysisOutput, CompileResult, DecoratorHandler, DetectResult, HandlerPrecedence, ResolveResult} from '../../../transform';
+import {AnalysisOutput, CompilationMode, CompileResult, DecoratorHandler, DetectResult, HandlerPrecedence, ResolveResult} from '../../../transform';
 import {getSourceFile} from '../../../util/src/typescript';
 import {combineResolvers, compileDeclareFactory, compileNgFactoryDefField, createValueHasWrongTypeError, extractClassMetadata, extractSchemas, findAngularDecorator, forwardRefResolver, getProviderDiagnostics, getValidConstructorDependencies, InjectableClassRegistry, isExpressionForwardReference, ReferencesRegistry, resolveProvidersRequiringFactory, toR3Reference, unwrapExpression, wrapFunctionExpressionsInParens, wrapTypeReference,} from '../../common';
 
@@ -178,7 +178,7 @@ export class NgModuleDecoratorHandler implements
       private refEmitter: ReferenceEmitter, private annotateForClosureCompiler: boolean,
       private onlyPublishPublicTypings: boolean,
       private injectableRegistry: InjectableClassRegistry, private perf: PerfRecorder,
-      private includeClassMetadata: boolean) {}
+      private includeClassMetadata: boolean, private readonly compilationMode: CompilationMode) {}
 
   readonly precedence = HandlerPrecedence.PRIMARY;
   readonly name = 'NgModuleDecoratorHandler';
@@ -234,11 +234,10 @@ export class NgModuleDecoratorHandler implements
 
     const diagnostics: ts.Diagnostic[] = [];
 
-    // Extract the module declarations, imports, and exports.
+    // Resolving declarations
     let declarationRefs: Reference<ClassDeclaration>[] = [];
-    let rawDeclarations: ts.Expression|null = null;
-    if (ngModule.has('declarations')) {
-      rawDeclarations = ngModule.get('declarations')!;
+    const rawDeclarations: ts.Expression|null = ngModule.get('declarations') ?? null;
+    if (this.compilationMode !== CompilationMode.LOCAL && rawDeclarations !== null) {
       const declarationMeta = this.evaluator.evaluate(rawDeclarations, forwardRefResolver);
       declarationRefs =
           this.resolveTypeList(rawDeclarations, declarationMeta, name, 'declarations', 0)
@@ -264,37 +263,41 @@ export class NgModuleDecoratorHandler implements
       return {diagnostics};
     }
 
+    // Resolving imports
     let importRefs: Reference<ClassDeclaration>[] = [];
-    let rawImports: ts.Expression|null = null;
-    if (ngModule.has('imports')) {
-      rawImports = ngModule.get('imports')!;
+    let rawImports: ts.Expression|null = ngModule.get('imports') ?? null;
+    if (this.compilationMode !== CompilationMode.LOCAL && rawImports !== null) {
       const importsMeta = this.evaluator.evaluate(rawImports, moduleResolvers);
       importRefs = this.resolveTypeList(rawImports, importsMeta, name, 'imports', 0).references;
     }
+
+    // Resolving exports
     let exportRefs: Reference<ClassDeclaration>[] = [];
-    let rawExports: ts.Expression|null = null;
-    if (ngModule.has('exports')) {
-      rawExports = ngModule.get('exports')!;
+    const rawExports: ts.Expression|null = ngModule.get('exports') ?? null;
+    if (this.compilationMode !== CompilationMode.LOCAL && rawExports !== null) {
       const exportsMeta = this.evaluator.evaluate(rawExports, moduleResolvers);
       exportRefs = this.resolveTypeList(rawExports, exportsMeta, name, 'exports', 0).references;
       this.referencesRegistry.add(node, ...exportRefs);
     }
+
+    // Resolving bootstrap
     let bootstrapRefs: Reference<ClassDeclaration>[] = [];
-    if (ngModule.has('bootstrap')) {
-      const expr = ngModule.get('bootstrap')!;
-      const bootstrapMeta = this.evaluator.evaluate(expr, forwardRefResolver);
-      bootstrapRefs = this.resolveTypeList(expr, bootstrapMeta, name, 'bootstrap', 0).references;
+    const rawBootstrap: ts.Expression|null = ngModule.get('bootstrap') ?? null;
+    if (this.compilationMode !== CompilationMode.LOCAL && rawBootstrap !== null) {
+      const bootstrapMeta = this.evaluator.evaluate(rawBootstrap, forwardRefResolver);
+      bootstrapRefs =
+          this.resolveTypeList(rawBootstrap, bootstrapMeta, name, 'bootstrap', 0).references;
 
       // Verify that the `@NgModule.bootstrap` list doesn't have Standalone Components.
       for (const ref of bootstrapRefs) {
         const dirMeta = this.metaReader.getDirectiveMetadata(ref);
         if (dirMeta?.isStandalone) {
-          diagnostics.push(makeStandaloneBootstrapDiagnostic(node, ref, expr));
+          diagnostics.push(makeStandaloneBootstrapDiagnostic(node, ref, rawBootstrap));
         }
       }
     }
 
-    const schemas = ngModule.has('schemas') ?
+    const schemas = this.compilationMode !== CompilationMode.LOCAL && ngModule.has('schemas') ?
         extractSchemas(ngModule.get('schemas')!, this.evaluator, 'NgModule') :
         [];
 
@@ -346,24 +349,43 @@ export class NgModuleDecoratorHandler implements
 
     const type = wrapTypeReference(this.reflector, node);
 
-    const ngModuleMetadata: R3NgModuleMetadata = {
-      type,
-      bootstrap,
-      declarations,
-      publicDeclarationTypes: this.onlyPublishPublicTypings ? exportedDeclarations : null,
-      exports,
-      imports,
-      // Imported types are generally private, so include them unless restricting the .d.ts emit to
-      // only public types.
-      includeImportTypes: !this.onlyPublishPublicTypings,
-      containsForwardDecls,
-      id,
-      // Use `ɵɵsetNgModuleScope` to patch selector scopes onto the generated definition in a
-      // tree-shakeable way.
-      selectorScopeMode: R3SelectorScopeMode.SideEffect,
-      // TODO: to be implemented as a part of FW-1004.
-      schemas: [],
-    };
+    let ngModuleMetadata: R3NgModuleMetadata;
+    if (this.compilationMode === CompilationMode.LOCAL) {
+      ngModuleMetadata = {
+        kind: R3NgModuleMetadataKind.Local,
+        type,
+        bootstrapExpression: rawBootstrap ? new WrappedNodeExpr(rawBootstrap) : null,
+        declarationsExpression: rawDeclarations ? new WrappedNodeExpr(rawDeclarations) : null,
+        exportsExpression: rawExports ? new WrappedNodeExpr(rawExports) : null,
+        importsExpression: rawImports ? new WrappedNodeExpr(rawImports) : null,
+        id,
+        // Use `ɵɵsetNgModuleScope` to patch selector scopes onto the generated definition in a
+        // tree-shakeable way.
+        selectorScopeMode: R3SelectorScopeMode.SideEffect,
+        // TODO: to be implemented as a part of FW-1004.
+        schemas: [],
+      };
+    } else {
+      ngModuleMetadata = {
+        kind: R3NgModuleMetadataKind.Global,
+        type,
+        bootstrap,
+        declarations,
+        publicDeclarationTypes: this.onlyPublishPublicTypings ? exportedDeclarations : null,
+        exports,
+        imports,
+        // Imported types are generally private, so include them unless restricting the .d.ts emit
+        // to only public types.
+        includeImportTypes: !this.onlyPublishPublicTypings,
+        containsForwardDecls,
+        id,
+        // Use `ɵɵsetNgModuleScope` to patch selector scopes onto the generated definition in a
+        // tree-shakeable way.
+        selectorScopeMode: R3SelectorScopeMode.SideEffect,
+        // TODO: to be implemented as a part of FW-1004.
+        schemas: [],
+      };
+    }
 
     const rawProviders = ngModule.has('providers') ? ngModule.get('providers')! : null;
     let wrappedProviders: WrappedNodeExpr<ts.Expression>|null = null;
@@ -378,7 +400,7 @@ export class NgModuleDecoratorHandler implements
     }
 
     const topLevelImports: TopLevelImportedExpression[] = [];
-    if (ngModule.has('imports')) {
+    if (this.compilationMode !== CompilationMode.LOCAL && ngModule.has('imports')) {
       const rawImports = unwrapExpression(ngModule.get('imports')!);
 
       let topLevelExpressions: ts.Expression[] = [];
