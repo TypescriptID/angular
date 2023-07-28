@@ -79,6 +79,12 @@ export enum OpKind {
   InterpolateText,
 
   /**
+   * An intermediate binding op, that has not yet been processed into an individual property,
+   * attribute, style, etc.
+   */
+  Binding,
+
+  /**
    * An operation to bind an expression to a property of an element.
    */
   Property,
@@ -104,26 +110,6 @@ export enum OpKind {
   ClassMap,
 
   /**
-   * An operation to interpolate text into a property binding.
-   */
-  InterpolateProperty,
-
-  /**
-   * An operation to interpolate text into a style property binding.
-   */
-  InterpolateStyleProp,
-
-  /**
-   * An operation to interpolate text into a style mapping.
-   */
-  InterpolateStyleMap,
-
-  /**
-   * An operation to interpolate text into a class mapping.
-   */
-  InterpolateClassMap,
-
-  /**
    * An operation to advance the runtime's implicit slot context during the update phase of a view.
    */
   Advance,
@@ -139,9 +125,11 @@ export enum OpKind {
   Attribute,
 
   /**
-   * An operation to interpolate text into an attribute binding.
+   * A host binding property.
    */
-  InterpolateAttribute,
+  HostProperty,
+
+  // TODO: Add Host Listeners, and possibly other host ops also.
 }
 
 /**
@@ -262,4 +250,14 @@ export enum SemanticVariableKind {
    * Represents a saved state that can be used to restore a view in a listener handler function.
    */
   SavedView,
+}
+
+/**
+ * Whether to compile in compatibilty mode. In compatibility mode, the template pipeline will
+ * attempt to match the output of `TemplateDefinitionBuilder` as exactly as possible, at the cost of
+ * producing quirky or larger code in some cases.
+ */
+export enum CompatibilityMode {
+  Normal,
+  TemplateDefinitionBuilder,
 }

@@ -10,7 +10,7 @@ import * as o from '../../../../src/output/output_ast';
 import {ConstantPool} from '../../../constant_pool';
 import * as ir from '../ir';
 
-import type {ComponentCompilation, ViewCompilation} from './compilation';
+import type {ComponentCompilationJob, ViewCompilationUnit, HostBindingCompilationJob} from './compilation';
 
 import {phaseAlignPipeVariadicVarOffset} from './phases/align_pipe_variadic_var_offset';
 import {phaseAttributeExtraction} from './phases/attribute_extraction';
@@ -38,52 +38,87 @@ import {phaseSlotAllocation} from './phases/slot_allocation';
 import {phaseTemporaryVariables} from './phases/temporary_variables';
 import {phaseVarCounting} from './phases/var_counting';
 import {phaseVariableOptimization} from './phases/variable_optimization';
+import {phaseFindAnyCasts} from './phases/any_cast';
+import {phaseResolveDollarEvent} from './phases/resolve_dollar_event';
+import {phaseBindingSpecialization} from './phases/binding_specialization';
+import {phaseStyleBindingSpecialization} from './phases/style_binding_specialization';
+import {phaseRemoveEmptyBindings} from './phases/remove_empty_bindings';
+import {phaseNoListenersOnTemplates} from './phases/no_listeners_on_templates';
+import {phaseHostStylePropertyParsing} from './phases/host_style_property_parsing';
 
 /**
  * Run all transformation phases in the correct order against a `ComponentCompilation`. After this
- * processing, the compilation should be in a state where it can be emitted via `emitTemplateFn`.s
+ * processing, the compilation should be in a state where it can be emitted.
  */
-export function transformTemplate(cpl: ComponentCompilation): void {
-  phaseAttributeExtraction(cpl, /* compatibility */ true);
-  phasePipeCreation(cpl);
-  phasePipeVariadic(cpl);
-  phasePureLiteralStructures(cpl);
-  phaseGenerateVariables(cpl);
-  phaseSaveRestoreView(cpl);
-  phaseResolveNames(cpl);
-  phaseResolveContexts(cpl);
-  phaseLocalRefs(cpl);
-  phaseConstCollection(cpl);
-  phaseNullishCoalescing(cpl);
-  phaseExpandSafeReads(cpl, true);
-  phaseTemporaryVariables(cpl);
-  phaseSlotAllocation(cpl);
-  phaseVarCounting(cpl);
-  phaseGenerateAdvance(cpl);
-  phaseNaming(cpl, /* compatibility */ true);
-  phaseVariableOptimization(cpl, {conservative: true});
-  phaseMergeNextContext(cpl);
-  phaseNgContainer(cpl);
-  phaseEmptyElements(cpl);
-  phasePureFunctionExtraction(cpl);
-  phaseAlignPipeVariadicVarOffset(cpl);
-  phasePropertyOrdering(cpl);
-  phaseReify(cpl);
-  phaseChaining(cpl);
+export function transformTemplate(job: ComponentCompilationJob): void {
+  phaseStyleBindingSpecialization(job);
+  phaseBindingSpecialization(job);
+  phaseAttributeExtraction(job);
+  phaseRemoveEmptyBindings(job);
+  phaseNoListenersOnTemplates(job);
+  phasePipeCreation(job);
+  phasePipeVariadic(job);
+  phasePureLiteralStructures(job);
+  phaseGenerateVariables(job);
+  phaseSaveRestoreView(job);
+  phaseFindAnyCasts(job);
+  phaseResolveDollarEvent(job);
+  phaseResolveNames(job);
+  phaseResolveContexts(job);
+  phaseLocalRefs(job);
+  phaseConstCollection(job);
+  phaseNullishCoalescing(job);
+  phaseExpandSafeReads(job);
+  phaseTemporaryVariables(job);
+  phaseSlotAllocation(job);
+  phaseVarCounting(job);
+  phaseGenerateAdvance(job);
+  phaseVariableOptimization(job);
+  phaseNaming(job);
+  phaseMergeNextContext(job);
+  phaseNgContainer(job);
+  phaseEmptyElements(job);
+  phasePureFunctionExtraction(job);
+  phaseAlignPipeVariadicVarOffset(job);
+  phasePropertyOrdering(job);
+  phaseReify(job);
+  phaseChaining(job);
+}
+
+/**
+ * Run all transformation phases in the correct order against a `HostBindingCompilationJob`. After
+ * this processing, the compilation should be in a state where it can be emitted.
+ */
+export function transformHostBinding(job: HostBindingCompilationJob): void {
+  phaseHostStylePropertyParsing(job);
+  phaseStyleBindingSpecialization(job);
+  phaseBindingSpecialization(job);
+  phasePureLiteralStructures(job);
+  phaseNullishCoalescing(job);
+  phaseExpandSafeReads(job);
+  phaseVarCounting(job);
+  phaseVariableOptimization(job);
+  phaseResolveNames(job);
+  phaseResolveContexts(job);
+  phaseNaming(job);
+  phasePureFunctionExtraction(job);
+  phasePropertyOrdering(job);
+  phaseReify(job);
+  phaseChaining(job);
 }
 
 /**
  * Compile all views in the given `ComponentCompilation` into the final template function, which may
  * reference constants defined in a `ConstantPool`.
  */
-export function emitTemplateFn(tpl: ComponentCompilation, pool: ConstantPool): o.FunctionExpr {
+export function emitTemplateFn(tpl: ComponentCompilationJob, pool: ConstantPool): o.FunctionExpr {
   const rootFn = emitView(tpl.root);
   emitChildViews(tpl.root, pool);
   return rootFn;
 }
 
-function emitChildViews(parent: ViewCompilation, pool: ConstantPool): void {
-  for (const view of parent.tpl.views.values()) {
+function emitChildViews(parent: ViewCompilationUnit, pool: ConstantPool): void {
+  for (const view of parent.job.views.values()) {
     if (view.parent !== parent.xref) {
       continue;
     }
@@ -100,7 +135,7 @@ function emitChildViews(parent: ViewCompilation, pool: ConstantPool): void {
  * Emit a template function for an individual `ViewCompilation` (which may be either the root view
  * or an embedded view).
  */
-function emitView(view: ViewCompilation): o.FunctionExpr {
+function emitView(view: ViewCompilationUnit): o.FunctionExpr {
   if (view.fnName === null) {
     throw new Error(`AssertionError: view ${view.xref} is unnamed`);
   }
@@ -146,4 +181,44 @@ function maybeGenerateRfBlock(flag: number, statements: o.Statement[]): o.Statem
         new o.BinaryOperatorExpr(o.BinaryOperator.BitwiseAnd, o.variable('rf'), o.literal(flag)),
         statements),
   ];
+}
+
+export function emitHostBindingFunction(job: HostBindingCompilationJob): o.FunctionExpr|null {
+  if (job.fnName === null) {
+    throw new Error(`AssertionError: host binding function is unnamed`);
+  }
+
+  const createStatements: o.Statement[] = [];
+  for (const op of job.create) {
+    if (op.kind !== ir.OpKind.Statement) {
+      throw new Error(`AssertionError: expected all create ops to have been compiled, but got ${
+          ir.OpKind[op.kind]}`);
+    }
+    createStatements.push(op.statement);
+  }
+  const updateStatements: o.Statement[] = [];
+  for (const op of job.update) {
+    if (op.kind !== ir.OpKind.Statement) {
+      throw new Error(`AssertionError: expected all update ops to have been compiled, but got ${
+          ir.OpKind[op.kind]}`);
+    }
+    updateStatements.push(op.statement);
+  }
+
+  if (createStatements.length === 0 && updateStatements.length === 0) {
+    return null;
+  }
+
+  const createCond = maybeGenerateRfBlock(1, createStatements);
+  const updateCond = maybeGenerateRfBlock(2, updateStatements);
+  return o.fn(
+      [
+        new o.FnParam('rf'),
+        new o.FnParam('ctx'),
+      ],
+      [
+        ...createCond,
+        ...updateCond,
+      ],
+      /* type */ undefined, /* sourceSpan */ undefined, job.fnName);
 }
