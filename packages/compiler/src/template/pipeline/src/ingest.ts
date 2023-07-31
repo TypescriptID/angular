@@ -7,15 +7,17 @@
  */
 
 import {ConstantPool} from '../../../constant_pool';
+import {SecurityContext} from '../../../core';
 import * as e from '../../../expression_parser/ast';
+import {splitNsName} from '../../../ml_parser/tags';
 import * as o from '../../../output/output_ast';
 import {ParseSourceSpan} from '../../../parse_util';
 import * as t from '../../../render3/r3_ast';
 import {BindingParser} from '../../../template_parser/binding_parser';
 import * as ir from '../ir';
 
-import {type CompilationJob, ComponentCompilationJob, HostBindingCompilationJob, type ViewCompilationUnit} from './compilation';
-import {BINARY_OPERATORS} from './conversion';
+import {ComponentCompilationJob, HostBindingCompilationJob, type CompilationJob, type ViewCompilationUnit} from './compilation';
+import {BINARY_OPERATORS, namespaceForKey} from './conversion';
 
 const compatibilityMode = ir.CompatibilityMode.TemplateDefinitionBuilder;
 
@@ -54,6 +56,8 @@ export function ingestHostBinding(
   return job;
 }
 
+// TODO: We should refactor the parser to use the same types and structures for host bindings as
+// with ordinary components. This would allow us to share a lot more ingestion code.
 export function ingestHostProperty(
     job: HostBindingCompilationJob, property: e.ParsedProperty): void {
   let expression: o.Expression|ir.Interpolation;
@@ -64,9 +68,17 @@ export function ingestHostProperty(
   } else {
     expression = convertAst(ast, job);
   }
+  let bindingKind = ir.BindingKind.Property;
+  // TODO: this should really be handled in the parser.
+  if (property.name.startsWith('attr.')) {
+    property.name = property.name.substring('attr.'.length);
+    bindingKind = ir.BindingKind.Attribute;
+  }
   job.update.push(ir.createBindingOp(
-      job.root.xref, ir.BindingKind.Property, property.name, expression, null, false,
-      property.sourceSpan));
+      job.root.xref, bindingKind, property.name, expression, null,
+      SecurityContext
+          .NONE /* TODO: what should we pass as security context? Passing NONE for now. */,
+      false, property.sourceSpan));
 }
 
 export function ingestHostEvent(job: HostBindingCompilationJob, event: e.ParsedEvent) {}
@@ -90,6 +102,8 @@ function ingestNodes(view: ViewCompilationUnit, template: t.Node[]): void {
   }
 }
 
+
+
 /**
  * Ingest an element AST from the template into the given `ViewCompilation`.
  */
@@ -100,7 +114,10 @@ function ingestElement(view: ViewCompilationUnit, element: t.Element): void {
   }
   const id = view.job.allocateXrefId();
 
-  const startOp = ir.createElementStartOp(element.name, id, element.startSourceSpan);
+  const [namespaceKey, elementName] = splitNsName(element.name);
+
+  const startOp = ir.createElementStartOp(
+      elementName, id, namespaceForKey(namespaceKey), element.startSourceSpan);
   view.create.push(startOp);
 
   ingestBindings(view, startOp, element);
@@ -116,9 +133,16 @@ function ingestElement(view: ViewCompilationUnit, element: t.Element): void {
 function ingestTemplate(view: ViewCompilationUnit, tmpl: t.Template): void {
   const childView = view.job.allocateView(view.xref);
 
+  let tagNameWithoutNamespace = tmpl.tagName;
+  let namespacePrefix: string|null = '';
+  if (tmpl.tagName) {
+    [namespacePrefix, tagNameWithoutNamespace] = splitNsName(tmpl.tagName);
+  }
+
   // TODO: validate the fallback tag name here.
-  const tplOp =
-      ir.createTemplateOp(childView.xref, tmpl.tagName ?? 'ng-template', tmpl.startSourceSpan);
+  const tplOp = ir.createTemplateOp(
+      childView.xref, tagNameWithoutNamespace ?? 'ng-template', namespaceForKey(namespacePrefix),
+      tmpl.startSourceSpan);
   view.create.push(tplOp);
 
   ingestBindings(view, tplOp, tmpl);
@@ -253,10 +277,11 @@ function ingestBindings(
       if (attr instanceof t.TextAttribute) {
         ingestBinding(
             view, op.xref, attr.name, o.literal(attr.value), e.BindingType.Attribute, null,
-            attr.sourceSpan, true);
+            SecurityContext.NONE, attr.sourceSpan, true);
       } else {
         ingestBinding(
-            view, op.xref, attr.name, attr.value, attr.type, attr.unit, attr.sourceSpan, true);
+            view, op.xref, attr.name, attr.value, attr.type, attr.unit, attr.securityContext,
+            attr.sourceSpan, true);
       }
     }
   }
@@ -267,16 +292,25 @@ function ingestBindings(
     // `BindingType.Attribute`.
     ingestBinding(
         view, op.xref, attr.name, o.literal(attr.value), e.BindingType.Attribute, null,
-        attr.sourceSpan, false);
+        SecurityContext.NONE, attr.sourceSpan, false);
   }
 
   for (const input of element.inputs) {
     ingestBinding(
-        view, op.xref, input.name, input.value, input.type, input.unit, input.sourceSpan, false);
+        view, op.xref, input.name, input.value, input.type, input.unit, input.securityContext,
+        input.sourceSpan, false);
   }
 
   for (const output of element.outputs) {
-    const listenerOp = ir.createListenerOp(op.xref, output.name, op.tag);
+    let listenerOp: ir.ListenerOp;
+    if (output.type === e.ParsedEventType.Animation) {
+      if (output.phase === null) {
+        throw Error('Animation listener should have a phase');
+      }
+      listenerOp = ir.createListenerOpForAnimation(op.xref, output.name, output.phase!, op.tag);
+    } else {
+      listenerOp = ir.createListenerOp(op.xref, output.name, op.tag);
+    }
     // if output.handler is a chain, then push each statement from the chain separately, and
     // return the last one?
     let inputExprs: e.AST[];
@@ -317,8 +351,8 @@ const BINDING_KINDS = new Map<e.BindingType, ir.BindingKind>([
 
 function ingestBinding(
     view: ViewCompilationUnit, xref: ir.XrefId, name: string, value: e.AST|o.Expression,
-    type: e.BindingType, unit: string|null, sourceSpan: ParseSourceSpan,
-    isTemplateBinding: boolean): void {
+    type: e.BindingType, unit: string|null, securityContext: SecurityContext,
+    sourceSpan: ParseSourceSpan, isTemplateBinding: boolean): void {
   if (value instanceof e.ASTWithSource) {
     value = value.ast;
   }
@@ -334,8 +368,8 @@ function ingestBinding(
   }
 
   const kind: ir.BindingKind = BINDING_KINDS.get(type)!;
-  view.update.push(
-      ir.createBindingOp(xref, kind, name, expression, unit, isTemplateBinding, sourceSpan));
+  view.update.push(ir.createBindingOp(
+      xref, kind, name, expression, unit, securityContext, isTemplateBinding, sourceSpan));
 }
 
 /**

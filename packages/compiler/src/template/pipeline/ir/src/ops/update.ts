@@ -6,6 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {SecurityContext} from '../../../../../core';
 import * as o from '../../../../../output/output_ast';
 import {ParseSourceSpan} from '../../../../../parse_util';
 import {BindingKind} from '../element';
@@ -13,8 +14,8 @@ import {OpKind} from '../enums';
 import {Op, XrefId} from '../operations';
 import {ConsumesVarsTrait, DependsOnSlotContextOpTrait, TRAIT_CONSUMES_VARS, TRAIT_DEPENDS_ON_SLOT_CONTEXT} from '../traits';
 
-import {ListEndOp, NEW_OP, StatementOp, VariableOp} from './shared';
 import type {HostPropertyOp} from './host';
+import {ListEndOp, NEW_OP, StatementOp, VariableOp} from './shared';
 
 
 /**
@@ -71,17 +72,42 @@ export class Interpolation {
 export interface BindingOp extends Op<UpdateOp> {
   kind: OpKind.Binding;
 
+  /**
+   * Reference to the element on which the property is bound.
+   */
   target: XrefId;
 
+  /**
+   *  The kind of binding represented by this op.
+   */
   bindingKind: BindingKind;
+
+  /**
+   *  The name of this binding.
+   */
   name: string;
+
+  /**
+   * Expression which is bound to the property.
+   */
   expression: o.Expression|Interpolation;
-  sourceSpan: ParseSourceSpan;
-  isTemplate: boolean;
+
   /**
    * The unit of the bound value.
    */
   unit: string|null;
+
+  /**
+   * The security context of the binding.
+   */
+  securityContext: SecurityContext;
+
+  /**
+   * Whether this binding is on a template.
+   */
+  isTemplate: boolean;
+
+  sourceSpan: ParseSourceSpan;
 }
 
 /**
@@ -89,7 +115,8 @@ export interface BindingOp extends Op<UpdateOp> {
  */
 export function createBindingOp(
     target: XrefId, kind: BindingKind, name: string, expression: o.Expression|Interpolation,
-    unit: string|null, isTemplate: boolean, sourceSpan: ParseSourceSpan): BindingOp {
+    unit: string|null, securityContext: SecurityContext, isTemplate: boolean,
+    sourceSpan: ParseSourceSpan): BindingOp {
   return {
     kind: OpKind.Binding,
     bindingKind: kind,
@@ -97,6 +124,7 @@ export function createBindingOp(
     name,
     expression,
     unit,
+    securityContext,
     isTemplate,
     sourceSpan,
     ...NEW_OP,
@@ -124,6 +152,24 @@ export interface PropertyOp extends Op<UpdateOp>, ConsumesVarsTrait, DependsOnSl
    */
   expression: o.Expression|Interpolation;
 
+  /**
+   * Whether this property is an animation trigger.
+   */
+  isAnimationTrigger: boolean;
+
+  /**
+   * The security context of the binding.
+   */
+  securityContext: SecurityContext;
+
+  /**
+   * The sanitizer for this property.
+   */
+  sanitizer: o.Expression|null;
+
+  /**
+   * Whether this binding is on a template.
+   */
   isTemplate: boolean;
 
   sourceSpan: ParseSourceSpan;
@@ -133,13 +179,18 @@ export interface PropertyOp extends Op<UpdateOp>, ConsumesVarsTrait, DependsOnSl
  * Create a `PropertyOp`.
  */
 export function createPropertyOp(
-    target: XrefId, name: string, expression: o.Expression|Interpolation, isTemplate: boolean,
+    target: XrefId, name: string, expression: o.Expression|Interpolation,
+    isAnimationTrigger: boolean, securityContext: SecurityContext, isTemplate: boolean,
+
     sourceSpan: ParseSourceSpan): PropertyOp {
   return {
     kind: OpKind.Property,
     target,
     name,
     expression,
+    isAnimationTrigger,
+    securityContext,
+    sanitizer: null,
     isTemplate,
     sourceSpan,
     ...TRAIT_DEPENDS_ON_SLOT_CONTEXT,
@@ -325,6 +376,19 @@ export interface AttributeOp extends Op<UpdateOp> {
    */
   expression: o.Expression|Interpolation;
 
+  /**
+   * The security context of the binding.
+   */
+  securityContext: SecurityContext;
+
+  /**
+   * The sanitizer for this attribute.
+   */
+  sanitizer: o.Expression|null;
+
+  /**
+   * Whether this binding is on a template.
+   */
   isTemplate: boolean;
 
   sourceSpan: ParseSourceSpan;
@@ -334,13 +398,16 @@ export interface AttributeOp extends Op<UpdateOp> {
  * Create an `AttributeOp`.
  */
 export function createAttributeOp(
-    target: XrefId, name: string, expression: o.Expression|Interpolation, isTemplate: boolean,
+    target: XrefId, name: string, expression: o.Expression|Interpolation,
+    securityContext: SecurityContext, isTemplate: boolean,
     sourceSpan: ParseSourceSpan): AttributeOp {
   return {
     kind: OpKind.Attribute,
     target,
     name,
     expression,
+    securityContext,
+    sanitizer: null,
     isTemplate,
     sourceSpan,
     ...TRAIT_DEPENDS_ON_SLOT_CONTEXT,

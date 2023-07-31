@@ -64,6 +64,17 @@ export enum OpKind {
   ContainerEnd,
 
   /**
+   * An operation disable binding for subsequent elements, which are descendants of a non-bindable
+   * node.
+   */
+  DisableBindings,
+
+  /**
+   * An operation to re-enable binding, after it was previously disabled.
+   */
+  EnableBindings,
+
+  /**
    * An operation to render a text node.
    */
   Text,
@@ -128,6 +139,11 @@ export enum OpKind {
    * A host binding property.
    */
   HostProperty,
+
+  /**
+   * A namespace change, which causes the subsequent elements to be processed as either HTML or SVG.
+   */
+  Namespace,
 
   // TODO: Add Host Listeners, and possibly other host ops also.
 }
@@ -230,6 +246,11 @@ export enum ExpressionKind {
    * A reference to a temporary variable.
    */
   ReadTemporaryExpr,
+
+  /**
+   * An expression representing a sanitizer function.
+   */
+  SanitizerExpr,
 }
 
 /**
@@ -260,4 +281,16 @@ export enum SemanticVariableKind {
 export enum CompatibilityMode {
   Normal,
   TemplateDefinitionBuilder,
+}
+
+/**
+ * Represents functions used to sanitize different pieces of a template.
+ */
+export enum SanitizerFn {
+  Html,
+  Script,
+  Style,
+  Url,
+  ResourceUrl,
+  IframeAttribute,
 }

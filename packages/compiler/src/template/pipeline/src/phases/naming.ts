@@ -9,7 +9,8 @@
 import {sanitizeIdentifier} from '../../../../parse_util';
 import {hyphenate} from '../../../../render3/view/style_parser';
 import * as ir from '../../ir';
-import {type CompilationJob, type CompilationUnit, ViewCompilationUnit} from '../compilation';
+import {ViewCompilationUnit, type CompilationJob, type CompilationUnit} from '../compilation';
+import {prefixWithNamespace} from '../conversion';
 
 /**
  * Generate names for functions and variables across all views.
@@ -35,17 +36,25 @@ function addNamesToView(
 
   for (const op of unit.ops()) {
     switch (op.kind) {
+      case ir.OpKind.Property:
+        if (op.isAnimationTrigger) {
+          op.name = '@' + op.name;
+        }
+        break;
       case ir.OpKind.Listener:
         if (op.handlerFnName === null) {
-          // TODO(alxhub): convert this temporary name to match how the
-          // `TemplateDefinitionBuilder` names listener functions.
           if (op.slot === null) {
             throw new Error(`Expected a slot to be assigned`);
           }
           const safeTagName = op.tag.replace('-', '_');
-
-          op.handlerFnName =
-              sanitizeIdentifier(`${unit.fnName}_${safeTagName}_${op.name}_${op.slot}_listener`);
+          if (op.isAnimationListener) {
+            op.handlerFnName = sanitizeIdentifier(`${unit.fnName}_${safeTagName}_animation_${
+                op.name}_${op.animationPhase}_${op.slot}_listener`);
+            op.name = `@${op.name}.${op.animationPhase}`;
+          } else {
+            op.handlerFnName =
+                sanitizeIdentifier(`${unit.fnName}_${safeTagName}_${op.name}_${op.slot}_listener`);
+          }
         }
         break;
       case ir.OpKind.Variable:
@@ -59,7 +68,9 @@ function addNamesToView(
         if (op.slot === null) {
           throw new Error(`Expected slot to be assigned`);
         }
-        addNamesToView(childView, `${baseName}_${op.tag}_${op.slot}`, state, compatibility);
+        addNamesToView(
+            childView, `${baseName}_${prefixWithNamespace(op.tag, op.namespace)}_${op.slot}`, state,
+            compatibility);
         break;
       case ir.OpKind.StyleProp:
         op.name = normalizeStylePropName(op.name);

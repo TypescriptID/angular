@@ -7,9 +7,21 @@
  */
 
 import * as o from '../../../../output/output_ast';
+import {Identifiers} from '../../../../render3/r3_identifiers';
 import * as ir from '../../ir';
-import {type CompilationJob, type CompilationUnit, ViewCompilationUnit} from '../compilation';
+import {ViewCompilationUnit, type CompilationJob, type CompilationUnit} from '../compilation';
 import * as ng from '../instruction';
+
+/**
+ * Map of sanitizers to their identifier.
+ */
+const sanitizerIdentifierMap = new Map<ir.SanitizerFn, o.ExternalReference>([
+  [ir.SanitizerFn.Html, Identifiers.sanitizeHtml],
+  [ir.SanitizerFn.IframeAttribute, Identifiers.validateIframeAttribute],
+  [ir.SanitizerFn.ResourceUrl, Identifiers.sanitizeResourceUrl],
+  [ir.SanitizerFn.Script, Identifiers.sanitizeScript],
+  [ir.SanitizerFn.Style, Identifiers.sanitizeStyle], [ir.SanitizerFn.Url, Identifiers.sanitizeUrl]
+]);
 
 /**
  * Compiles semantic operations across all views and generates output `o.Statement`s with actual
@@ -86,6 +98,12 @@ function reifyCreateOperations(unit: CompilationUnit, ops: ir.OpList<ir.CreateOp
                 ),
         );
         break;
+      case ir.OpKind.DisableBindings:
+        ir.OpList.replace(op, ng.disableBindings());
+        break;
+      case ir.OpKind.EnableBindings:
+        ir.OpList.replace(op, ng.enableBindings());
+        break;
       case ir.OpKind.Pipe:
         ir.OpList.replace(op, ng.pipe(op.slot!, op.name));
         break;
@@ -107,6 +125,19 @@ function reifyCreateOperations(unit: CompilationUnit, ops: ir.OpList<ir.CreateOp
             op,
             ir.createStatementOp(new o.DeclareVarStmt(
                 op.variable.name, op.initializer, undefined, o.StmtModifier.Final)));
+        break;
+      case ir.OpKind.Namespace:
+        switch (op.active) {
+          case ir.Namespace.HTML:
+            ir.OpList.replace<ir.CreateOp>(op, ng.namespaceHTML());
+            break;
+          case ir.Namespace.SVG:
+            ir.OpList.replace<ir.CreateOp>(op, ng.namespaceSVG());
+            break;
+          case ir.Namespace.Math:
+            ir.OpList.replace<ir.CreateOp>(op, ng.namespaceMath());
+            break;
+        }
         break;
       case ir.OpKind.Statement:
         // Pass statement operations directly through.
@@ -131,9 +162,10 @@ function reifyUpdateOperations(_unit: CompilationUnit, ops: ir.OpList<ir.UpdateO
           ir.OpList.replace(
               op,
               ng.propertyInterpolate(
-                  op.name, op.expression.strings, op.expression.expressions, op.sourceSpan));
+                  op.name, op.expression.strings, op.expression.expressions, op.sanitizer,
+                  op.sourceSpan));
         } else {
-          ir.OpList.replace(op, ng.property(op.name, op.expression, op.sourceSpan));
+          ir.OpList.replace(op, ng.property(op.name, op.expression, op.sanitizer, op.sourceSpan));
         }
         break;
       case ir.OpKind.StyleProp:
@@ -175,9 +207,10 @@ function reifyUpdateOperations(_unit: CompilationUnit, ops: ir.OpList<ir.UpdateO
         if (op.expression instanceof ir.Interpolation) {
           ir.OpList.replace(
               op,
-              ng.attributeInterpolate(op.name, op.expression.strings, op.expression.expressions));
+              ng.attributeInterpolate(
+                  op.name, op.expression.strings, op.expression.expressions, op.sanitizer));
         } else {
-          ir.OpList.replace(op, ng.attribute(op.name, op.expression));
+          ir.OpList.replace(op, ng.attribute(op.name, op.expression, op.sanitizer));
         }
         break;
       case ir.OpKind.HostProperty:
@@ -253,6 +286,8 @@ function reifyIrExpression(expr: o.Expression): o.Expression {
       return ng.pipeBind(expr.slot!, expr.varOffset!, expr.args);
     case ir.ExpressionKind.PipeBindingVariadic:
       return ng.pipeBindV(expr.slot!, expr.varOffset!, expr.args);
+    case ir.ExpressionKind.SanitizerExpr:
+      return o.importExpr(sanitizerIdentifierMap.get(expr.fn)!);
     default:
       throw new Error(`AssertionError: Unsupported reification of ir.Expression kind: ${
           ir.ExpressionKind[(expr as ir.Expression).kind]}`);
