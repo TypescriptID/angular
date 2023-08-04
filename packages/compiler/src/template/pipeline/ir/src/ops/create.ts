@@ -6,9 +6,9 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import * as o from '../../../../../output/output_ast';
 import {ParseSourceSpan} from '../../../../../parse_util';
-import {ElementAttributes} from '../element';
-import {OpKind} from '../enums';
+import {BindingKind, OpKind} from '../enums';
 import {Op, OpList, XrefId} from '../operations';
 import {ConsumesSlotOpTrait, TRAIT_CONSUMES_SLOT, TRAIT_USES_SLOT_INDEX, UsesSlotIndexTrait} from '../traits';
 
@@ -19,9 +19,10 @@ import type {UpdateOp} from './update';
 /**
  * An operation usable on the creation side of the IR.
  */
-export type CreateOp = ListEndOp<CreateOp>|StatementOp<CreateOp>|ElementOp|ElementStartOp|
-    ElementEndOp|ContainerOp|ContainerStartOp|ContainerEndOp|TemplateOp|EnableBindingsOp|
-    DisableBindingsOp|TextOp|ListenerOp|PipeOp|VariableOp<CreateOp>|NamespaceOp;
+export type CreateOp =
+    ListEndOp<CreateOp>|StatementOp<CreateOp>|ElementOp|ElementStartOp|ElementEndOp|ContainerOp|
+    ContainerStartOp|ContainerEndOp|TemplateOp|EnableBindingsOp|DisableBindingsOp|TextOp|ListenerOp|
+    PipeOp|VariableOp<CreateOp>|NamespaceOp|ExtractedAttributeOp;
 
 /**
  * An operation representing the creation of an element or container.
@@ -73,15 +74,10 @@ export interface ElementOrContainerOpBase extends Op<CreateOp>, ConsumesSlotOpTr
   xref: XrefId;
 
   /**
-   * Attributes of various kinds on this element.
-   *
-   * Before attribute processing, this is an `ElementAttributes` structure representing the
-   * attributes on this element.
-   *
-   * After processing, it's a `ConstIndex` pointer into the shared `consts` array of the component
-   * compilation.
+   * Attributes of various kinds on this element. Represented as a `ConstIndex` pointer into the
+   * shared `consts` array of the component compilation.
    */
-  attributes: ElementAttributes|ConstIndex|null;
+  attributes: ConstIndex|null;
 
   /**
    * Local references to this element.
@@ -132,7 +128,7 @@ export function createElementStartOp(
     kind: OpKind.ElementStart,
     xref,
     tag,
-    attributes: new ElementAttributes(),
+    attributes: null,
     localRefs: [],
     nonBindable: false,
     namespace,
@@ -176,7 +172,7 @@ export function createTemplateOp(
   return {
     kind: OpKind.Template,
     xref,
-    attributes: new ElementAttributes(),
+    attributes: null,
     tag,
     decls: null,
     vars: null,
@@ -440,6 +436,49 @@ export function createNamespaceOp(namespace: Namespace): NamespaceOp {
   return {
     kind: OpKind.Namespace,
     active: namespace,
+    ...NEW_OP,
+  };
+}
+
+/**
+ * Represents an attribute that has been extracted for inclusion in the consts array.
+ */
+export interface ExtractedAttributeOp extends Op<CreateOp> {
+  kind: OpKind.ExtractedAttribute;
+
+  /**
+   * The `XrefId` of the template-like element the extracted attribute will belong to.
+   */
+  target: XrefId;
+
+  /**
+   *  The kind of binding represented by this extracted attribute.
+   */
+  bindingKind: BindingKind;
+
+  /**
+   * The name of the extracted attribute.
+   */
+  name: string;
+
+  /**
+   * The value expression of the extracted attribute.
+   */
+  expression: o.Expression|null;
+}
+
+/**
+ * Create an `ExtractedAttributeOp`.
+ */
+export function createExtractedAttributeOp(
+    target: XrefId, bindingKind: BindingKind, name: string,
+    expression: o.Expression|null): ExtractedAttributeOp {
+  return {
+    kind: OpKind.ExtractedAttribute,
+    target,
+    bindingKind,
+    name,
+    expression,
     ...NEW_OP,
   };
 }

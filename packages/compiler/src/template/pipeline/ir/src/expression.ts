@@ -803,6 +803,10 @@ export function transformExpressionsInOp(
         transformExpressionsInOp(innerOp, transform, flags | VisitorContextFlag.InChildOperation);
       }
       break;
+    case OpKind.ExtractedAttribute:
+      op.expression =
+          op.expression && transformExpressionsInExpression(op.expression, transform, flags);
+      break;
     case OpKind.Element:
     case OpKind.ElementStart:
     case OpKind.ElementEnd:
@@ -897,4 +901,11 @@ export function transformExpressionsInStatement(
   } else {
     throw new Error(`Unhandled statement kind: ${stmt.constructor.name}`);
   }
+}
+
+/**
+ * Checks whether the given expression is a string literal.
+ */
+export function isStringLiteral(expr: o.Expression): expr is o.LiteralExpr&{value: string} {
+  return expr instanceof o.LiteralExpr && typeof expr.value === 'string';
 }
