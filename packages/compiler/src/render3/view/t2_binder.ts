@@ -337,9 +337,10 @@ class DirectiveBinder<DirectiveT extends DirectiveMeta> implements Visitor {
   }
 
   visitDeferredBlock(deferred: DeferredBlock): void {
+    const wasInDeferBlock = this.isInDeferBlock;
     this.isInDeferBlock = true;
     deferred.children.forEach(child => child.visit(this));
-    this.isInDeferBlock = false;
+    this.isInDeferBlock = wasInDeferBlock;
 
     deferred.placeholder?.visit(this);
     deferred.loading?.visit(this);
@@ -520,12 +521,11 @@ class TemplateBinder extends RecursiveAstVisitor implements Visitor {
   visitDeferredBlock(deferred: DeferredBlock) {
     this.deferBlocks.add(deferred);
 
+    const wasInDeferBlock = this.isInDeferBlock;
     this.isInDeferBlock = true;
     deferred.children.forEach(this.visitNode);
-    this.isInDeferBlock = false;
+    this.isInDeferBlock = wasInDeferBlock;
 
-    deferred.triggers.forEach(this.visitNode);
-    deferred.prefetchTriggers.forEach(this.visitNode);
     deferred.placeholder && this.visitNode(deferred.placeholder);
     deferred.loading && this.visitNode(deferred.loading);
     deferred.error && this.visitNode(deferred.error);

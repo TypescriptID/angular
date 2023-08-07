@@ -89,17 +89,8 @@ class R3AstHumanizer implements t.Visitor<void> {
   }
 
   visitDeferredBlock(deferred: t.DeferredBlock): void {
-    const blocks: t.Node[] = [];
-    deferred.placeholder && blocks.push(deferred.placeholder);
-    deferred.loading && blocks.push(deferred.loading);
-    deferred.error && blocks.push(deferred.error);
     this.result.push(['DeferredBlock']);
-    this.visitAll([
-      deferred.triggers,
-      deferred.prefetchTriggers,
-      deferred.children,
-      blocks,
-    ]);
+    deferred.visitAll(this);
   }
 
   visitDeferredTrigger(trigger: t.DeferredTrigger): void {
@@ -1104,6 +1095,44 @@ describe('R3 template transform', () => {
       it('should report if `viewport` trigger has more than one parameter', () => {
         expectDeferredError('{#defer on viewport(a, b)}hello{/defer}')
             .toThrowError(/"viewport" trigger can only have zero or one parameters/);
+      });
+
+      it('should report duplicate when triggers', () => {
+        expectDeferredError('{#defer when isVisible(); when somethingElse()}hello{/defer}')
+            .toThrowError(/Duplicate "when" trigger is not allowed/);
+      });
+
+      it('should report duplicate on triggers', () => {
+        expectDeferredError('{#defer on idle; when isVisible(); on timer(10), idle}hello{/defer}')
+            .toThrowError(/Duplicate "idle" trigger is not allowed/);
+      });
+
+      it('should report duplicate prefetch when triggers', () => {
+        expectDeferredError(
+            '{#defer prefetch when isVisible(); prefetch when somethingElse()}hello{/defer}')
+            .toThrowError(/Duplicate "when" trigger is not allowed/);
+      });
+
+      it('should report duplicate prefetch on triggers', () => {
+        expectDeferredError(
+            '{#defer prefetch on idle; prefetch when isVisible(); prefetch on timer(10), idle}hello{/defer}')
+            .toThrowError(/Duplicate "idle" trigger is not allowed/);
+      });
+
+      it('should report multiple minimum parameters on a placeholder block', () => {
+        expectDeferredError(
+            '{#defer}hello{:placeholder minimum 1s; minimum 500ms}placeholder{/defer}')
+            .toThrowError(/Placeholder block can only have one "minimum" parameter/);
+      });
+
+      it('should report multiple minimum parameters on a loading block', () => {
+        expectDeferredError('{#defer}hello{:loading minimum 1s; minimum 500ms}loading{/defer}')
+            .toThrowError(/Loading block can only have one "minimum" parameter/);
+      });
+
+      it('should report multiple after parameters on a loading block', () => {
+        expectDeferredError('{#defer}hello{:loading after 1s; after 500ms}loading{/defer}')
+            .toThrowError(/Loading block can only have one "after" parameter/);
       });
     });
   });
