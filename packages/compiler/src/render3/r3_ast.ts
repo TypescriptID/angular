@@ -237,6 +237,69 @@ export class DeferredBlock implements Node {
   }
 }
 
+export class SwitchBlock implements Node {
+  constructor(
+      public expression: AST, public cases: SwitchBlockCase[], public sourceSpan: ParseSourceSpan,
+      public startSourceSpan: ParseSourceSpan, public endSourceSpan: ParseSourceSpan|null) {}
+
+  visit<Result>(visitor: Visitor<Result>): Result {
+    return visitor.visitSwitchBlock(this);
+  }
+}
+
+export class SwitchBlockCase implements Node {
+  constructor(
+      public expression: AST|null, public children: Node[], public sourceSpan: ParseSourceSpan,
+      public startSourceSpan: ParseSourceSpan) {}
+
+  visit<Result>(visitor: Visitor<Result>): Result {
+    return visitor.visitSwitchBlockCase(this);
+  }
+}
+
+export class ForLoopBlock implements Node {
+  constructor(
+      public itemName: string, public expression: AST,
+      // TODO(crisbeto): figure out if trackBy should be an AST
+      public trackBy: string, public children: Node[], public empty: ForLoopBlockEmpty|null,
+      public sourceSpan: ParseSourceSpan, public startSourceSpan: ParseSourceSpan,
+      public endSourceSpan: ParseSourceSpan|null) {}
+
+  visit<Result>(visitor: Visitor<Result>): Result {
+    return visitor.visitForLoopBlock(this);
+  }
+}
+
+export class ForLoopBlockEmpty implements Node {
+  constructor(
+      public children: Node[], public sourceSpan: ParseSourceSpan,
+      public startSourceSpan: ParseSourceSpan) {}
+
+  visit<Result>(visitor: Visitor<Result>): Result {
+    return visitor.visitForLoopBlockEmpty(this);
+  }
+}
+
+export class IfBlock implements Node {
+  constructor(
+      public branches: IfBlockBranch[], public sourceSpan: ParseSourceSpan,
+      public startSourceSpan: ParseSourceSpan, public endSourceSpan: ParseSourceSpan|null) {}
+
+  visit<Result>(visitor: Visitor<Result>): Result {
+    return visitor.visitIfBlock(this);
+  }
+}
+
+export class IfBlockBranch implements Node {
+  constructor(
+      public expression: AST|null, public children: Node[], public expressionAlias: string|null,
+      public sourceSpan: ParseSourceSpan, public startSourceSpan: ParseSourceSpan) {}
+
+  visit<Result>(visitor: Visitor<Result>): Result {
+    return visitor.visitIfBlockBranch(this);
+  }
+}
+
 export class Template implements Node {
   constructor(
       // tagName is the name of the container element, if applicable.
@@ -321,6 +384,12 @@ export interface Visitor<Result = any> {
   visitDeferredBlockError(block: DeferredBlockError): Result;
   visitDeferredBlockLoading(block: DeferredBlockLoading): Result;
   visitDeferredTrigger(trigger: DeferredTrigger): Result;
+  visitSwitchBlock(block: SwitchBlock): Result;
+  visitSwitchBlockCase(block: SwitchBlockCase): Result;
+  visitForLoopBlock(block: ForLoopBlock): Result;
+  visitForLoopBlockEmpty(block: ForLoopBlockEmpty): Result;
+  visitIfBlock(block: IfBlock): Result;
+  visitIfBlockBranch(block: IfBlockBranch): Result;
 }
 
 export class RecursiveVisitor implements Visitor<void> {
@@ -349,6 +418,25 @@ export class RecursiveVisitor implements Visitor<void> {
     visitAll(this, block.children);
   }
   visitDeferredBlockLoading(block: DeferredBlockLoading): void {
+    visitAll(this, block.children);
+  }
+  visitSwitchBlock(block: SwitchBlock): void {
+    visitAll(this, block.cases);
+  }
+  visitSwitchBlockCase(block: SwitchBlockCase): void {
+    visitAll(this, block.children);
+  }
+  visitForLoopBlock(block: ForLoopBlock): void {
+    visitAll(this, block.children);
+    block.empty?.visit(this);
+  }
+  visitForLoopBlockEmpty(block: ForLoopBlockEmpty): void {
+    visitAll(this, block.children);
+  }
+  visitIfBlock(block: IfBlock): void {
+    visitAll(this, block.branches);
+  }
+  visitIfBlockBranch(block: IfBlockBranch): void {
     visitAll(this, block.children);
   }
   visitContent(content: Content): void {}

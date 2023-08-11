@@ -1125,6 +1125,14 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   visitDeferredBlockError(block: t.DeferredBlockError): void {}
   visitDeferredBlockLoading(block: t.DeferredBlockLoading): void {}
 
+  // TODO: implement control flow instructions
+  visitSwitchBlock(block: t.SwitchBlock): void {}
+  visitSwitchBlockCase(block: t.SwitchBlockCase): void {}
+  visitForLoopBlock(block: t.ForLoopBlock): void {}
+  visitForLoopBlockEmpty(block: t.ForLoopBlockEmpty): void {}
+  visitIfBlock(block: t.IfBlock): void {}
+  visitIfBlockBranch(block: t.IfBlockBranch): void {}
+
   private allocateDataSlot() {
     return this._dataIndex++;
   }
