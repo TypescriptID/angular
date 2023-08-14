@@ -886,37 +886,28 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     }
   }
 
-
-  visitTemplate(template: t.Template) {
-    const NG_TEMPLATE_TAG_NAME = 'ng-template';
+  private createEmbeddedTemplateFn(
+      tagName: string|null, children: t.Node[], contextNameSuffix: string,
+      sourceSpan: ParseSourceSpan, variables: t.Variable[] = [], attrsExprs?: o.Expression[],
+      references?: t.Reference[], i18n?: i18n.I18nMeta): number {
     const templateIndex = this.allocateDataSlot();
 
-    if (this.i18n) {
-      this.i18n.appendTemplate(template.i18n!, templateIndex);
+    if (this.i18n && i18n) {
+      this.i18n.appendTemplate(i18n, templateIndex);
     }
 
-    const tagNameWithoutNamespace =
-        template.tagName ? splitNsName(template.tagName)[1] : template.tagName;
-    const contextName = `${this.contextName}${
-        template.tagName ? '_' + sanitizeIdentifier(template.tagName) : ''}_${templateIndex}`;
+    const contextName = `${this.contextName}${contextNameSuffix}_${templateIndex}`;
     const templateName = `${contextName}_Template`;
     const parameters: o.Expression[] = [
       o.literal(templateIndex),
       o.variable(templateName),
-      // We don't care about the tag's namespace here, because we infer
-      // it based on the parent nodes inside the template instruction.
-      o.literal(tagNameWithoutNamespace),
+      o.literal(tagName),
+      this.addAttrsToConsts(attrsExprs || null),
     ];
 
-    // prepare attributes parameter (including attributes used for directive matching)
-    const attrsExprs: o.Expression[] = this.getAttributeExpressions(
-        NG_TEMPLATE_TAG_NAME, template.attributes, template.inputs, template.outputs,
-        undefined /* styles */, template.templateAttrs);
-    parameters.push(this.addAttrsToConsts(attrsExprs));
-
     // local refs (ex.: <ng-template #foo>)
-    if (template.references && template.references.length) {
-      const refs = this.prepareRefsArray(template.references);
+    if (references && references.length > 0) {
+      const refs = this.prepareRefsArray(references);
       parameters.push(this.addToConsts(refs));
       parameters.push(o.importExpr(R3.templateRefExtractor));
     }
@@ -933,8 +924,8 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     // template definition. e.g. <div *ngIf="showing">{{ foo }}</div>  <div #foo></div>
     this._nestedTemplateFns.push(() => {
       const templateFunctionExpr = templateVisitor.buildTemplateFunction(
-          template.children, template.variables,
-          this._ngContentReservedSlots.length + this._ngContentSelectorsOffset, template.i18n);
+          children, variables, this._ngContentReservedSlots.length + this._ngContentSelectorsOffset,
+          i18n);
       this.constantPool.statements.push(templateFunctionExpr.toDeclStmt(templateName));
       if (templateVisitor._ngContentReservedSlots.length) {
         this._ngContentReservedSlots.push(...templateVisitor._ngContentReservedSlots);
@@ -942,12 +933,32 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     });
 
     // e.g. template(1, MyComp_Template_1)
-    this.creationInstruction(template.sourceSpan, R3.templateCreate, () => {
+    this.creationInstruction(sourceSpan, R3.templateCreate, () => {
       parameters.splice(
           2, 0, o.literal(templateVisitor.getConstCount()),
           o.literal(templateVisitor.getVarCount()));
       return trimTrailingNulls(parameters);
     });
+
+    return templateIndex;
+  }
+
+  visitTemplate(template: t.Template) {
+    // We don't care about the tag's namespace here, because we infer
+    // it based on the parent nodes inside the template instruction.
+    const tagNameWithoutNamespace =
+        template.tagName ? splitNsName(template.tagName)[1] : template.tagName;
+    const contextNameSuffix = template.tagName ? '_' + sanitizeIdentifier(template.tagName) : '';
+    const NG_TEMPLATE_TAG_NAME = 'ng-template';
+
+    // prepare attributes parameter (including attributes used for directive matching)
+    const attrsExprs: o.Expression[] = this.getAttributeExpressions(
+        NG_TEMPLATE_TAG_NAME, template.attributes, template.inputs, template.outputs,
+        undefined /* styles */, template.templateAttrs);
+
+    const templateIndex = this.createEmbeddedTemplateFn(
+        tagNameWithoutNamespace, template.children, contextNameSuffix, template.sourceSpan,
+        template.variables, attrsExprs, template.references, template.i18n);
 
     // handle property bindings e.g. ɵɵproperty('ngForOf', ctx.items), et al;
     this.templatePropertyBindings(templateIndex, template.templateAttrs);
@@ -986,6 +997,10 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   readonly visitTextAttribute = invalid;
   readonly visitBoundAttribute = invalid;
   readonly visitBoundEvent = invalid;
+  readonly visitDeferredTrigger = invalid;
+  readonly visitDeferredBlockError = invalid;
+  readonly visitDeferredBlockLoading = invalid;
+  readonly visitDeferredBlockPlaceholder = invalid;
 
   visitBoundText(text: t.BoundText) {
     if (this.i18n) {
@@ -1074,56 +1089,147 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   }
 
   visitDeferredBlock(deferred: t.DeferredBlock): void {
-    const templateIndex = this.allocateDataSlot();
-    const deferredDeps = this.deferBlocks.get(deferred);
+    const {loading, placeholder, error, triggers, prefetchTriggers} = deferred;
+    const primaryTemplateIndex =
+        this.createEmbeddedTemplateFn(null, deferred.children, '_Defer', deferred.sourceSpan);
+    const loadingIndex = loading ?
+        this.createEmbeddedTemplateFn(null, loading.children, '_DeferLoading', loading.sourceSpan) :
+        null;
+    const loadingConsts = loading ?
+        trimTrailingNulls([o.literal(loading.minimumTime), o.literal(loading.afterTime)]) :
+        null;
 
-    const contextName = `${this.contextName}_Defer_${templateIndex}`;
-    const depsFnName = `${contextName}_DepsFn`;
+    const placeholderIndex = placeholder ?
+        this.createEmbeddedTemplateFn(
+            null, placeholder.children, '_DeferPlaceholder', placeholder.sourceSpan) :
+        null;
+    const placeholderConsts = placeholder && placeholder.minimumTime !== null ?
+        // TODO(crisbeto): potentially pass the time directly instead of storing it in the `consts`
+        // since `{:placeholder}` can only have one parameter?
+        o.literalArr([o.literal(placeholder.minimumTime)]) :
+        null;
 
-    const parameters: o.Expression[] = [
-      o.literal(templateIndex),
-      deferredDeps ? o.variable(depsFnName) : o.TYPED_NULL_EXPR,
-    ];
+    const errorIndex = error ?
+        this.createEmbeddedTemplateFn(null, error.children, '_DeferError', error.sourceSpan) :
+        null;
 
-    if (deferredDeps) {
-      // This defer block has deps for which we need to generate dynamic imports.
-      const dependencyExp: o.Expression[] = [];
-      for (const deferredDep of deferredDeps) {
-        if (deferredDep.isDeferrable) {
-          // Callback function, e.g. `function(m) { return m.MyCmp; }`.
-          const innerFn = o.fn(
-              [new o.FnParam('m', o.DYNAMIC_TYPE)],
-              [new o.ReturnStatement(o.variable('m').prop(deferredDep.symbolName))]);
+    // Note: we generate this last so the index matches the instruction order.
+    const deferredIndex = this.allocateDataSlot();
+    const depsFnName = `${this.contextName}_Defer_${deferredIndex}_DepsFn`;
 
-          const fileName = deferredDep.importPath!;
-          // Dynamic import, e.g. `import('./a').then(...)`.
-          const importExpr = (new o.DynamicImportExpr(fileName)).prop('then').callFn([innerFn]);
-          dependencyExp.push(importExpr);
-        } else {
-          // Non-deferrable symbol, just use a reference to the type.
-          dependencyExp.push(deferredDep.type);
-        }
-      }
+    // e.g. `defer(1, 0, MyComp_Defer_1_DepsFn, ...)`
+    this.creationInstruction(
+        deferred.sourceSpan, R3.defer, trimTrailingNulls([
+          o.literal(deferredIndex),
+          o.literal(primaryTemplateIndex),
+          this.createDeferredDepsFunction(depsFnName, deferred),
+          o.literal(loadingIndex),
+          o.literal(placeholderIndex),
+          o.literal(errorIndex),
+          loadingConsts?.length ? this.addToConsts(o.literalArr(loadingConsts)) : o.TYPED_NULL_EXPR,
+          placeholderConsts ? this.addToConsts(placeholderConsts) : o.TYPED_NULL_EXPR,
+        ]));
 
-      const depsFnBody: o.Statement[] = [];
-      depsFnBody.push(new o.ReturnStatement(o.literalArr(dependencyExp)));
-
-      const depsFnExpr = o.fn([] /* args */, depsFnBody, o.INFERRED_TYPE, null, depsFnName);
-
-      this.constantPool.statements.push(depsFnExpr.toDeclStmt(depsFnName));
-    }
-
-    // e.g. `defer(1, MyComp_Defer_1_DepsFn, ...)`
-    this.creationInstruction(deferred.sourceSpan, R3.defer, () => {
-      return trimTrailingNulls(parameters);
-    });
+    this.createDeferTriggerInstructions(deferredIndex, triggers, false);
+    this.createDeferTriggerInstructions(deferredIndex, prefetchTriggers, true);
   }
 
-  // TODO: implement nested deferred block instructions.
-  visitDeferredTrigger(trigger: t.DeferredTrigger): void {}
-  visitDeferredBlockPlaceholder(block: t.DeferredBlockPlaceholder): void {}
-  visitDeferredBlockError(block: t.DeferredBlockError): void {}
-  visitDeferredBlockLoading(block: t.DeferredBlockLoading): void {}
+  private createDeferredDepsFunction(name: string, deferred: t.DeferredBlock) {
+    const deferredDeps = this.deferBlocks.get(deferred);
+
+    if (!deferredDeps || deferredDeps.length === 0) {
+      return o.TYPED_NULL_EXPR;
+    }
+
+    // This defer block has deps for which we need to generate dynamic imports.
+    const dependencyExp: o.Expression[] = [];
+
+    for (const deferredDep of deferredDeps) {
+      if (deferredDep.isDeferrable) {
+        // Callback function, e.g. `function(m) { return m.MyCmp; }`.
+        const innerFn = o.fn(
+            [new o.FnParam('m', o.DYNAMIC_TYPE)],
+            [new o.ReturnStatement(o.variable('m').prop(deferredDep.symbolName))]);
+
+        // Dynamic import, e.g. `import('./a').then(...)`.
+        const importExpr =
+            (new o.DynamicImportExpr(deferredDep.importPath!)).prop('then').callFn([innerFn]);
+        dependencyExp.push(importExpr);
+      } else {
+        // Non-deferrable symbol, just use a reference to the type.
+        dependencyExp.push(deferredDep.type);
+      }
+    }
+
+    const depsFnExpr =
+        o.fn([], [new o.ReturnStatement(o.literalArr(dependencyExp))], o.INFERRED_TYPE, null, name);
+
+    this.constantPool.statements.push(depsFnExpr.toDeclStmt(name));
+
+    return o.variable(name);
+  }
+
+  private createDeferTriggerInstructions(
+      deferredIndex: number, triggers: t.DeferredBlockTriggers, prefetch: boolean) {
+    const {when, idle, immediate, timer, hover, interaction, viewport} = triggers;
+
+    // `deferWhen(ctx.someValue)`
+    if (when) {
+      this.allocateBindingSlots(null);
+      this.updateInstructionWithAdvance(
+          deferredIndex, when.sourceSpan, prefetch ? R3.deferPrefetchWhen : R3.deferWhen,
+          () => this.convertPropertyBinding(when.value));
+    }
+
+    // Note that we generate an implicit `on idle` if the `deferred` block has no triggers.
+    // TODO(crisbeto): decide if this should be baked into the `defer` instruction.
+    // `deferOnIdle()`
+    if (idle || (!prefetch && Object.keys(triggers).length === 0)) {
+      this.creationInstruction(
+          idle?.sourceSpan || null, prefetch ? R3.deferPrefetchOnIdle : R3.deferOnIdle);
+    }
+
+    // `deferOnImmediate()`
+    if (immediate) {
+      this.creationInstruction(
+          immediate.sourceSpan, prefetch ? R3.deferPrefetchOnImmediate : R3.deferOnImmediate);
+    }
+
+    // `deferOnTimer(1337)`
+    if (timer) {
+      this.creationInstruction(
+          timer.sourceSpan, prefetch ? R3.deferPrefetchOnTimer : R3.deferOnTimer,
+          [o.literal(timer.delay)]);
+    }
+
+    // `deferOnHover()`
+    if (hover) {
+      this.creationInstruction(
+          hover.sourceSpan, prefetch ? R3.deferPrefetchOnHover : R3.deferOnHover);
+    }
+
+    // TODO(crisbeto): currently the reference is passed as a string.
+    // Update this once we figure out how we should refer to the target.
+    // `deferOnInteraction(target)`
+    if (interaction) {
+      this.creationInstruction(
+          interaction.sourceSpan, prefetch ? R3.deferPrefetchOnInteraction : R3.deferOnInteraction,
+          [o.literal(interaction.reference)]);
+    }
+
+    // TODO(crisbeto): currently the reference is passed as a string.
+    // Update this once we figure out how we should refer to the target.
+    // `deferOnViewport(target)`
+    if (viewport) {
+      this.creationInstruction(
+          viewport.sourceSpan, prefetch ? R3.deferPrefetchOnViewport : R3.deferOnViewport,
+          [o.literal(viewport.reference)]);
+    }
+  }
+
+  private allocateDataSlot() {
+    return this._dataIndex++;
+  }
 
   // TODO: implement control flow instructions
   visitSwitchBlock(block: t.SwitchBlock): void {}
@@ -1132,10 +1238,6 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   visitForLoopBlockEmpty(block: t.ForLoopBlockEmpty): void {}
   visitIfBlock(block: t.IfBlock): void {}
   visitIfBlockBranch(block: t.IfBlockBranch): void {}
-
-  private allocateDataSlot() {
-    return this._dataIndex++;
-  }
 
   getConstCount() {
     return this._dataIndex;
@@ -1446,8 +1548,9 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     return o.literal(consts.push(expression) - 1);
   }
 
-  private addAttrsToConsts(attrs: o.Expression[]): o.LiteralExpr {
-    return attrs.length > 0 ? this.addToConsts(o.literalArr(attrs)) : o.TYPED_NULL_EXPR;
+  private addAttrsToConsts(attrs: o.Expression[]|null): o.LiteralExpr {
+    return attrs !== null && attrs.length > 0 ? this.addToConsts(o.literalArr(attrs)) :
+                                                o.TYPED_NULL_EXPR;
   }
 
   private prepareRefsArray(references: t.Reference[]): o.Expression {
