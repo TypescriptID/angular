@@ -40,7 +40,7 @@ import {createLocalizeStatements} from './i18n/localize_utils';
 import {I18nMetaVisitor} from './i18n/meta';
 import {assembleBoundTextPlaceholders, assembleI18nBoundString, declareI18nVariable, formatI18nPlaceholderNamesInMap, getTranslationConstPrefix, hasI18nMeta, I18N_ICU_MAPPING_PREFIX, icuFromI18nMessage, isI18nRootNode, isSingleI18nIcu, placeholdersToParams, TRANSLATION_VAR_PREFIX, wrapI18nPlaceholder} from './i18n/util';
 import {StylingBuilder, StylingInstruction} from './styling_builder';
-import {asLiteral, CONTEXT_NAME, getInstructionStatements, getInterpolationArgsLength, IMPLICIT_REFERENCE, Instruction, InstructionParams, invalid, invokeInstruction, NON_BINDABLE_ATTR, REFERENCE_PREFIX, RENDER_FLAGS, RESTORED_VIEW_CONTEXT_NAME, trimTrailingNulls} from './util';
+import {asLiteral, CONTEXT_NAME, DIRECT_CONTEXT_REFERENCE, getInstructionStatements, getInterpolationArgsLength, IMPLICIT_REFERENCE, Instruction, InstructionParams, invalid, invokeInstruction, NON_BINDABLE_ATTR, REFERENCE_PREFIX, RENDER_FLAGS, RESTORED_VIEW_CONTEXT_NAME, trimTrailingNulls} from './util';
 
 
 
@@ -178,6 +178,13 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
 
   /** Temporary variable declarations generated from visiting pipes, literals, etc. */
   private _tempVariables: o.Statement[] = [];
+
+  /**
+   * Temporary variable used to store state between control flow instructions.
+   * Should be accessed via the `allocateControlFlowTempVariable` method.
+   */
+  private _controlFlowTempVariable: o.ReadVarExpr|null = null;
+
   /**
    * List of callbacks to build nested templates. Nested templates must not be visited until
    * after the parent template has finished visiting all of its nodes. This ensures that all
@@ -372,11 +379,23 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   private registerContextVariables(variable: t.Variable) {
     const scopedName = this._bindingScope.freshReferenceName();
     const retrievalLevel = this.level;
+    const isDirect = variable.value === DIRECT_CONTEXT_REFERENCE;
     const lhs = o.variable(variable.name + scopedName);
+
     this._bindingScope.set(
-        retrievalLevel, variable.name, lhs, DeclarationPriority.CONTEXT,
+        retrievalLevel, variable.name,
+        scope => {
+          // If we're at the top level and we're referring to the context variable directly, we
+          // can do so through the implicit receiver, instead of renaming it. Note that this does
+          // not apply to listeners, because they need to restore the context.
+          return isDirect && scope.bindingLevel === retrievalLevel && !scope.isListenerScope() ?
+              o.variable(CONTEXT_NAME) :
+              lhs;
+        },
+        DeclarationPriority.CONTEXT,
         (scope: BindingScope, relativeLevel: number) => {
           let rhs: o.Expression;
+
           if (scope.bindingLevel === retrievalLevel) {
             if (scope.isListenerScope() && scope.hasRestoreViewVariable()) {
               // e.g. restoredCtx.
@@ -385,6 +404,10 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
               // For more information see: https://github.com/angular/angular/pull/40360.
               rhs = o.variable(RESTORED_VIEW_CONTEXT_NAME);
               scope.notifyRestoredViewContextUse();
+            } else if (isDirect) {
+              // If we have a direct read of the context at the top level we don't need to
+              // declare any variables and we can refer to it directly.
+              return [];
             } else {
               // e.g. ctx
               rhs = o.variable(CONTEXT_NAME);
@@ -394,8 +417,12 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
             // e.g. ctx_r0   OR  x(2);
             rhs = sharedCtxVar ? sharedCtxVar : generateNextContextExpr(relativeLevel);
           }
-          // e.g. const $item$ = x(2).$implicit;
-          return [lhs.set(rhs.prop(variable.value || IMPLICIT_REFERENCE)).toConstDecl()];
+
+          return [
+            // e.g. const $items$ = x(2) for direct context references and
+            // const $item$ = x(2).$implicit for indirect ones.
+            lhs.set(isDirect ? rhs : rhs.prop(variable.value || IMPLICIT_REFERENCE)).toConstDecl()
+          ];
         });
   }
 
@@ -1001,6 +1028,8 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   readonly visitDeferredBlockError = invalid;
   readonly visitDeferredBlockLoading = invalid;
   readonly visitDeferredBlockPlaceholder = invalid;
+  readonly visitIfBlockBranch = invalid;
+  readonly visitSwitchBlockCase = invalid;
 
   visitBoundText(text: t.BoundText) {
     if (this.i18n) {
@@ -1086,6 +1115,145 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       this.i18nEnd(null, true);
     }
     return null;
+  }
+
+  visitIfBlock(block: t.IfBlock): void {
+    // We have to process the block in two steps: once here and again in the update instruction
+    // callback in order to generate the correct expressions when pipes or pure functions are
+    // used inside the branch expressions.
+    const branchData = block.branches.map(({expression, expressionAlias, children, sourceSpan}) => {
+      let processedExpression: AST|null = null;
+
+      if (expression !== null) {
+        processedExpression = expression.visit(this._valueConverter);
+        this.allocateBindingSlots(processedExpression);
+      }
+
+      // If the branch has an alias, it'll be assigned directly to the container's context.
+      // We define a variable referring directly to the context so that any nested usages can be
+      // rewritten to refer to it.
+      const variables = expressionAlias ?
+          [new t.Variable(expressionAlias, DIRECT_CONTEXT_REFERENCE, sourceSpan, sourceSpan)] :
+          undefined;
+
+      return {
+        index: this.createEmbeddedTemplateFn(null, children, '_Conditional', sourceSpan, variables),
+        expression: processedExpression,
+        alias: expressionAlias
+      };
+    });
+
+    // Use the index of the first block as the index for the entire container.
+    const containerIndex = branchData[0].index;
+    const paramsCallback = () => {
+      let contextVariable: o.ReadVarExpr|null = null;
+      const generateBranch = (branchIndex: number): o.Expression => {
+        // If we've gone beyond the last branch, return the special -1 value which means that no
+        // view will be rendered. Note that we don't need to reset the context here, because -1
+        // won't render a view so the passed-in context won't be captured.
+        if (branchIndex > branchData.length - 1) {
+          return o.literal(-1);
+        }
+
+        const {index, expression, alias} = branchData[branchIndex];
+
+        // If the branch has no expression, it means that it's the final `else`.
+        // Return its index and stop the recursion. Assumes that there's only one
+        // `else` condition and that it's the last branch.
+        if (expression === null) {
+          return o.literal(index);
+        }
+
+        let comparisonTarget: o.Expression;
+
+        if (alias) {
+          // If the branch is aliased, we need to assign the expression value to the temporary
+          // variable and then pass it into `conditional`. E.g. for the expression:
+          // `{#if foo(); as alias}...{/if}` we have to generate:
+          // ```
+          // let temp;
+          // conditional(0, (temp = ctx.foo()) ? 0 : -1, temp);
+          // ```
+          contextVariable = this.allocateControlFlowTempVariable();
+          comparisonTarget = contextVariable.set(this.convertPropertyBinding(expression));
+        } else {
+          comparisonTarget = this.convertPropertyBinding(expression);
+        }
+
+        return comparisonTarget.conditional(o.literal(index), generateBranch(branchIndex + 1));
+      };
+
+      const params = [o.literal(containerIndex), generateBranch(0)];
+
+      if (contextVariable !== null) {
+        params.push(contextVariable);
+      }
+
+      return params;
+    };
+
+    this.updateInstructionWithAdvance(
+        containerIndex, block.branches[0].sourceSpan, R3.conditional, paramsCallback);
+  }
+
+  visitSwitchBlock(block: t.SwitchBlock): void {
+    // Allocate slots for the primary block expression.
+    const blockExpression = block.expression.visit(this._valueConverter);
+    this.allocateBindingSlots(blockExpression);
+
+    // We have to process the block in two steps: once here and again in the update instruction
+    // callback in order to generate the correct expressions when pipes or pure functions are used.
+    const caseData = block.cases.map(currentCase => {
+      const index = this.createEmbeddedTemplateFn(
+          null, currentCase.children, '_Case', currentCase.sourceSpan);
+      let expression: AST|null = null;
+
+      if (currentCase.expression !== null) {
+        expression = currentCase.expression.visit(this._valueConverter);
+        this.allocateBindingSlots(expression);
+      }
+
+      return {index, expression};
+    });
+
+    // Use the index of the first block as the index for the entire container.
+    const containerIndex = caseData[0].index;
+
+    this.updateInstructionWithAdvance(containerIndex, block.sourceSpan, R3.conditional, () => {
+      const generateCases = (caseIndex: number): o.Expression => {
+        // If we've gone beyond the last branch, return the special -1
+        // value which means that no view will be rendered.
+        if (caseIndex > caseData.length - 1) {
+          return o.literal(-1);
+        }
+
+        const {index, expression} = caseData[caseIndex];
+
+        // If the case has no expression, it means that it's the `default` case.
+        // Return its index and stop the recursion. Assumes that there's only one
+        // `default` condition and that it's defined last.
+        if (expression === null) {
+          return o.literal(index);
+        }
+
+        // If this is the very first comparison, we need to assign the value of the primary
+        // expression as a part of the comparison so the remaining cases can reuse it. In practice
+        // this looks as follows:
+        // ```
+        // let temp;
+        // conditional(1, (temp = ctx.foo) === 1 ? 1 : temp === 2 ? 2 : temp === 3 ? 3 : 4);
+        // ```
+        const comparisonTarget = caseIndex === 0 ?
+            this.allocateControlFlowTempVariable().set(
+                this.convertPropertyBinding(blockExpression)) :
+            this.allocateControlFlowTempVariable();
+
+        return comparisonTarget.identical(this.convertPropertyBinding(expression))
+            .conditional(o.literal(index), generateCases(caseIndex + 1));
+      };
+
+      return [o.literal(containerIndex), generateCases(0)];
+    });
   }
 
   visitDeferredBlock(deferred: t.DeferredBlock): void {
@@ -1232,13 +1400,9 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     return this._dataIndex++;
   }
 
-  // TODO: implement control flow instructions
-  visitSwitchBlock(block: t.SwitchBlock): void {}
-  visitSwitchBlockCase(block: t.SwitchBlockCase): void {}
+  // TODO: implement for loop instructions
   visitForLoopBlock(block: t.ForLoopBlock): void {}
   visitForLoopBlockEmpty(block: t.ForLoopBlockEmpty): void {}
-  visitIfBlock(block: t.IfBlock): void {}
-  visitIfBlockBranch(block: t.IfBlockBranch): void {}
 
   getConstCount() {
     return this._dataIndex;
@@ -1404,6 +1568,23 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
 
     this._tempVariables.push(...stmts);
     return args;
+  }
+
+  /**
+   * Creates and returns a variable that can be used to
+   * store the state between control flow instructions.
+   */
+  private allocateControlFlowTempVariable(): o.ReadVarExpr {
+    // Note: the assumption here is that we'll only need one temporary variable for all control
+    // flow instructions. It's expected that any instructions will overwrite it before passing it
+    // into the parameters.
+    if (this._controlFlowTempVariable === null) {
+      const name = `${this.contextName}_contFlowTmp`;
+      this._tempVariables.push(new o.DeclareVarStmt(name));
+      this._controlFlowTempVariable = o.variable(name);
+    }
+
+    return this._controlFlowTempVariable;
   }
 
   /**
@@ -1747,7 +1928,13 @@ function getAttributeNameLiterals(name: string): o.LiteralExpr[] {
  *
  * It is expected that the function creates the `const localName = expression`; statement.
  */
-export type DeclareLocalVarCallback = (scope: BindingScope, relativeLevel: number) => o.Statement[];
+type DeclareLocalVarCallback = (scope: BindingScope, relativeLevel: number) => o.Statement[];
+
+/**
+ * Function that is executed whenever a variable is referenced. It allows for the variable to be
+ * renamed depending on its location.
+ */
+type LocalVarRefCallback = (scope: BindingScope) => o.Expression;
 
 /** The prefix used to get a shared context in BindingScope's map. */
 const SHARED_CONTEXT_KEY = '$$shared_ctx$$';
@@ -1767,7 +1954,7 @@ const SHARED_CONTEXT_KEY = '$$shared_ctx$$';
  * declaration should always come before the local ref declaration.
  */
 type BindingData = {
-  retrievalLevel: number; lhs: o.Expression;
+  retrievalLevel: number; lhs: o.Expression | LocalVarRefCallback;
   declareLocalCallback?: DeclareLocalVarCallback; declare: boolean; priority: number;
 };
 
@@ -1826,7 +2013,7 @@ export class BindingScope implements LocalResolver {
         if (value.declareLocalCallback && !value.declare) {
           value.declare = true;
         }
-        return value.lhs;
+        return typeof value.lhs === 'function' ? value.lhs(this) : value.lhs;
       }
       current = current.parent;
     }
@@ -1848,7 +2035,7 @@ export class BindingScope implements LocalResolver {
    * @param declareLocalCallback The callback to invoke when declaring this local var
    * @param localRef Whether or not this is a local ref
    */
-  set(retrievalLevel: number, name: string, lhs: o.Expression,
+  set(retrievalLevel: number, name: string, lhs: o.Expression|LocalVarRefCallback,
       priority: number = DeclarationPriority.DEFAULT,
       declareLocalCallback?: DeclareLocalVarCallback, localRef?: true): BindingScope {
     if (this.map.has(name)) {
@@ -1940,7 +2127,9 @@ export class BindingScope implements LocalResolver {
     const componentValue = this.map.get(SHARED_CONTEXT_KEY + 0)!;
     componentValue.declare = true;
     this.maybeRestoreView();
-    return componentValue.lhs.prop(name);
+    const lhs =
+        typeof componentValue.lhs === 'function' ? componentValue.lhs(this) : componentValue.lhs;
+    return name === DIRECT_CONTEXT_REFERENCE ? lhs : lhs.prop(name);
   }
 
   maybeRestoreView() {
