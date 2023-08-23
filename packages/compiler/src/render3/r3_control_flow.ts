@@ -8,7 +8,7 @@
 
 import {ASTWithSource} from '../expression_parser/ast';
 import * as html from '../ml_parser/ast';
-import {ParseError} from '../parse_util';
+import {ParseError, ParseSourceSpan} from '../parse_util';
 import {BindingParser} from '../template_parser/binding_parser';
 
 import * as t from './r3_ast';
@@ -24,6 +24,13 @@ const CONDITIONAL_ALIAS_PATTERN = /^as\s+(.*)/;
 
 /** Pattern used to identify an `else if` block. */
 const ELSE_IF_PATTERN = /^if\s/;
+
+/** Pattern used to identify a `let` parameter. */
+const FOR_LOOP_LET_PATTERN = /^let\s+(.*)/;
+
+/** Names of variables that are allowed to be used in the `let` expression of a `for` loop. */
+const ALLOWED_FOR_LOOP_LET_VARIABLES =
+    new Set(['$index', '$first', '$last', '$even', '$odd', '$count']);
 
 /** Creates an `if` loop block from an HTML AST node. */
 export function createIfBlock(
@@ -47,9 +54,7 @@ export function createIfBlock(
       continue;
     }
 
-    // Expressions for `{:else if}` blocks start at 2 to skip the `if` from the expression.
-    const expressionStart = block.name === 'if' ? 0 : 2;
-    const params = parseConditionalBlockParameters(block, errors, bindingParser, expressionStart);
+    const params = parseConditionalBlockParameters(block, errors, bindingParser);
 
     if (params !== null) {
       branches.push(new t.IfBlockBranch(
@@ -94,7 +99,7 @@ export function createForLoop(
       errors.push(new ParseError(ast.sourceSpan, 'For loop must have a "track" expression'));
     } else {
       node = new t.ForLoopBlock(
-          params.itemName, params.expression, params.trackBy,
+          params.itemName, params.expression, params.trackBy, params.context,
           html.visitAll(visitor, primaryBlock.children), empty, ast.sourceSpan, ast.startSourceSpan,
           ast.endSourceSpan);
     }
@@ -168,34 +173,66 @@ function parseForLoopParameters(
   const [, itemName, rawExpression] = match;
   const result = {
     itemName,
-    trackBy: null as string | null,
-    expression: bindingParser.parseBinding(
-        rawExpression, false, expressionParam.sourceSpan,
-        // Note: `lastIndexOf` here should be enough to know the start index of the expression,
-        // because we know that it'll be the last matching group. Ideally we could use the `d`
-        // flag on the regex and get the index from `match.indices`, but it's unclear if we can
-        // use it yet since it's a relatively new feature. See:
-        // https://github.com/tc39/proposal-regexp-match-indices
-        Math.max(0, expressionParam.expression.lastIndexOf(rawExpression)))
+    trackBy: null as ASTWithSource | null,
+    expression: parseBlockParameterToBinding(expressionParam, bindingParser, rawExpression),
+    context: null as t.ForLoopBlockContext | null,
   };
 
   for (const param of secondaryParams) {
+    const letMatch = param.expression.match(FOR_LOOP_LET_PATTERN);
+
+    if (letMatch !== null) {
+      result.context = result.context || {};
+      parseLetParameter(param.sourceSpan, letMatch[1], result.context, errors);
+      continue;
+    }
+
     const trackMatch = param.expression.match(FOR_LOOP_TRACK_PATTERN);
 
-    // For now loops can only have a `track` parameter.
-    // We may want to rework this later if we add more.
-    if (trackMatch === null) {
-      errors.push(
-          new ParseError(param.sourceSpan, `Unrecognized loop paramater "${param.expression}"`));
-    } else if (result.trackBy !== null) {
-      errors.push(
-          new ParseError(param.sourceSpan, 'For loop can only have one "track" expression'));
-    } else {
-      result.trackBy = trackMatch[1].trim();
+    if (trackMatch !== null) {
+      if (result.trackBy !== null) {
+        errors.push(
+            new ParseError(param.sourceSpan, 'For loop can only have one "track" expression'));
+      } else {
+        result.trackBy = parseBlockParameterToBinding(param, bindingParser, trackMatch[1]);
+      }
+      continue;
     }
+
+    errors.push(
+        new ParseError(param.sourceSpan, `Unrecognized loop paramater "${param.expression}"`));
   }
 
   return result;
+}
+
+/** Parses the `let` parameter of a `for` loop block. */
+function parseLetParameter(
+    sourceSpan: ParseSourceSpan, expression: string, context: t.ForLoopBlockContext,
+    errors: ParseError[]): void {
+  const parts = expression.split(',');
+
+  for (const part of parts) {
+    const expressionParts = part.split('=');
+    const name = expressionParts.length === 2 ? expressionParts[0].trim() : '';
+    const variableName = expressionParts.length === 2 ? expressionParts[1].trim() : '';
+
+    if (name.length === 0 || variableName.length === 0) {
+      errors.push(new ParseError(
+          sourceSpan,
+          `Invalid for loop "let" parameter. Parameter should match the pattern "<name> = <variable name>"`));
+    } else if (!ALLOWED_FOR_LOOP_LET_VARIABLES.has(variableName)) {
+      errors.push(new ParseError(
+          sourceSpan,
+          `Unknown "let" parameter variable "${variableName}". The allowed variables are: ${
+              Array.from(ALLOWED_FOR_LOOP_LET_VARIABLES).join(', ')}`));
+    } else if (context.hasOwnProperty(variableName)) {
+      errors.push(
+          new ParseError(sourceSpan, `Duplicate "let" parameter variable "${variableName}"`));
+    } else {
+      context[variableName as keyof t.ForLoopBlockContext] = name;
+    }
+  }
 }
 
 /** Checks that the shape of a `if` block is valid. Returns an array of errors. */
@@ -275,24 +312,59 @@ function validateSwitchBlock(ast: html.BlockGroup): ParseError[] {
   return errors;
 }
 
-/** Parses a block parameter into a binding AST. */
+/**
+ * Parses a block parameter into a binding AST.
+ * @param ast Block parameter that should be parsed.
+ * @param bindingParser Parser that the expression should be parsed with.
+ * @param start Index from which to start the parsing. Defaults to 0.
+ */
 function parseBlockParameterToBinding(
-    ast: html.BlockParameter, bindingParser: BindingParser, start = 0): ASTWithSource {
+    ast: html.BlockParameter, bindingParser: BindingParser, start?: number): ASTWithSource;
+
+/**
+ * Parses a block parameter into a binding AST.
+ * @param ast Block parameter that should be parsed.
+ * @param bindingParser Parser that the expression should be parsed with.
+ * @param part Specific part of the expression that should be parsed.
+ */
+function parseBlockParameterToBinding(
+    ast: html.BlockParameter, bindingParser: BindingParser, part: string): ASTWithSource;
+
+function parseBlockParameterToBinding(
+    ast: html.BlockParameter, bindingParser: BindingParser,
+    part: string|number = 0): ASTWithSource {
+  let start: number;
+  let end: number;
+
+  if (typeof part === 'number') {
+    start = part;
+    end = ast.expression.length;
+  } else {
+    // Note: `lastIndexOf` here should be enough to know the start index of the expression,
+    // because we know that it'll be at the end of the param. Ideally we could use the `d`
+    // flag when matching via regex and get the index from `match.indices`, but it's unclear
+    // if we can use it yet since it's a relatively new feature. See:
+    // https://github.com/tc39/proposal-regexp-match-indices
+    start = Math.max(0, ast.expression.lastIndexOf(part));
+    end = start + part.length;
+  }
+
   return bindingParser.parseBinding(
-      ast.expression.slice(start), false, ast.sourceSpan, ast.sourceSpan.start.offset + start);
+      ast.expression.slice(start, end), false, ast.sourceSpan, ast.sourceSpan.start.offset + start);
 }
 
 /** Parses the parameter of a conditional block (`if` or `else if`). */
 function parseConditionalBlockParameters(
-    block: html.Block, errors: ParseError[], bindingParser: BindingParser,
-    primaryExpressionStart: number) {
+    block: html.Block, errors: ParseError[], bindingParser: BindingParser) {
   if (block.parameters.length === 0) {
     errors.push(new ParseError(block.sourceSpan, 'Conditional block does not have an expression'));
     return null;
   }
 
+  const isPrimaryIfBlock = block.name === 'if';
   const expression =
-      parseBlockParameterToBinding(block.parameters[0], bindingParser, primaryExpressionStart);
+      // Expressions for `{:else if}` blocks start at 2 to skip the `if` from the expression.
+      parseBlockParameterToBinding(block.parameters[0], bindingParser, isPrimaryIfBlock ? 0 : 2);
   let expressionAlias: string|null = null;
 
   // Start from 1 since we processed the first parameter already.
@@ -305,6 +377,9 @@ function parseConditionalBlockParameters(
     if (aliasMatch === null) {
       errors.push(new ParseError(
           param.sourceSpan, `Unrecognized conditional paramater "${param.expression}"`));
+    } else if (!isPrimaryIfBlock) {
+      errors.push(new ParseError(
+          param.sourceSpan, '"as" expression is only allowed on the primary "if" block'));
     } else if (expressionAlias !== null) {
       errors.push(
           new ParseError(param.sourceSpan, 'Conditional can only have one "as" expression'));

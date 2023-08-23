@@ -105,7 +105,9 @@ class R3AstHumanizer implements t.Visitor<void> {
   }
 
   visitForLoopBlock(block: t.ForLoopBlock): void {
-    this.result.push(['ForLoopBlock', unparse(block.expression), block.trackBy]);
+    const result: any[] = ['ForLoopBlock', unparse(block.expression), unparse(block.trackBy)];
+    block.contextVariables !== null && result.push(block.contextVariables);
+    this.result.push(result);
     this.visitAll([block.children]);
     block.empty?.visit(this);
   }
@@ -1402,6 +1404,20 @@ describe('R3 template transform', () => {
       ]);
     });
 
+    it('should parse a for loop block with let parameters', () => {
+      expectLoop(`
+        {#for item of items.foo.bar; track item.id; let idx = $index, f = $first, c = $count; let l = $last, ev = $even, od = $odd}
+          {{ item }}
+        {/for}
+      `).toEqual([
+        [
+          'ForLoopBlock', 'items.foo.bar', 'item.id',
+          {'$index': 'idx', '$first': 'f', '$last': 'l', '$even': 'ev', '$odd': 'od', '$count': 'c'}
+        ],
+        ['BoundText', ' {{ item }} '],
+      ]);
+    });
+
     it('should parse nested for loop blocks', () => {
       expectLoop(`
         {#for item of items.foo.bar; track item.id}
@@ -1504,6 +1520,29 @@ describe('R3 template transform', () => {
           {/for}
         `).toThrowError(/Unrecognized loop block "unknown"/);
       });
+
+      it('should report an empty `let` parameter', () => {
+        expectLoopError(`{#for item of items.foo.bar; track item.id; let }{/for}`)
+            .toThrowError(
+                /Invalid for loop "let" parameter. Parameter should match the pattern "<name> = <variable name>"/);
+      });
+
+      it('should report an invalid `let` parameter', () => {
+        expectLoopError(`{#for item of items.foo.bar; track item.id; let i = $index, $odd}{/for}`)
+            .toThrowError(
+                /Invalid for loop "let" parameter\. Parameter should match the pattern "<name> = <variable name>"/);
+      });
+
+      it('should an unknown variable in a `let` parameter', () => {
+        expectLoopError(`{#for item of items.foo.bar; track item.id; let foo = $foo}{/for}`)
+            .toThrowError(/Unknown "let" parameter variable "\$foo"\. The allowed variables are:/);
+      });
+
+      it('should report duplicate `let` parameter variables', () => {
+        expectLoopError(
+            `{#for item of items.foo.bar; track item.id; let i = $index, f = $first, in = $index}{/for}`)
+            .toThrowError(/Duplicate "let" parameter variable "\$index"/);
+      });
     });
   });
 
@@ -1521,7 +1560,7 @@ describe('R3 template transform', () => {
       expectIf(`
         {#if cond.expr; as foo}
           Main case was true!
-        {:else if other.expr; as bar}
+        {:else if other.expr}
           Extra case was true!
         {:else}
           False case!
@@ -1530,7 +1569,7 @@ describe('R3 template transform', () => {
         ['IfBlock'],
         ['IfBlockBranch', 'cond.expr', 'foo'],
         ['Text', ' Main case was true! '],
-        ['IfBlockBranch', 'other.expr', 'bar'],
+        ['IfBlockBranch', 'other.expr'],
         ['Text', ' Extra case was true! '],
         ['IfBlockBranch', null],
         ['Text', ' False case! '],
@@ -1622,10 +1661,10 @@ describe('R3 template transform', () => {
         `).toThrowError(/Conditional can only have one "as" expression/);
       });
 
-      it('should report an else if block that has multiple `as` expressions', () => {
+      it('should report an else if block that has an `as` expression', () => {
         expectIfError(`
-          {#if foo}hello{:else if bar; as one; as two}goodbye{/if}
-        `).toThrowError(/Conditional can only have one "as" expression/);
+          {#if foo}hello{:else if bar; as alias}goodbye{/if}
+        `).toThrowError(/"as" expression is only allowed on the primary "if" block/);
       });
 
       it('should report an unknown block inside an if block', () => {
