@@ -6,6 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import * as i18n from '../../../../../i18n/i18n_ast';
 import * as o from '../../../../../output/output_ast';
 import {ParseSourceSpan} from '../../../../../parse_util';
 import {BindingKind, OpKind} from '../enums';
@@ -19,10 +20,10 @@ import type {UpdateOp} from './update';
 /**
  * An operation usable on the creation side of the IR.
  */
-export type CreateOp =
-    ListEndOp<CreateOp>|StatementOp<CreateOp>|ElementOp|ElementStartOp|ElementEndOp|ContainerOp|
-    ContainerStartOp|ContainerEndOp|TemplateOp|EnableBindingsOp|DisableBindingsOp|TextOp|ListenerOp|
-    PipeOp|VariableOp<CreateOp>|NamespaceOp|ExtractedAttributeOp;
+export type CreateOp = ListEndOp<CreateOp>|StatementOp<CreateOp>|ElementOp|ElementStartOp|
+    ElementEndOp|ContainerOp|ContainerStartOp|ContainerEndOp|TemplateOp|EnableBindingsOp|
+    DisableBindingsOp|TextOp|ListenerOp|PipeOp|VariableOp<CreateOp>|NamespaceOp|
+    ExtractedAttributeOp|ExtractedMessageOp|I18nOp|I18nStartOp|I18nEndOp;
 
 /**
  * An operation representing the creation of an element or container.
@@ -95,6 +96,11 @@ export interface ElementOrContainerOpBase extends Op<CreateOp>, ConsumesSlotOpTr
    */
   nonBindable: boolean;
 
+  /**
+   * The i18n metadata associated with this element.
+   */
+  i18n?: i18n.I18nMeta;
+
   sourceSpan: ParseSourceSpan;
 }
 
@@ -123,7 +129,8 @@ export interface ElementStartOp extends ElementOpBase {
  * Create an `ElementStartOp`.
  */
 export function createElementStartOp(
-    tag: string, xref: XrefId, namespace: Namespace, sourceSpan: ParseSourceSpan): ElementStartOp {
+    tag: string, xref: XrefId, namespace: Namespace, i18n: i18n.I18nMeta|undefined,
+    sourceSpan: ParseSourceSpan): ElementStartOp {
   return {
     kind: OpKind.ElementStart,
     xref,
@@ -132,6 +139,7 @@ export function createElementStartOp(
     localRefs: [],
     nonBindable: false,
     namespace,
+    i18n,
     sourceSpan,
     ...TRAIT_CONSUMES_SLOT,
     ...NEW_OP,
@@ -168,7 +176,8 @@ export interface TemplateOp extends ElementOpBase {
  * Create a `TemplateOp`.
  */
 export function createTemplateOp(
-    xref: XrefId, tag: string, namespace: Namespace, sourceSpan: ParseSourceSpan): TemplateOp {
+    xref: XrefId, tag: string, namespace: Namespace, i18n: i18n.I18nMeta|undefined,
+    sourceSpan: ParseSourceSpan): TemplateOp {
   return {
     kind: OpKind.Template,
     xref,
@@ -179,6 +188,7 @@ export function createTemplateOp(
     localRefs: [],
     nonBindable: false,
     namespace,
+    i18n,
     sourceSpan,
     ...TRAIT_CONSUMES_SLOT,
     ...NEW_OP,
@@ -325,14 +335,20 @@ export interface ListenerOp extends Op<CreateOp>, UsesSlotIndexTrait {
   kind: OpKind.Listener;
 
   /**
+   * Whether this listener is from a host binding.
+   */
+  hostListener: boolean;
+
+  /**
    * Name of the event which is being listened to.
    */
   name: string;
 
   /**
-   * Tag name of the element on which this listener is placed.
+   * Tag name of the element on which this listener is placed. Might be null, if this listener
+   * belongs to a host binding.
    */
-  tag: string;
+  tag: string|null;
 
   /**
    * A list of `UpdateOp`s representing the body of the event listener.
@@ -361,39 +377,22 @@ export interface ListenerOp extends Op<CreateOp>, UsesSlotIndexTrait {
 }
 
 /**
- * Create a `ListenerOp`.
+ * Create a `ListenerOp`. Host bindings reuse all the listener logic.
  */
-export function createListenerOp(target: XrefId, name: string, tag: string): ListenerOp {
+export function createListenerOp(
+    target: XrefId, name: string, tag: string|null, animationPhase: string|null,
+    hostListener: boolean): ListenerOp {
   return {
     kind: OpKind.Listener,
     target,
     tag,
+    hostListener,
     name,
     handlerOps: new OpList(),
     handlerFnName: null,
     consumesDollarEvent: false,
-    isAnimationListener: false,
-    animationPhase: null,
-    ...NEW_OP,
-    ...TRAIT_USES_SLOT_INDEX,
-  };
-}
-
-/**
- * Create a `ListenerOp` for an animation.
- */
-export function createListenerOpForAnimation(
-    target: XrefId, name: string, animationPhase: string, tag: string): ListenerOp {
-  return {
-    kind: OpKind.Listener,
-    target,
-    tag,
-    name,
-    handlerOps: new OpList(),
-    handlerFnName: null,
-    consumesDollarEvent: false,
-    isAnimationListener: true,
-    animationPhase,
+    isAnimationListener: animationPhase !== null,
+    animationPhase: animationPhase,
     ...NEW_OP,
     ...TRAIT_USES_SLOT_INDEX,
   };
@@ -479,6 +478,120 @@ export function createExtractedAttributeOp(
     bindingKind,
     name,
     expression,
+    ...NEW_OP,
+  };
+}
+
+/**
+ * Represents an i18n message that has been extracted for inclusion in the consts array.
+ */
+export interface ExtractedMessageOp extends Op<CreateOp> {
+  kind: OpKind.ExtractedMessage;
+
+  /**
+   * A reference to the i18n op this message was extracted from.
+   */
+  owner: XrefId;
+
+  /**
+   * The message expression.
+   */
+  expression: o.Expression;
+
+  /**
+   * The statements to construct the message.
+   */
+  statements: o.Statement[];
+}
+
+/**
+ * Create an `ExtractedMessageOp`.
+ */
+export function createExtractedMessageOp(
+    owner: XrefId, expression: o.Expression, statements: o.Statement[]): ExtractedMessageOp {
+  return {
+    kind: OpKind.ExtractedMessage,
+    owner,
+    expression,
+    statements,
+    ...NEW_OP,
+  };
+}
+
+export interface I18nOpBase extends Op<CreateOp>, ConsumesSlotOpTrait {
+  kind: OpKind.I18nStart|OpKind.I18n;
+
+  /**
+   * `XrefId` allocated for this i18n block.
+   *
+   * This ID is used to reference this element from other IR structures.
+   */
+  xref: XrefId;
+
+  /**
+   * The i18n metadata associated with this op.
+   */
+  i18n: i18n.I18nMeta;
+
+  /**
+   * Map of values to use for tag name placeholders in the i18n message.
+   */
+  tagNameParams: {[placeholder: string]: o.Expression};
+
+  /**
+   * The index in the consts array where the message i18n message is stored.
+   */
+  messageIndex: ConstIndex|null;
+}
+
+/**
+ * Represents an empty i18n block.
+ */
+export interface I18nOp extends I18nOpBase {
+  kind: OpKind.I18n;
+}
+
+/**
+ * Represents the start of an i18n block.
+ */
+export interface I18nStartOp extends I18nOpBase {
+  kind: OpKind.I18nStart;
+}
+
+/**
+ * Create an `I18nStartOp`.
+ */
+export function createI18nStartOp(xref: XrefId, i18n: i18n.I18nMeta): I18nStartOp {
+  return {
+    kind: OpKind.I18nStart,
+    xref,
+    i18n,
+    tagNameParams: {},
+    messageIndex: null,
+    ...NEW_OP,
+    ...TRAIT_CONSUMES_SLOT,
+  };
+}
+
+/**
+ * Represents the end of an i18n block.
+ */
+export interface I18nEndOp extends Op<CreateOp> {
+  kind: OpKind.I18nEnd;
+
+  /**
+   * The `XrefId` of the `I18nStartOp` that created this block.
+   */
+  xref: XrefId;
+}
+
+/**
+ * Create an `I18nEndOp`.
+ */
+export function createI18nEndOp(xref: XrefId): I18nEndOp {
+  return {
+    kind: OpKind.I18nEnd,
+    xref,
     ...NEW_OP,
   };
 }

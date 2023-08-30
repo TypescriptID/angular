@@ -765,6 +765,9 @@
     "name": "collectNativeNodes"
   },
   {
+    "name": "collectNativeNodesInLContainer"
+  },
+  {
     "name": "collectStylingFromDirectives"
   },
   {
@@ -1756,6 +1759,9 @@
   },
   {
     "name": "ɵɵproperty"
+  },
+  {
+    "name": "ɵɵtemplate"
   },
   {
     "name": "ɵɵtext"

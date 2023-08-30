@@ -15,7 +15,8 @@ import {ParseError, ParseSourceSpan, sanitizeIdentifier} from '../../parse_util'
 import {isIframeSecuritySensitiveAttr} from '../../schema/dom_security_schema';
 import {CssSelector} from '../../selector';
 import {ShadowCss} from '../../shadow_css';
-import {emitHostBindingFunction, emitTemplateFn, transformHostBinding, transformTemplate} from '../../template/pipeline/src/emit';
+import {CompilationJobKind} from '../../template/pipeline/src/compilation';
+import {emitHostBindingFunction, emitTemplateFn, transform} from '../../template/pipeline/src/emit';
 import {ingestComponent, ingestHostBinding} from '../../template/pipeline/src/ingest';
 import {USE_TEMPLATE_PIPELINE} from '../../template/pipeline/switch';
 import {BindingParser} from '../../template_parser/binding_parser';
@@ -234,17 +235,25 @@ export function compileComponentFromMetadata(
   } else {
     // This path compiles the template using the prototype template pipeline. First the template is
     // ingested into IR:
-    const tpl = ingestComponent(meta.name, meta.template.nodes, constantPool);
+    const tpl = ingestComponent(
+        meta.name, meta.template.nodes, constantPool, meta.relativeContextFilePath,
+        meta.i18nUseExternalIds);
 
     // Then the IR is transformed to prepare it for cod egeneration.
-    transformTemplate(tpl);
+    transform(tpl, CompilationJobKind.Tmpl);
 
     // Finally we emit the template function:
     const templateFn = emitTemplateFn(tpl, constantPool);
     definitionMap.set('decls', o.literal(tpl.root.decls as number));
     definitionMap.set('vars', o.literal(tpl.root.vars as number));
     if (tpl.consts.length > 0) {
-      definitionMap.set('consts', o.literalArr(tpl.consts));
+      if (tpl.constsInitializers.length > 0) {
+        definitionMap.set(
+            'consts',
+            o.fn([], [...tpl.constsInitializers, new o.ReturnStatement(o.literalArr(tpl.consts))]));
+      } else {
+        definitionMap.set('consts', o.literalArr(tpl.consts));
+      }
     }
     definitionMap.set('template', templateFn);
   }
@@ -558,23 +567,35 @@ function createHostBindingsFunction(
   const bindings =
       bindingParser.createBoundHostProperties(hostBindingsMetadata.properties, typeSourceSpan);
 
-
   // Calculate host event bindings
   const eventBindings =
       bindingParser.createDirectiveHostEventAsts(hostBindingsMetadata.listeners, typeSourceSpan);
 
   if (USE_TEMPLATE_PIPELINE) {
-    // TODO: host binding metadata is not yet parsed in the template pipeline, so we need to extract
-    // that code from below. Then, we will ingest a `HostBindingJob`, and run the template pipeline
-    // phases.
+    // The parser for host bindings treats class and style attributes specially -- they are
+    // extracted into these separate fields. This is not the case for templates, so the compiler can
+    // actually already handle these special attributes internally. Therefore, we just drop them
+    // into the attributes map.
+    if (hostBindingsMetadata.specialAttributes.styleAttr) {
+      hostBindingsMetadata.attributes.style =
+          o.literal(hostBindingsMetadata.specialAttributes.styleAttr);
+    }
+    if (hostBindingsMetadata.specialAttributes.classAttr) {
+      hostBindingsMetadata.attributes.class =
+          o.literal(hostBindingsMetadata.specialAttributes.classAttr);
+    }
+
     const hostJob = ingestHostBinding(
         {
           componentName: name,
           properties: bindings,
           events: eventBindings,
+          attributes: hostBindingsMetadata.attributes,
         },
         bindingParser, constantPool);
-    transformHostBinding(hostJob);
+    transform(hostJob, CompilationJobKind.Host);
+
+    definitionMap.set('hostAttrs', hostJob.root.attributes);
 
     const varCount = hostJob.root.vars;
     if (varCount !== null && varCount > 0) {

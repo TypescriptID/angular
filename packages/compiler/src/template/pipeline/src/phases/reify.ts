@@ -80,6 +80,15 @@ function reifyCreateOperations(unit: CompilationUnit, ops: ir.OpList<ir.CreateOp
       case ir.OpKind.ContainerEnd:
         ir.OpList.replace(op, ng.elementContainerEnd());
         break;
+      case ir.OpKind.I18nStart:
+        ir.OpList.replace(op, ng.i18nStart(op.slot as number, op.messageIndex!));
+        break;
+      case ir.OpKind.I18nEnd:
+        ir.OpList.replace(op, ng.i18nEnd());
+        break;
+      case ir.OpKind.I18n:
+        ir.OpList.replace(op, ng.i18n(op.slot as number));
+        break;
       case ir.OpKind.Template:
         if (!(unit instanceof ViewCompilationUnit)) {
           throw new Error(`AssertionError: must be compiling a component`);
@@ -110,12 +119,10 @@ function reifyCreateOperations(unit: CompilationUnit, ops: ir.OpList<ir.CreateOp
       case ir.OpKind.Listener:
         const listenerFn =
             reifyListenerHandler(unit, op.handlerFnName!, op.handlerOps, op.consumesDollarEvent);
-        ir.OpList.replace(
-            op,
-            ng.listener(
-                op.name,
-                listenerFn,
-                ));
+        const reified = op.hostListener && op.isAnimationListener ?
+            ng.syntheticHostListener(op.name, listenerFn) :
+            ng.listener(op.name, listenerFn);
+        ir.OpList.replace(op, reified);
         break;
       case ir.OpKind.Variable:
         if (op.variable.name === null) {
@@ -217,7 +224,11 @@ function reifyUpdateOperations(_unit: CompilationUnit, ops: ir.OpList<ir.UpdateO
         if (op.expression instanceof ir.Interpolation) {
           throw new Error('not yet handled');
         } else {
-          ir.OpList.replace(op, ng.hostProperty(op.name, op.expression));
+          if (op.isAnimationTrigger) {
+            ir.OpList.replace(op, ng.syntheticHostProperty(op.name, op.expression));
+          } else {
+            ir.OpList.replace(op, ng.hostProperty(op.name, op.expression));
+          }
         }
         break;
       case ir.OpKind.Variable:
@@ -228,6 +239,15 @@ function reifyUpdateOperations(_unit: CompilationUnit, ops: ir.OpList<ir.UpdateO
             op,
             ir.createStatementOp(new o.DeclareVarStmt(
                 op.variable.name, op.initializer, undefined, o.StmtModifier.Final)));
+        break;
+      case ir.OpKind.Conditional:
+        if (op.processed === null) {
+          throw new Error(`Conditional test was not set.`);
+        }
+        if (op.slot === null) {
+          throw new Error(`Conditional slot was not set.`);
+        }
+        ir.OpList.replace(op, ng.conditional(op.slot, op.processed));
         break;
       case ir.OpKind.Statement:
         // Pass statement operations directly through.
@@ -288,6 +308,8 @@ function reifyIrExpression(expr: o.Expression): o.Expression {
       return ng.pipeBindV(expr.slot!, expr.varOffset!, expr.args);
     case ir.ExpressionKind.SanitizerExpr:
       return o.importExpr(sanitizerIdentifierMap.get(expr.fn)!);
+    case ir.ExpressionKind.SlotLiteralExpr:
+      return o.literal(expr.slot);
     default:
       throw new Error(`AssertionError: Unsupported reification of ir.Expression kind: ${
           ir.ExpressionKind[(expr as ir.Expression).kind]}`);

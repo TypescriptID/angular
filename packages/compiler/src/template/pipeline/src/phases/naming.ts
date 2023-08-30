@@ -9,7 +9,7 @@
 import {sanitizeIdentifier} from '../../../../parse_util';
 import {hyphenate} from '../../../../render3/view/style_parser';
 import * as ir from '../../ir';
-import {ViewCompilationUnit, type CompilationJob, type CompilationUnit} from '../compilation';
+import {ViewCompilationUnit, type CompilationJob, type CompilationUnit, HostBindingCompilationUnit} from '../compilation';
 import {prefixWithNamespace} from '../conversion';
 
 /**
@@ -37,25 +37,30 @@ function addNamesToView(
   for (const op of unit.ops()) {
     switch (op.kind) {
       case ir.OpKind.Property:
+      case ir.OpKind.HostProperty:
         if (op.isAnimationTrigger) {
           op.name = '@' + op.name;
         }
         break;
       case ir.OpKind.Listener:
-        if (op.handlerFnName === null) {
-          if (op.slot === null) {
-            throw new Error(`Expected a slot to be assigned`);
-          }
-          const safeTagName = op.tag.replace('-', '_');
-          if (op.isAnimationListener) {
-            op.handlerFnName = sanitizeIdentifier(`${unit.fnName}_${safeTagName}_animation_${
-                op.name}_${op.animationPhase}_${op.slot}_listener`);
-            op.name = `@${op.name}.${op.animationPhase}`;
-          } else {
-            op.handlerFnName =
-                sanitizeIdentifier(`${unit.fnName}_${safeTagName}_${op.name}_${op.slot}_listener`);
-          }
+        if (op.handlerFnName !== null) {
+          break;
         }
+        if (!op.hostListener && op.slot === null) {
+          throw new Error(`Expected a slot to be assigned`);
+        }
+        let animation = '';
+        if (op.isAnimationListener) {
+          op.name = `@${op.name}.${op.animationPhase}`;
+          animation = 'animation';
+        }
+        if (op.hostListener) {
+          op.handlerFnName = `${baseName}_${animation}${op.name}_HostBindingHandler`;
+        } else {
+          op.handlerFnName = `${unit.fnName}_${op.tag!.replace('-', '_')}_${animation}${op.name}_${
+              op.slot}_listener`;
+        }
+        op.handlerFnName = sanitizeIdentifier(op.handlerFnName);
         break;
       case ir.OpKind.Variable:
         varNames.set(op.xref, getVariableName(op.variable, state));

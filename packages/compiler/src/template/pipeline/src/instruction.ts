@@ -72,19 +72,13 @@ export function elementContainerEnd(): ir.CreateOp {
 }
 
 export function template(
-    slot: number, templateFnRef: o.Expression, decls: number, vars: number, tag: string,
-    constIndex: number, sourceSpan: ParseSourceSpan): ir.CreateOp {
-  return call(
-      Identifiers.templateCreate,
-      [
-        o.literal(slot),
-        templateFnRef,
-        o.literal(decls),
-        o.literal(vars),
-        o.literal(tag),
-        o.literal(constIndex),
-      ],
-      sourceSpan);
+    slot: number, templateFnRef: o.Expression, decls: number, vars: number, tag: string|null,
+    constIndex: number|null, sourceSpan: ParseSourceSpan): ir.CreateOp {
+  const args = [o.literal(slot), templateFnRef, o.literal(decls), o.literal(vars)];
+  if (tag != null && constIndex != null) {
+    args.push(o.literal(tag), o.literal(constIndex));
+  }
+  return call(Identifiers.templateCreate, args, sourceSpan);
 }
 
 export function disableBindings(): ir.CreateOp {
@@ -98,6 +92,16 @@ export function enableBindings(): ir.CreateOp {
 export function listener(name: string, handlerFn: o.Expression): ir.CreateOp {
   return call(
       Identifiers.listener,
+      [
+        o.literal(name),
+        handlerFn,
+      ],
+      null);
+}
+
+export function syntheticHostListener(name: string, handlerFn: o.Expression): ir.CreateOp {
+  return call(
+      Identifiers.syntheticHostListener,
       [
         o.literal(name),
         handlerFn,
@@ -172,6 +176,18 @@ export function text(
     args.push(o.literal(initialValue));
   }
   return call(Identifiers.text, args, sourceSpan);
+}
+
+export function i18nStart(slot: number, constIndex: number): ir.CreateOp {
+  return call(Identifiers.i18nStart, [o.literal(slot), o.literal(constIndex)], null);
+}
+
+export function i18n(slot: number): ir.CreateOp {
+  return call(Identifiers.i18n, [o.literal(slot)], null);
+}
+
+export function i18nEnd(): ir.CreateOp {
+  return call(Identifiers.i18nEnd, [], null);
 }
 
 export function property(
@@ -318,6 +334,10 @@ export function hostProperty(name: string, expression: o.Expression): ir.UpdateO
   return call(Identifiers.hostProperty, [o.literal(name), expression], null);
 }
 
+export function syntheticHostProperty(name: string, expression: o.Expression): ir.UpdateOp {
+  return call(Identifiers.syntheticHostProperty, [o.literal(name), expression], null);
+}
+
 export function pureFunction(
     varOffset: number, fn: o.Expression, args: o.Expression[]): o.Expression {
   return callVariadicInstructionExpr(
@@ -360,6 +380,10 @@ function call<OpT extends ir.CreateOp|ir.UpdateOp>(
     instruction: o.ExternalReference, args: o.Expression[], sourceSpan: ParseSourceSpan|null): OpT {
   const expr = o.importExpr(instruction).callFn(args, sourceSpan);
   return ir.createStatementOp(new o.ExpressionStatement(expr, sourceSpan)) as OpT;
+}
+
+export function conditional(slot: number, condition: o.Expression): ir.UpdateOp {
+  return call(Identifiers.conditional, [o.literal(slot), condition], null);
 }
 
 /**

@@ -92,6 +92,11 @@ export {
 
   ɵɵreference,
 
+  ɵɵrepeater, 
+  ɵɵrepeaterCreate, 
+  ɵɵrepeaterTrackByIdentity, 
+  ɵɵrepeaterTrackByIndex,
+
   ɵɵstyleMap,
   ɵɵstyleMapInterpolate1,
   ɵɵstyleMapInterpolate2,
@@ -151,7 +156,10 @@ export {
   ɵgetUnknownElementStrictMode,
   ɵsetUnknownElementStrictMode,
   ɵgetUnknownPropertyStrictMode,
-  ɵsetUnknownPropertyStrictMode
+  ɵsetUnknownPropertyStrictMode,
+
+  DeferBlockDependencyInterceptor as ɵDeferBlockDependencyInterceptor,
+  DEFER_BLOCK_DEPENDENCY_INTERCEPTOR as ɵDEFER_BLOCK_DEPENDENCY_INTERCEPTOR,
 } from './instructions/all';
 export {ɵɵi18n, ɵɵi18nApply, ɵɵi18nAttributes, ɵɵi18nEnd, ɵɵi18nExp,ɵɵi18nPostprocess, ɵɵi18nStart} from './instructions/i18n';
 export {RenderFlags} from './interfaces/definition';

@@ -68,6 +68,8 @@ export {
   setClassMetadataAsync as ɵsetClassMetadataAsync,
   setLocaleId as ɵsetLocaleId,
   store as ɵstore,
+  ɵDeferBlockDependencyInterceptor,
+  ɵDEFER_BLOCK_DEPENDENCY_INTERCEPTOR,
   ɵɵadvance,
   ɵɵattribute,
   ɵɵattributeInterpolate1,
@@ -171,6 +173,11 @@ export {
   ɵɵresolveDocument,
   ɵɵresolveWindow,
   ɵɵrestoreView,
+
+  ɵɵrepeater, 
+  ɵɵrepeaterCreate, 
+  ɵɵrepeaterTrackByIdentity, 
+  ɵɵrepeaterTrackByIndex,
 
   ɵɵsetComponentScope,
   ɵɵsetNgModuleScope,
@@ -300,5 +307,8 @@ export {
   noSideEffects as ɵnoSideEffects,
 } from './util/closure';
 export { AfterRenderEventManager as ɵAfterRenderEventManager } from './render3/after_render_hooks';
+export {depsTracker as ɵdepsTracker, USE_RUNTIME_DEPS_TRACKER_FOR_JIT as ɵUSE_RUNTIME_DEPS_TRACKER_FOR_JIT} from './render3/deps_tracker/deps_tracker';
+export {generateStandaloneInDeclarationsError as ɵgenerateStandaloneInDeclarationsError} from './render3/jit/module';
+export {getAsyncClassMetadata as ɵgetAsyncClassMetadata} from './render3/metadata';
 
 // clang-format on

@@ -70,8 +70,7 @@
             "host_attributes.js"
           ]
         }
-      ],
-      "skipForTemplatePipeline": true
+      ]
     },
     {
       "description": "should support host attributes together with host classes and styles",
@@ -85,8 +84,7 @@
             "host_attributes_with_classes_and_styles.js"
           ]
         }
-      ],
-      "skipForTemplatePipeline": true
+      ]
     },
     {
       "description": "should chain multiple host property bindings into a single instruction",
@@ -128,8 +126,7 @@
             "chain_property_bindings_mixed.js"
           ]
         }
-      ],
-      "skipForTemplatePipeline": true
+      ]
     },
     {
       "description": "should chain multiple synthetic properties into a single instruction call",
@@ -143,8 +140,7 @@
             "chain_synthetic_properties.js"
           ]
         }
-      ],
-      "skipForTemplatePipeline": true
+      ]
     },
     {
       "description": "should chain multiple host attribute bindings into a single instruction",
@@ -158,8 +154,7 @@
             "chain_multiple_attribute_bindings.js"
           ]
         }
-      ],
-      "skipForTemplatePipeline": true
+      ]
     },
     {
       "description": "should chain both host attributes in the decorator and on the class",
@@ -173,8 +168,7 @@
             "chain_attribute_bindings_all.js"
           ]
         }
-      ],
-      "skipForTemplatePipeline": true
+      ]
     },
     {
       "description": "should chain multiple host attribute bindings in the presence of other bindings",
@@ -188,8 +182,7 @@
             "chain_attribute_bindings_mixed.js"
           ]
         }
-      ],
-      "skipForTemplatePipeline": true
+      ]
     },
     {
       "description": "should chain multiple host listeners into a single instruction",
@@ -203,8 +196,7 @@
             "chain_multiple_listeners.js"
           ]
         }
-      ],
-      "skipForTemplatePipeline": true
+      ]
     },
     {
       "description": "should chain multiple synthetic host listeners into a single instruction",
@@ -218,8 +210,7 @@
             "chain_synthetic_listeners.js"
           ]
         }
-      ],
-      "skipForTemplatePipeline": true
+      ]
     },
     {
       "description": "should chain multiple regular and synthetic host listeners into two instructions",
@@ -233,8 +224,7 @@
             "chain_synthetic_listeners_mixed.js"
           ]
         }
-      ],
-      "skipForTemplatePipeline": true
+      ]
     },
     {
       "description": "should handle host bindings with the same name as a primitive value",

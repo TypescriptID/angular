@@ -9,13 +9,16 @@
 import * as o from '../../../../output/output_ast';
 import * as ir from '../../ir';
 
-import type {HostBindingCompilationJob} from '../compilation';
+import type {CompilationJob} from '../compilation';
 
 const STYLE_DOT = 'style.';
 const CLASS_DOT = 'class.';
 
-export function phaseHostStylePropertyParsing(job: HostBindingCompilationJob): void {
-  for (const op of job.update) {
+const STYLE_BANG = 'style!';
+const CLASS_BANG = 'class!';
+
+export function phaseHostStylePropertyParsing(job: CompilationJob): void {
+  for (const op of job.root.update) {
     if (op.kind !== ir.OpKind.Binding) {
       continue;
     }
@@ -31,12 +34,15 @@ export function phaseHostStylePropertyParsing(job: HostBindingCompilationJob): v
       const {property, suffix} = parseProperty(op.name);
       op.name = property;
       op.unit = suffix;
-    } else if (op.name.startsWith('style!')) {
-      // TODO: do we only transform !important?
+    } else if (op.name.startsWith(STYLE_BANG)) {
+      op.bindingKind = ir.BindingKind.StyleProperty;
       op.name = 'style';
     } else if (op.name.startsWith(CLASS_DOT)) {
       op.bindingKind = ir.BindingKind.ClassName;
       op.name = parseProperty(op.name.substring(CLASS_DOT.length)).property;
+    } else if (op.name.startsWith(CLASS_BANG)) {
+      op.bindingKind = ir.BindingKind.ClassName;
+      op.name = parseProperty(op.name.substring(CLASS_BANG.length)).property;
     }
   }
 }

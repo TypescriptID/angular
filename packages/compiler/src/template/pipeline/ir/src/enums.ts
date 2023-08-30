@@ -70,6 +70,11 @@ export enum OpKind {
   DisableBindings,
 
   /**
+   * An op to conditionally render a template.
+   */
+  Conditional,
+
+  /**
    * An operation to re-enable binding, after it was previously disabled.
    */
   EnableBindings,
@@ -141,6 +146,11 @@ export enum OpKind {
   ExtractedAttribute,
 
   /**
+   * An i18n message that has been extracted for inclusion in the consts array.
+   */
+  ExtractedMessage,
+
+  /**
    * A host binding property.
    */
   HostProperty,
@@ -149,6 +159,21 @@ export enum OpKind {
    * A namespace change, which causes the subsequent elements to be processed as either HTML or SVG.
    */
   Namespace,
+
+  /**
+   * The start of an i18n block.
+   */
+  I18nStart,
+
+  /**
+   * A self-closing i18n on a single element.
+   */
+  I18n,
+
+  /**
+   * The end of an i18n block.
+   */
+  I18nEnd,
 
   // TODO: Add Host Listeners, and possibly other host ops also.
 }
@@ -256,6 +281,11 @@ export enum ExpressionKind {
    * An expression representing a sanitizer function.
    */
   SanitizerExpr,
+
+  /**
+   * An expression that will cause a literal slot index to be emitted.
+   */
+  SlotLiteralExpr,
 }
 
 /**

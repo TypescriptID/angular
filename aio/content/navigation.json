@@ -228,6 +228,11 @@
                   "url": "guide/pipes-transform-data",
                   "title": "Transforming data with parameters and chained pipes",
                   "tooltip": "Learn how to use a pipe transform data."
+                },
+                {
+                  "url": "guide/pipe-precedence",
+                  "title": "Pipe precedence in template expressions",
+                  "tooltip": "How to use pipes within a ternary operator expression."
                 }
               ]
             },
@@ -443,11 +448,6 @@
               "url": "guide/http-setup-server-communication",
               "title": "Setup for server communication",
               "tooltip": "Setup a server communication for HTTP"
-            },
-            {
-              "url": "guide/http-server-communication",
-              "title": "Communicating with backend services",
-              "tooltip": "Understanding communicating with backend services using HTTP"
             },
             {
               "url": "guide/http-request-data-from-server",
@@ -1525,7 +1525,7 @@
         {
           "url": "https://github.com/angular/angular/issues",
           "title": "Report Issues",
-          "tooltip": "Post issues and suggestions on github."
+          "tooltip": "Post issues and suggestions on GitHub."
         },
         {
           "url": "https://github.com/angular/code-of-conduct/blob/main/CODE_OF_CONDUCT.md",
