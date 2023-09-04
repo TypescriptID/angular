@@ -8,7 +8,7 @@
   "license": "MIT",
   "//engines-comment": "Keep this in sync with /aio/package.json and /aio/tools/examples/shared/package.json",
   "engines": {
-    "node": "^16.14.0 || >=18.10.0",
+    "node": "^18.13.0 || >=20.0.0",
     "yarn": ">=1.22.4 <2",
     "npm": "Please use yarn instead of NPM to install dependencies"
   },
@@ -179,7 +179,7 @@
     "firebase-tools": "^12.0.0",
     "glob": "8.1.0",
     "gulp": "^4.0.2",
-    "gulp-conventional-changelog": "^3.0.0",
+    "gulp-conventional-changelog": "^4.0.0",
     "husky": "8.0.3",
     "inquirer": "^9.2.7",
     "karma-sauce-launcher": "^4.3.6",

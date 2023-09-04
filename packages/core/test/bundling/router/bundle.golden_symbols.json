@@ -531,6 +531,12 @@
     "name": "R3ViewContainerRef"
   },
   {
+    "name": "REACTIVE_LVIEW_CONSUMER_NODE"
+  },
+  {
+    "name": "REACTIVE_NODE"
+  },
+  {
     "name": "REMOVE_STYLES_ON_COMPONENT_DESTROY"
   },
   {
@@ -544,12 +550,6 @@
   },
   {
     "name": "ROUTES"
-  },
-  {
-    "name": "ReactiveLViewConsumer"
-  },
-  {
-    "name": "ReactiveNode"
   },
   {
     "name": "RedirectRequest"
@@ -655,6 +655,9 @@
   },
   {
     "name": "StandaloneService"
+  },
+  {
+    "name": "StateManager"
   },
   {
     "name": "Subject"
@@ -777,10 +780,7 @@
     "name": "ViewRef"
   },
   {
-    "name": "Watch"
-  },
-  {
-    "name": "WeakRefImpl"
+    "name": "WATCH_NODE"
   },
   {
     "name": "XSS_SECURITY_URL"
@@ -829,9 +829,6 @@
   },
   {
     "name": "_locateOrCreateTextNode"
-  },
-  {
-    "name": "_nextReactiveId"
   },
   {
     "name": "_platformInjector"
@@ -898,6 +895,9 @@
   },
   {
     "name": "applyView"
+  },
+  {
+    "name": "assertConsumerNode"
   },
   {
     "name": "attachPatchData"
@@ -978,6 +978,24 @@
     "name": "connectableObservableDescriptor"
   },
   {
+    "name": "consumerAfterComputation"
+  },
+  {
+    "name": "consumerBeforeComputation"
+  },
+  {
+    "name": "consumerDestroy"
+  },
+  {
+    "name": "consumerIsLive"
+  },
+  {
+    "name": "consumerMarkDirty"
+  },
+  {
+    "name": "consumerPollProducersForChange"
+  },
+  {
     "name": "containsSegmentGroup"
   },
   {
@@ -1021,6 +1039,9 @@
   },
   {
     "name": "createLView"
+  },
+  {
+    "name": "createLViewConsumer"
   },
   {
     "name": "createNewSegmentChildren"
@@ -1266,6 +1287,9 @@
     "name": "getData"
   },
   {
+    "name": "getDataKeys"
+  },
+  {
     "name": "getDeclarationTNode"
   },
   {
@@ -1414,6 +1438,9 @@
   },
   {
     "name": "hasEmptyPathConfig"
+  },
+  {
+    "name": "hasInSkipHydrationBlockFlag"
   },
   {
     "name": "hasParentInjector"
@@ -1585,9 +1612,6 @@
   },
   {
     "name": "isPromise2"
-  },
-  {
-    "name": "isPublicRouterEvent"
   },
   {
     "name": "isScheduler"
@@ -1779,6 +1803,12 @@
     "name": "processInjectorTypesWithProviders"
   },
   {
+    "name": "producerRemoveLiveConsumerAtIndex"
+  },
+  {
+    "name": "producerUpdateValueVersion"
+  },
+  {
     "name": "profiler"
   },
   {
@@ -1924,6 +1954,9 @@
   },
   {
     "name": "shimStylesContent"
+  },
+  {
+    "name": "shouldAddViewToDom"
   },
   {
     "name": "shouldSearchParent"
