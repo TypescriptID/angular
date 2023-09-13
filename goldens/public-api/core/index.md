@@ -218,7 +218,8 @@ export interface Component extends Directive {
     preserveWhitespaces?: boolean;
     schemas?: SchemaMetadata[];
     standalone?: boolean;
-    styles?: string[];
+    styles?: string | string[];
+    styleUrl?: string;
     styleUrls?: string[];
     template?: string;
     templateUrl?: string;
@@ -561,7 +562,7 @@ export abstract class EmbeddedViewRef<C> extends ViewRef {
 export function enableProdMode(): void;
 
 // @public
-export const ENVIRONMENT_INITIALIZER: InjectionToken<() => void>;
+export const ENVIRONMENT_INITIALIZER: InjectionToken<readonly (() => void)[]>;
 
 // @public
 export abstract class EnvironmentInjector implements Injector {
