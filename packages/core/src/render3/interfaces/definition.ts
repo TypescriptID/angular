@@ -544,6 +544,13 @@ export interface NgModuleScopeInfoFromDecorator {
    * module.
    */
   exports?: Type<any>[]|(() => Type<any>[])|RawScopeInfoFromDecorator[];
+
+  /**
+   * The set of components that are bootstrapped when this module is bootstrapped. This field is
+   * only available in local compilation mode. In full compilation mode bootstrap info is passed
+   * directly to the module def runtime after statically analyzed and resolved.
+   */
+  bootstrap?: Type<any>[]|(() => Type<any>[])|RawScopeInfoFromDecorator[];
 }
 
 /**
@@ -552,4 +559,4 @@ export interface NgModuleScopeInfoFromDecorator {
  *  - standalone component annotation imports field
  */
 export type RawScopeInfoFromDecorator =
-    Type<any>|ModuleWithProviders<any>|(() => Type<any>)|(() => ModuleWithProviders<any>);
+    Type<any>|ModuleWithProviders<any>|(() => Type<any>)|(() => ModuleWithProviders<any>)|any[];

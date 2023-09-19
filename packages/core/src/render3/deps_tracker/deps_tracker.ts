@@ -10,6 +10,7 @@ import {resolveForwardRef} from '../../di';
 import {RuntimeError, RuntimeErrorCode} from '../../errors';
 import {Type} from '../../interface/type';
 import {NgModuleType} from '../../metadata/ng_module_def';
+import {flatten} from '../../util/array_utils';
 import {getComponentDef, getNgModuleDef, isStandalone} from '../definition';
 import {ComponentType, NgModuleScopeInfoFromDecorator, RawScopeInfoFromDecorator} from '../interfaces/definition';
 import {isComponent, isDirective, isNgModule, isPipe, verifyStandaloneImport} from '../jit/util';
@@ -208,6 +209,12 @@ class DepsTracker implements DepsTrackerApi {
         addSet(exportedScope.exported.directives, scope.exported.directives);
         addSet(exportedScope.exported.pipes, scope.exported.pipes);
 
+        // Some test toolings which run in JIT mode depend on this behavior that the exported scope
+        // should also be present in the compilation scope, even though AoT does not support this
+        // and it is also in odds with NgModule metadata definitions. Without this some tests in
+        // Google will fail.
+        addSet(exportedScope.exported.directives, scope.compilation.directives);
+        addSet(exportedScope.exported.pipes, scope.compilation.pipes);
       } else if (isPipe(exported)) {
         scope.exported.pipes.add(exported);
       } else {
@@ -242,7 +249,7 @@ class DepsTracker implements DepsTrackerApi {
       },
     };
 
-    for (const rawImport of rawImports ?? []) {
+    for (const rawImport of flatten(rawImports ?? [])) {
       const imported = resolveForwardRef(rawImport) as Type<any>;
 
       try {
