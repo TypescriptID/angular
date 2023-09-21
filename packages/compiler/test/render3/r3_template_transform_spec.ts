@@ -106,9 +106,9 @@ class R3AstHumanizer implements t.Visitor<void> {
 
   visitForLoopBlock(block: t.ForLoopBlock): void {
     const result: any[] = ['ForLoopBlock', unparse(block.expression), unparse(block.trackBy)];
-    block.contextVariables !== null && result.push(block.contextVariables);
     this.result.push(result);
-    this.visitAll([block.children]);
+    const explicitVariables = Object.values(block.contextVariables).filter(v => v.name !== v.value);
+    this.visitAll([[block.item], explicitVariables, block.children]);
     block.empty?.visit(this);
   }
 
@@ -123,10 +123,11 @@ class R3AstHumanizer implements t.Visitor<void> {
   }
 
   visitIfBlockBranch(block: t.IfBlockBranch): void {
-    const result = ['IfBlockBranch', block.expression === null ? null : unparse(block.expression)];
-    block.expressionAlias !== null && result.push(block.expressionAlias);
-    this.result.push(result);
-    this.visitAll([block.children]);
+    this.result.push(
+        ['IfBlockBranch', block.expression === null ? null : unparse(block.expression)]);
+    const toVisit = [block.children];
+    block.expressionAlias !== null && toVisit.unshift([block.expressionAlias]);
+    this.visitAll(toVisit);
   }
 
   visitDeferredTrigger(trigger: t.DeferredTrigger): void {
@@ -135,7 +136,7 @@ class R3AstHumanizer implements t.Visitor<void> {
     } else if (trigger instanceof t.ImmediateDeferredTrigger) {
       this.result.push(['ImmediateDeferredTrigger']);
     } else if (trigger instanceof t.HoverDeferredTrigger) {
-      this.result.push(['HoverDeferredTrigger']);
+      this.result.push(['HoverDeferredTrigger', trigger.reference]);
     } else if (trigger instanceof t.IdleDeferredTrigger) {
       this.result.push(['IdleDeferredTrigger']);
     } else if (trigger instanceof t.TimerDeferredTrigger) {
@@ -829,9 +830,9 @@ describe('R3 template transform', () => {
     });
 
     it('should parse a deferred block with a hover trigger', () => {
-      expectDeferred('{#defer on hover}hello{/defer}').toEqual([
+      expectDeferred('{#defer on hover(button)}hello{/defer}').toEqual([
         ['DeferredBlock'],
-        ['HoverDeferredTrigger'],
+        ['HoverDeferredTrigger', 'button'],
         ['Text', 'hello'],
       ]);
     });
@@ -902,13 +903,13 @@ describe('R3 template transform', () => {
 
     it('should parse a deferred block with prefetch triggers', () => {
       const html =
-          '{#defer on idle; prefetch on viewport(button), hover; prefetch when shouldPrefetch()}hello{/defer}';
+          '{#defer on idle; prefetch on viewport(button), hover(button); prefetch when shouldPrefetch()}hello{/defer}';
 
       expectDeferred(html).toEqual([
         ['DeferredBlock'],
         ['IdleDeferredTrigger'],
         ['ViewportDeferredTrigger', 'button'],
-        ['HoverDeferredTrigger'],
+        ['HoverDeferredTrigger', 'button'],
         ['BoundDeferredTrigger', 'shouldPrefetch()'],
         ['Text', 'hello'],
       ]);
@@ -916,13 +917,13 @@ describe('R3 template transform', () => {
 
     it('should allow arbitrary number of spaces after the `prefetch` keyword', () => {
       const html =
-          '{#defer on idle; prefetch         on viewport(button), hover; prefetch    when shouldPrefetch()}hello{/defer}';
+          '{#defer on idle; prefetch         on viewport(button), hover(button); prefetch    when shouldPrefetch()}hello{/defer}';
 
       expectDeferred(html).toEqual([
         ['DeferredBlock'],
         ['IdleDeferredTrigger'],
         ['ViewportDeferredTrigger', 'button'],
-        ['HoverDeferredTrigger'],
+        ['HoverDeferredTrigger', 'button'],
         ['BoundDeferredTrigger', 'shouldPrefetch()'],
         ['Text', 'hello'],
       ]);
@@ -930,7 +931,7 @@ describe('R3 template transform', () => {
 
     it('should parse a complete example', () => {
       expectDeferred(
-          '{#defer when isVisible() && foo; on hover, timer(10s), idle, immediate, ' +
+          '{#defer when isVisible() && foo; on hover(button), timer(10s), idle, immediate, ' +
           'interaction(button), viewport(container); prefetch on immediate; ' +
           'prefetch when isDataLoaded()}' +
           '<calendar-cmp [date]="current"/>' +
@@ -944,7 +945,7 @@ describe('R3 template transform', () => {
           .toEqual([
             ['DeferredBlock'],
             ['BoundDeferredTrigger', 'isVisible() && foo'],
-            ['HoverDeferredTrigger'],
+            ['HoverDeferredTrigger', 'button'],
             ['TimerDeferredTrigger', 10000],
             ['IdleDeferredTrigger'],
             ['ImmediateDeferredTrigger'],
@@ -1115,7 +1116,7 @@ describe('R3 template transform', () => {
 
       it('should report if `interaction` trigger has more than one parameter', () => {
         expectDeferredError('{#defer on interaction(a, b)}hello{/defer}')
-            .toThrowError(/"interaction" trigger can only have zero or one parameters/);
+            .toThrowError(/"interaction" trigger must have exactly one parameter/);
       });
 
       it('should report if parameters are passed to `immediate` trigger', () => {
@@ -1123,9 +1124,9 @@ describe('R3 template transform', () => {
             .toThrowError(/"immediate" trigger cannot have parameters/);
       });
 
-      it('should report if parameters are passed to `hover` trigger', () => {
-        expectDeferredError('{#defer on hover(1)}hello{/defer}')
-            .toThrowError(/"hover" trigger cannot have parameters/);
+      it('should report if no parameters are passed to `hover` trigger', () => {
+        expectDeferredError('{#defer on hover}hello{/defer}')
+            .toThrowError(/"hover" trigger must have exactly one parameter/);
       });
 
       it('should report if `viewport` trigger has more than one parameter', () => {
@@ -1406,6 +1407,7 @@ describe('R3 template transform', () => {
         {/for}
       `).toEqual([
         ['ForLoopBlock', 'items.foo.bar', 'item.id'],
+        ['Variable', 'item', '$implicit'],
         ['BoundText', ' {{ item }} '],
         ['ForLoopBlockEmpty'],
         ['Text', ' There were no items in the list. '],
@@ -1417,6 +1419,7 @@ describe('R3 template transform', () => {
         {#for (item of items.foo.bar); track item.id}{{ item }}{/for}
       `).toEqual([
         ['ForLoopBlock', 'items.foo.bar', 'item.id'],
+        ['Variable', 'item', '$implicit'],
         ['BoundText', '{{ item }}'],
       ]);
 
@@ -1424,6 +1427,7 @@ describe('R3 template transform', () => {
         {#for (item of items.foo.bar()); track item.id}{{ item }}{/for}
       `).toEqual([
         ['ForLoopBlock', 'items.foo.bar()', 'item.id'],
+        ['Variable', 'item', '$implicit'],
         ['BoundText', '{{ item }}'],
       ]);
 
@@ -1431,6 +1435,7 @@ describe('R3 template transform', () => {
         {#for (   ( (item of items.foo.bar()) )   ); track item.id}{{ item }}{/for}
       `).toEqual([
         ['ForLoopBlock', 'items.foo.bar()', 'item.id'],
+        ['Variable', 'item', '$implicit'],
         ['BoundText', '{{ item }}'],
       ]);
     });
@@ -1441,10 +1446,14 @@ describe('R3 template transform', () => {
           {{ item }}
         {/for}
       `).toEqual([
-        [
-          'ForLoopBlock', 'items.foo.bar', 'item.id',
-          {'$index': 'idx', '$first': 'f', '$last': 'l', '$even': 'ev', '$odd': 'od', '$count': 'c'}
-        ],
+        ['ForLoopBlock', 'items.foo.bar', 'item.id'],
+        ['Variable', 'item', '$implicit'],
+        ['Variable', 'idx', '$index'],
+        ['Variable', 'f', '$first'],
+        ['Variable', 'c', '$count'],
+        ['Variable', 'l', '$last'],
+        ['Variable', 'ev', '$even'],
+        ['Variable', 'od', '$odd'],
         ['BoundText', ' {{ item }} '],
       ]);
     });
@@ -1462,9 +1471,11 @@ describe('R3 template transform', () => {
         {/for}
       `).toEqual([
         ['ForLoopBlock', 'items.foo.bar', 'item.id'],
+        ['Variable', 'item', '$implicit'],
         ['BoundText', ' {{ item }} '],
         ['Element', 'div'],
         ['ForLoopBlock', 'item.items', 'subitem.id'],
+        ['Variable', 'subitem', '$implicit'],
         ['Element', 'h1'],
         ['BoundText', '{{ subitem }}'],
         ['ForLoopBlockEmpty'],
@@ -1477,6 +1488,7 @@ describe('R3 template transform', () => {
         {#for item of items.foo.bar; track trackBy(item.id, 123)}{{ item }}{/for}
       `).toEqual([
         ['ForLoopBlock', 'items.foo.bar', 'trackBy(item.id, 123)'],
+        ['Variable', 'item', '$implicit'],
         ['BoundText', '{{ item }}'],
       ]);
     });
@@ -1598,7 +1610,8 @@ describe('R3 template transform', () => {
         {/if}
         `).toEqual([
         ['IfBlock'],
-        ['IfBlockBranch', 'cond.expr', 'foo'],
+        ['IfBlockBranch', 'cond.expr'],
+        ['Variable', 'foo', 'foo'],
         ['Text', ' Main case was true! '],
         ['IfBlockBranch', 'other.expr'],
         ['Text', ' Extra case was true! '],

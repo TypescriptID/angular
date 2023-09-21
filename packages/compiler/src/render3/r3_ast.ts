@@ -135,7 +135,11 @@ export class IdleDeferredTrigger extends DeferredTrigger {}
 
 export class ImmediateDeferredTrigger extends DeferredTrigger {}
 
-export class HoverDeferredTrigger extends DeferredTrigger {}
+export class HoverDeferredTrigger extends DeferredTrigger {
+  constructor(public reference: string, sourceSpan: ParseSourceSpan) {
+    super(sourceSpan);
+  }
+}
 
 export class TimerDeferredTrigger extends DeferredTrigger {
   constructor(public delay: number, sourceSpan: ParseSourceSpan) {
@@ -144,7 +148,7 @@ export class TimerDeferredTrigger extends DeferredTrigger {
 }
 
 export class InteractionDeferredTrigger extends DeferredTrigger {
-  constructor(public reference: string|null, sourceSpan: ParseSourceSpan) {
+  constructor(public reference: string, sourceSpan: ParseSourceSpan) {
     super(sourceSpan);
   }
 }
@@ -257,19 +261,16 @@ export class SwitchBlockCase implements Node {
   }
 }
 
-export interface ForLoopBlockContext {
-  $index?: string;
-  $first?: string;
-  $last?: string;
-  $even?: string;
-  $odd?: string;
-  $count?: string;
-}
+// Note: this is a weird way to define the properties, but we do it so that we can
+// get strong typing when the context is passed through `Object.values`.
+/** Context variables that can be used inside a `ForLoopBlock`. */
+export type ForLoopBlockContext =
+    Record<'$index'|'$first'|'$last'|'$even'|'$odd'|'$count', Variable>;
 
 export class ForLoopBlock implements Node {
   constructor(
-      public itemName: string, public expression: ASTWithSource, public trackBy: ASTWithSource,
-      public contextVariables: ForLoopBlockContext|null, public children: Node[],
+      public item: Variable, public expression: ASTWithSource, public trackBy: ASTWithSource,
+      public contextVariables: ForLoopBlockContext, public children: Node[],
       public empty: ForLoopBlockEmpty|null, public sourceSpan: ParseSourceSpan,
       public startSourceSpan: ParseSourceSpan, public endSourceSpan: ParseSourceSpan|null) {}
 
@@ -300,7 +301,7 @@ export class IfBlock implements Node {
 
 export class IfBlockBranch implements Node {
   constructor(
-      public expression: AST|null, public children: Node[], public expressionAlias: string|null,
+      public expression: AST|null, public children: Node[], public expressionAlias: Variable|null,
       public sourceSpan: ParseSourceSpan, public startSourceSpan: ParseSourceSpan) {}
 
   visit<Result>(visitor: Visitor<Result>): Result {
@@ -435,6 +436,8 @@ export class RecursiveVisitor implements Visitor<void> {
     visitAll(this, block.children);
   }
   visitForLoopBlock(block: ForLoopBlock): void {
+    block.item.visit(this);
+    visitAll(this, Object.values(block.contextVariables));
     visitAll(this, block.children);
     block.empty?.visit(this);
   }
@@ -446,6 +449,7 @@ export class RecursiveVisitor implements Visitor<void> {
   }
   visitIfBlockBranch(block: IfBlockBranch): void {
     visitAll(this, block.children);
+    block.expressionAlias?.visit(this);
   }
   visitContent(content: Content): void {}
   visitVariable(variable: Variable): void {}

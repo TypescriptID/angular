@@ -75,8 +75,11 @@ export function template(
     slot: number, templateFnRef: o.Expression, decls: number, vars: number, tag: string|null,
     constIndex: number|null, sourceSpan: ParseSourceSpan): ir.CreateOp {
   const args = [o.literal(slot), templateFnRef, o.literal(decls), o.literal(vars)];
-  if (tag != null && constIndex != null) {
-    args.push(o.literal(tag), o.literal(constIndex));
+  if (tag !== null) {
+    args.push(o.literal(tag));
+    if (constIndex !== null) {
+      args.push(o.literal(constIndex));
+    }
   }
   return call(Identifiers.templateCreate, args, sourceSpan);
 }
@@ -176,6 +179,22 @@ export function text(
     args.push(o.literal(initialValue));
   }
   return call(Identifiers.text, args, sourceSpan);
+}
+
+export function projectionDef(def: o.Expression|null): ir.CreateOp {
+  return call(Identifiers.projectionDef, def ? [def] : [], null);
+}
+
+export function projection(
+    slot: number, projectionSlotIndex: number, attributes: number|null): ir.CreateOp {
+  const args = [o.literal(slot)];
+  if (projectionSlotIndex !== 0 || attributes !== null) {
+    args.push(o.literal(projectionSlotIndex));
+    if (attributes != null) {
+      args.push(o.literal(attributes));
+    }
+  }
+  return call(Identifiers.projection, args, null);
 }
 
 export function i18nStart(slot: number, constIndex: number): ir.CreateOp {

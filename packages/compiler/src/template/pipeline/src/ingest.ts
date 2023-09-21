@@ -115,6 +115,8 @@ function ingestNodes(unit: ViewCompilationUnit, template: t.Node[]): void {
       ingestElement(unit, node);
     } else if (node instanceof t.Template) {
       ingestTemplate(unit, node);
+    } else if (node instanceof t.Content) {
+      ingestContent(unit, node);
     } else if (node instanceof t.Text) {
       ingestText(unit, node);
     } else if (node instanceof t.BoundText) {
@@ -126,8 +128,6 @@ function ingestNodes(unit: ViewCompilationUnit, template: t.Node[]): void {
     }
   }
 }
-
-
 
 /**
  * Ingest an element AST from the template into the given `ViewCompilation`.
@@ -168,7 +168,7 @@ function ingestTemplate(unit: ViewCompilationUnit, tmpl: t.Template): void {
   // TODO: validate the fallback tag name here.
   const tplOp = ir.createTemplateOp(
       childView.xref, tagNameWithoutNamespace ?? 'ng-template', namespaceForKey(namespacePrefix),
-      tmpl.i18n, tmpl.startSourceSpan);
+      false, tmpl.i18n, tmpl.startSourceSpan);
   unit.create.push(tplOp);
 
   ingestBindings(unit, tplOp, tmpl);
@@ -178,6 +178,19 @@ function ingestTemplate(unit: ViewCompilationUnit, tmpl: t.Template): void {
   for (const {name, value} of tmpl.variables) {
     childView.contextVariables.set(name, value);
   }
+}
+
+/**
+ * Ingest a literal text node from the AST into the given `ViewCompilation`.
+ */
+function ingestContent(unit: ViewCompilationUnit, content: t.Content): void {
+  const op = ir.createProjectionOp(unit.job.allocateXrefId(), content.selector);
+  for (const attr of content.attributes) {
+    ingestBinding(
+        unit, op.xref, attr.name, o.literal(attr.value), e.BindingType.Attribute, null,
+        SecurityContext.NONE, attr.sourceSpan, true, false);
+  }
+  unit.create.push(op);
 }
 
 /**
@@ -218,7 +231,8 @@ function ingestSwitchBlock(unit: ViewCompilationUnit, switchBlock: t.SwitchBlock
   for (const switchCase of switchBlock.cases) {
     const cView = unit.job.allocateView(unit.xref);
     if (!firstXref) firstXref = cView.xref;
-    unit.create.push(ir.createTemplateOp(cView.xref, 'Case', ir.Namespace.HTML, undefined, null!));
+    unit.create.push(
+        ir.createTemplateOp(cView.xref, 'Case', ir.Namespace.HTML, true, undefined, null!));
     const caseExpr = switchCase.expression ? convertAst(switchCase.expression, unit.job) : null;
     conditions.push([cView.xref, caseExpr]);
     ingestNodes(cView, switchCase.children);

@@ -3708,9 +3708,6 @@ suppress
         env.tsconfig({_enabledBlockTypes: ['if', 'switch']});
       });
 
-      // TODO(crisbeto): test to check the bindings of the branches.
-      // TODO(crisbeto): test for an `if` block with an `as` assignment.
-      // TODO(crisbeto): test for type narrowing.
       it('should check bindings inside if blocks', () => {
         env.write('test.ts', `
           import {Component} from '@angular/core';
@@ -3742,8 +3739,133 @@ suppress
         ]);
       });
 
-      // TODO(crisbeto): test to check the bindings of the cases.
-      // TODO(crisbeto): test for type narrowing.
+      it('should check bindings of if block expressions', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: \`
+              {#if does_not_exist_main}
+                main
+                {:else if does_not_exist_one} one
+                {:else if does_not_exist_two} two
+              {/if}
+            \`,
+            standalone: true,
+          })
+          export class Main {}
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Property 'does_not_exist_main' does not exist on type 'Main'.`,
+          `Property 'does_not_exist_one' does not exist on type 'Main'.`,
+          `Property 'does_not_exist_two' does not exist on type 'Main'.`,
+        ]);
+      });
+
+      it('should check aliased if block expression', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: \`{#if value === 1; as alias}{{acceptsNumber(alias)}}{/if}\`,
+            standalone: true,
+          })
+          export class Main {
+            value = 1;
+
+            acceptsNumber(value: number) {
+              return value;
+            }
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Argument of type 'boolean' is not assignable to parameter of type 'number'.`,
+        ]);
+      });
+
+      it('should not expose the aliased expression outside of the main block', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: \`
+              {#if value === 0; as alias}
+                main block
+                {:else} {{alias}}
+              {/if}
+            \`,
+            standalone: true,
+          })
+          export class Main {
+            value = 1;
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Property 'alias' does not exist on type 'Main'.`,
+        ]);
+      });
+
+      it('should expose alias to nested if blocks', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: \`
+              {#if value === 1; as alias}
+                {#if alias}{{acceptsNumber(alias)}}{/if}
+              {/if}
+            \`,
+            standalone: true,
+          })
+          export class Main {
+            value = 1;
+
+            acceptsNumber(value: number) {
+              return value;
+            }
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Argument of type 'boolean' is not assignable to parameter of type 'number'.`,
+        ]);
+      });
+
+      it('should narrow the type inside if blocks', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: \`
+              {#if expr === 1}
+                main block
+                {:else} {{acceptsNumber(expr)}}
+              {/if}
+            \`,
+            standalone: true,
+          })
+          export class Main {
+            expr: 'hello' | 1 = 'hello';
+
+            acceptsNumber(value: number) {
+              return value;
+            }
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Argument of type 'string' is not assignable to parameter of type 'number'.`,
+        ]);
+      });
+
       it('should check bindings inside switch blocks', () => {
         env.write('test.ts', `
           import {Component} from '@angular/core';
@@ -3770,14 +3892,65 @@ suppress
           `Property 'does_not_exist_default' does not exist on type 'Main'.`,
         ]);
       });
+
+      it('should check expressions of switch blocks', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: \`
+              {#switch does_not_exist_main}
+                {:case does_not_exist_case} One
+              {/switch}
+            \`,
+            standalone: true,
+          })
+          export class Main {}
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Property 'does_not_exist_main' does not exist on type 'Main'.`,
+          `Property 'does_not_exist_case' does not exist on type 'Main'.`,
+        ]);
+      });
+
+      it('should narrow the type inside switch cases', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: \`
+              {#switch expr}
+                {:case 1} One
+                {:default} {{acceptsNumber(expr)}}
+              {/switch}
+            \`,
+            standalone: true,
+          })
+          export class Main {
+            expr: 'hello' | 1 = 'hello';
+
+            acceptsNumber(value: number) {
+              return value;
+            }
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Argument of type 'string' is not assignable to parameter of type 'number'.`
+        ]);
+      });
     });
 
-    // TODO(crisbeto): test for the loop expression binding
-    // TODO(crisbeto): test for the track expression.
-    // TODO(crisbeto): test for the context variables ($index, $odd etc).
     describe('for loop blocks', () => {
       beforeEach(() => {
-        env.tsconfig({_enabledBlockTypes: ['for']});
+        env.tsconfig({
+          // `fullTemplateTypeCheck: true` is necessary so content inside `ng-template` is checked.
+          fullTemplateTypeCheck: true,
+          _enabledBlockTypes: ['for', 'if'],
+        });
       });
 
       it('should check bindings inside of for loop blocks', () => {
@@ -3791,9 +3964,10 @@ suppress
                 {:empty}{{does_not_exist_empty}}
               {/for}
             \`,
-            standalone: true,
           })
-          export class Main {}
+          export class Main {
+            items = [];
+          }
         `);
 
         const diags = env.driveDiagnostics();
@@ -3801,6 +3975,466 @@ suppress
           `Property 'does_not_exist_main' does not exist on type 'Main'.`,
           `Property 'does_not_exist_empty' does not exist on type 'Main'.`,
         ]);
+      });
+
+      it('should check the expression of a for loop block', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: '{#for item of does_not_exist; track item}hello{/for}',
+          })
+          export class Main {}
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Property 'does_not_exist' does not exist on type 'Main'.`,
+        ]);
+      });
+
+      it('should check the type of the item of a for loop block', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: '{#for item of items; track item}{{acceptsString(item)}}{/for}',
+          })
+          export class Main {
+            items = [1, 2, 3];
+
+            acceptsString(value: string) {
+              return value;
+            }
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Argument of type 'number' is not assignable to parameter of type 'string'.`,
+        ]);
+      });
+
+      it('should check the type of implicit variables for loop block', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: \`
+              {#for item of items; track item}
+                {{acceptsString($index)}}
+                {{acceptsString($first)}}
+                {{acceptsString($last)}}
+                {{acceptsString($even)}}
+                {{acceptsString($odd)}}
+                {{acceptsString($count)}}
+              {/for}
+            \`,
+          })
+          export class Main {
+            items = [];
+
+            acceptsString(value: string) {
+              return value;
+            }
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Argument of type 'number' is not assignable to parameter of type 'string'.`,
+          `Argument of type 'number' is not assignable to parameter of type 'string'.`,
+          `Argument of type 'number' is not assignable to parameter of type 'string'.`,
+          `Argument of type 'number' is not assignable to parameter of type 'string'.`,
+          `Argument of type 'number' is not assignable to parameter of type 'string'.`,
+          `Argument of type 'number' is not assignable to parameter of type 'string'.`,
+        ]);
+      });
+
+      it('should check the type of aliased implicit variables for loop block', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: \`
+              {#for item of items; track item; let i = $index, f = $first, l = $last, e = $even, o = $odd, c = $count}
+                {{acceptsString(i)}}
+                {{acceptsString(f)}}
+                {{acceptsString(l)}}
+                {{acceptsString(e)}}
+                {{acceptsString(o)}}
+                {{acceptsString(c)}}
+              {/for}
+            \`,
+          })
+          export class Main {
+            items = [];
+
+            acceptsString(value: string) {
+              return value;
+            }
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Argument of type 'number' is not assignable to parameter of type 'string'.`,
+          `Argument of type 'number' is not assignable to parameter of type 'string'.`,
+          `Argument of type 'number' is not assignable to parameter of type 'string'.`,
+          `Argument of type 'number' is not assignable to parameter of type 'string'.`,
+          `Argument of type 'number' is not assignable to parameter of type 'string'.`,
+          `Argument of type 'number' is not assignable to parameter of type 'string'.`,
+        ]);
+      });
+
+      it('should not expose variables from the main block to the empty block', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: \`
+              {#for item of items; track item}
+                Hello
+                {:empty}{{item}} {{$index}}
+              {/for}
+            \`,
+          })
+          export class Main {
+            items = [];
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Property 'item' does not exist on type 'Main'. Did you mean 'items'?`,
+          `Property '$index' does not exist on type 'Main'.`,
+        ]);
+      });
+
+      it('should not expose variables under their implicit name if they are aliased', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: '{#for item of items; track item; let alias = $index}{{$index}} {{$count}}{/for}',
+          })
+          export class Main {
+            items = [];
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Property '$index' does not exist on type 'Main'.`,
+        ]);
+      });
+
+      it('should not be able to write to loop template variables', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: \`
+              {#for item of items; track item}
+                <button (click)="$index = 1"></button>
+              {/for}
+            \`,
+          })
+          export class Main {
+            items = [];
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Cannot use variable '$index' as the left-hand side of an assignment expression. Template variables are read-only.`,
+        ]);
+      });
+
+      it('should check the track expression of a for loop block', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: '{#for item of items; track does_not_exist}{/for}',
+          })
+          export class Main {
+            items = [];
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Property 'does_not_exist' does not exist on type 'Main'.`,
+        ]);
+      });
+
+      it('should check the item in the tracking expression', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: '{#for item of items; track trackingFn(item)}{/for}',
+          })
+          export class Main {
+            items = [1, 2, 3];
+
+            trackingFn(value: string) {
+              return value;
+            }
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Argument of type 'number' is not assignable to parameter of type 'string'.`,
+        ]);
+      });
+
+      it('should check $index in the tracking expression', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: '{#for item of items; track trackingFn($index)}{/for}',
+          })
+          export class Main {
+            items = [];
+
+            trackingFn(value: string) {
+              return value;
+            }
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Argument of type 'number' is not assignable to parameter of type 'string'.`,
+        ]);
+      });
+
+      it('should check an aliased $index in the tracking expression', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: '{#for item of items; let i = $index; track trackingFn(i)}{/for}',
+          })
+          export class Main {
+            items = [];
+
+            trackingFn(value: string) {
+              return value;
+            }
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Argument of type 'number' is not assignable to parameter of type 'string'.`,
+        ]);
+      });
+
+      it('should not allow usages of loop context variables inside the tracking expression', () => {
+        env.write('/test.ts', `
+          import { Component } from '@angular/core';
+
+          @Component({
+            selector: 'test-cmp',
+            standalone: true,
+            template: '{#for item of items; track $index + $count}{/for}',
+          })
+          export class TestCmp {
+            items = [];
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Cannot access '$count' inside of a track expression. Only 'item', '$index' and ` +
+              `properties on the containing component are available to this expression.`,
+        ]);
+      });
+
+      it('should not allow usages of aliased loop context variables inside the tracking expression',
+         () => {
+           env.write('/test.ts', `
+              import { Component } from '@angular/core';
+
+              @Component({
+                selector: 'test-cmp',
+                standalone: true,
+                template: '{#for item of items; let c = $count; track $index + c}{/for}',
+              })
+              export class TestCmp {
+                items = [];
+              }
+            `);
+
+           const diags = env.driveDiagnostics();
+           expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+             `Cannot access 'c' inside of a track expression. Only 'item', '$index' and ` +
+                 `properties on the containing component are available to this expression.`,
+           ]);
+         });
+
+      it('should not allow usages of local references within the same template inside the tracking expression',
+         () => {
+           env.write('/test.ts', `
+            import { Component } from '@angular/core';
+
+            @Component({
+              selector: 'test-cmp',
+              standalone: true,
+              template: \`
+                <input #ref/>
+                {#for item of items; track $index + ref.value}{/for}
+              \`,
+            })
+            export class TestCmp {
+              items = [];
+            }
+          `);
+
+           const diags = env.driveDiagnostics();
+           expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+             `Cannot access 'ref' inside of a track expression. Only 'item', '$index' and ` +
+                 `properties on the containing component are available to this expression.`,
+           ]);
+         });
+
+      it('should not allow usages of local references outside of the template in the tracking expression',
+         () => {
+           env.write('/test.ts', `
+            import { Component } from '@angular/core';
+
+            @Component({
+              selector: 'test-cmp',
+              standalone: true,
+              template: \`
+                <input #ref/>
+
+                <ng-template>
+                  {#for item of items; track $index + ref.value}{/for}
+                </ng-template>
+              \`,
+            })
+            export class TestCmp {
+              items = [];
+            }
+          `);
+
+           const diags = env.driveDiagnostics();
+           expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+             `Cannot access 'ref' inside of a track expression. Only 'item', '$index' and ` +
+                 `properties on the containing component are available to this expression.`,
+           ]);
+         });
+
+      it('should not allow usages of parent template variables inside the tracking expression',
+         () => {
+           env.write('/test.ts', `
+            import { Component } from '@angular/core';
+
+            @Component({
+              selector: 'test-cmp',
+              standalone: true,
+              template: \`
+                <ng-template let-foo>
+                  {#for item of items; track $index + foo.value}{/for}
+                </ng-template>
+              \`,
+            })
+            export class TestCmp {
+              items: {value: number}[] = [];
+            }
+          `);
+
+           const diags = env.driveDiagnostics();
+           expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+             `Cannot access 'foo' inside of a track expression. Only 'item', '$index' and ` +
+                 `properties on the containing component are available to this expression.`,
+           ]);
+         });
+
+      it('should not allow usages of parent loop variables inside the tracking expression', () => {
+        env.write('/test.ts', `
+          import { Component } from '@angular/core';
+
+          @Component({
+            selector: 'test-cmp',
+            standalone: true,
+            template: \`
+              {#for parent of items; track $index}
+                {#for item of parent.items; track parent}{/for}
+              {/for}
+            \`,
+          })
+          export class TestCmp {
+            items: {items: any[]}[] = [];
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Cannot access 'parent' inside of a track expression. Only 'item', '$index' and ` +
+              `properties on the containing component are available to this expression.`,
+        ]);
+      });
+
+      it('should not allow usages of aliased `if` block variables inside the tracking exprssion',
+         () => {
+           env.write('/test.ts', `
+            import { Component } from '@angular/core';
+
+            @Component({
+              selector: 'test-cmp',
+              standalone: true,
+              template: \`
+                {#if expr; as alias}
+                  {#for item of items; track $index + alias}{/for}
+                {/if}
+              \`,
+            })
+            export class TestCmp {
+              expr = 1;
+              items = [];
+            }
+          `);
+
+           const diags = env.driveDiagnostics();
+           expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+             `Cannot access 'alias' inside of a track expression. Only 'item', '$index' and ` +
+                 `properties on the containing component are available to this expression.`,
+           ]);
+         });
+
+      it('should not allow usages of pipes inside the tracking expression', () => {
+        env.write('/test.ts', `
+          import { Component, Pipe } from '@angular/core';
+
+          @Pipe({name: 'test', standalone: true})
+          export class TestPipe {
+            transform(value: any) {
+              return value;
+            }
+          }
+
+          @Component({
+            selector: 'test-cmp',
+            standalone: true,
+            imports: [TestPipe],
+            template: '{#for item of items; track item | test}{/for}',
+          })
+          export class TestCmp {
+            items = [];
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toBe(1);
+        expect(diags[0].messageText)
+            .toContain('Error: Illegal State: Pipes are not allowed in this context');
       });
     });
   });

@@ -167,7 +167,7 @@ export declare class MyApp {
 import { Component, Pipe } from '@angular/core';
 import * as i0 from "@angular/core";
 export class TestPipe {
-    tranform(value) {
+    transform(value) {
         return value;
     }
 }
@@ -217,7 +217,7 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDE
  ****************************************************************************************************/
 import * as i0 from "@angular/core";
 export declare class TestPipe {
-    tranform(value: unknown): unknown;
+    transform(value: unknown): unknown;
     static ɵfac: i0.ɵɵFactoryDeclaration<TestPipe, never>;
     static ɵpipe: i0.ɵɵPipeDeclaration<TestPipe, "test", true>;
 }
@@ -434,7 +434,7 @@ export declare class MyApp {
 import { Component, Pipe } from '@angular/core';
 import * as i0 from "@angular/core";
 export class TestPipe {
-    tranform(value) {
+    transform(value) {
         return value;
     }
 }
@@ -451,7 +451,7 @@ export class MyApp {
     }
 }
 MyApp.ɵfac = i0.ɵɵngDeclareFactory({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: MyApp, deps: [], target: i0.ɵɵFactoryTarget.Component });
-MyApp.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "0.0.0-PLACEHOLDER", type: MyApp, selector: "ng-component", ngImport: i0, template: `
+MyApp.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "0.0.0-PLACEHOLDER", type: MyApp, isStandalone: true, selector: "ng-component", ngImport: i0, template: `
     <div>
       {{message}}
       {#if (val | test) === 1}
@@ -460,7 +460,7 @@ MyApp.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "0.0.0-
         {:else} three
       {/if}
     </div>
-  `, isInline: true });
+  `, isInline: true, dependencies: [{ kind: "pipe", type: TestPipe, name: "test" }] });
 i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: MyApp, decorators: [{
             type: Component,
             args: [{
@@ -474,6 +474,8 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDE
       {/if}
     </div>
   `,
+                    standalone: true,
+                    imports: [TestPipe],
                 }]
         }] });
 
@@ -482,7 +484,7 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDE
  ****************************************************************************************************/
 import * as i0 from "@angular/core";
 export declare class TestPipe {
-    tranform(value: unknown): unknown;
+    transform(value: unknown): unknown;
     static ɵfac: i0.ɵɵFactoryDeclaration<TestPipe, never>;
     static ɵpipe: i0.ɵɵPipeDeclaration<TestPipe, "test", true>;
 }
@@ -490,7 +492,7 @@ export declare class MyApp {
     message: string;
     val: number;
     static ɵfac: i0.ɵɵFactoryDeclaration<MyApp, never>;
-    static ɵcmp: i0.ɵɵComponentDeclaration<MyApp, "ng-component", never, {}, {}, never, never, false, never>;
+    static ɵcmp: i0.ɵɵComponentDeclaration<MyApp, "ng-component", never, {}, {}, never, never, true, never>;
 }
 
 /****************************************************************************************************
@@ -530,7 +532,6 @@ import * as i0 from "@angular/core";
 export declare class MyApp {
     message: string;
     value: () => number;
-    alias: any;
     static ɵfac: i0.ɵɵFactoryDeclaration<MyApp, never>;
     static ɵcmp: i0.ɵɵComponentDeclaration<MyApp, "ng-component", never, {}, {}, never, never, false, never>;
 }
@@ -580,9 +581,6 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDE
 import * as i0 from "@angular/core";
 export declare class MyApp {
     value: () => number;
-    root: any;
-    inner: any;
-    innermost: any;
     static ɵfac: i0.ɵɵFactoryDeclaration<MyApp, never>;
     static ɵcmp: i0.ɵɵComponentDeclaration<MyApp, "ng-component", never, {}, {}, never, never, false, never>;
 }
@@ -638,9 +636,6 @@ import * as i0 from "@angular/core";
 export declare class MyApp {
     value: () => number;
     log(..._: any[]): void;
-    root: any;
-    inner: any;
-    innermost: any;
     static ɵfac: i0.ɵɵFactoryDeclaration<MyApp, never>;
     static ɵcmp: i0.ɵɵComponentDeclaration<MyApp, "ng-component", never, {}, {}, never, never, false, never>;
 }
@@ -684,7 +679,6 @@ export declare class MyApp {
     items: {
         name: string;
     }[];
-    item: any;
     static ɵfac: i0.ɵɵFactoryDeclaration<MyApp, never>;
     static ɵcmp: i0.ɵɵComponentDeclaration<MyApp, "ng-component", never, {}, {}, never, never, false, never>;
 }
@@ -734,7 +728,6 @@ export declare class MyApp {
     items: {
         name: string;
     }[];
-    item: any;
     static ɵfac: i0.ɵɵFactoryDeclaration<MyApp, never>;
     static ɵcmp: i0.ɵɵComponentDeclaration<MyApp, "ng-component", never, {}, {}, never, never, false, never>;
 }
@@ -778,7 +771,6 @@ export declare class MyApp {
     items: {
         name: string;
     }[];
-    item: any;
     static ɵfac: i0.ɵɵFactoryDeclaration<MyApp, never>;
     static ɵcmp: i0.ɵɵComponentDeclaration<MyApp, "ng-component", never, {}, {}, never, never, false, never>;
 }
@@ -822,7 +814,6 @@ export declare class MyApp {
     items: {
         name: string;
     }[];
-    item: any;
     static ɵfac: i0.ɵɵFactoryDeclaration<MyApp, never>;
     static ɵcmp: i0.ɵɵComponentDeclaration<MyApp, "ng-component", never, {}, {}, never, never, false, never>;
 }
@@ -877,8 +868,6 @@ export declare class MyApp {
         name: string;
         subItems: string[];
     }[];
-    item: any;
-    subitem: any;
     static ɵfac: i0.ɵɵFactoryDeclaration<MyApp, never>;
     static ɵcmp: i0.ɵɵComponentDeclaration<MyApp, "ng-component", never, {}, {}, never, never, false, never>;
 }
@@ -934,13 +923,6 @@ import * as i0 from "@angular/core";
 export declare class MyApp {
     message: string;
     items: never[];
-    item: any;
-    $index: any;
-    $first: any;
-    $last: any;
-    $even: any;
-    $odd: any;
-    $count: any;
     static ɵfac: i0.ɵɵFactoryDeclaration<MyApp, never>;
     static ɵcmp: i0.ɵɵComponentDeclaration<MyApp, "ng-component", never, {}, {}, never, never, false, never>;
 }
@@ -996,12 +978,6 @@ import * as i0 from "@angular/core";
 export declare class MyApp {
     message: string;
     items: never[];
-    idx: any;
-    f: any;
-    l: any;
-    ev: any;
-    o: any;
-    co: any;
     static ɵfac: i0.ɵɵFactoryDeclaration<MyApp, never>;
     static ɵcmp: i0.ɵɵComponentDeclaration<MyApp, "ng-component", never, {}, {}, never, never, false, never>;
 }
@@ -1062,9 +1038,6 @@ export declare class MyApp {
         name: string;
         subItems: string[];
     }[];
-    item: any;
-    outerCount: any;
-    $count: any;
     static ɵfac: i0.ɵɵFactoryDeclaration<MyApp, never>;
     static ɵcmp: i0.ɵɵComponentDeclaration<MyApp, "ng-component", never, {}, {}, never, never, false, never>;
 }
@@ -1112,11 +1085,6 @@ export declare class MyApp {
     message: string;
     items: never[];
     log(..._: any[]): void;
-    item: any;
-    ev: any;
-    $index: any;
-    $first: any;
-    $count: any;
     static ɵfac: i0.ɵɵFactoryDeclaration<MyApp, never>;
     static ɵcmp: i0.ɵɵComponentDeclaration<MyApp, "ng-component", never, {}, {}, never, never, false, never>;
 }
@@ -1146,8 +1114,6 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDE
 import * as i0 from "@angular/core";
 export declare class MyApp {
     items: never[];
-    item: any;
-    $odd: any;
     static ɵfac: i0.ɵɵFactoryDeclaration<MyApp, never>;
     static ɵcmp: i0.ɵɵComponentDeclaration<MyApp, "ng-component", never, {}, {}, never, never, false, never>;
 }
@@ -1187,7 +1153,6 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDE
 import * as i0 from "@angular/core";
 export declare class MyApp {
     items: string[];
-    item: any;
     static ɵfac: i0.ɵɵFactoryDeclaration<MyApp, never>;
     static ɵcmp: i0.ɵɵComponentDeclaration<MyApp, "ng-component", never, {}, {}, never, never, false, never>;
 }
@@ -1378,8 +1343,6 @@ export declare class MyApp {
     otherItems: {
         name: string;
     }[];
-    item: any;
-    otherItem: any;
     static ɵfac: i0.ɵɵFactoryDeclaration<MyApp, never>;
     static ɵcmp: i0.ɵɵComponentDeclaration<MyApp, "ng-component", never, {}, {}, never, never, false, never>;
 }
@@ -1427,8 +1390,6 @@ export declare class MyApp {
         name: string;
     }[];
     trackFn(item: any, message: string): string;
-    item: any;
-    otherItem: any;
     static ɵfac: i0.ɵɵFactoryDeclaration<MyApp, never>;
     static ɵcmp: i0.ɵɵComponentDeclaration<MyApp, "ng-component", never, {}, {}, never, never, false, never>;
 }
@@ -1464,9 +1425,10 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDE
  ****************************************************************************************************/
 import * as i0 from "@angular/core";
 export declare class MyApp {
-    items: never[];
+    items: {
+        name: string;
+    }[];
     trackFn(obj: any, arr: any[]): null;
-    item: any;
     static ɵfac: i0.ɵɵFactoryDeclaration<MyApp, never>;
     static ɵcmp: i0.ɵɵComponentDeclaration<MyApp, "ng-component", never, {}, {}, never, never, false, never>;
 }

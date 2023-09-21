@@ -44,7 +44,7 @@ function makeSelectorMatcher(): SelectorMatcher<DirectiveMeta[]> {
                          }]);
   matcher.addSelectables(CssSelector.parse('[dir]'), [{
                            name: 'Dir',
-                           exportAs: null,
+                           exportAs: ['dir'],
                            inputs: new IdentityInputMapping([]),
                            outputs: new IdentityInputMapping([]),
                            isComponent: false,
@@ -82,6 +82,16 @@ function makeSelectorMatcher(): SelectorMatcher<DirectiveMeta[]> {
                            selector: '[sameSelectorAsInput]',
                            animationTriggerNames: null,
                          }]);
+  matcher.addSelectables(CssSelector.parse('comp'), [{
+                           name: 'Comp',
+                           exportAs: null,
+                           inputs: new IdentityInputMapping([]),
+                           outputs: new IdentityInputMapping([]),
+                           isComponent: true,
+                           isStructural: false,
+                           selector: 'comp',
+                           animationTriggerNames: null,
+                         }]);
 
   const simpleDirectives = ['a', 'b', 'c', 'd', 'e', 'f'];
   const deferBlockDirectives = ['loading', 'error', 'placeholder'];
@@ -117,7 +127,7 @@ describe('t2 binding', () => {
       return fail('Expected item to point to a Variable');
     }
     expect(itemTarget.value).toBe('$implicit');
-    const itemTemplate = res.getTemplateOfSymbol(itemTarget);
+    const itemTemplate = res.getDefinitionNodeOfSymbol(itemTarget);
     expect(itemTemplate).not.toBeNull();
     expect(res.getNestingLevel(itemTemplate!)).toBe(1);
   });
@@ -375,6 +385,189 @@ describe('t2 binding', () => {
 
       expect(allDirs).toEqual(['DirA', 'DirB', 'DirC']);
       expect(eagerDirs).toEqual([]);
+    });
+
+    it('should identify a trigger element that is a parent of the deferred block', () => {
+      const template = parseTemplate(
+          `
+          <div #trigger>
+            {#defer on viewport(trigger)}{/defer}
+          </div>
+          `,
+          '', templateOptions);
+      const binder = new R3TargetBinder(makeSelectorMatcher());
+      const bound = binder.bind({template: template.nodes});
+      const block = Array.from(bound.getDeferBlocks())[0];
+      const triggerEl = bound.getDeferredTriggerTarget(block, block.triggers.viewport!);
+      expect(triggerEl?.name).toBe('div');
+    });
+
+    it('should identify a trigger element outside of the deferred block', () => {
+      const template = parseTemplate(
+          `
+            <div>
+              {#defer on viewport(trigger)}{/defer}
+            </div>
+
+            <div>
+              <div>
+                <button #trigger></button>
+              </div>
+            </div>
+          `,
+          '', templateOptions);
+      const binder = new R3TargetBinder(makeSelectorMatcher());
+      const bound = binder.bind({template: template.nodes});
+      const block = Array.from(bound.getDeferBlocks())[0];
+      const triggerEl = bound.getDeferredTriggerTarget(block, block.triggers.viewport!);
+      expect(triggerEl?.name).toBe('button');
+    });
+
+    it('should identify a trigger element in a parent embedded view', () => {
+      const template = parseTemplate(
+          `
+            <div *ngFor="let item of items">
+              <button #trigger></button>
+
+              <div *ngFor="let child of item.children">
+                <div *ngFor="let grandchild of child.children">
+                  {#defer on viewport(trigger)}{/defer}
+                </div>
+              </div>
+            </div>
+          `,
+          '', templateOptions);
+      const binder = new R3TargetBinder(makeSelectorMatcher());
+      const bound = binder.bind({template: template.nodes});
+      const block = Array.from(bound.getDeferBlocks())[0];
+      const triggerEl = bound.getDeferredTriggerTarget(block, block.triggers.viewport!);
+      expect(triggerEl?.name).toBe('button');
+    });
+
+    it('should identify a trigger element inside the placeholder', () => {
+      const template = parseTemplate(
+          `
+            {#defer on viewport(trigger)}
+              main
+              {:placeholder} <button #trigger></button>
+            {/defer}
+          `,
+          '', templateOptions);
+      const binder = new R3TargetBinder(makeSelectorMatcher());
+      const bound = binder.bind({template: template.nodes});
+      const block = Array.from(bound.getDeferBlocks())[0];
+      const triggerEl = bound.getDeferredTriggerTarget(block, block.triggers.viewport!);
+      expect(triggerEl?.name).toBe('button');
+    });
+
+    it('should not identify a trigger inside the main content block', () => {
+      const template = parseTemplate(
+          `
+            {#defer on viewport(trigger)}<button #trigger></button>{/defer}
+          `,
+          '', templateOptions);
+      const binder = new R3TargetBinder(makeSelectorMatcher());
+      const bound = binder.bind({template: template.nodes});
+      const block = Array.from(bound.getDeferBlocks())[0];
+      const triggerEl = bound.getDeferredTriggerTarget(block, block.triggers.viewport!);
+      expect(triggerEl).toBeNull();
+    });
+
+    it('should identify a trigger element on a component', () => {
+      const template = parseTemplate(
+          `
+            {#defer on viewport(trigger)}{/defer}
+
+            <comp #trigger/>
+          `,
+          '', templateOptions);
+      const binder = new R3TargetBinder(makeSelectorMatcher());
+      const bound = binder.bind({template: template.nodes});
+      const block = Array.from(bound.getDeferBlocks())[0];
+      const triggerEl = bound.getDeferredTriggerTarget(block, block.triggers.viewport!);
+      expect(triggerEl?.name).toBe('comp');
+    });
+
+    it('should identify a trigger element on a directive', () => {
+      const template = parseTemplate(
+          `
+            {#defer on viewport(trigger)}{/defer}
+
+            <button dir #trigger="dir"></button>
+          `,
+          '', templateOptions);
+      const binder = new R3TargetBinder(makeSelectorMatcher());
+      const bound = binder.bind({template: template.nodes});
+      const block = Array.from(bound.getDeferBlocks())[0];
+      const triggerEl = bound.getDeferredTriggerTarget(block, block.triggers.viewport!);
+      expect(triggerEl?.name).toBe('button');
+    });
+
+    it('should not identify a trigger inside a sibling embedded view', () => {
+      const template = parseTemplate(
+          `
+            <div *ngIf="cond">
+              <button #trigger></button>
+            </div>
+
+            {#defer on viewport(trigger)}{/defer}
+          `,
+          '', templateOptions);
+      const binder = new R3TargetBinder(makeSelectorMatcher());
+      const bound = binder.bind({template: template.nodes});
+      const block = Array.from(bound.getDeferBlocks())[0];
+      const triggerEl = bound.getDeferredTriggerTarget(block, block.triggers.viewport!);
+      expect(triggerEl).toBeNull();
+    });
+
+    it('should not identify a trigger element in an embedded view inside the placeholder', () => {
+      const template = parseTemplate(
+          `
+            {#defer on viewport(trigger)}
+              main
+              {:placeholder}
+                <div *ngIf="cond"><button #trigger></button></div>
+            {/defer}
+          `,
+          '', templateOptions);
+      const binder = new R3TargetBinder(makeSelectorMatcher());
+      const bound = binder.bind({template: template.nodes});
+      const block = Array.from(bound.getDeferBlocks())[0];
+      const triggerEl = bound.getDeferredTriggerTarget(block, block.triggers.viewport!);
+      expect(triggerEl).toBeNull();
+    });
+
+    it('should not identify a trigger element inside the a deferred block within the placeholder',
+       () => {
+         const template = parseTemplate(
+             `
+                {#defer on viewport(trigger)}
+                  main
+                  {:placeholder}
+                    {#defer}<button #trigger></button>{/defer}
+                {/defer}
+              `,
+             '', templateOptions);
+         const binder = new R3TargetBinder(makeSelectorMatcher());
+         const bound = binder.bind({template: template.nodes});
+         const block = Array.from(bound.getDeferBlocks())[0];
+         const triggerEl = bound.getDeferredTriggerTarget(block, block.triggers.viewport!);
+         expect(triggerEl).toBeNull();
+       });
+
+    it('should not identify a trigger element on a template', () => {
+      const template = parseTemplate(
+          `
+            {#defer on viewport(trigger)}{/defer}
+
+            <ng-template #trigger></ng-template>
+          `,
+          '', templateOptions);
+      const binder = new R3TargetBinder(makeSelectorMatcher());
+      const bound = binder.bind({template: template.nodes});
+      const block = Array.from(bound.getDeferBlocks())[0];
+      const triggerEl = bound.getDeferredTriggerTarget(block, block.triggers.viewport!);
+      expect(triggerEl).toBeNull();
     });
   });
 

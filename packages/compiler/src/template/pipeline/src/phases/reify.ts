@@ -97,14 +97,8 @@ function reifyCreateOperations(unit: CompilationUnit, ops: ir.OpList<ir.CreateOp
         ir.OpList.replace(
             op,
             ng.template(
-                op.slot!,
-                o.variable(childView.fnName!),
-                childView.decls!,
-                childView.vars!,
-                op.tag,
-                op.attributes as number,
-                op.sourceSpan,
-                ),
+                op.slot!, o.variable(childView.fnName!), childView.decls!, childView.vars!,
+                op.controlFlow ? null : op.tag, op.attributes as number, op.sourceSpan),
         );
         break;
       case ir.OpKind.DisableBindings:
@@ -145,6 +139,16 @@ function reifyCreateOperations(unit: CompilationUnit, ops: ir.OpList<ir.CreateOp
             ir.OpList.replace<ir.CreateOp>(op, ng.namespaceMath());
             break;
         }
+        break;
+      case ir.OpKind.ProjectionDef:
+        ir.OpList.replace<ir.CreateOp>(op, ng.projectionDef(op.def));
+        break;
+      case ir.OpKind.Projection:
+        if (op.slot === null) {
+          throw new Error('No slot was assigned for project instruction');
+        }
+        ir.OpList.replace<ir.CreateOp>(
+            op, ng.projection(op.slot, op.projectionSlotIndex, op.attributes));
         break;
       case ir.OpKind.Statement:
         // Pass statement operations directly through.

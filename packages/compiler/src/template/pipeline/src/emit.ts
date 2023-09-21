@@ -54,6 +54,9 @@ import {phaseStyleBindingSpecialization} from './phases/style_binding_specializa
 import {phaseTemporaryVariables} from './phases/temporary_variables';
 import {phaseVarCounting} from './phases/var_counting';
 import {phaseVariableOptimization} from './phases/variable_optimization';
+import {phaseGenerateProjectionDef} from './phases/generate_projection_def';
+import {phaseI18nConstCollection} from './phases/i18n_const_collection';
+import {phaseRemoveContentSelectors} from './phases/phase_remove_content_selectors';
 
 type Phase = {
   fn: (job: CompilationJob) => void; kind: Kind.Both | Kind.Host | Kind.Tmpl;
@@ -67,6 +70,7 @@ type Phase = {
 };
 
 const phases: Phase[] = [
+  {kind: Kind.Tmpl, fn: phaseRemoveContentSelectors},
   {kind: Kind.Tmpl, fn: phaseGenerateI18nBlocks},
   {kind: Kind.Tmpl, fn: phaseI18nTextExtraction},
   {kind: Kind.Host, fn: phaseHostStylePropertyParsing},
@@ -81,6 +85,7 @@ const phases: Phase[] = [
   {kind: Kind.Tmpl, fn: phasePipeCreation},
   {kind: Kind.Tmpl, fn: phasePipeVariadic},
   {kind: Kind.Both, fn: phasePureLiteralStructures},
+  {kind: Kind.Tmpl, fn: phaseGenerateProjectionDef},
   {kind: Kind.Tmpl, fn: phaseGenerateVariables},
   {kind: Kind.Tmpl, fn: phaseSaveRestoreView},
   {kind: Kind.Tmpl, fn: phaseFindAnyCasts},
@@ -95,6 +100,7 @@ const phases: Phase[] = [
   {kind: Kind.Tmpl, fn: phaseSlotAllocation},
   {kind: Kind.Tmpl, fn: phaseResolveI18nPlaceholders},
   {kind: Kind.Tmpl, fn: phaseI18nMessageExtraction},
+  {kind: Kind.Tmpl, fn: phaseI18nConstCollection},
   {kind: Kind.Both, fn: phaseConstCollection},
   {kind: Kind.Both, fn: phaseVarCounting},
   {kind: Kind.Tmpl, fn: phaseGenerateAdvance},
