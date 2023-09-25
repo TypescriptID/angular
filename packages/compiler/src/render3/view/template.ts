@@ -33,7 +33,7 @@ import {Identifiers as R3} from '../r3_identifiers';
 import {htmlAstToRender3Ast} from '../r3_template_transform';
 import {prepareSyntheticListenerFunctionName, prepareSyntheticListenerName, prepareSyntheticPropertyName} from '../util';
 
-import {DeferBlockTemplateDependency} from './api';
+import {R3DeferBlockMetadata} from './api';
 import {I18nContext} from './i18n/context';
 import {createGoogleGetMsgStatements} from './i18n/get_msg_utils';
 import {createLocalizeStatements} from './i18n/localize_utils';
@@ -243,7 +243,8 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       private templateIndex: number|null, private templateName: string|null,
       private _namespace: o.ExternalReference, relativeContextFilePath: string,
       private i18nUseExternalIds: boolean,
-      private deferBlocks: Map<t.DeferredBlock, DeferBlockTemplateDependency[]>,
+      private deferBlocks: Map<t.DeferredBlock, R3DeferBlockMetadata>,
+      private elementLocations: Map<t.Element, {index: number, level: number}>,
       private _constants: ComponentDefConsts = createComponentDefConsts()) {
     this._bindingScope = parentBindingScope.nestedScope(level);
 
@@ -665,6 +666,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   visitElement(element: t.Element) {
     const elementIndex = this.allocateDataSlot();
     const stylingBuilder = new StylingBuilder(null);
+    this.elementLocations.set(element, {index: elementIndex, level: this.level});
 
     let isNonBindableMode: boolean = false;
     const isI18nRootElement: boolean =
@@ -943,7 +945,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     const visitor = new TemplateDefinitionBuilder(
         this.constantPool, this._bindingScope, this.level + 1, contextName, this.i18n, index, name,
         this._namespace, this.fileBasedI18nSuffix, this.i18nUseExternalIds, this.deferBlocks,
-        this._constants);
+        this.elementLocations, this._constants);
 
     // Nested templates must not be visited until after their parent templates have completed
     // processing, so they are queued here until after the initial pass. Otherwise, we wouldn't
@@ -1281,6 +1283,12 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
 
   visitDeferredBlock(deferred: t.DeferredBlock): void {
     const {loading, placeholder, error, triggers, prefetchTriggers} = deferred;
+    const metadata = this.deferBlocks.get(deferred);
+
+    if (!metadata) {
+      throw new Error('Could not resolve `defer` block metadata. Block may need to be analyzed.');
+    }
+
     const primaryTemplateIndex =
         this.createEmbeddedTemplateFn(null, deferred.children, '_Defer', deferred.sourceSpan);
     const loadingIndex = loading ?
@@ -1313,7 +1321,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
         deferred.sourceSpan, R3.defer, trimTrailingNulls([
           o.literal(deferredIndex),
           o.literal(primaryTemplateIndex),
-          this.createDeferredDepsFunction(depsFnName, deferred),
+          this.createDeferredDepsFunction(depsFnName, metadata),
           o.literal(loadingIndex),
           o.literal(placeholderIndex),
           o.literal(errorIndex),
@@ -1321,25 +1329,23 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
           placeholderConsts ? this.addToConsts(placeholderConsts) : o.TYPED_NULL_EXPR,
         ]));
 
-    this.createDeferTriggerInstructions(deferredIndex, triggers, false);
-    this.createDeferTriggerInstructions(deferredIndex, prefetchTriggers, true);
+    this.createDeferTriggerInstructions(deferredIndex, triggers, metadata, false);
+    this.createDeferTriggerInstructions(deferredIndex, prefetchTriggers, metadata, true);
 
     // Allocate an extra data slot right after a defer block slot to store
     // instance-specific state of that defer block at runtime.
     this.allocateDataSlot();
   }
 
-  private createDeferredDepsFunction(name: string, deferred: t.DeferredBlock) {
-    const deferredDeps = this.deferBlocks.get(deferred);
-
-    if (!deferredDeps || deferredDeps.length === 0) {
+  private createDeferredDepsFunction(name: string, metadata: R3DeferBlockMetadata) {
+    if (metadata.deps.length === 0) {
       return o.TYPED_NULL_EXPR;
     }
 
     // This defer block has deps for which we need to generate dynamic imports.
     const dependencyExp: o.Expression[] = [];
 
-    for (const deferredDep of deferredDeps) {
+    for (const deferredDep of metadata.deps) {
       if (deferredDep.isDeferrable) {
         // Callback function, e.g. `m () => m.MyCmp;`.
         const innerFn = o.arrowFn(
@@ -1363,7 +1369,8 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   }
 
   private createDeferTriggerInstructions(
-      deferredIndex: number, triggers: t.DeferredBlockTriggers, prefetch: boolean) {
+      deferredIndex: number, triggers: t.DeferredBlockTriggers, metadata: R3DeferBlockMetadata,
+      prefetch: boolean) {
     const {when, idle, immediate, timer, hover, interaction, viewport} = triggers;
 
     // `deferWhen(ctx.someValue)`
@@ -1402,13 +1409,37 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
           hover.sourceSpan, prefetch ? R3.deferPrefetchOnHover : R3.deferOnHover);
     }
 
-    // TODO(crisbeto): currently the reference is passed as a string.
-    // Update this once we figure out how we should refer to the target.
-    // `deferOnInteraction(target)`
+    // TODO: `deferOnInteraction(index, walkUpTimes)`
     if (interaction) {
-      this.creationInstruction(
-          interaction.sourceSpan, prefetch ? R3.deferPrefetchOnInteraction : R3.deferOnInteraction,
-          [o.literal(interaction.reference)]);
+      const instructionRef = prefetch ? R3.deferPrefetchOnInteraction : R3.deferOnInteraction;
+      const triggerEl = metadata.triggerElements.get(interaction);
+
+      // Don't generate anything if a trigger cannot be resolved.
+      // We'll have template diagnostics to surface these to users.
+      if (triggerEl) {
+        this.creationInstruction(interaction.sourceSpan, instructionRef, () => {
+          const location = this.elementLocations.get(triggerEl);
+
+          if (!location) {
+            throw new Error(
+                `Could not determine location of reference passed into ` +
+                `'interaction' trigger. Template may not have been fully analyzed.`);
+          }
+
+          // A negative depth means that the trigger is inside the placeholder.
+          // Cap it at -1 since we only care whether or not it's negative.
+          const depth = Math.max(this.level - location.level, -1);
+          const params = [o.literal(location.index)];
+
+          // The most common case should be a trigger within the view so we can omit a depth of
+          // zero. For triggers in parent views and in the placeholder we need to pass it in.
+          if (depth !== 0) {
+            params.push(o.literal(depth));
+          }
+
+          return params;
+        });
+      }
     }
 
     // TODO(crisbeto): currently the reference is passed as a string.

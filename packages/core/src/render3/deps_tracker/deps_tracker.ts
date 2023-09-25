@@ -25,7 +25,7 @@ import {ComponentDependencies, DepsTrackerApi, NgModuleScope, StandaloneComponen
  *
  * @deprecated For migration purposes only, to be removed soon.
  */
-export const USE_RUNTIME_DEPS_TRACKER_FOR_JIT = false;
+export const USE_RUNTIME_DEPS_TRACKER_FOR_JIT = true;
 
 /**
  * An implementation of DepsTrackerApi which will be used for JIT and local compilation.
@@ -124,11 +124,8 @@ class DepsTracker implements DepsTrackerApi {
 
   /** @override */
   clearScopeCacheFor(type: Type<any>): void {
-    if (isNgModule(type)) {
-      this.ngModulesScopeCache.delete(type);
-    } else if (isComponent(type)) {
-      this.standaloneComponentsScopeCache.delete(type);
-    }
+    this.ngModulesScopeCache.delete(type as NgModuleType);
+    this.standaloneComponentsScopeCache.delete(type as ComponentType<any>);
   }
 
   /** @override */
