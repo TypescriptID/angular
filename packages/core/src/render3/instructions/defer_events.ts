@@ -6,11 +6,17 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {inject, Injector, ɵɵdefineInjectable} from '../../di';
+import {NgZone} from '../../zone';
+
 /** Configuration object used to register passive and capturing events. */
 const eventListenerOptions: AddEventListenerOptions = {
   passive: true,
   capture: true
 };
+
+/** Keeps track of the currently-registered `on hover` triggers. */
+const hoverTriggers = new WeakMap<Element, DeferEventEntry>();
 
 /** Keeps track of the currently-registered `on interaction` triggers. */
 const interactionTriggers = new WeakMap<Element, DeferEventEntry>();
@@ -72,4 +78,106 @@ export function onInteraction(trigger: Element, callback: VoidFunction) {
       }
     }
   };
+}
+
+/**
+ * Registers a hover trigger.
+ * @param trigger Element that is the trigger.
+ * @param callback Callback to be invoked when the trigger is hovered over.
+ */
+export function onHover(trigger: Element, callback: VoidFunction): VoidFunction {
+  let entry = hoverTriggers.get(trigger);
+
+  // If this is the first entry for this element, add the listener.
+  if (!entry) {
+    entry = new DeferEventEntry();
+    trigger.addEventListener('mouseenter', entry.listener, eventListenerOptions);
+    hoverTriggers.set(trigger, entry);
+  }
+
+  entry.callbacks.add(callback);
+
+  return () => {
+    const {callbacks, listener} = entry!;
+    callbacks.delete(callback);
+
+    if (callbacks.size === 0) {
+      trigger.removeEventListener('mouseenter', listener, eventListenerOptions);
+      hoverTriggers.delete(trigger);
+    }
+  };
+}
+
+/**
+ * Registers a viewport trigger.
+ * @param trigger Element that is the trigger.
+ * @param callback Callback to be invoked when the trigger comes into the viewport.
+ * @param injector Injector that can be used by the trigger to resolve DI tokens.
+ */
+export function onViewport(
+    trigger: Element, callback: VoidFunction, injector: Injector): VoidFunction {
+  return injector.get(DeferIntersectionManager).register(trigger, callback);
+}
+
+/** Keeps track of the registered `viewport` triggers. */
+class DeferIntersectionManager {
+  /** @nocollapse */
+  static ɵprov = /** @pureOrBreakMyCode */ ɵɵdefineInjectable({
+    token: DeferIntersectionManager,
+    providedIn: 'root',
+    factory: () => new DeferIntersectionManager(inject(NgZone)),
+  });
+
+  /** `IntersectionObserver` used to observe `viewport` triggers. */
+  private intersectionObserver: IntersectionObserver|null = null;
+
+  /** Number of elements currently observed with `viewport` triggers. */
+  private observedViewportElements = 0;
+
+  /** Currently-registered `viewport` triggers. */
+  private viewportTriggers = new WeakMap<Element, DeferEventEntry>();
+
+  constructor(private ngZone: NgZone) {}
+
+  register(trigger: Element, callback: VoidFunction): VoidFunction {
+    let entry = this.viewportTriggers.get(trigger);
+
+    if (!this.intersectionObserver) {
+      this.intersectionObserver =
+          this.ngZone.runOutsideAngular(() => new IntersectionObserver(this.intersectionCallback));
+    }
+
+    if (!entry) {
+      entry = new DeferEventEntry();
+      this.ngZone.runOutsideAngular(() => this.intersectionObserver!.observe(trigger));
+      this.viewportTriggers.set(trigger, entry);
+      this.observedViewportElements++;
+    }
+
+    entry.callbacks.add(callback);
+
+    return () => {
+      entry!.callbacks.delete(callback);
+
+      if (entry!.callbacks.size === 0) {
+        this.intersectionObserver?.unobserve(trigger);
+        this.viewportTriggers.delete(trigger);
+        this.observedViewportElements--;
+      }
+
+      if (this.observedViewportElements === 0) {
+        this.intersectionObserver?.disconnect();
+        this.intersectionObserver = null;
+      }
+    };
+  }
+
+  private intersectionCallback: IntersectionObserverCallback = entries => {
+    for (const current of entries) {
+      // Only invoke the callbacks if the specific element is intersecting.
+      if (current.isIntersecting && this.viewportTriggers.has(current.target)) {
+        this.ngZone.run(this.viewportTriggers.get(current.target)!.listener);
+      }
+    }
+  }
 }

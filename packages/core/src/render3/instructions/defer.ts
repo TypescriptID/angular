@@ -25,7 +25,7 @@ import {isPlatformBrowser} from '../util/misc_utils';
 import {getConstant, getNativeByIndex, getTNode, removeLViewOnDestroy, storeLViewOnDestroy, walkUpViews} from '../util/view_utils';
 import {addLViewToLContainer, createAndRenderEmbeddedLView, removeLViewFromLContainer, shouldAddViewToDom} from '../view_manipulation';
 
-import {onInteraction} from './defer_events';
+import {onHover, onInteraction, onViewport} from './defer_events';
 import {ɵɵtemplate} from './template';
 
 /**
@@ -158,7 +158,7 @@ export function ɵɵdeferPrefetchWhen(rawValue: unknown) {
 }
 
 /**
- * Sets up handlers that represent `on idle` deferred trigger.
+ * Sets up logic to handle the `on idle` deferred trigger.
  * @codeGenApi
  */
 export function ɵɵdeferOnIdle() {
@@ -174,7 +174,7 @@ export function ɵɵdeferOnIdle() {
 }
 
 /**
- * Creates runtime data structures for the `prefetch on idle` deferred trigger.
+ * Sets up logic to handle the `prefetch on idle` deferred trigger.
  * @codeGenApi
  */
 export function ɵɵdeferPrefetchOnIdle() {
@@ -202,17 +202,39 @@ export function ɵɵdeferPrefetchOnIdle() {
 }
 
 /**
- * Creates runtime data structures for the `on immediate` deferred trigger.
+ * Sets up logic to handle the `on immediate` deferred trigger.
  * @codeGenApi
  */
-export function ɵɵdeferOnImmediate() {}  // TODO: implement runtime logic.
+export function ɵɵdeferOnImmediate() {
+  const lView = getLView();
+  const tNode = getCurrentTNode()!;
+  const tView = lView[TVIEW];
+  const tDetails = getTDeferBlockDetails(tView, tNode);
+
+  // Render placeholder block only if loading template is not present
+  // to avoid content flickering, since it would be immediately replaced
+  // by the loading block.
+  if (tDetails.loadingTmplIndex === null) {
+    renderPlaceholder(lView, tNode);
+  }
+  triggerDeferBlock(lView, tNode);
+}
 
 
 /**
- * Creates runtime data structures for the `prefetch on immediate` deferred trigger.
+ * Sets up logic to handle the `prefetch on immediate` deferred trigger.
  * @codeGenApi
  */
-export function ɵɵdeferPrefetchOnImmediate() {}  // TODO: implement runtime logic.
+export function ɵɵdeferPrefetchOnImmediate() {
+  const lView = getLView();
+  const tNode = getCurrentTNode()!;
+  const tView = lView[TVIEW];
+  const tDetails = getTDeferBlockDetails(tView, tNode);
+
+  if (tDetails.loadingState === DeferDependenciesLoadingState.NOT_STARTED) {
+    triggerResourceLoading(tDetails, lView);
+  }
+}
 
 /**
  * Creates runtime data structures for the `on timer` deferred trigger.
@@ -230,15 +252,37 @@ export function ɵɵdeferPrefetchOnTimer(delay: number) {}  // TODO: implement r
 
 /**
  * Creates runtime data structures for the `on hover` deferred trigger.
+ * @param triggerIndex Index at which to find the trigger element.
+ * @param walkUpTimes Number of times to walk up/down the tree hierarchy to find the trigger.
  * @codeGenApi
  */
-export function ɵɵdeferOnHover() {}  // TODO: implement runtime logic.
+export function ɵɵdeferOnHover(triggerIndex: number, walkUpTimes?: number) {
+  const lView = getLView();
+  const tNode = getCurrentTNode()!;
+
+  renderPlaceholder(lView, tNode);
+  registerDomTrigger(
+      lView, tNode, triggerIndex, walkUpTimes, onHover, () => triggerDeferBlock(lView, tNode));
+}
 
 /**
  * Creates runtime data structures for the `prefetch on hover` deferred trigger.
+ * @param triggerIndex Index at which to find the trigger element.
+ * @param walkUpTimes Number of times to walk up/down the tree hierarchy to find the trigger.
  * @codeGenApi
  */
-export function ɵɵdeferPrefetchOnHover() {}  // TODO: implement runtime logic.
+export function ɵɵdeferPrefetchOnHover(triggerIndex: number, walkUpTimes?: number) {
+  const lView = getLView();
+  const tNode = getCurrentTNode()!;
+  const tView = lView[TVIEW];
+  const tDetails = getTDeferBlockDetails(tView, tNode);
+
+  if (tDetails.loadingState === DeferDependenciesLoadingState.NOT_STARTED) {
+    registerDomTrigger(
+        lView, tNode, triggerIndex, walkUpTimes, onHover,
+        () => triggerPrefetching(tDetails, lView));
+  }
+}
 
 /**
  * Creates runtime data structures for the `on interaction` deferred trigger.
@@ -277,17 +321,37 @@ export function ɵɵdeferPrefetchOnInteraction(triggerIndex: number, walkUpTimes
 
 /**
  * Creates runtime data structures for the `on viewport` deferred trigger.
- * @param target Optional element on which to listen for hover events.
+ * @param triggerIndex Index at which to find the trigger element.
+ * @param walkUpTimes Number of times to walk up/down the tree hierarchy to find the trigger.
  * @codeGenApi
  */
-export function ɵɵdeferOnViewport(target?: unknown) {}  // TODO: implement runtime logic.
+export function ɵɵdeferOnViewport(triggerIndex: number, walkUpTimes?: number) {
+  const lView = getLView();
+  const tNode = getCurrentTNode()!;
+
+  renderPlaceholder(lView, tNode);
+  registerDomTrigger(
+      lView, tNode, triggerIndex, walkUpTimes, onViewport, () => triggerDeferBlock(lView, tNode));
+}
 
 /**
  * Creates runtime data structures for the `prefetch on viewport` deferred trigger.
- * @param target Optional element on which to listen for hover events.
+ * @param triggerIndex Index at which to find the trigger element.
+ * @param walkUpTimes Number of times to walk up/down the tree hierarchy to find the trigger.
  * @codeGenApi
  */
-export function ɵɵdeferPrefetchOnViewport(target?: unknown) {}  // TODO: implement runtime logic.
+export function ɵɵdeferPrefetchOnViewport(triggerIndex: number, walkUpTimes?: number) {
+  const lView = getLView();
+  const tNode = getCurrentTNode()!;
+  const tView = lView[TVIEW];
+  const tDetails = getTDeferBlockDetails(tView, tNode);
+
+  if (tDetails.loadingState === DeferDependenciesLoadingState.NOT_STARTED) {
+    registerDomTrigger(
+        lView, tNode, triggerIndex, walkUpTimes, onViewport,
+        () => triggerPrefetching(tDetails, lView));
+  }
+}
 
 /********** Helper functions **********/
 
