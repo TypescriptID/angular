@@ -259,7 +259,7 @@ class Scope implements Visitor {
  * Usually used via the static `apply()` method.
  */
 class DirectiveBinder<DirectiveT extends DirectiveMeta> implements Visitor {
-  // Indicates whether we are visiting elements within a {#defer} block
+  // Indicates whether we are visiting elements within a `defer` block
   private isInDeferBlock = false;
 
   private constructor(
@@ -797,9 +797,15 @@ export class R3BoundTarget<DirectiveT extends DirectiveMeta> implements BoundTar
 
     const name = trigger.reference;
 
-    // TODO(crisbeto): account for `viewport` trigger without a `reference`.
     if (name === null) {
-      return null;
+      const children = block.placeholder ? block.placeholder.children : null;
+
+      // If the trigger doesn't have a reference, it is inferred as the root element node of the
+      // placeholder, if it only has one root node. Otherwise it's ambiguous so we don't
+      // attempt to resolve further.
+      return children !== null && children.length === 1 && children[0] instanceof Element ?
+          children[0] :
+          null;
     }
 
     const outsideRef = this.findEntityInScope(block, name);

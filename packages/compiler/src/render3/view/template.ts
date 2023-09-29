@@ -1141,16 +1141,15 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   }
 
   visitIfBlock(block: t.IfBlock): void {
+    // Allocate one slot for the result of the expression.
+    this.allocateBindingSlots(null);
+
     // We have to process the block in two steps: once here and again in the update instruction
     // callback in order to generate the correct expressions when pipes or pure functions are
     // used inside the branch expressions.
     const branchData = block.branches.map(({expression, expressionAlias, children, sourceSpan}) => {
-      let processedExpression: AST|null = null;
-
-      if (expression !== null) {
-        processedExpression = expression.visit(this._valueConverter);
-        this.allocateBindingSlots(processedExpression);
-      }
+      const processedExpression =
+          expression === null ? null : expression.visit(this._valueConverter);
 
       // If the branch has an alias, it'll be assigned directly to the container's context.
       // We define a variable referring directly to the context so that any nested usages can be
@@ -1194,7 +1193,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
         if (alias) {
           // If the branch is aliased, we need to assign the expression value to the temporary
           // variable and then pass it into `conditional`. E.g. for the expression:
-          // `{#if foo(); as alias}...{/if}` we have to generate:
+          // `@if (foo(); as alias) {...}` we have to generate:
           // ```
           // let temp;
           // conditional(0, (temp = ctx.foo()) ? 0 : -1, temp);
@@ -1222,23 +1221,19 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   }
 
   visitSwitchBlock(block: t.SwitchBlock): void {
-    // Allocate slots for the primary block expression.
     const blockExpression = block.expression.visit(this._valueConverter);
-    this.allocateBindingSlots(blockExpression);
+    this.allocateBindingSlots(null);  // Allocate a slot for the primary block expression.
 
     // We have to process the block in two steps: once here and again in the update instruction
     // callback in order to generate the correct expressions when pipes or pure functions are used.
     const caseData = block.cases.map(currentCase => {
-      const index = this.createEmbeddedTemplateFn(
-          null, currentCase.children, '_Case', currentCase.sourceSpan);
-      let expression: AST|null = null;
-
-      if (currentCase.expression !== null) {
-        expression = currentCase.expression.visit(this._valueConverter);
-        this.allocateBindingSlots(expression);
-      }
-
-      return {index, expression};
+      return {
+        index: this.createEmbeddedTemplateFn(
+            null, currentCase.children, '_Case', currentCase.sourceSpan),
+        expression: currentCase.expression === null ?
+            null :
+            currentCase.expression.visit(this._valueConverter)
+      };
     });
 
     // Use the index of the first block as the index for the entire container.
@@ -1304,7 +1299,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
         null;
     const placeholderConsts = placeholder && placeholder.minimumTime !== null ?
         // TODO(crisbeto): potentially pass the time directly instead of storing it in the `consts`
-        // since `{:placeholder}` can only have one parameter?
+        // since the placeholder block can only have one parameter?
         o.literalArr([o.literal(placeholder.minimumTime)]) :
         null;
 
@@ -1383,7 +1378,6 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     }
 
     // Note that we generate an implicit `on idle` if the `deferred` block has no triggers.
-    // TODO(crisbeto): decide if this should be baked into the `defer` instruction.
     // `deferOnIdle()`
     if (idle || (!prefetch && Object.keys(triggers).length === 0)) {
       this.creationInstruction(
@@ -2682,7 +2676,7 @@ export interface ParseTemplateOptions {
 
   /**
    * Names of the blocks that should be enabled. E.g. `enabledBlockTypes: new Set(['defer'])`
-   * would allow usages of `{#defer}{/defer}` in templates.
+   * would allow usages of `@defer {}` in templates.
    */
   enabledBlockTypes?: Set<string>;
 }
@@ -2908,6 +2902,10 @@ export function getTranslationDeclStmts(
     message: i18n.Message, variable: o.ReadVarExpr, closureVar: o.ReadVarExpr,
     params: {[name: string]: o.Expression} = {},
     transformFn?: (raw: o.ReadVarExpr) => o.Expression): o.Statement[] {
+  // Sort the map entries in the compiled output. This makes it easy to acheive identical output in
+  // the template pipeline compiler.
+  params = Object.fromEntries(Object.entries(params).sort());
+
   const statements: o.Statement[] = [
     declareI18nVariable(variable),
     o.ifStmt(

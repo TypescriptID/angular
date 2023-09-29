@@ -9,10 +9,11 @@ package(
 )
 
 ts_library(
-    name = "guard-and-resolve-interfaces",
+    name = "block-template-entities",
     srcs = glob(["**/*.ts"]),
     tsconfig = "//packages/core/schematics:tsconfig.json",
     deps = [
+        "//packages/compiler",
         "//packages/core/schematics/utils",
         "@npm//@angular-devkit/schematics",
         "@npm//@types/node",
@@ -29,5 +30,5 @@ esbuild(
     ],
     format = "cjs",
     platform = "node",
-    deps = [":guard-and-resolve-interfaces"],
+    deps = [":block-template-entities"],
 )

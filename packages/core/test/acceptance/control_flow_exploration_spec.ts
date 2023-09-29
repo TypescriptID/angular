@@ -12,20 +12,20 @@ import {Component, Pipe, PipeTransform} from '@angular/core';
 import {TestBed} from '@angular/core/testing';
 
 describe('control flow', () => {
+  // Basic shared pipe used during testing.
+  @Pipe({name: 'multiply', pure: true, standalone: true})
+  class MultiplyPipe implements PipeTransform {
+    transform(value: number, amount: number) {
+      return value * amount;
+    }
+  }
+
   describe('if', () => {
     beforeEach(() => setEnabledBlockTypes(['if']));
     afterEach(() => setEnabledBlockTypes([]));
 
-    // Basic shared pipe used during testing.
-    @Pipe({name: 'multiply', pure: true, standalone: true})
-    class MultiplyPipe implements PipeTransform {
-      transform(value: number, amount: number) {
-        return value * amount;
-      }
-    }
-
     it('should add and remove views based on conditions change', () => {
-      @Component({standalone: true, template: '{#if show}Something{:else}Nothing{/if}'})
+      @Component({standalone: true, template: '@if (show) {Something} @else {Nothing}'})
       class TestComponent {
         show = true;
       }
@@ -43,7 +43,7 @@ describe('control flow', () => {
     it('should expose expression value in context', () => {
       @Component({
         standalone: true,
-        template: '{#if show; as alias}{{show}} aliased to {{alias}}{/if}',
+        template: '@if (show; as alias) {{{show}} aliased to {{alias}}}',
       })
       class TestComponent {
         show: any = true;
@@ -62,11 +62,13 @@ describe('control flow', () => {
       @Component({
         standalone: true,
         template: `
-          {#if value === 1; as alias}
+          @if (value === 1; as alias) {
             If: {{value}} as {{alias || 'unavailable'}}
-            {:else if value === 2} ElseIf: {{value}} as {{alias || 'unavailable'}}
-            {:else} Else: {{value}} as {{alias || 'unavailable'}}
-          {/if}
+          } @else if (value === 2) {
+            ElseIf: {{value}} as {{alias || 'unavailable'}}
+          } @else {
+            Else: {{value}} as {{alias || 'unavailable'}}
+          }
         `,
       })
       class TestComponent {
@@ -91,15 +93,17 @@ describe('control flow', () => {
         standalone: true,
         imports: [MultiplyPipe],
         template: `
-          {#if value | multiply:2; as root}
+          @if (value | multiply:2; as root) {
             Root: {{value}}/{{root}}
-            {#if value | multiply:3; as inner}
+
+            @if (value | multiply:3; as inner) {
               Inner: {{value}}/{{root}}/{{inner}}
-              {#if value | multiply:4; as innermost}
+
+              @if (value | multiply:4; as innermost) {
                 Innermost: {{value}}/{{root}}/{{inner}}/{{innermost}}
-              {/if}
-            {/if}
-          {/if}
+              }
+            }
+          }
         `,
       })
       class TestComponent {
@@ -128,17 +132,17 @@ describe('control flow', () => {
         standalone: true,
         imports: [MultiplyPipe],
         template: `
-          {#if value | multiply:2; as root}
+          @if (value | multiply:2; as root) {
             <button (click)="log(['Root', value, root])"></button>
 
-            {#if value | multiply:3; as inner}
+            @if (value | multiply:3; as inner) {
               <button (click)="log(['Inner', value, root, inner])"></button>
 
-              {#if value | multiply:4; as innermost}
+              @if (value | multiply:4; as innermost) {
                 <button (click)="log(['Innermost', value, root, inner, innermost])"></button>
-              {/if}
-            {/if}
-          {/if}
+              }
+            }
+          }
         `,
       })
       class TestComponent {
@@ -170,7 +174,7 @@ describe('control flow', () => {
     it('should expose expression value passed through a pipe in context', () => {
       @Component({
         standalone: true,
-        template: '{#if value | multiply:2; as alias}{{value}} aliased to {{alias}}{/if}',
+        template: '@if (value | multiply:2; as alias) {{{value}} aliased to {{alias}}}',
         imports: [MultiplyPipe],
       })
       class TestComponent {
@@ -191,7 +195,7 @@ describe('control flow', () => {
     it('should destroy all views if there is nothing to display', () => {
       @Component({
         standalone: true,
-        template: '{#if show}Something{/if}',
+        template: '@if (show) {Something}',
       })
       class TestComponent {
         show = true;
@@ -204,6 +208,38 @@ describe('control flow', () => {
       fixture.componentInstance.show = false;
       fixture.detectChanges();
       expect(fixture.nativeElement.textContent).toBe('');
+    });
+
+    it('should be able to use pipes in conditional expressions', () => {
+      @Component({
+        standalone: true,
+        imports: [MultiplyPipe],
+        template: `
+          @if ((value | multiply:2) === 2) {
+            one
+          } @else if ((value | multiply:2) === 4) {
+            two
+          } @else {
+            nothing
+          }
+        `,
+      })
+      class TestComponent {
+        value = 0;
+      }
+
+      const fixture = TestBed.createComponent(TestComponent);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent.trim()).toBe('nothing');
+
+      fixture.componentInstance.value = 2;
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent.trim()).toBe('two');
+
+      fixture.componentInstance.value = 1;
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent.trim()).toBe('one');
     });
   });
 
@@ -218,11 +254,11 @@ describe('control flow', () => {
       @Component({
         standalone: true,
         template: `
-          {#switch case}
-            {:case 0}case 0
-            {:case 1}case 1
-            {:default}default
-          {/switch}
+          @switch (case) {
+            @case (0) {case 0}
+            @case (1) {case 1}
+            @default {default}
+          }
         `
       })
       class TestComponent {
@@ -232,15 +268,75 @@ describe('control flow', () => {
       const fixture = TestBed.createComponent(TestComponent);
       fixture.detectChanges();
 
-      expect(fixture.nativeElement.textContent).toBe('case 0 ');
+      expect(fixture.nativeElement.textContent).toBe('case 0');
 
       fixture.componentInstance.case = 1;
       fixture.detectChanges();
-      expect(fixture.nativeElement.textContent).toBe('case 1 ');
+      expect(fixture.nativeElement.textContent).toBe('case 1');
 
       fixture.componentInstance.case = 5;
       fixture.detectChanges();
-      expect(fixture.nativeElement.textContent).toBe('default ');
+      expect(fixture.nativeElement.textContent).toBe('default');
+    });
+
+    it('should be able to use a pipe in the switch expression', () => {
+      @Component({
+        standalone: true,
+        imports: [MultiplyPipe],
+        template: `
+          @switch (case | multiply:2) {
+            @case (0) {case 0}
+            @case (2) {case 2}
+            @default {default}
+          }
+        `
+      })
+      class TestComponent {
+        case = 0;
+      }
+
+      const fixture = TestBed.createComponent(TestComponent);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).toBe('case 0');
+
+      fixture.componentInstance.case = 1;
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toBe('case 2');
+
+      fixture.componentInstance.case = 5;
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toBe('default');
+    });
+
+    it('should be able to use a pipe in the case expression', () => {
+      @Component({
+        standalone: true,
+        imports: [MultiplyPipe],
+        template: `
+          @switch (case) {
+            @case (1 | multiply:2) {case 2}
+            @case (2 | multiply:2) {case 4}
+            @default {default}
+          }
+        `
+      })
+      class TestComponent {
+        case = 0;
+      }
+
+      const fixture = TestBed.createComponent(TestComponent);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).toBe('default');
+
+      fixture.componentInstance.case = 4;
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toBe('case 4');
+
+      fixture.componentInstance.case = 2;
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toBe('case 2');
     });
   });
 
@@ -250,7 +346,7 @@ describe('control flow', () => {
 
     it('should create, remove and move views corresponding to items in a collection', () => {
       @Component({
-        template: '{#for (item of items); track item; let idx = $index}{{item}}({{idx}})|{/for}',
+        template: '@for ((item of items); track item; let idx = $index) {{{item}}({{idx}})|}',
       })
       class TestComponent {
         items = [1, 2, 3];
@@ -276,7 +372,7 @@ describe('control flow', () => {
 
     it('should work correctly with trackBy index', () => {
       @Component({
-        template: '{#for (item of items); track idx; let idx = $index}{{item}}({{idx}})|{/for}',
+        template: '@for ((item of items); track idx; let idx = $index) {{{item}}({{idx}})|}',
       })
       class TestComponent {
         items = [1, 2, 3];
@@ -302,7 +398,7 @@ describe('control flow', () => {
 
     it('should support empty blocks', () => {
       @Component({
-        template: '{#for (item of items); track idx; let idx = $index}|{:empty}Empty{/for}',
+        template: '@for ((item of items); track idx; let idx = $index) {|} @empty {Empty}',
       })
       class TestComponent {
         items: number[]|null|undefined = [1, 2, 3];
@@ -336,7 +432,7 @@ describe('control flow', () => {
     it('should have access to the host context in the track function', () => {
       let offsetReads = 0;
 
-      @Component({template: '{#for (item of items); track $index + offset}{{item}}{/for}'})
+      @Component({template: '@for ((item of items); track $index + offset) {{{item}}}'})
       class TestComponent {
         items = ['a', 'b', 'c'];
 
@@ -366,7 +462,7 @@ describe('control flow', () => {
          const calls: string[][] = [];
 
          @Component({
-           template: `{#for (item of items); track trackingFn(item, compProp)}{{item}}{/for}`,
+           template: `@for ((item of items); track trackingFn(item, compProp)) {{{item}}}`,
          })
          class TestComponent {
            items = ['one', 'two', 'three'];
@@ -396,13 +492,13 @@ describe('control flow', () => {
 
          @Component({
            template: `
-            {#if true}
-              {#if true}
-                {#if true}
-                  {#for (item of items); track trackingFn(item, compProp)}{{item}}{/for}
-                {/if}
-              {/if}
-            {/if}
+            @if (true) {
+              @if (true) {
+                @if (true) {
+                  @for ((item of items); track trackingFn(item, compProp)) {{{item}}}
+                }
+              }
+            }
            `,
          })
          class TestComponent {

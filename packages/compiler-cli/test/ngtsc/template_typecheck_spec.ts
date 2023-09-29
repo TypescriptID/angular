@@ -3635,12 +3635,15 @@ suppress
 
           @Component({
             template: \`
-              {#defer}
+              @defer {
                 {{does_not_exist_main}}
-                {:placeholder}{{does_not_exist_placeholder}}
-                {:loading}{{does_not_exist_loading}}
-                {:error}{{does_not_exist_error}}
-              {/defer}
+              } @placeholder {
+                {{does_not_exist_placeholder}}
+              } @loading {
+                {{does_not_exist_loading}}
+              } @error {
+                {{does_not_exist_error}}
+              }
             \`,
             standalone: true,
           })
@@ -3662,7 +3665,7 @@ suppress
 
           @Component({
             template: \`
-              {#defer when isVisible() || does_not_exist}Hello{/defer}
+              @defer (when isVisible() || does_not_exist) {Hello}
             \`,
             standalone: true,
           })
@@ -3685,7 +3688,7 @@ suppress
 
           @Component({
             template: \`
-              {#defer prefetch when isVisible() || does_not_exist}Hello{/defer}
+              @defer (prefetch when isVisible() || does_not_exist) {Hello}
             \`,
             standalone: true,
           })
@@ -3701,6 +3704,48 @@ suppress
           `Property 'does_not_exist' does not exist on type 'Main'.`,
         ]);
       });
+
+      it('should report if a deferred trigger reference does not exist', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: \`
+              @defer (on viewport(does_not_exist)) {Hello}
+            \`,
+            standalone: true,
+          })
+          export class Main {}
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toBe(1);
+        expect(ts.flattenDiagnosticMessageText(diags[0].messageText, ''))
+            .toContain('Trigger cannot find reference "does_not_exist".');
+      });
+
+      it('should report if a deferred trigger reference is in a different embedded view', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: \`
+              @defer (on viewport(trigger)) {Hello}
+
+              <ng-template>
+                <button #trigger></button>
+              </ng-template>
+            \`,
+            standalone: true,
+          })
+          export class Main {}
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toBe(1);
+        expect(ts.flattenDiagnosticMessageText(diags[0].messageText, ''))
+            .toContain('Trigger cannot find reference "trigger".');
+      });
     });
 
     describe('conditional blocks', () => {
@@ -3714,12 +3759,15 @@ suppress
 
           @Component({
             template: \`
-              {#if expr}
+              @if (expr) {
                 {{does_not_exist_main}}
-                {:else if expr1}{{does_not_exist_one}}
-                {:else if expr2}{{does_not_exist_two}}
-                {:else}{{does_not_exist_else}}
-              {/if}
+              } @else if (expr1) {
+                {{does_not_exist_one}}
+              } @else if (expr2) {
+                {{does_not_exist_two}}
+              } @else {
+                {{does_not_exist_else}}
+              }
             \`,
             standalone: true,
           })
@@ -3745,11 +3793,13 @@ suppress
 
           @Component({
             template: \`
-              {#if does_not_exist_main}
+              @if (does_not_exist_main) {
                 main
-                {:else if does_not_exist_one} one
-                {:else if does_not_exist_two} two
-              {/if}
+              } @else if (does_not_exist_one) {
+                one
+              } @else if (does_not_exist_two) {
+                two
+              }
             \`,
             standalone: true,
           })
@@ -3769,7 +3819,9 @@ suppress
           import {Component} from '@angular/core';
 
           @Component({
-            template: \`{#if value === 1; as alias}{{acceptsNumber(alias)}}{/if}\`,
+            template: \`@if (value === 1; as alias) {
+              {{acceptsNumber(alias)}}
+            }\`,
             standalone: true,
           })
           export class Main {
@@ -3793,10 +3845,11 @@ suppress
 
           @Component({
             template: \`
-              {#if value === 0; as alias}
+              @if (value === 0; as alias) {
                 main block
-                {:else} {{alias}}
-              {/if}
+              } @else {
+                {{alias}}
+              }
             \`,
             standalone: true,
           })
@@ -3817,9 +3870,11 @@ suppress
 
           @Component({
             template: \`
-              {#if value === 1; as alias}
-                {#if alias}{{acceptsNumber(alias)}}{/if}
-              {/if}
+              @if (value === 1; as alias) {
+                @if (alias) {
+                  {{acceptsNumber(alias)}}
+                }
+              }
             \`,
             standalone: true,
           })
@@ -3844,10 +3899,11 @@ suppress
 
           @Component({
             template: \`
-              {#if expr === 1}
+              @if (expr === 1) {
                 main block
-                {:else} {{acceptsNumber(expr)}}
-              {/if}
+              } @else {
+                {{acceptsNumber(expr)}}
+              }
             \`,
             standalone: true,
           })
@@ -3872,11 +3928,17 @@ suppress
 
           @Component({
             template: \`
-              {#switch expr}
-                {:case 1}{{does_not_exist_one}}
-                {:case 2}{{does_not_exist_two}}
-                {:default}{{does_not_exist_default}}
-              {/switch}
+              @switch (expr) {
+                @case (1) {
+                  {{does_not_exist_one}}
+                }
+                @case (2) {
+                  {{does_not_exist_two}}
+                }
+                @default {
+                  {{does_not_exist_default}}
+                }
+              }
             \`,
             standalone: true,
           })
@@ -3899,9 +3961,11 @@ suppress
 
           @Component({
             template: \`
-              {#switch does_not_exist_main}
-                {:case does_not_exist_case} One
-              {/switch}
+              @switch (does_not_exist_main) {
+                @case (does_not_exist_case) {
+                  One
+                }
+              }
             \`,
             standalone: true,
           })
@@ -3921,10 +3985,14 @@ suppress
 
           @Component({
             template: \`
-              {#switch expr}
-                {:case 1} One
-                {:default} {{acceptsNumber(expr)}}
-              {/switch}
+              @switch (expr) {
+                @case (1) {
+                  One
+                }
+                @default {
+                  {{acceptsNumber(expr)}}
+                }
+              }
             \`,
             standalone: true,
           })
@@ -3959,10 +4027,11 @@ suppress
 
           @Component({
             template: \`
-              {#for item of items; track item}
+              @for (item of items; track item) {
                 {{does_not_exist_main}}
-                {:empty}{{does_not_exist_empty}}
-              {/for}
+              } @empty {
+                {{does_not_exist_empty}}
+              }
             \`,
           })
           export class Main {
@@ -3982,7 +4051,7 @@ suppress
           import {Component} from '@angular/core';
 
           @Component({
-            template: '{#for item of does_not_exist; track item}hello{/for}',
+            template: '@for (item of does_not_exist; track item) {hello}',
           })
           export class Main {}
         `);
@@ -3998,7 +4067,7 @@ suppress
           import {Component} from '@angular/core';
 
           @Component({
-            template: '{#for item of items; track item}{{acceptsString(item)}}{/for}',
+            template: '@for (item of items; track item) { {{acceptsString(item)}} }',
           })
           export class Main {
             items = [1, 2, 3];
@@ -4021,14 +4090,14 @@ suppress
 
           @Component({
             template: \`
-              {#for item of items; track item}
+              @for (item of items; track item) {
                 {{acceptsString($index)}}
                 {{acceptsString($first)}}
                 {{acceptsString($last)}}
                 {{acceptsString($even)}}
                 {{acceptsString($odd)}}
                 {{acceptsString($count)}}
-              {/for}
+              }
             \`,
           })
           export class Main {
@@ -4057,14 +4126,14 @@ suppress
 
           @Component({
             template: \`
-              {#for item of items; track item; let i = $index, f = $first, l = $last, e = $even, o = $odd, c = $count}
+              @for (item of items; track item; let i = $index, f = $first, l = $last, e = $even, o = $odd, c = $count) {
                 {{acceptsString(i)}}
                 {{acceptsString(f)}}
                 {{acceptsString(l)}}
                 {{acceptsString(e)}}
                 {{acceptsString(o)}}
                 {{acceptsString(c)}}
-              {/for}
+              }
             \`,
           })
           export class Main {
@@ -4093,10 +4162,11 @@ suppress
 
           @Component({
             template: \`
-              {#for item of items; track item}
+              @for (item of items; track item) {
                 Hello
-                {:empty}{{item}} {{$index}}
-              {/for}
+              } @empty {
+                {{item}} {{$index}}
+              }
             \`,
           })
           export class Main {
@@ -4116,7 +4186,7 @@ suppress
           import {Component} from '@angular/core';
 
           @Component({
-            template: '{#for item of items; track item; let alias = $index}{{$index}} {{$count}}{/for}',
+            template: '@for (item of items; track item; let alias = $index) { {{$index}} {{$count}} }',
           })
           export class Main {
             items = [];
@@ -4135,9 +4205,9 @@ suppress
 
           @Component({
             template: \`
-              {#for item of items; track item}
+              @for (item of items; track item) {
                 <button (click)="$index = 1"></button>
-              {/for}
+              }
             \`,
           })
           export class Main {
@@ -4156,7 +4226,7 @@ suppress
           import {Component} from '@angular/core';
 
           @Component({
-            template: '{#for item of items; track does_not_exist}{/for}',
+            template: '@for (item of items; track does_not_exist) {}',
           })
           export class Main {
             items = [];
@@ -4174,7 +4244,7 @@ suppress
           import {Component} from '@angular/core';
 
           @Component({
-            template: '{#for item of items; track trackingFn(item)}{/for}',
+            template: '@for (item of items; track trackingFn(item)) {}',
           })
           export class Main {
             items = [1, 2, 3];
@@ -4196,7 +4266,7 @@ suppress
           import {Component} from '@angular/core';
 
           @Component({
-            template: '{#for item of items; track trackingFn($index)}{/for}',
+            template: '@for (item of items; track trackingFn($index)) {}',
           })
           export class Main {
             items = [];
@@ -4218,7 +4288,7 @@ suppress
           import {Component} from '@angular/core';
 
           @Component({
-            template: '{#for item of items; let i = $index; track trackingFn(i)}{/for}',
+            template: '@for (item of items; let i = $index; track trackingFn(i)) {}',
           })
           export class Main {
             items = [];
@@ -4242,7 +4312,7 @@ suppress
           @Component({
             selector: 'test-cmp',
             standalone: true,
-            template: '{#for item of items; track $index + $count}{/for}',
+            template: '@for (item of items; track $index + $count) {}',
           })
           export class TestCmp {
             items = [];
@@ -4264,7 +4334,7 @@ suppress
               @Component({
                 selector: 'test-cmp',
                 standalone: true,
-                template: '{#for item of items; let c = $count; track $index + c}{/for}',
+                template: '@for (item of items; let c = $count; track $index + c) {}',
               })
               export class TestCmp {
                 items = [];
@@ -4288,7 +4358,7 @@ suppress
               standalone: true,
               template: \`
                 <input #ref/>
-                {#for item of items; track $index + ref.value}{/for}
+                @for (item of items; track $index + ref.value) {}
               \`,
             })
             export class TestCmp {
@@ -4315,7 +4385,7 @@ suppress
                 <input #ref/>
 
                 <ng-template>
-                  {#for item of items; track $index + ref.value}{/for}
+                  @for (item of items; track $index + ref.value) {}
                 </ng-template>
               \`,
             })
@@ -4341,7 +4411,7 @@ suppress
               standalone: true,
               template: \`
                 <ng-template let-foo>
-                  {#for item of items; track $index + foo.value}{/for}
+                  @for (item of items; track $index + foo.value) {}
                 </ng-template>
               \`,
             })
@@ -4365,9 +4435,9 @@ suppress
             selector: 'test-cmp',
             standalone: true,
             template: \`
-              {#for parent of items; track $index}
-                {#for item of parent.items; track parent}{/for}
-              {/for}
+              @for (parent of items; track $index) {
+                @for (item of parent.items; track parent) {}
+              }
             \`,
           })
           export class TestCmp {
@@ -4391,9 +4461,9 @@ suppress
               selector: 'test-cmp',
               standalone: true,
               template: \`
-                {#if expr; as alias}
-                  {#for item of items; track $index + alias}{/for}
-                {/if}
+                @if (expr; as alias) {
+                  @for (item of items; track $index + alias) {}
+                }
               \`,
             })
             export class TestCmp {
@@ -4424,7 +4494,7 @@ suppress
             selector: 'test-cmp',
             standalone: true,
             imports: [TestPipe],
-            template: '{#for item of items; track item | test}{/for}',
+            template: '@for (item of items; track item | test) {}',
           })
           export class TestCmp {
             items = [];

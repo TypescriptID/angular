@@ -1158,7 +1158,7 @@
     "name": "onLeave"
   },
   {
-    "name": "populateDehydratedViewsInContainerImpl"
+    "name": "populateDehydratedViewsInLContainerImpl"
   },
   {
     "name": "processInjectorTypesWithProviders"
@@ -1318,6 +1318,12 @@
   },
   {
     "name": "walkProviderTree"
+  },
+  {
+    "name": "whenStable"
+  },
+  {
+    "name": "whenStableStore"
   },
   {
     "name": "writeDirectClass"
