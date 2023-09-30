@@ -184,6 +184,16 @@ export enum OpKind {
    * The end of an i18n block.
    */
   I18nEnd,
+
+  /**
+   * An expression in an i18n message.
+   */
+  I18nExpression,
+
+  /**
+   * An instruction that applies a set of i18n expressions.
+   */
+  I18nApply,
 }
 
 /**
@@ -294,6 +304,11 @@ export enum ExpressionKind {
    * An expression that will cause a literal slot index to be emitted.
    */
   SlotLiteralExpr,
+
+  /**
+   * A test expression for a conditional op.
+   */
+  ConditionalCase,
 }
 
 /**

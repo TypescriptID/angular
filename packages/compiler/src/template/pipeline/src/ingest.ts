@@ -9,6 +9,7 @@
 import {ConstantPool} from '../../../constant_pool';
 import {SecurityContext} from '../../../core';
 import * as e from '../../../expression_parser/ast';
+import * as i18n from '../../../i18n/i18n_ast';
 import {splitNsName} from '../../../ml_parser/tags';
 import * as o from '../../../output/output_ast';
 import {ParseSourceSpan} from '../../../parse_util';
@@ -16,7 +17,7 @@ import * as t from '../../../render3/r3_ast';
 import {BindingParser} from '../../../template_parser/binding_parser';
 import * as ir from '../ir';
 
-import {ComponentCompilationJob, HostBindingCompilationJob, type CompilationJob, type ViewCompilationUnit, HostBindingCompilationUnit} from './compilation';
+import {ComponentCompilationJob, HostBindingCompilationJob, type CompilationJob, type ViewCompilationUnit} from './compilation';
 import {BINARY_OPERATORS, namespaceForKey} from './conversion';
 
 const compatibilityMode = ir.CompatibilityMode.TemplateDefinitionBuilder;
@@ -122,6 +123,8 @@ function ingestNodes(unit: ViewCompilationUnit, template: t.Node[]): void {
       ingestText(unit, node);
     } else if (node instanceof t.BoundText) {
       ingestBoundText(unit, node);
+    } else if (node instanceof t.IfBlock) {
+      ingestIfBlock(unit, node);
     } else if (node instanceof t.SwitchBlock) {
       ingestSwitchBlock(unit, node);
     } else {
@@ -134,6 +137,11 @@ function ingestNodes(unit: ViewCompilationUnit, template: t.Node[]): void {
  * Ingest an element AST from the template into the given `ViewCompilation`.
  */
 function ingestElement(unit: ViewCompilationUnit, element: t.Element): void {
+  if (element.i18n !== undefined &&
+      !(element.i18n instanceof i18n.Message || element.i18n instanceof i18n.TagPlaceholder)) {
+    throw Error(`Unhandled i18n metadata type for element: ${element.i18n.constructor.name}`);
+  }
+
   const staticAttributes: Record<string, string> = {};
   for (const attr of element.attributes) {
     staticAttributes[attr.name] = attr.value;
@@ -143,22 +151,35 @@ function ingestElement(unit: ViewCompilationUnit, element: t.Element): void {
   const [namespaceKey, elementName] = splitNsName(element.name);
 
   const startOp = ir.createElementStartOp(
-      elementName, id, namespaceForKey(namespaceKey), element.i18n, element.startSourceSpan);
+      elementName, id, namespaceForKey(namespaceKey),
+      element.i18n instanceof i18n.TagPlaceholder ? element.i18n : undefined,
+      element.startSourceSpan);
   unit.create.push(startOp);
 
   ingestBindings(unit, startOp, element);
   ingestReferences(startOp, element);
   ingestNodes(unit, element.children);
 
-  unit.create.push(ir.createElementEndOp(id, element.endSourceSpan));
+  const endOp = ir.createElementEndOp(id, element.endSourceSpan);
+  unit.create.push(endOp);
+
+  // If there is an i18n message associated with this element, insert i18n start and end ops.
+  if (element.i18n instanceof i18n.Message) {
+    const i18nBlockId = unit.job.allocateXrefId();
+    ir.OpList.insertAfter<ir.CreateOp>(ir.createI18nStartOp(i18nBlockId, element.i18n), startOp);
+    ir.OpList.insertBefore<ir.CreateOp>(ir.createI18nEndOp(i18nBlockId), endOp);
+  }
 }
 
 /**
  * Ingest an `ng-template` node from the AST into the given `ViewCompilation`.
  */
 function ingestTemplate(unit: ViewCompilationUnit, tmpl: t.Template): void {
-  const childView = unit.job.allocateView(unit.xref);
+  if (tmpl.i18n !== undefined && !(tmpl.i18n instanceof i18n.Message)) {
+    throw Error(`Unhandled i18n metadata type for template: ${tmpl.i18n.constructor.name}`);
+  }
 
+  const childView = unit.job.allocateView(unit.xref);
 
   let tagNameWithoutNamespace = tmpl.tagName;
   let namespacePrefix: string|null = '';
@@ -169,7 +190,7 @@ function ingestTemplate(unit: ViewCompilationUnit, tmpl: t.Template): void {
   // TODO: validate the fallback tag name here.
   const tplOp = ir.createTemplateOp(
       childView.xref, tagNameWithoutNamespace ?? 'ng-template', namespaceForKey(namespacePrefix),
-      false, tmpl.i18n, tmpl.startSourceSpan);
+      false, tmpl.startSourceSpan);
   unit.create.push(tplOp);
 
   ingestBindings(unit, tplOp, tmpl);
@@ -178,6 +199,13 @@ function ingestTemplate(unit: ViewCompilationUnit, tmpl: t.Template): void {
 
   for (const {name, value} of tmpl.variables) {
     childView.contextVariables.set(name, value);
+  }
+
+  // If there is an i18n message associated with this template, insert i18n start and end ops.
+  if (tmpl.i18n instanceof i18n.Message) {
+    const id = unit.job.allocateXrefId();
+    ir.OpList.insertAfter(ir.createI18nStartOp(id, tmpl.i18n), childView.create.head);
+    ir.OpList.insertBefore(ir.createI18nEndOp(id), childView.create.tail);
   }
 }
 
@@ -213,6 +241,15 @@ function ingestBoundText(unit: ViewCompilationUnit, text: t.BoundText): void {
     throw new Error(
         `AssertionError: expected Interpolation for BoundText node, got ${value.constructor.name}`);
   }
+  if (text.i18n !== undefined && !(text.i18n instanceof i18n.Container)) {
+    throw Error(
+        `Unhandled i18n metadata type for text interpolation: ${text.i18n.constructor.name}`);
+  }
+
+  const i18nPlaceholders = text.i18n instanceof i18n.Container ?
+      text.i18n.children.filter(
+          (node): node is i18n.Placeholder => node instanceof i18n.Placeholder) :
+      [];
 
   const textXref = unit.job.allocateXrefId();
   unit.create.push(ir.createTextOp(textXref, '', text.sourceSpan));
@@ -224,29 +261,58 @@ function ingestBoundText(unit: ViewCompilationUnit, text: t.BoundText): void {
       textXref,
       new ir.Interpolation(
           value.strings, value.expressions.map(expr => convertAst(expr, unit.job, baseSourceSpan))),
-      text.sourceSpan));
+      i18nPlaceholders, text.sourceSpan));
 }
 
 /**
- * Ingest a `@switch` block into the given `ViewCompilation`.
+ * Ingest an `@if` block into the given `ViewCompilation`.
+ */
+function ingestIfBlock(unit: ViewCompilationUnit, ifBlock: t.IfBlock): void {
+  let firstXref: ir.XrefId|null = null;
+  let conditions: Array<ir.ConditionalCaseExpr> = [];
+  for (const ifCase of ifBlock.branches) {
+    const cView = unit.job.allocateView(unit.xref);
+    if (ifCase.expressionAlias !== null) {
+      cView.contextVariables.set(ifCase.expressionAlias.name, ir.CTX_REF);
+    }
+    if (firstXref === null) {
+      firstXref = cView.xref;
+    }
+    unit.create.push(
+        ir.createTemplateOp(cView.xref, 'Conditional', ir.Namespace.HTML, true, ifCase.sourceSpan));
+    const caseExpr = ifCase.expression ? convertAst(ifCase.expression, unit.job, null) : null;
+    const conditionalCaseExpr =
+        new ir.ConditionalCaseExpr(caseExpr, cView.xref, ifCase.expressionAlias);
+    conditions.push(conditionalCaseExpr);
+    ingestNodes(cView, ifCase.children);
+  }
+  const conditional = ir.createConditionalOp(firstXref!, null, conditions, ifBlock.sourceSpan);
+  unit.update.push(conditional);
+}
+
+/**
+ * Ingest an `@switch` block into the given `ViewCompilation`.
  */
 function ingestSwitchBlock(unit: ViewCompilationUnit, switchBlock: t.SwitchBlock): void {
   let firstXref: ir.XrefId|null = null;
-  let conditions: Array<[ir.XrefId, o.Expression | null]> = [];
+  let conditions: Array<ir.ConditionalCaseExpr> = [];
   for (const switchCase of switchBlock.cases) {
     const cView = unit.job.allocateView(unit.xref);
-    if (!firstXref) firstXref = cView.xref;
+    if (firstXref === null) {
+      firstXref = cView.xref;
+    }
     unit.create.push(
-        ir.createTemplateOp(cView.xref, 'Case', ir.Namespace.HTML, true, undefined, null!));
+        ir.createTemplateOp(cView.xref, 'Case', ir.Namespace.HTML, true, switchCase.sourceSpan));
     const caseExpr = switchCase.expression ?
         convertAst(switchCase.expression, unit.job, switchBlock.startSourceSpan) :
         null;
-    conditions.push([cView.xref, caseExpr]);
+    const conditionalCaseExpr = new ir.ConditionalCaseExpr(caseExpr, cView.xref);
+    conditions.push(conditionalCaseExpr);
     ingestNodes(cView, switchCase.children);
   }
   const conditional = ir.createConditionalOp(
-      firstXref!, convertAst(switchBlock.expression, unit.job, switchBlock.startSourceSpan), null!);
-  conditional.conditions = conditions;
+      firstXref!, convertAst(switchBlock.expression, unit.job, null), conditions,
+      switchBlock.sourceSpan);
   unit.update.push(conditional);
 }
 

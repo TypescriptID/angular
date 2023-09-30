@@ -87,7 +87,7 @@ function reifyCreateOperations(unit: CompilationUnit, ops: ir.OpList<ir.CreateOp
         ir.OpList.replace(op, ng.i18nEnd());
         break;
       case ir.OpKind.I18n:
-        ir.OpList.replace(op, ng.i18n(op.slot as number));
+        ir.OpList.replace(op, ng.i18n(op.slot as number, op.messageIndex!));
         break;
       case ir.OpKind.Template:
         if (!(unit instanceof ViewCompilationUnit)) {
@@ -213,6 +213,12 @@ function reifyUpdateOperations(_unit: CompilationUnit, ops: ir.OpList<ir.UpdateO
           ir.OpList.replace(op, ng.classMap(op.expression, op.sourceSpan));
         }
         break;
+      case ir.OpKind.I18nExpression:
+        ir.OpList.replace(op, ng.i18nExp(op.expression, op.sourceSpan));
+        break;
+      case ir.OpKind.I18nApply:
+        ir.OpList.replace(op, ng.i18nApply(op.slot!, op.sourceSpan));
+        break;
       case ir.OpKind.InterpolateText:
         ir.OpList.replace(
             op,
@@ -257,7 +263,8 @@ function reifyUpdateOperations(_unit: CompilationUnit, ops: ir.OpList<ir.UpdateO
         if (op.slot === null) {
           throw new Error(`Conditional slot was not set.`);
         }
-        ir.OpList.replace(op, ng.conditional(op.slot, op.processed));
+        ir.OpList.replace(
+            op, ng.conditional(op.slot, op.processed, op.contextValue, op.sourceSpan));
         break;
       case ir.OpKind.Statement:
         // Pass statement operations directly through.

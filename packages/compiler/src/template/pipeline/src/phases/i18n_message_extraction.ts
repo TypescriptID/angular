@@ -33,19 +33,19 @@ export function phaseI18nMessageExtraction(job: ComponentCompilationJob): void {
       job.relativeContextFilePath.replace(/[^A-Za-z0-9]/g, '_').toUpperCase() + '_';
   for (const unit of job.units) {
     for (const op of unit.create) {
-      if (op.kind === ir.OpKind.I18nStart && op.i18n instanceof i18n.Message) {
+      if ((op.kind === ir.OpKind.I18nStart || op.kind === ir.OpKind.I18n)) {
         // Sort the params map to match the ordering in TemplateDefinitionBuilder.
-        const params = Object.fromEntries(Object.entries(op.tagNameParams).sort());
+        const params = new Map([...op.params.entries()].sort());
 
         const mainVar = o.variable(job.pool.uniqueName(TRANSLATION_VAR_PREFIX));
         // Closure Compiler requires const names to start with `MSG_` but disallows any other const
         // to start with `MSG_`. We define a variable starting with `MSG_` just for the
         // `goog.getMsg` call
         const closureVar = i18nGenerateClosureVar(
-            job.pool, op.i18n.id, fileBasedI18nSuffix, job.i18nUseExternalIds);
+            job.pool, op.message.id, fileBasedI18nSuffix, job.i18nUseExternalIds);
         // TODO: figure out transformFn.
         const statements = getTranslationDeclStmts(
-            op.i18n, mainVar, closureVar, params, undefined /*transformFn*/);
+            op.message, mainVar, closureVar, params, undefined /*transformFn*/);
         unit.create.push(ir.createExtractedMessageOp(op.xref, mainVar, statements));
       }
     }
@@ -80,15 +80,17 @@ export function phaseI18nMessageExtraction(job: ComponentCompilationJob): void {
  */
 function getTranslationDeclStmts(
     message: i18n.Message, variable: o.ReadVarExpr, closureVar: o.ReadVarExpr,
-    params: {[name: string]: o.Expression} = {},
+    params: Map<string, o.Expression>,
     transformFn?: (raw: o.ReadVarExpr) => o.Expression): o.Statement[] {
+  const paramsObject = Object.fromEntries(params);
   const statements: o.Statement[] = [
     declareI18nVariable(variable),
     o.ifStmt(
         createClosureModeGuard(),
-        createGoogleGetMsgStatements(variable, message, closureVar, params),
+        createGoogleGetMsgStatements(variable, message, closureVar, paramsObject),
         createLocalizeStatements(
-            variable, message, formatI18nPlaceholderNamesInMap(params, /* useCamelCase */ false))),
+            variable, message,
+            formatI18nPlaceholderNamesInMap(paramsObject, /* useCamelCase */ false))),
   ];
 
   if (transformFn) {

@@ -203,8 +203,8 @@ export function i18nStart(slot: number, constIndex: number): ir.CreateOp {
   return call(Identifiers.i18nStart, [o.literal(slot), o.literal(constIndex)], null);
 }
 
-export function i18n(slot: number): ir.CreateOp {
-  return call(Identifiers.i18n, [o.literal(slot)], null);
+export function i18n(slot: number, constIndex: number): ir.CreateOp {
+  return call(Identifiers.i18n, [o.literal(slot), o.literal(constIndex)], null);
 }
 
 export function i18nEnd(): ir.CreateOp {
@@ -303,6 +303,13 @@ export function textInterpolate(
   return callVariadicInstruction(TEXT_INTERPOLATE_CONFIG, [], interpolationArgs, [], sourceSpan);
 }
 
+export function i18nExp(expr: o.Expression, sourceSpan: ParseSourceSpan|null): ir.UpdateOp {
+  return call(Identifiers.i18nExp, [expr], sourceSpan);
+}
+
+export function i18nApply(slot: number, sourceSpan: ParseSourceSpan|null): ir.UpdateOp {
+  return call(Identifiers.i18nApply, [o.literal(slot)], sourceSpan);
+}
 
 export function propertyInterpolate(
     name: string, strings: string[], expressions: o.Expression[], sanitizer: o.Expression|null,
@@ -413,8 +420,14 @@ function call<OpT extends ir.CreateOp|ir.UpdateOp>(
   return ir.createStatementOp(new o.ExpressionStatement(expr, sourceSpan)) as OpT;
 }
 
-export function conditional(slot: number, condition: o.Expression): ir.UpdateOp {
-  return call(Identifiers.conditional, [o.literal(slot), condition], null);
+export function conditional(
+    slot: number, condition: o.Expression, contextValue: o.Expression|null,
+    sourceSpan: ParseSourceSpan|null): ir.UpdateOp {
+  const args = [o.literal(slot), condition];
+  if (contextValue !== null) {
+    args.push(contextValue);
+  }
+  return call(Identifiers.conditional, args, sourceSpan);
 }
 
 /**
