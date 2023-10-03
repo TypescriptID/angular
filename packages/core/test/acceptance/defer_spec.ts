@@ -8,7 +8,7 @@
 
 import {ɵPLATFORM_BROWSER_ID as PLATFORM_BROWSER_ID} from '@angular/common';
 import {ɵsetEnabledBlockTypes as setEnabledBlockTypes} from '@angular/compiler/src/jit_compiler_facade';
-import {Component, Input, PLATFORM_ID, QueryList, Type, ViewChildren, ɵDEFER_BLOCK_DEPENDENCY_INTERCEPTOR} from '@angular/core';
+import {Component, Input, NgZone, PLATFORM_ID, QueryList, Type, ViewChildren, ɵDEFER_BLOCK_DEPENDENCY_INTERCEPTOR} from '@angular/core';
 import {getComponentDef} from '@angular/core/src/render3/definition';
 import {DeferBlockBehavior, fakeAsync, flush, TestBed} from '@angular/core/testing';
 
@@ -633,6 +633,7 @@ describe('@defer', () => {
         (callback: IdleRequestCallback, options?: IdleRequestOptions): number => {
           onIdleCallbackQueue.push(callback);
           expect(idleCallbacksRequested).toBe(0);
+          expect(NgZone.isInAngularZone()).toBe(true);
           idleCallbacksRequested++;
           return 0;
         };
@@ -900,8 +901,7 @@ describe('@defer', () => {
       expect(fixture.nativeElement.outerHTML).toContain('Rendering primary block');
     });
 
-    // TODO(akushnir): investigate why this test is flaky, fix and re-enable.
-    xit('should support `prefetch on idle` condition', async () => {
+    it('should support `prefetch on idle` condition', async () => {
       @Component({
         selector: 'nested-cmp',
         standalone: true,
@@ -981,8 +981,7 @@ describe('@defer', () => {
       expect(loadingFnInvokedTimes).toBe(1);
     });
 
-    // TODO(akushnir): investigate why this test is flaky, fix and re-enable.
-    xit('should trigger prefetching based on `on idle` only once', async () => {
+    it('should trigger prefetching based on `on idle` only once', async () => {
       @Component({
         selector: 'nested-cmp',
         standalone: true,
@@ -1066,8 +1065,7 @@ describe('@defer', () => {
       expect(loadingFnInvokedTimes).toBe(1);
     });
 
-    // TODO(akushnir): investigate why this test is flaky, fix and re-enable.
-    xit('should trigger fetching based on `on idle` only once', async () => {
+    it('should trigger fetching based on `on idle` only once', async () => {
       @Component({
         selector: 'nested-cmp',
         standalone: true,
@@ -1227,6 +1225,7 @@ describe('@defer', () => {
         template: 'Primary block content.',
       })
       class NestedCmp {
+        @Input() block!: string;
       }
 
       @Component({
@@ -1403,6 +1402,7 @@ describe('@defer', () => {
         template: 'Primary block content.',
       })
       class NestedCmp {
+        @Input() block!: string;
       }
 
       @Component({
@@ -1956,6 +1956,32 @@ describe('@defer', () => {
          expect(spy).toHaveBeenCalledWith('keydown', jasmine.any(Function), jasmine.any(Object));
        }));
 
+    it('should bind the trigger events inside the NgZone', fakeAsync(() => {
+         @Component({
+           standalone: true,
+           template: `
+           @defer (on interaction(trigger)) {
+             Main content
+           }
+
+           <button #trigger></button>
+         `
+         })
+         class MyCmp {
+         }
+
+         const eventsInZone: Record<string, boolean> = {};
+         const fixture = TestBed.createComponent(MyCmp);
+         const button = fixture.nativeElement.querySelector('button');
+
+         spyOn(button, 'addEventListener').and.callFake((name: string) => {
+           eventsInZone[name] = NgZone.isInAngularZone();
+         });
+         fixture.detectChanges();
+
+         expect(eventsInZone).toEqual({click: true, keydown: true});
+       }));
+
     it('should prefetch resources on interaction', fakeAsync(() => {
          @Component({
            standalone: true,
@@ -2252,6 +2278,32 @@ describe('@defer', () => {
 
          expect(spy).toHaveBeenCalledTimes(1);
          expect(spy).toHaveBeenCalledWith('mouseenter', jasmine.any(Function), jasmine.any(Object));
+       }));
+
+    it('should bind the trigger events inside the NgZone', fakeAsync(() => {
+         @Component({
+           standalone: true,
+           template: `
+          @defer (on hover(trigger)) {
+            Main content
+          }
+
+          <button #trigger></button>
+        `
+         })
+         class MyCmp {
+         }
+
+         const eventsInZone: Record<string, boolean> = {};
+         const fixture = TestBed.createComponent(MyCmp);
+         const button = fixture.nativeElement.querySelector('button');
+
+         spyOn(button, 'addEventListener').and.callFake((name: string) => {
+           eventsInZone[name] = NgZone.isInAngularZone();
+         });
+         fixture.detectChanges();
+
+         expect(eventsInZone).toEqual({mouseenter: true});
        }));
 
     it('should prefetch resources on hover', fakeAsync(() => {
