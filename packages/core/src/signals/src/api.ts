@@ -20,8 +20,6 @@ export const SIGNAL = /* @__PURE__ */ Symbol('SIGNAL');
  * call it.
  *
  * Ordinary values can be turned into `Signal`s with the `signal` function.
- *
- * @developerPreview
  */
 export type Signal<T> = (() => T)&{
   [SIGNAL]: unknown;
@@ -29,8 +27,6 @@ export type Signal<T> = (() => T)&{
 
 /**
  * Checks if the given `value` is a reactive `Signal`.
- *
- * @developerPreview
  */
 export function isSignal(value: unknown): value is Signal<unknown> {
   return typeof value === 'function' && (value as Signal<unknown>)[SIGNAL] !== undefined;
@@ -38,8 +34,6 @@ export function isSignal(value: unknown): value is Signal<unknown> {
 
 /**
  * A comparison function which can determine if two values are equal.
- *
- * @developerPreview
  */
 export type ValueEqualityFn<T> = (a: T, b: T) => boolean;
 
@@ -49,14 +43,7 @@ export type ValueEqualityFn<T> = (a: T, b: T) => boolean;
  *
  * This allows signals to hold non-primitive values (arrays, objects, other collections) and still
  * propagate change notification upon explicit mutation without identity change.
- *
- * @developerPreview
  */
 export function defaultEquals<T>(a: T, b: T) {
-  // `Object.is` compares two values using identity semantics which is desired behavior for
-  // primitive values. If `Object.is` determines two values to be equal we need to make sure that
-  // those don't represent objects (we want to make sure that 2 objects are always considered
-  // "unequal"). The null check is needed for the special case of JavaScript reporting null values
-  // as objects (`typeof null === 'object'`).
-  return (a === null || typeof a !== 'object') && Object.is(a, b);
+  return Object.is(a, b);
 }

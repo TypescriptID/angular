@@ -129,6 +129,9 @@ export function asNativeElements(debugEls: DebugElement[]): any;
 export function assertInInjectionContext(debugFn: Function): void;
 
 // @public
+export function assertNotInReactiveContext(debugFn: Function, extraContext?: string): void;
+
+// @public
 export function assertPlatform(requiredToken: any): PlatformRef;
 
 // @public
@@ -1626,7 +1629,6 @@ export abstract class ViewRef extends ChangeDetectorRef {
 // @public
 export interface WritableSignal<T> extends Signal<T> {
     asReadonly(): Signal<T>;
-    mutate(mutatorFn: (value: T) => void): void;
     set(value: T): void;
     update(updateFn: (value: T) => T): void;
 }

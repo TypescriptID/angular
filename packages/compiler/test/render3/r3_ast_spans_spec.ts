@@ -204,6 +204,10 @@ class R3AstSourceSpans implements t.Visitor<void> {
     this.visitAll([block.children]);
   }
 
+  visitUnknownBlock(block: t.UnknownBlock): void {
+    this.result.push(['UnknownBlock', humanizeSpan(block.sourceSpan)]);
+  }
+
   private visitAll(nodes: t.Node[][]) {
     nodes.forEach(node => t.visitAll(this, node));
   }
@@ -216,9 +220,8 @@ function humanizeSpan(span: ParseSourceSpan|null|undefined): string {
   return span.toString();
 }
 
-function expectFromHtml(html: string, enabledBlockTypes?: string[]) {
-  const res = parse(html, {enabledBlockTypes});
-  return expectFromR3Nodes(res.nodes);
+function expectFromHtml(html: string) {
+  return expectFromR3Nodes(parse(html).nodes);
 }
 
 function expectFromR3Nodes(nodes: t.Node[]) {
@@ -617,10 +620,10 @@ describe('R3 AST source spans', () => {
           '@placeholder (minimum 500) {Placeholder content!}' +
           '@error {Loading failed :(}';
 
-      expectFromHtml(html, ['defer']).toEqual([
+      expectFromHtml(html).toEqual([
         [
           'DeferredBlock',
-          '@defer (when isVisible() && foo; on hover(button), timer(10s), idle, immediate, interaction(button), viewport(container); prefetch on immediate; prefetch when isDataLoaded()) {<calendar-cmp [date]="current"/>}',
+          '@defer (when isVisible() && foo; on hover(button), timer(10s), idle, immediate, interaction(button), viewport(container); prefetch on immediate; prefetch when isDataLoaded()) {<calendar-cmp [date]="current"/>}@loading (minimum 1s; after 100ms) {Loading...}@placeholder (minimum 500) {Placeholder content!}@error {Loading failed :(}',
           '@defer (when isVisible() && foo; on hover(button), timer(10s), idle, immediate, interaction(button), viewport(container); prefetch on immediate; prefetch when isDataLoaded()) {',
           '}'
         ],
@@ -663,7 +666,7 @@ describe('R3 AST source spans', () => {
           `@default {No case matched}` +
           `}`;
 
-      expectFromHtml(html, ['switch']).toEqual([
+      expectFromHtml(html).toEqual([
         [
           'SwitchBlock',
           '@switch (cond.kind) {@case (x()) {X case}@case (\'hello\') {Y case}@case (42) {Z case}@default {No case matched}}',
@@ -686,9 +689,10 @@ describe('R3 AST source spans', () => {
       const html = `@for (item of items.foo.bar; track item.id) {<h1>{{ item }}</h1>}` +
           `@empty {There were no items in the list.}`;
 
-      expectFromHtml(html, ['for']).toEqual([
+      expectFromHtml(html).toEqual([
         [
-          'ForLoopBlock', '@for (item of items.foo.bar; track item.id) {<h1>{{ item }}</h1>}',
+          'ForLoopBlock',
+          '@for (item of items.foo.bar; track item.id) {<h1>{{ item }}</h1>}@empty {There were no items in the list.}',
           '@for (item of items.foo.bar; track item.id) {', '}'
         ],
         ['Element', '<h1>{{ item }}</h1>', '<h1>', '</h1>'],
@@ -705,10 +709,11 @@ describe('R3 AST source spans', () => {
           `@else if (other.expr) {Extra case was true!}` +
           `@else {False case!}`;
 
-      expectFromHtml(html, ['if']).toEqual([
+      expectFromHtml(html).toEqual([
         [
-          'IfBlock', '@if (cond.expr; as foo) {Main case was true!}', '@if (cond.expr; as foo) {',
-          '}'
+          'IfBlock',
+          '@if (cond.expr; as foo) {Main case was true!}@else if (other.expr) {Extra case was true!}@else {False case!}',
+          '@if (cond.expr; as foo) {', '}'
         ],
         [
           'IfBlockBranch', '@if (cond.expr; as foo) {Main case was true!}',

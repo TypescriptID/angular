@@ -90,9 +90,9 @@ export interface TokenizeOptions {
    */
   preserveLineEndings?: boolean;
 
-  // TODO(crisbeto): temporary option to limit access to the block syntax.
   /**
-   * Whether the block syntax is enabled at the compiler level.
+   * Whether to tokenize @ block syntax. Otherwise considered text,
+   * or ICU tokens if `tokenizeExpansionForms` is enabled.
    */
   tokenizeBlocks?: boolean;
 }
@@ -166,7 +166,7 @@ class _Tokenizer {
                                            new PlainCharacterCursor(_file, range);
     this._preserveLineEndings = options.preserveLineEndings || false;
     this._i18nNormalizeLineEndingsInICUs = options.i18nNormalizeLineEndingsInICUs || false;
-    this._tokenizeBlocks = options.tokenizeBlocks || false;
+    this._tokenizeBlocks = options.tokenizeBlocks ?? true;
     try {
       this._cursor.init();
     } catch (e) {
@@ -244,7 +244,8 @@ class _Tokenizer {
 
   private _consumeBlockStart(start: CharacterCursor) {
     this._beginToken(TokenType.BLOCK_OPEN_START, start);
-    this._endToken([this._getBlockName()]);
+    const startToken = this._endToken([this._getBlockName()]);
+
     if (this._cursor.peek() === chars.$LPAREN) {
       // Advance past the opening paren.
       this._cursor.advance();
@@ -252,14 +253,22 @@ class _Tokenizer {
       this._consumeBlockParameters();
       // Allow spaces before the closing paren.
       this._attemptCharCodeUntilFn(isNotWhitespace);
-      // Skip over the closing paren.
-      this._requireCharCode(chars.$RPAREN);
-      // Allow spaces after the paren.
-      this._attemptCharCodeUntilFn(isNotWhitespace);
+
+      if (this._attemptCharCode(chars.$RPAREN)) {
+        // Allow spaces after the paren.
+        this._attemptCharCodeUntilFn(isNotWhitespace);
+      } else {
+        startToken.type = TokenType.INCOMPLETE_BLOCK_OPEN;
+        return;
+      }
     }
-    this._beginToken(TokenType.BLOCK_OPEN_END);
-    this._requireCharCode(chars.$LBRACE);
-    this._endToken([]);
+
+    if (this._attemptCharCode(chars.$LBRACE)) {
+      this._beginToken(TokenType.BLOCK_OPEN_END);
+      this._endToken([]);
+    } else {
+      startToken.type = TokenType.INCOMPLETE_BLOCK_OPEN;
+    }
   }
 
   private _consumeBlockEnd(start: CharacterCursor) {

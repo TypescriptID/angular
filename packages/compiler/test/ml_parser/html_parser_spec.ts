@@ -240,23 +240,6 @@ import {humanizeDom, humanizeDomSourceSpans, humanizeLineColumn, humanizeNodes} 
           ]);
           expect(parsed.errors).toEqual([]);
         });
-
-        it('should treat prematurely terminated interpolation as text', () => {
-          const {errors, rootNodes} =
-              parser.parse('<div><span>x {{ expr }<!---->} y</span><div></div></div>', 'TestComp');
-          expect(humanizeNodes(rootNodes, true)).toEqual([
-            [
-              html.Element, 'div', 0, '<div><span>x {{ expr }<!---->} y</span><div></div></div>',
-              '<div>', '</div>'
-            ],
-            [html.Element, 'span', 1, '<span>x {{ expr }<!---->} y</span>', '<span>', '</span>'],
-            [html.Text, 'x {{ expr }', 2, ['x '], ['{{', ' expr }'], [''], 'x {{ expr }'],
-            [html.Comment, '', 2, '<!---->'],
-            [html.Text, '} y', 2, ['} y'], '} y'],
-            [html.Element, 'div', 1, '<div></div>', '<div>', '</div>'],
-          ]);
-          expect(errors).toEqual([]);
-        });
       });
 
       describe('attributes', () => {
@@ -760,15 +743,8 @@ import {humanizeDom, humanizeDomSourceSpans, humanizeLineColumn, humanizeNodes} 
       });
 
       describe('blocks', () => {
-        // TODO(crisbeto): temporary utility while blocks are disabled by default.
-        const options = {tokenizeBlocks: true};
-
-        function humanizeBlocks(input: string): any[] {
-          return humanizeDom(parser.parse(input, 'TestComp', options));
-        }
-
         it('should parse a block', () => {
-          expect(humanizeBlocks('@foo (a b; c d){hello}')).toEqual([
+          expect(humanizeDom(parser.parse('@foo (a b; c d){hello}', 'TestComp'))).toEqual([
             [html.Block, 'foo', 0],
             [html.BlockParameter, 'a b'],
             [html.BlockParameter, 'c d'],
@@ -777,20 +753,20 @@ import {humanizeDom, humanizeDomSourceSpans, humanizeLineColumn, humanizeNodes} 
         });
 
         it('should parse a block with an HTML element', () => {
-          expect(humanizeBlocks('@defer {<my-cmp/>}')).toEqual([
+          expect(humanizeDom(parser.parse('@defer {<my-cmp/>}', 'TestComp'))).toEqual([
             [html.Block, 'defer', 0],
             [html.Element, 'my-cmp', 1],
           ]);
         });
 
         it('should parse a block containing mixed plain text and HTML', () => {
-          expect(humanizeBlocks(
+          expect(humanizeDom(parser.parse(
                      '@switch (expr) {' +
                          '@case (1) {hello<my-cmp/>there}' +
                          '@case (two) {<p>Two...</p>}' +
                          '@case (isThree(3)) {T<strong>htr<i>e</i>e</strong>!}' +
                          '}',
-                     ))
+                     'TestComp')))
               .toEqual([
                 [html.Block, 'switch', 0],
                 [html.BlockParameter, 'expr'],
@@ -844,7 +820,7 @@ import {humanizeDom, humanizeDomSourceSpans, humanizeLineColumn, humanizeNodes} 
             `} <root-sibling-two/>`;
           // clang-format on
 
-          expect(humanizeBlocks(markup)).toEqual([
+          expect(humanizeDom(parser.parse(markup, 'TestComp'))).toEqual([
             [html.Element, 'root-sibling-one', 0],
             [html.Block, 'root', 0],
             [html.Element, 'outer-child-one', 1],
@@ -871,29 +847,30 @@ import {humanizeDom, humanizeDomSourceSpans, humanizeLineColumn, humanizeNodes} 
         });
 
         it('should infer namespace through block boundary', () => {
-          expect(humanizeBlocks('<svg>@if (cond) {<circle/>}</svg>')).toEqual([
-            [html.Element, ':svg:svg', 0],
-            [html.Block, 'if', 1],
-            [html.BlockParameter, 'cond'],
-            [html.Element, ':svg:circle', 2],
-          ]);
+          expect(humanizeDom(parser.parse('<svg>@if (cond) {<circle/>}</svg>', 'TestComp')))
+              .toEqual([
+                [html.Element, ':svg:svg', 0],
+                [html.Block, 'if', 1],
+                [html.BlockParameter, 'cond'],
+                [html.Element, ':svg:circle', 2],
+              ]);
         });
 
         it('should parse an empty block', () => {
-          expect(humanizeBlocks('@foo{}')).toEqual([
+          expect(humanizeDom(parser.parse('@foo{}', 'TestComp'))).toEqual([
             [html.Block, 'foo', 0],
           ]);
         });
 
         it('should parse a block with void elements', () => {
-          expect(humanizeBlocks('@foo {<br>}')).toEqual([
+          expect(humanizeDom(parser.parse('@foo {<br>}', 'TestComp'))).toEqual([
             [html.Block, 'foo', 0],
             [html.Element, 'br', 1],
           ]);
         });
 
         it('should close void elements used right before a block', () => {
-          expect(humanizeBlocks('<img>@foo {hello}')).toEqual([
+          expect(humanizeDom(parser.parse('<img>@foo {hello}', 'TestComp'))).toEqual([
             [html.Element, 'img', 0],
             [html.Block, 'foo', 0],
             [html.Text, 'hello', 1, ['hello']],
@@ -901,31 +878,33 @@ import {humanizeDom, humanizeDomSourceSpans, humanizeLineColumn, humanizeNodes} 
         });
 
         it('should report an unclosed block', () => {
-          const errors = parser.parse('@foo {hello', 'TestComp', options).errors;
+          const errors = parser.parse('@foo {hello', 'TestComp').errors;
           expect(errors.length).toEqual(1);
           expect(humanizeErrors(errors)).toEqual([['foo', 'Unclosed block "foo"', '0:0']]);
         });
 
         it('should report an unexpected block close', () => {
-          const errors = parser.parse('hello}', 'TestComp', options).errors;
-          expect(errors.length).toEqual(1);
-          expect(humanizeErrors(errors)).toEqual([
-            [null, 'Unexpected closing block. The block may have been closed earlier.', '0:5']
-          ]);
-        });
-
-        it('should report unclosed tags inside of a block', () => {
-          const errors = parser.parse('@foo {<strong>hello}', 'TestComp', options).errors;
+          const errors = parser.parse('hello}', 'TestComp').errors;
           expect(errors.length).toEqual(1);
           expect(humanizeErrors(errors)).toEqual([[
             null,
-            'Unexpected closing block. There is an unclosed "strong" HTML tag that may have to be closed first.',
+            'Unexpected closing block. The block may have been closed earlier. If you meant to write the } character, you should use the "&#125;" HTML entity instead.',
+            '0:5'
+          ]]);
+        });
+
+        it('should report unclosed tags inside of a block', () => {
+          const errors = parser.parse('@foo {<strong>hello}', 'TestComp').errors;
+          expect(errors.length).toEqual(1);
+          expect(humanizeErrors(errors)).toEqual([[
+            null,
+            'Unexpected closing block. The block may have been closed earlier. If you meant to write the } character, you should use the "&#125;" HTML entity instead.',
             '0:19'
           ]]);
         });
 
         it('should report an unexpected closing tag inside a block', () => {
-          const errors = parser.parse('<div>@if (cond) {hello</div>}', 'TestComp', options).errors;
+          const errors = parser.parse('<div>@if (cond) {hello</div>}', 'TestComp').errors;
           expect(errors.length).toEqual(2);
           expect(humanizeErrors(errors)).toEqual([
             [
@@ -933,7 +912,11 @@ import {humanizeDom, humanizeDomSourceSpans, humanizeLineColumn, humanizeNodes} 
               'Unexpected closing tag "div". It may happen when the tag has already been closed by another tag. For more info see https://www.w3.org/TR/html5/syntax.html#closing-elements-that-have-implied-end-tags',
               '0:22'
             ],
-            [null, 'Unexpected closing block. The block may have been closed earlier.', '0:28'],
+            [
+              null,
+              'Unexpected closing block. The block may have been closed earlier. If you meant to write the } character, you should use the "&#125;" HTML entity instead.',
+              '0:28'
+            ],
           ]);
         });
 
@@ -944,7 +927,7 @@ import {humanizeDom, humanizeDomSourceSpans, humanizeLineColumn, humanizeNodes} 
               '@case (isThree(3)) {Placeholde<strong>r</strong>}' +
               '}';
 
-          expect(humanizeDomSourceSpans(parser.parse(markup, 'TestComp', options))).toEqual([
+          expect(humanizeDomSourceSpans(parser.parse(markup, 'TestComp'))).toEqual([
             [
               html.Block, 'switch', 0,
               '@switch (expr) {@case (1) {<div>hello</div>world}@case (two) {Two}@case (isThree(3)) {Placeholde<strong>r</strong>}}',
@@ -968,6 +951,39 @@ import {humanizeDom, humanizeDomSourceSpans, humanizeLineColumn, humanizeNodes} 
             [html.Element, 'strong', 2, '<strong>r</strong>', '<strong>', '</strong>'],
             [html.Text, 'r', 3, ['r'], 'r'],
           ]);
+        });
+
+        it('should parse an incomplete block with no parameters', () => {
+          const result = parser.parse('Use the @Input() decorator', 'TestComp');
+
+          expect(humanizeNodes(result.rootNodes, true)).toEqual([
+            [html.Text, 'Use the ', 0, ['Use the '], 'Use the '],
+            [html.Block, 'Input', 0, '@Input() ', '@Input() ', null],
+            [html.Text, 'decorator', 0, ['decorator'], 'decorator'],
+          ]);
+
+          expect(humanizeErrors(result.errors)).toEqual([[
+            'Input',
+            'Incomplete block "Input". If you meant to write the @ character, you should use the "&#64;" HTML entity instead.',
+            '0:8'
+          ]]);
+        });
+
+        it('should parse an incomplete block with no parameters', () => {
+          const result = parser.parse('Use @Input({alias: "foo"}) to alias your input', 'TestComp');
+
+          expect(humanizeNodes(result.rootNodes, true)).toEqual([
+            [html.Text, 'Use ', 0, ['Use '], 'Use '],
+            [html.Block, 'Input', 0, '@Input({alias: "foo"}) ', '@Input({alias: "foo"}) ', null],
+            [html.BlockParameter, '{alias: "foo"}', '{alias: "foo"}'],
+            [html.Text, 'to alias your input', 0, ['to alias your input'], 'to alias your input'],
+          ]);
+
+          expect(humanizeErrors(result.errors)).toEqual([[
+            'Input',
+            'Incomplete block "Input". If you meant to write the @ character, you should use the "&#64;" HTML entity instead.',
+            '0:4'
+          ]]);
         });
       });
 

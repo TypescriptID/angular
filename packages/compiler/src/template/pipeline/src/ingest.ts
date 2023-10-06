@@ -127,6 +127,8 @@ function ingestNodes(unit: ViewCompilationUnit, template: t.Node[]): void {
       ingestIfBlock(unit, node);
     } else if (node instanceof t.SwitchBlock) {
       ingestSwitchBlock(unit, node);
+    } else if (node instanceof t.DeferredBlock) {
+      ingestDeferBlock(unit, node);
     } else {
       throw new Error(`Unsupported template node: ${node.constructor.name}`);
     }
@@ -190,7 +192,7 @@ function ingestTemplate(unit: ViewCompilationUnit, tmpl: t.Template): void {
   // TODO: validate the fallback tag name here.
   const tplOp = ir.createTemplateOp(
       childView.xref, tagNameWithoutNamespace ?? 'ng-template', namespaceForKey(namespacePrefix),
-      false, tmpl.startSourceSpan);
+      false, undefined, tmpl.startSourceSpan);
   unit.create.push(tplOp);
 
   ingestBindings(unit, tplOp, tmpl);
@@ -217,7 +219,7 @@ function ingestContent(unit: ViewCompilationUnit, content: t.Content): void {
   for (const attr of content.attributes) {
     ingestBinding(
         unit, op.xref, attr.name, o.literal(attr.value), e.BindingType.Attribute, null,
-        SecurityContext.NONE, attr.sourceSpan, true, false);
+        SecurityContext.NONE, attr.sourceSpan, BindingFlags.TextValue);
   }
   unit.create.push(op);
 }
@@ -278,8 +280,8 @@ function ingestIfBlock(unit: ViewCompilationUnit, ifBlock: t.IfBlock): void {
     if (firstXref === null) {
       firstXref = cView.xref;
     }
-    unit.create.push(
-        ir.createTemplateOp(cView.xref, 'Conditional', ir.Namespace.HTML, true, ifCase.sourceSpan));
+    unit.create.push(ir.createTemplateOp(
+        cView.xref, 'Conditional', ir.Namespace.HTML, true, undefined, ifCase.sourceSpan));
     const caseExpr = ifCase.expression ? convertAst(ifCase.expression, unit.job, null) : null;
     const conditionalCaseExpr =
         new ir.ConditionalCaseExpr(caseExpr, cView.xref, ifCase.expressionAlias);
@@ -301,8 +303,8 @@ function ingestSwitchBlock(unit: ViewCompilationUnit, switchBlock: t.SwitchBlock
     if (firstXref === null) {
       firstXref = cView.xref;
     }
-    unit.create.push(
-        ir.createTemplateOp(cView.xref, 'Case', ir.Namespace.HTML, true, switchCase.sourceSpan));
+    unit.create.push(ir.createTemplateOp(
+        cView.xref, 'Case', ir.Namespace.HTML, true, undefined, switchCase.sourceSpan));
     const caseExpr = switchCase.expression ?
         convertAst(switchCase.expression, unit.job, switchBlock.startSourceSpan) :
         null;
@@ -314,6 +316,65 @@ function ingestSwitchBlock(unit: ViewCompilationUnit, switchBlock: t.SwitchBlock
       firstXref!, convertAst(switchBlock.expression, unit.job, null), conditions,
       switchBlock.sourceSpan);
   unit.update.push(conditional);
+}
+
+function ingestDeferView(
+    unit: ViewCompilationUnit, suffix: string, children?: t.Node[],
+    sourceSpan?: ParseSourceSpan): ir.TemplateOp|null {
+  if (children === undefined) {
+    return null;
+  }
+  const secondaryView = unit.job.allocateView(unit.xref);
+  ingestNodes(secondaryView, children);
+  const templateOp = ir.createTemplateOp(
+      secondaryView.xref, `Defer${suffix}`, ir.Namespace.HTML, true, undefined, sourceSpan!);
+  unit.create.push(templateOp);
+  return templateOp;
+}
+
+function ingestDeferBlock(unit: ViewCompilationUnit, deferBlock: t.DeferredBlock): void {
+  // Generate the defer main view and all secondary views.
+  const main = ingestDeferView(unit, '', deferBlock.children, deferBlock.sourceSpan)!;
+  const loading = ingestDeferView(
+      unit, 'Loading', deferBlock.loading?.children, deferBlock.loading?.sourceSpan);
+  const placeholder = ingestDeferView(
+      unit, 'Placeholder', deferBlock.placeholder?.children, deferBlock.placeholder?.sourceSpan);
+  const error =
+      ingestDeferView(unit, 'Error', deferBlock.error?.children, deferBlock.error?.sourceSpan);
+
+  // Create the main defer op, and ops for all secondary views.
+  const deferOp = ir.createDeferOp(unit.job.allocateXrefId(), main.xref, deferBlock.sourceSpan);
+  unit.create.push(deferOp);
+
+  if (loading && deferBlock.loading) {
+    deferOp.loading =
+        ir.createDeferSecondaryOp(deferOp.xref, loading.xref, ir.DeferSecondaryKind.Loading);
+    if (deferBlock.loading.afterTime !== null || deferBlock.loading.minimumTime !== null) {
+      deferOp.loading.constValue = [deferBlock.loading.minimumTime, deferBlock.loading.afterTime];
+    }
+    unit.create.push(deferOp.loading);
+  }
+
+  if (placeholder && deferBlock.placeholder) {
+    deferOp.placeholder = ir.createDeferSecondaryOp(
+        deferOp.xref, placeholder.xref, ir.DeferSecondaryKind.Placeholder);
+    if (deferBlock.placeholder.minimumTime !== null) {
+      deferOp.placeholder.constValue = [deferBlock.placeholder.minimumTime];
+    }
+    unit.create.push(deferOp.placeholder);
+  }
+
+  if (error && deferBlock.error) {
+    deferOp.error =
+        ir.createDeferSecondaryOp(deferOp.xref, error.xref, ir.DeferSecondaryKind.Error);
+    unit.create.push(deferOp.error);
+  }
+
+  // Configure all defer conditions.
+  const deferOnOp = ir.createDeferOnOp(unit.job.allocateXrefId(), null!);
+
+  // Add all ops to the view.
+  unit.create.push(deferOnOp);
 }
 
 /**
@@ -424,16 +485,27 @@ function convertAst(
  */
 function ingestBindings(
     unit: ViewCompilationUnit, op: ir.ElementOpBase, element: t.Element|t.Template): void {
+  let flags: BindingFlags = BindingFlags.None;
+  const isPlainTemplate =
+      element instanceof t.Template && splitNsName(element.tagName ?? '')[1] === 'ng-template';
+
   if (element instanceof t.Template) {
+    flags |= BindingFlags.OnNgTemplateElement;
+    if (isPlainTemplate) {
+      flags |= BindingFlags.BindingTargetsTemplate;
+    }
+
+    const templateAttrFlags =
+        flags | BindingFlags.BindingTargetsTemplate | BindingFlags.IsStructuralTemplateAttribute;
     for (const attr of element.templateAttrs) {
       if (attr instanceof t.TextAttribute) {
         ingestBinding(
             unit, op.xref, attr.name, o.literal(attr.value), e.BindingType.Attribute, null,
-            SecurityContext.NONE, attr.sourceSpan, true, true);
+            SecurityContext.NONE, attr.sourceSpan, templateAttrFlags | BindingFlags.TextValue);
       } else {
         ingestBinding(
             unit, op.xref, attr.name, attr.value, attr.type, attr.unit, attr.securityContext,
-            attr.sourceSpan, false, true);
+            attr.sourceSpan, templateAttrFlags);
       }
     }
   }
@@ -444,13 +516,12 @@ function ingestBindings(
     // `BindingType.Attribute`.
     ingestBinding(
         unit, op.xref, attr.name, o.literal(attr.value), e.BindingType.Attribute, null,
-        SecurityContext.NONE, attr.sourceSpan, true, false);
+        SecurityContext.NONE, attr.sourceSpan, flags | BindingFlags.TextValue);
   }
-
   for (const input of element.inputs) {
     ingestBinding(
         unit, op.xref, input.name, input.value, input.type, input.unit, input.securityContext,
-        input.sourceSpan, false, false);
+        input.sourceSpan, flags);
   }
 
   for (const output of element.outputs) {
@@ -460,6 +531,13 @@ function ingestBindings(
         throw Error('Animation listener should have a phase');
       }
     }
+
+    if (element instanceof t.Template && !isPlainTemplate) {
+      unit.create.push(
+          ir.createExtractedAttributeOp(op.xref, ir.BindingKind.Property, output.name, null));
+      continue;
+    }
+
     listenerOp =
         ir.createListenerOp(op.xref, output.name, op.tag, output.phase, false, output.sourceSpan);
 
@@ -503,12 +581,44 @@ const BINDING_KINDS = new Map<e.BindingType, ir.BindingKind>([
   [e.BindingType.Animation, ir.BindingKind.Animation],
 ]);
 
+enum BindingFlags {
+  None = 0b000,
+
+  /**
+   * The binding is to a static text literal and not to an expression.
+   */
+  TextValue = 0b0001,
+
+  /**
+   * The binding belongs to the `<ng-template>` side of a `t.Template`.
+   */
+  BindingTargetsTemplate = 0b0010,
+
+  /**
+   * The binding is on a structural directive.
+   */
+  IsStructuralTemplateAttribute = 0b0100,
+
+  /**
+   * The binding is on a `t.Template`.
+   */
+  OnNgTemplateElement = 0b1000,
+}
+
 function ingestBinding(
     view: ViewCompilationUnit, xref: ir.XrefId, name: string, value: e.AST|o.Expression,
     type: e.BindingType, unit: string|null, securityContext: SecurityContext,
-    sourceSpan: ParseSourceSpan, isTextAttribute: boolean, isTemplateBinding: boolean): void {
+    sourceSpan: ParseSourceSpan, flags: BindingFlags): void {
   if (value instanceof e.ASTWithSource) {
     value = value.ast;
+  }
+
+  if (flags & BindingFlags.OnNgTemplateElement && !(flags & BindingFlags.BindingTargetsTemplate) &&
+      type === e.BindingType.Property) {
+    // This binding only exists for later const extraction, and is not an actual binding to be
+    // created.
+    view.create.push(ir.createExtractedAttributeOp(xref, ir.BindingKind.Property, name, null));
+    return;
   }
 
   let expression: o.Expression|ir.Interpolation;
@@ -525,8 +635,8 @@ function ingestBinding(
 
   const kind: ir.BindingKind = BINDING_KINDS.get(type)!;
   view.update.push(ir.createBindingOp(
-      xref, kind, name, expression, unit, securityContext, isTextAttribute, isTemplateBinding,
-      sourceSpan));
+      xref, kind, name, expression, unit, securityContext, !!(flags & BindingFlags.TextValue),
+      !!(flags & BindingFlags.IsStructuralTemplateAttribute), sourceSpan));
 }
 
 /**

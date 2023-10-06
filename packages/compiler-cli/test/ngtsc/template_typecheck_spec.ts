@@ -3625,10 +3625,6 @@ suppress
     });
 
     describe('deferred blocks', () => {
-      beforeEach(() => {
-        env.tsconfig({_enabledBlockTypes: ['defer']});
-      });
-
       it('should check bindings inside deferred blocks', () => {
         env.write('test.ts', `
           import {Component} from '@angular/core';
@@ -3749,10 +3745,6 @@ suppress
     });
 
     describe('conditional blocks', () => {
-      beforeEach(() => {
-        env.tsconfig({_enabledBlockTypes: ['if', 'switch']});
-      });
-
       it('should check bindings inside if blocks', () => {
         env.write('test.ts', `
           import {Component} from '@angular/core';
@@ -3836,6 +3828,31 @@ suppress
         const diags = env.driveDiagnostics();
         expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
           `Argument of type 'boolean' is not assignable to parameter of type 'number'.`,
+        ]);
+      });
+
+      it('should check narrow the type in the alias', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: \`@if (value; as alias) {
+              {{acceptsNumber(alias)}}
+            }\`,
+            standalone: true,
+          })
+          export class Main {
+            value: 'one' | 0 = 0;
+
+            acceptsNumber(value: number) {
+              return value;
+            }
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Argument of type 'string' is not assignable to parameter of type 'number'.`,
         ]);
       });
 
@@ -4014,11 +4031,8 @@ suppress
 
     describe('for loop blocks', () => {
       beforeEach(() => {
-        env.tsconfig({
-          // `fullTemplateTypeCheck: true` is necessary so content inside `ng-template` is checked.
-          fullTemplateTypeCheck: true,
-          _enabledBlockTypes: ['for', 'if'],
-        });
+        // `fullTemplateTypeCheck: true` is necessary so content inside `ng-template` is checked.
+        env.tsconfig({fullTemplateTypeCheck: true});
       });
 
       it('should check bindings inside of for loop blocks', () => {
@@ -4505,6 +4519,57 @@ suppress
         expect(diags.length).toBe(1);
         expect(diags[0].messageText)
             .toContain('Error: Illegal State: Pipes are not allowed in this context');
+      });
+
+      it('should allow nullable values in loop expression', () => {
+        env.write('test.ts', `
+          import {Component, Pipe} from '@angular/core';
+
+          @Pipe({name: 'fakeAsync', standalone: true})
+          export class FakeAsyncPipe {
+            transform<T>(value: Iterable<T>): Iterable<T> | null | undefined {
+              return null;
+            }
+          }
+
+          @Component({
+            template: \`
+              @for (item of items | fakeAsync; track item) {
+                {{item}}
+              }
+            \`,
+            standalone: true,
+            imports: [FakeAsyncPipe]
+          })
+          export class Main {
+            items = [];
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([]);
+      });
+
+      it('should enforce that the loop expression is iterable', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: \`
+              @for (item of items; track item) {
+                {{item}}
+              }
+            \`,
+          })
+          export class Main {
+            items = 123;
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Type 'number' must have a '[Symbol.iterator]()' method that returns an iterator.`
+        ]);
       });
     });
   });
