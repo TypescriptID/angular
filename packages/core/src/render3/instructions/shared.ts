@@ -6,6 +6,8 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {consumerAfterComputation, consumerBeforeComputation, setActiveConsumer} from '@angular/core/primitives/signals';
+
 import {Injector} from '../../di/injector';
 import {ErrorHandler} from '../../error_handler';
 import {RuntimeError, RuntimeErrorCode} from '../../errors';
@@ -18,12 +20,11 @@ import {Writable} from '../../interface/type';
 import {SchemaMetadata} from '../../metadata/schema';
 import {ViewEncapsulation} from '../../metadata/view';
 import {validateAgainstEventAttributes, validateAgainstEventProperties} from '../../sanitization/sanitization';
-import {consumerAfterComputation, consumerBeforeComputation, setActiveConsumer} from '../../signals';
 import {assertDefined, assertEqual, assertGreaterThan, assertGreaterThanOrEqual, assertIndexInRange, assertNotEqual, assertNotSame, assertSame, assertString} from '../../util/assert';
 import {escapeCommentText} from '../../util/dom';
 import {normalizeDebugBindingName, normalizeDebugBindingValue} from '../../util/ng_reflect';
 import {stringify} from '../../util/stringify';
-import {assertFirstCreatePass, assertFirstUpdatePass, assertLView, assertTNodeForLView, assertTNodeForTView} from '../assert';
+import {assertFirstCreatePass, assertFirstUpdatePass, assertLView, assertNoDuplicateDirectives, assertTNodeForLView, assertTNodeForTView} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {getFactoryDef} from '../definition_factory';
 import {diPublicInInjector, getNodeInjectable, getOrCreateNodeInjectorForNode} from '../di';
@@ -1130,6 +1131,7 @@ function findDirectiveDefMatches(
       }
     }
   }
+  ngDevMode && matches !== null && assertNoDuplicateDirectives(matches);
   return matches === null ? null : [matches, hostDirectiveDefs];
 }
 
@@ -1412,8 +1414,8 @@ export function createLContainer(
     false,        // has transplanted views
     currentView,  // parent
     null,         // next
-    0,            // transplanted views to refresh count
     tNode,        // t_host
+    false,        // has child views to refresh
     native,       // native,
     null,         // view refs
     null,         // moved views

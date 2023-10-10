@@ -34,7 +34,6 @@ import {htmlAstToRender3Ast} from '../r3_template_transform';
 import {prepareSyntheticListenerFunctionName, prepareSyntheticListenerName, prepareSyntheticPropertyName} from '../util';
 
 import {R3DeferBlockMetadata} from './api';
-import {BLOCK_SYNTAX_ENABLED_DEFAULT} from './block_syntax_switch';
 import {I18nContext} from './i18n/context';
 import {createGoogleGetMsgStatements} from './i18n/get_msg_utils';
 import {createLocalizeStatements} from './i18n/localize_utils';
@@ -1324,6 +1323,9 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
           o.literal(errorIndex),
           loadingConsts?.length ? this.addToConsts(o.literalArr(loadingConsts)) : o.TYPED_NULL_EXPR,
           placeholderConsts ? this.addToConsts(placeholderConsts) : o.TYPED_NULL_EXPR,
+          (loadingConsts?.length || placeholderConsts) ?
+              o.importExpr(R3.deferEnableTimerScheduling) :
+              o.TYPED_NULL_EXPR,
         ]));
 
     this.createDeferTriggerInstructions(deferredIndex, triggers, metadata, false);
@@ -2696,7 +2698,7 @@ export function parseTemplate(
     leadingTriviaChars: LEADING_TRIVIA_CHARS,
     ...options,
     tokenizeExpansionForms: true,
-    tokenizeBlocks: options.enableBlockSyntax ?? BLOCK_SYNTAX_ENABLED_DEFAULT,
+    tokenizeBlocks: options.enableBlockSyntax ?? true,
   });
 
   if (!options.alwaysAttemptHtmlToR3AstConversion && parseResult.errors &&

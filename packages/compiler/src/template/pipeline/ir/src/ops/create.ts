@@ -184,6 +184,11 @@ export interface TemplateOp extends ElementOpBase {
    * since several of the default arguments are unnecessary for blocks.
    */
   block: boolean;
+
+  /**
+   * The i18n placeholder data associated with this template.
+   */
+  i18nPlaceholder?: i18n.TagPlaceholder;
 }
 
 /**
@@ -191,7 +196,7 @@ export interface TemplateOp extends ElementOpBase {
  */
 export function createTemplateOp(
     xref: XrefId, tag: string, namespace: Namespace, generatedInBlock: boolean,
-    i18n: i18n.I18nMeta|undefined, sourceSpan: ParseSourceSpan): TemplateOp {
+    i18nPlaceholder: i18n.TagPlaceholder|undefined, sourceSpan: ParseSourceSpan): TemplateOp {
   return {
     kind: OpKind.Template,
     xref,
@@ -203,6 +208,7 @@ export function createTemplateOp(
     localRefs: [],
     nonBindable: false,
     namespace,
+    i18nPlaceholder,
     sourceSpan,
     ...TRAIT_CONSUMES_SLOT,
     ...NEW_OP,
@@ -288,8 +294,8 @@ export function createDisableBindingsOp(xref: XrefId): DisableBindingsOp {
 }
 
 /**
- * Logical operation causing binding to be re-enabled after visiting descendants of a non-bindable
- * container.
+ * Logical operation causing binding to be re-enabled after visiting descendants of a
+ * non-bindable container.
  */
 export interface EnableBindingsOp extends Op<CreateOp> {
   kind: OpKind.EnableBindings;
@@ -685,10 +691,14 @@ export interface I18nOpBase extends Op<CreateOp>, ConsumesSlotOpTrait {
 
   /**
    * `XrefId` allocated for this i18n block.
-   *
-   * This ID is used to reference this element from other IR structures.
    */
   xref: XrefId;
+
+  /**
+   * A reference to the root i18n block that this one belongs to. For a a root i18n block, this is
+   * the same as xref.
+   */
+  root: XrefId;
 
   /**
    * The i18n metadata associated with this op.
@@ -704,6 +714,11 @@ export interface I18nOpBase extends Op<CreateOp>, ConsumesSlotOpTrait {
    * The index in the consts array where the message i18n message is stored.
    */
   messageIndex: ConstIndex|null;
+
+  /**
+   * The index of this sub-block in the i18n message. For a root i18n block, this is null.
+   */
+  subTemplateIndex: number|null;
 }
 
 /**
@@ -723,13 +738,15 @@ export interface I18nStartOp extends I18nOpBase {
 /**
  * Create an `I18nStartOp`.
  */
-export function createI18nStartOp(xref: XrefId, message: i18n.Message): I18nStartOp {
+export function createI18nStartOp(xref: XrefId, message: i18n.Message, root?: XrefId): I18nStartOp {
   return {
     kind: OpKind.I18nStart,
     xref,
+    root: root ?? xref,
     message,
     params: new Map(),
     messageIndex: null,
+    subTemplateIndex: null,
     ...NEW_OP,
     ...TRAIT_CONSUMES_SLOT,
   };

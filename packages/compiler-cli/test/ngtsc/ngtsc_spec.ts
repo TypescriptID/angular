@@ -8854,6 +8854,47 @@ function allTests(os: string) {
         expect(jsContents).not.toContain('import { CmpA }');
       });
 
+      it('should include timer scheduler function when ' +
+             '`after` or `minimum` parameters are used',
+         () => {
+           env.write('cmp-a.ts', `
+            import { Component } from '@angular/core';
+
+            @Component({
+              standalone: true,
+              selector: 'cmp-a',
+              template: 'CmpA!'
+            })
+            export class CmpA {}
+          `);
+
+           env.write('/test.ts', `
+              import { Component } from '@angular/core';
+              import { CmpA } from './cmp-a';
+
+              @Component({
+                selector: 'test-cmp',
+                standalone: true,
+                imports: [CmpA],
+                template: \`
+                  @defer {
+                    <cmp-a />
+                  } @loading (after 500ms; minimum 300ms) {
+                    Loading...
+                  }
+                \`,
+              })
+              export class TestCmp {}
+            `);
+
+           env.driveMain();
+
+           const jsContents = env.getContents('test.js');
+           expect(jsContents)
+               .toContain(
+                   'ɵɵdefer(2, 0, TestCmp_Defer_2_DepsFn, 1, null, null, 0, null, i0.ɵɵdeferEnableTimerScheduling)');
+         });
+
       describe('imports', () => {
         it('should retain regular imports when symbol is eagerly referenced', () => {
           env.write('cmp-a.ts', `
@@ -9051,6 +9092,105 @@ function allTests(os: string) {
           // via dynamic imports and an original import can be removed.
           expect(jsContents).not.toContain('import { CmpA }');
         });
+      });
+
+      it('should detect pipe used in the `when` trigger as an eager dependency', () => {
+        env.write('test-pipe.ts', `
+          import { Pipe } from '@angular/core';
+
+          @Pipe({name: 'test', standalone: true})
+          export class TestPipe {
+            transform() {
+              return 1;
+            }
+          }
+        `);
+
+        env.write('/test.ts', `
+          import { Component } from '@angular/core';
+          import { TestPipe } from './test-pipe';
+
+          @Component({
+            selector: 'test-cmp',
+            standalone: true,
+            imports: [TestPipe],
+            template: '@defer (when 1 | test) { hello }',
+          })
+          export class TestCmp {
+          }
+        `);
+
+        env.driveMain();
+
+        const jsContents = env.getContents('test.js');
+
+        expect(jsContents).toContain('dependencies: [TestPipe]');
+      });
+
+      it('should detect pipe used in the `prefetch when` trigger as an eager dependency', () => {
+        env.write('test-pipe.ts', `
+          import { Pipe } from '@angular/core';
+
+          @Pipe({name: 'test', standalone: true})
+          export class TestPipe {
+            transform() {
+              return 1;
+            }
+          }
+        `);
+
+        env.write('/test.ts', `
+          import { Component } from '@angular/core';
+          import { TestPipe } from './test-pipe';
+
+          @Component({
+            selector: 'test-cmp',
+            standalone: true,
+            imports: [TestPipe],
+            template: '@defer (when 1 | test) { hello }',
+          })
+          export class TestCmp {
+          }
+        `);
+
+        env.driveMain();
+
+        const jsContents = env.getContents('test.js');
+
+        expect(jsContents).toContain('dependencies: [TestPipe]');
+      });
+
+      it('should detect pipe used both in a trigger and the deferred content as eager', () => {
+        env.write('test-pipe.ts', `
+          import { Pipe } from '@angular/core';
+
+          @Pipe({name: 'test', standalone: true})
+          export class TestPipe {
+            transform() {
+              return 1;
+            }
+          }
+        `);
+
+        env.write('/test.ts', `
+          import { Component } from '@angular/core';
+          import { TestPipe } from './test-pipe';
+
+          @Component({
+            selector: 'test-cmp',
+            standalone: true,
+            imports: [TestPipe],
+            template: '@defer (when 1 | test) { {{1 | test}} }',
+          })
+          export class TestCmp {
+          }
+        `);
+
+        env.driveMain();
+
+        const jsContents = env.getContents('test.js');
+
+        expect(jsContents).toContain('dependencies: [TestPipe]');
       });
 
       describe('setClassMetadataAsync', () => {

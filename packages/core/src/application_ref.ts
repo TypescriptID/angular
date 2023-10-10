@@ -8,6 +8,7 @@
 
 import './util/ng_jit_mode';
 
+import {setThrowInvalidWriteToSignalError} from '@angular/core/primitives/signals';
 import {Observable, of, Subscription} from 'rxjs';
 import {distinctUntilChanged, first, share, switchMap} from 'rxjs/operators';
 
@@ -26,6 +27,7 @@ import {ErrorHandler} from './error_handler';
 import {formatRuntimeError, RuntimeError, RuntimeErrorCode} from './errors';
 import {DEFAULT_LOCALE_ID} from './i18n/localization';
 import {LOCALE_ID} from './i18n/tokens';
+import {ImagePerformanceWarning} from './image_performance_warning';
 import {InitialRenderPendingTasks} from './initial_render_pending_tasks';
 import {Type} from './interface/type';
 import {COMPILER_OPTIONS, CompilerOptions} from './linker/compiler';
@@ -42,7 +44,6 @@ import {setLocaleId} from './render3/i18n/i18n_locale_id';
 import {setJitOptions} from './render3/jit/jit_options';
 import {createNgModuleRefWithProviders, EnvironmentNgModuleRefAdapter, NgModuleFactory as R3NgModuleFactory} from './render3/ng_module_ref';
 import {publishDefaultGlobalUtils as _publishDefaultGlobalUtils} from './render3/util/global_utils';
-import {setThrowInvalidWriteToSignalError} from './signals';
 import {TESTABILITY} from './testability/testability';
 import {isPromise} from './util/lang';
 import {stringify} from './util/stringify';
@@ -284,6 +285,10 @@ export function internalCreateApplication(config: {
           const appRef = envInjector.get(ApplicationRef);
           if (rootComponent !== undefined) {
             appRef.bootstrap(rootComponent);
+          }
+          if (typeof ngDevMode === 'undefined' || ngDevMode) {
+            const imagePerformanceService = envInjector.get(ImagePerformanceWarning);
+            imagePerformanceService.start();
           }
           return appRef;
         });

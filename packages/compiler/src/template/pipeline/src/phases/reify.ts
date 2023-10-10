@@ -81,13 +81,13 @@ function reifyCreateOperations(unit: CompilationUnit, ops: ir.OpList<ir.CreateOp
         ir.OpList.replace(op, ng.elementContainerEnd());
         break;
       case ir.OpKind.I18nStart:
-        ir.OpList.replace(op, ng.i18nStart(op.slot as number, op.messageIndex!));
+        ir.OpList.replace(op, ng.i18nStart(op.slot!, op.messageIndex!, op.subTemplateIndex!));
         break;
       case ir.OpKind.I18nEnd:
         ir.OpList.replace(op, ng.i18nEnd());
         break;
       case ir.OpKind.I18n:
-        ir.OpList.replace(op, ng.i18n(op.slot as number, op.messageIndex!));
+        ir.OpList.replace(op, ng.i18n(op.slot!, op.messageIndex!, op.subTemplateIndex!));
         break;
       case ir.OpKind.Template:
         if (!(unit instanceof ViewCompilationUnit)) {
@@ -340,7 +340,7 @@ function reifyIrExpression(expr: o.Expression): o.Expression {
     case ir.ExpressionKind.SanitizerExpr:
       return o.importExpr(sanitizerIdentifierMap.get(expr.fn)!);
     case ir.ExpressionKind.SlotLiteralExpr:
-      return o.literal(expr.targetSlot!);
+      return o.literal(expr.targetSlot);
     default:
       throw new Error(`AssertionError: Unsupported reification of ir.Expression kind: ${
           ir.ExpressionKind[(expr as ir.Expression).kind]}`);

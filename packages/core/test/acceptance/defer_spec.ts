@@ -7,7 +7,7 @@
  */
 
 import {ɵPLATFORM_BROWSER_ID as PLATFORM_BROWSER_ID} from '@angular/common';
-import {Component, Input, NgZone, PLATFORM_ID, QueryList, Type, ViewChildren, ɵDEFER_BLOCK_DEPENDENCY_INTERCEPTOR} from '@angular/core';
+import {ChangeDetectionStrategy, ChangeDetectorRef, Component, inject, Input, NgZone, PLATFORM_ID, QueryList, Type, ViewChildren, ɵDEFER_BLOCK_DEPENDENCY_INTERCEPTOR} from '@angular/core';
 import {getComponentDef} from '@angular/core/src/render3/definition';
 import {ComponentFixture, DeferBlockBehavior, fakeAsync, flush, TestBed, tick} from '@angular/core/testing';
 
@@ -247,6 +247,172 @@ describe('@defer', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.outerHTML).toContain('<my-lazy-cmp>Hi!</my-lazy-cmp>');
+  });
+
+  describe('with OnPush', () => {
+    it('should render when @defer is used inside of an OnPush component', async () => {
+      @Component({
+        selector: 'my-lazy-cmp',
+        standalone: true,
+        template: '{{ foo }}',
+      })
+      class MyLazyCmp {
+        foo = 'bar';
+      }
+
+      @Component({
+        standalone: true,
+        selector: 'simple-app',
+        imports: [MyLazyCmp],
+        changeDetection: ChangeDetectionStrategy.OnPush,
+        template: `
+          @defer (on immediate) {
+            <my-lazy-cmp />
+          }
+        `
+      })
+      class MyCmp {
+      }
+
+      const fixture = TestBed.createComponent(MyCmp);
+      fixture.detectChanges();
+
+      // Wait for dependencies to load.
+      await allPendingDynamicImports();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.outerHTML).toContain('<my-lazy-cmp>bar</my-lazy-cmp>');
+    });
+
+    it('should render when @defer-loaded component uses OnPush', async () => {
+      @Component({
+        selector: 'my-lazy-cmp',
+        standalone: true,
+        changeDetection: ChangeDetectionStrategy.OnPush,
+        template: '{{ foo }}',
+      })
+      class MyLazyCmp {
+        foo = 'bar';
+      }
+
+      @Component({
+        standalone: true,
+        selector: 'simple-app',
+        imports: [MyLazyCmp],
+        template: `
+          @defer (on immediate) {
+            <my-lazy-cmp />
+          }
+        `
+      })
+      class MyCmp {
+      }
+
+      const fixture = TestBed.createComponent(MyCmp);
+      fixture.detectChanges();
+
+      // Wait for dependencies to load.
+      await allPendingDynamicImports();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.outerHTML).toContain('<my-lazy-cmp>bar</my-lazy-cmp>');
+    });
+
+    it('should render when both @defer-loaded and host component use OnPush', async () => {
+      @Component({
+        selector: 'my-lazy-cmp',
+        standalone: true,
+        changeDetection: ChangeDetectionStrategy.OnPush,
+        template: '{{ foo }}',
+      })
+      class MyLazyCmp {
+        foo = 'bar';
+      }
+
+      @Component({
+        standalone: true,
+        selector: 'simple-app',
+        imports: [MyLazyCmp],
+        changeDetection: ChangeDetectionStrategy.OnPush,
+        template: `
+          @defer (on immediate) {
+            <my-lazy-cmp />
+          }
+        `
+      })
+      class MyCmp {
+      }
+
+      const fixture = TestBed.createComponent(MyCmp);
+      fixture.detectChanges();
+
+      // Wait for dependencies to load.
+      await allPendingDynamicImports();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.outerHTML).toContain('<my-lazy-cmp>bar</my-lazy-cmp>');
+    });
+
+    it('should render when both OnPush components used in other blocks (e.g. @placeholder)',
+       async () => {
+         @Component({
+           selector: 'my-lazy-cmp',
+           standalone: true,
+           changeDetection: ChangeDetectionStrategy.OnPush,
+           template: '{{ foo }}',
+         })
+         class MyLazyCmp {
+           foo = 'main';
+         }
+
+         @Component({
+           selector: 'another-lazy-cmp',
+           standalone: true,
+           changeDetection: ChangeDetectionStrategy.OnPush,
+           template: '{{ foo }}',
+         })
+         class AnotherLazyCmp {
+           foo = 'placeholder';
+         }
+
+         @Component({
+           standalone: true,
+           selector: 'simple-app',
+           imports: [MyLazyCmp, AnotherLazyCmp],
+           changeDetection: ChangeDetectionStrategy.OnPush,
+           template: `
+              @defer (when isVisible) {
+                <my-lazy-cmp />
+              } @placeholder {
+                <another-lazy-cmp />
+              }
+            `
+         })
+         class MyCmp {
+           isVisible = false;
+           changeDetectorRef = inject(ChangeDetectorRef);
+
+           triggerDeferBlock() {
+             this.isVisible = true;
+             this.changeDetectorRef.detectChanges();
+           }
+         }
+
+         const fixture = TestBed.createComponent(MyCmp);
+         fixture.detectChanges();
+
+         // Expect placeholder to be rendered correctly.
+         expect(fixture.nativeElement.outerHTML)
+             .toContain('<another-lazy-cmp>placeholder</another-lazy-cmp>');
+
+         fixture.componentInstance.triggerDeferBlock();
+
+         // Wait for dependencies to load.
+         await allPendingDynamicImports();
+         fixture.detectChanges();
+
+         expect(fixture.nativeElement.outerHTML).toContain('<my-lazy-cmp>main</my-lazy-cmp>');
+       });
   });
 
   describe('`on` conditions', () => {
@@ -901,6 +1067,9 @@ describe('@defer', () => {
       // Wait for the dependency fn promise to resolve.
       await allPendingDynamicImports();
       fixture.detectChanges();
+
+      // Await all async work to be completed.
+      await fixture.whenStable();
 
       // Expect both <cmp-a> components to be rendered.
       expect(fixture.nativeElement.innerHTML.replaceAll('<!--container-->', ''))
@@ -2499,8 +2668,9 @@ describe('@defer', () => {
          fixture.detectChanges();
          flush();
 
-         expect(spy).toHaveBeenCalledTimes(1);
+         expect(spy).toHaveBeenCalledTimes(2);
          expect(spy).toHaveBeenCalledWith('mouseenter', jasmine.any(Function), jasmine.any(Object));
+         expect(spy).toHaveBeenCalledWith('focusin', jasmine.any(Function), jasmine.any(Object));
        }));
 
     it('should unbind the trigger events when the trigger is destroyed', fakeAsync(() => {
@@ -2533,8 +2703,9 @@ describe('@defer', () => {
          fixture.componentInstance.renderBlock = false;
          fixture.detectChanges();
 
-         expect(spy).toHaveBeenCalledTimes(1);
+         expect(spy).toHaveBeenCalledTimes(2);
          expect(spy).toHaveBeenCalledWith('mouseenter', jasmine.any(Function), jasmine.any(Object));
+         expect(spy).toHaveBeenCalledWith('focusin', jasmine.any(Function), jasmine.any(Object));
        }));
 
     it('should unbind the trigger events when the deferred block is destroyed', fakeAsync(() => {
@@ -2568,8 +2739,9 @@ describe('@defer', () => {
          fixture.componentInstance.renderBlock = false;
          fixture.detectChanges();
 
-         expect(spy).toHaveBeenCalledTimes(1);
+         expect(spy).toHaveBeenCalledTimes(2);
          expect(spy).toHaveBeenCalledWith('mouseenter', jasmine.any(Function), jasmine.any(Object));
+         expect(spy).toHaveBeenCalledWith('focusin', jasmine.any(Function), jasmine.any(Object));
        }));
 
     it('should bind the trigger events inside the NgZone', fakeAsync(() => {
@@ -2595,7 +2767,10 @@ describe('@defer', () => {
          });
          fixture.detectChanges();
 
-         expect(eventsInZone).toEqual({mouseenter: true});
+         expect(eventsInZone).toEqual({
+           mouseenter: true,
+           focusin: true,
+         });
        }));
 
     it('should prefetch resources on hover', fakeAsync(() => {
