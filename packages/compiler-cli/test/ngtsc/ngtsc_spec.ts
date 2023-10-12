@@ -537,6 +537,21 @@ function allTests(os: string) {
               'never, never, never>');
     });
 
+    it('should error when supportJitMode is false and forbidOrphanComponents is true', () => {
+      env.tsconfig({
+        supportJitMode: false,
+        forbidOrphanComponents: true,
+      });
+      env.write('test.ts', '');
+
+      const diagnostics = env.driveDiagnostics();
+
+      expect(diagnostics).toEqual([jasmine.objectContaining({
+        messageText: jasmine.stringMatching(
+            /JIT mode support \("supportJitMode" option\) cannot be disabled when forbidOrphanComponents is set to true/),
+      })]);
+    });
+
     // This test triggers the Tsickle compiler which asserts that the file-paths
     // are valid for the real OS. When on non-Windows systems it doesn't like paths
     // that start with `C:`.
@@ -9299,6 +9314,72 @@ function allTests(os: string) {
              expect(jsContents).toContain('setClassMetadata');
            });
       });
+    });
+
+    describe('debug info', () => {
+      it('should set forbidOrphanRendering debug info for component when the option forbidOrphanComponents is set',
+         () => {
+           env.write('tsconfig.json', JSON.stringify({
+             extends: './tsconfig-base.json',
+             angularCompilerOptions: {
+               forbidOrphanComponents: true,
+             },
+           }));
+           env.write(`test.ts`, `
+            import {Component} from '@angular/core';
+    
+            @Component({
+              template: '...',
+            })
+            export class Comp {}
+            `);
+
+           env.driveMain();
+           const jsContents = env.getContents('test.js');
+
+           expect(jsContents).toMatch('forbidOrphanRendering: true');
+         });
+
+      it('should set forbidOrphanRendering debug info for standalone components when the option forbidOrphanComponents is set',
+         () => {
+           env.write('tsconfig.json', JSON.stringify({
+             extends: './tsconfig-base.json',
+             angularCompilerOptions: {
+               forbidOrphanComponents: true,
+             },
+           }));
+           env.write(`test.ts`, `
+            import {Component} from '@angular/core';
+     
+            @Component({
+              standalone: true,
+              template: '...',
+            })
+            export class Comp {}
+        `);
+
+           env.driveMain();
+           const jsContents = env.getContents('test.js');
+
+           expect(jsContents).toMatch('forbidOrphanRendering: true');
+         });
+
+      it('should not set forbidOrphanRendering debug info when the option forbidOrphanComponents is not set',
+         () => {
+           env.write(`test.ts`, `
+          import {Component} from '@angular/core';
+   
+          @Component({
+            template: '...',
+          })
+          export class Comp {}
+      `);
+
+           env.driveMain();
+           const jsContents = env.getContents('test.js');
+
+           expect(jsContents).not.toMatch('forbidOrphanRendering:');
+         });
     });
   });
 

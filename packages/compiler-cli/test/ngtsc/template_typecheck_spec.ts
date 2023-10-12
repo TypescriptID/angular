@@ -3831,13 +3831,38 @@ suppress
         ]);
       });
 
-      it('should check narrow the type in the alias', () => {
+      it('should narrow the type of the if alias', () => {
         env.write('test.ts', `
           import {Component} from '@angular/core';
 
           @Component({
             template: \`@if (value; as alias) {
               {{acceptsNumber(alias)}}
+            }\`,
+            standalone: true,
+          })
+          export class Main {
+            value: 'one' | 0 = 0;
+
+            acceptsNumber(value: number) {
+              return value;
+            }
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Argument of type 'string' is not assignable to parameter of type 'number'.`,
+        ]);
+      });
+
+      it('should narrow the type of the if alias used in a listener', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: \`@if (value; as alias) {
+              <button (click)="acceptsNumber(alias)"></button>
             }\`,
             standalone: true,
           })
@@ -3939,6 +3964,117 @@ suppress
         ]);
       });
 
+      it('should narrow the type in listeners inside if blocks', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: \`
+              @if (expr === 'hello') {
+                <button (click)="acceptsNumber(expr)"></button>
+              }
+            \`,
+            standalone: true,
+          })
+          export class Main {
+            expr: 'hello' | 1 = 'hello';
+
+            acceptsNumber(value: number) {
+              return value;
+            }
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Argument of type 'string' is not assignable to parameter of type 'number'.`,
+        ]);
+      });
+
+      it('should narrow the type in listeners inside else if blocks', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: \`
+              @if (expr === 1) {
+                One
+              } @else if (expr === 'hello') {
+                <button (click)="acceptsNumber(expr)"></button>
+              }
+            \`,
+            standalone: true,
+          })
+          export class Main {
+            expr: 'hello' | 1 | 2 = 'hello';
+
+            acceptsNumber(value: number) {
+              return value;
+            }
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Argument of type 'string' is not assignable to parameter of type 'number'.`,
+        ]);
+      });
+
+      it('should narrow the type in listeners inside else blocks', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: \`
+              @if (expr === 1) {
+                One
+              } @else if (expr === 2) {
+                Two
+              } @else {
+                <button (click)="acceptsNumber(expr)"></button>
+              }
+            \`,
+            standalone: true,
+          })
+          export class Main {
+            expr: 'hello' | 1 | 2 = 'hello';
+
+            acceptsNumber(value: number) {
+              return value;
+            }
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Argument of type 'string' is not assignable to parameter of type 'number'.`,
+        ]);
+      });
+
+      it('should produce a single diagnostic for an invalid expression of an if block containing a event listener',
+         () => {
+           env.write('test.ts', `
+           import {Component} from '@angular/core';
+
+           @Component({
+             template: \`
+               @if (does_not_exist) {
+                 <button (click)="test()"></button>
+               }
+             \`,
+             standalone: true,
+           })
+           export class Main {
+             test() {}
+           }
+         `);
+
+           const diags = env.driveDiagnostics();
+           expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+             `Property 'does_not_exist' does not exist on type 'Main'.`,
+           ]);
+         });
+
       it('should check bindings inside switch blocks', () => {
         env.write('test.ts', `
           import {Component} from '@angular/core';
@@ -4022,6 +4158,37 @@ suppress
           `Property 'does_not_exist_main' does not exist on type 'Main'.`,
         ]);
       });
+
+      it('should only produce one diagnostic if the case expression has an error and it contains an event listener',
+         () => {
+           env.write('test.ts', `
+              import {Component} from '@angular/core';
+
+              @Component({
+                template: \`
+                  @switch (value) {
+                    @case (does_not_exist) {
+                      <button (click)="test()"></button>
+                    }
+
+                    @default {
+                      <button (click)="test()"></button>
+                    }
+                  }
+                \`,
+                standalone: true,
+              })
+              export class Main {
+                value = 'zero';
+                test() {}
+              }
+            `);
+
+           const diags = env.driveDiagnostics();
+           expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+             `Property 'does_not_exist' does not exist on type 'Main'.`,
+           ]);
+         });
 
       it('should check a switch block that only has a default case', () => {
         env.write('test.ts', `
@@ -4115,6 +4282,66 @@ suppress
           export class Main {
             value: Foo | Bar = { type: 'foo', foo: 'foo' };
 
+            acceptsNumber(value: number) {
+              return value;
+            }
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Argument of type 'string' is not assignable to parameter of type 'number'.`
+        ]);
+      });
+
+      it('should narrow the type in listener inside switch cases with expressions', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+          @Component({
+            template: \`
+              @switch (expr) {
+                @case ('hello') {
+                  <button (click)="acceptsNumber(expr)"></button>
+                }
+              }
+            \`,
+            standalone: true,
+          })
+          export class Main {
+            expr: 'hello' | 1 = 'hello';
+            acceptsNumber(value: number) {
+              return value;
+            }
+          }
+        `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Argument of type 'string' is not assignable to parameter of type 'number'.`
+        ]);
+      });
+
+      it('should narrow the type in listener inside switch default case', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+          @Component({
+            template: \`
+              @switch (expr) {
+                @case (1) {
+                  One
+                }
+                @case (2) {
+                  Two
+                }
+                @default {
+                  <button (click)="acceptsNumber(expr)"></button>
+                }
+              }
+            \`,
+            standalone: true,
+          })
+          export class Main {
+            expr: 1 | 2 | 'hello' = 'hello';
             acceptsNumber(value: number) {
               return value;
             }

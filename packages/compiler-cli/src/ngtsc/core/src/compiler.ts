@@ -1085,6 +1085,14 @@ export class NgCompiler {
           'JIT mode support ("supportJitMode" option) cannot be disabled in partial compilation mode.');
     }
 
+    // Currently forbidOrphanComponents depends on the code generated behind ngJitMode flag. Until
+    // we come up with a better design for these flags, it is necessary to have the JIT mode in
+    // order for forbidOrphanComponents to be able to work properly.
+    if (supportJitMode === false && this.options.forbidOrphanComponents) {
+      throw new Error(
+          'JIT mode support ("supportJitMode" option) cannot be disabled when forbidOrphanComponents is set to true');
+    }
+
     // Set up the IvyCompilation, which manages state for the Ivy transformer.
     const handlers: DecoratorHandler<unknown, unknown, SemanticSymbol|null, unknown>[] = [
       new ComponentDecoratorHandler(
@@ -1097,7 +1105,8 @@ export class NgCompiler {
           this.cycleAnalyzer, cycleHandlingStrategy, refEmitter, referencesRegistry,
           this.incrementalCompilation.depGraph, injectableRegistry, semanticDepGraphUpdater,
           this.closureCompilerEnabled, this.delegatingPerfRecorder, hostDirectivesResolver,
-          supportTestBed, compilationMode, deferredSymbolsTracker),
+          supportTestBed, compilationMode, deferredSymbolsTracker,
+          !!this.options.forbidOrphanComponents),
 
       // TODO(alxhub): understand why the cast here is necessary (something to do with `null`
       // not being assignable to `unknown` when wrapped in `Readonly`).

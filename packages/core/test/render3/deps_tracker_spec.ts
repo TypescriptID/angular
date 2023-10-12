@@ -1065,7 +1065,7 @@ describe('runtime dependency tracker', () => {
            ]));
          });
 
-      it('should throw orphan component error if component has no registered module', () => {
+      it('should return empty dependencies if component has no registered module', () => {
         @Component({})
         class MainComponent {
         }
@@ -1075,9 +1075,9 @@ describe('runtime dependency tracker', () => {
           lineNumber: 11,
         });
 
-        expect(() => depsTracker.getComponentDependencies(MainComponent as ComponentType<any>))
-            .toThrowError(
-                /Orphan component found! Trying to render the component MainComponent \(at main\.ts\:11\)/);
+        const ans = depsTracker.getComponentDependencies(MainComponent as ComponentType<any>);
+
+        expect(ans.dependencies).toEqual([]);
       });
 
       it('should return empty deps if the compilation scope of the declaring module is corrupted',
@@ -1278,6 +1278,47 @@ describe('runtime dependency tracker', () => {
           MainComponent, Component1
         ]));
       });
+    });
+  });
+
+  describe('isOrphanComponent method', () => {
+    it('should return true for non-standalone component without NgModule', () => {
+      @Component({})
+      class MainComponent {
+      }
+
+      expect(depsTracker.isOrphanComponent(MainComponent as ComponentType<any>)).toBeTrue();
+    });
+
+    it('should return false for standalone component', () => {
+      @Component({
+        standalone: true,
+      })
+      class MainComponent {
+      }
+
+      expect(depsTracker.isOrphanComponent(MainComponent as ComponentType<any>)).toBeFalse();
+    });
+
+    it('should return false for non-standalone component with its NgModule', () => {
+      @Component({})
+      class MainComponent {
+      }
+
+      @NgModule({
+        declarations: [MainComponent],
+      })
+      class MainModule {
+      }
+      depsTracker.registerNgModule(MainModule as NgModuleType, {});
+
+      expect(depsTracker.isOrphanComponent(MainComponent as ComponentType<any>)).toBeFalse();
+    });
+
+    it('should return false for class which is not a component', () => {
+      class RandomClass {}
+
+      expect(depsTracker.isOrphanComponent(RandomClass as ComponentType<any>)).toBeFalse();
     });
   });
 });
