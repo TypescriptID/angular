@@ -10,7 +10,7 @@ import {HtmlParser, Node, ParseTreeResult, visitAll} from '@angular/compiler';
 import {dirname, join} from 'path';
 import ts from 'typescript';
 
-import {AnalyzedFile, CaseCollector, ElementCollector, ElementToMigrate, ngfor, ngif, ngswitch, Template} from './types';
+import {AnalyzedFile, CaseCollector, ElementCollector, ElementToMigrate, MigrateError, ngfor, ngif, ngswitch, Template} from './types';
 
 /**
  * Analyzes a source file to find file that need to be migrated and the text ranges within them.
@@ -90,8 +90,9 @@ function getNestedCount(etm: ElementToMigrate, aggregator: number[]) {
  * Replaces structural directive control flow instances with block control flow equivalents.
  * Returns null if the migration failed (e.g. there was a syntax error).
  */
-export function migrateTemplate(template: string): string|null {
+export function migrateTemplate(template: string): {migrated: string|null, errors: MigrateError[]} {
   let parsed: ParseTreeResult;
+  let errors: MigrateError[] = [];
   try {
     // Note: we use the HtmlParser here, instead of the `parseTemplate` function, because the
     // latter returns an Ivy AST, not an HTML AST. The HTML AST has the advantage of preserving
@@ -107,10 +108,14 @@ export function migrateTemplate(template: string): string|null {
 
     // Don't migrate invalid templates.
     if (parsed.errors && parsed.errors.length > 0) {
-      return null;
+      for (let error of parsed.errors) {
+        errors.push({type: 'parse', error});
+      }
+      return {migrated: null, errors};
     }
-  } catch {
-    return null;
+  } catch (error: unknown) {
+    errors.push({type: 'parse', error});
+    return {migrated: null, errors};
   }
 
   let result = template;
@@ -139,37 +144,49 @@ export function migrateTemplate(template: string): string|null {
   // migration. Each block calculates length differences and passes that offset
   // to the next migrating block to adjust character offsets properly.
   let offset = 0;
-
   for (const el of visitor.elements) {
     // these are all migratable nodes
 
     if (el.attr.name === ngif) {
-      let ifResult = migrateNgIf(el, visitor.templates, result, offset);
-      result = ifResult.tmpl;
-      offset = ifResult.offset;
+      try {
+        let ifResult = migrateNgIf(el, visitor.templates, result, offset);
+        result = ifResult.tmpl;
+        offset = ifResult.offset;
+      } catch (error: unknown) {
+        errors.push({type: ngfor, error});
+      }
     } else if (el.attr.name === ngfor) {
-      let forResult = migrateNgFor(el, result, offset);
-      result = forResult.tmpl;
-      offset = forResult.offset;
+      try {
+        let forResult = migrateNgFor(el, result, offset);
+        result = forResult.tmpl;
+        offset = forResult.offset;
+      } catch (error: unknown) {
+        errors.push({type: ngfor, error});
+      }
     } else if (el.attr.name === ngswitch) {
-      let switchResult = migrateNgSwitch(el, result, offset);
-      result = switchResult.tmpl;
-      offset = switchResult.offset;
+      try {
+        let switchResult = migrateNgSwitch(el, result, offset);
+        result = switchResult.tmpl;
+        offset = switchResult.offset;
+      } catch (error: unknown) {
+        errors.push({type: ngfor, error});
+      }
     }
   }
 
   for (const [_, t] of visitor.templates) {
-    if (t.count === 2) {
+    if (t.count < 2) {
       result = result.replace(t.contents, '');
     }
   }
 
-  return result;
+  return {migrated: result, errors};
 }
 
 function migrateNgFor(
     etm: ElementToMigrate, tmpl: string, offset: number): {tmpl: string, offset: number} {
-  const aliasRegexp = /=\s+(count|index|first|last|even|odd)/gm;
+  const aliasWithEqualRegexp = /=\s+(count|index|first|last|even|odd)/gm;
+  const aliasWithAsRegexp = /(count|index|first|last|even|odd)\s+as/gm;
   const aliases = [];
 
   const parts = etm.attr.value.split(';');
@@ -187,9 +204,19 @@ function migrateNgFor(
       trackBy = `${trackByFn}($index, ${loopVar})`;
     }
     // aliases
-    if (part.match(aliasRegexp)) {
+    // declared with `let myIndex = index`
+    if (part.match(aliasWithEqualRegexp)) {
+      // 'let myIndex = index' -> ['let myIndex', 'index']
       const aliasParts = part.split('=');
+      // -> 'let myIndex = $index'
       aliases.push(` ${aliasParts[0].trim()} = $${aliasParts[1].trim()}`);
+    }
+    // declared with `index as myIndex`
+    if (part.match(aliasWithAsRegexp)) {
+      // 'index    as   myIndex' -> ['index', 'myIndex']
+      const aliasParts = part.split(/\s+as\s+/);
+      // -> 'let myIndex = $index'
+      aliases.push(` let ${aliasParts[1].trim()} = $${aliasParts[0].trim()}`);
     }
   }
 
@@ -255,6 +282,9 @@ function buildIfElseBlock(
   offset = offset + etm.preOffset(startBlock.length) +
       etm.postOffset(mainBlock.length + postBlock.length);
 
+  // decrease usage count of elseTmpl
+  elseTmpl.count--;
+
   return {tmpl: updatedTmpl, offset};
 }
 
@@ -278,6 +308,10 @@ function buildIfThenElseBlock(
   const updatedTmpl = tmplStart + ifThenElseBlock + tmplEnd;
 
   offset = offset + etm.preOffset(startBlock.length) + etm.postOffset(postBlock.length);
+
+  // decrease usage count of thenTmpl and elseTmpl
+  thenTmpl.count--;
+  elseTmpl.count--;
 
   return {tmpl: updatedTmpl, offset};
 }

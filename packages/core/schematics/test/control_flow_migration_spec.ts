@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {getSystemPath, normalize, virtualFs} from '@angular-devkit/core';
+import {getSystemPath, logging, normalize, virtualFs} from '@angular-devkit/core';
 import {TempScopedNodeJsSyncHost} from '@angular-devkit/core/node/testing';
 import {HostTree} from '@angular-devkit/schematics';
 import {SchematicTestRunner, UnitTestTree} from '@angular-devkit/schematics/testing';
@@ -19,6 +19,8 @@ describe('control flow migration', () => {
   let tree: UnitTestTree;
   let tmpDirPath: string;
   let previousWorkingDir: string;
+  let errorOutput: string[] = [];
+  let warnOutput: string[] = [];
 
   function writeFile(filePath: string, contents: string) {
     host.sync.write(normalize(filePath), virtualFs.stringToFileBuffer(contents));
@@ -32,6 +34,16 @@ describe('control flow migration', () => {
     runner = new SchematicTestRunner('test', runfiles.resolvePackageRelative('../collection.json'));
     host = new TempScopedNodeJsSyncHost();
     tree = new UnitTestTree(new HostTree(host));
+
+    errorOutput = [];
+    warnOutput = [];
+    runner.logger.subscribe((e: logging.LogEntry) => {
+      if (e.level === 'error') {
+        errorOutput.push(e.message);
+      } else if (e.level === 'warn') {
+        warnOutput.push(e.message);
+      }
+    });
 
     writeFile('/tsconfig.json', '{}');
     writeFile('/angular.json', JSON.stringify({
@@ -324,6 +336,33 @@ describe('control flow migration', () => {
         `<ng-container *ngTemplateOutlet="elseBlock"></ng-container>`,
       ].join('\n'));
     });
+
+    it('should not remove ng-templates used by other directives', async () => {
+      writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgIf} from '@angular/common';
+
+        @Component({
+          templateUrl: './comp.html'
+        })
+        class Comp {
+          show = false;
+        }
+      `);
+
+      writeFile('/comp.html', [
+        `<ng-template #blockUsedElsewhere><div>Block</div></ng-template>`,
+        `<ng-container *ngTemplateOutlet="blockUsedElsewhere"></ng-container>`,
+      ].join('\n'));
+
+      await runMigration();
+      const content = tree.readContent('/comp.html');
+
+      expect(content).toBe([
+        `<ng-template #blockUsedElsewhere><div>Block</div></ng-template>`,
+        `<ng-container *ngTemplateOutlet="blockUsedElsewhere"></ng-container>`,
+      ].join('\n'));
+    });
   });
 
   describe('ngFor', () => {
@@ -519,6 +558,31 @@ describe('control flow migration', () => {
 
       expect(content).toContain(
           'template: `<ul>@for (itm of items; track itm; let index = $index) {<li>{{itm.text}}</li>}</ul>`');
+    });
+
+    it('should migrate with alias declared with as', async () => {
+      writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgFor} from '@angular/common';
+        interface Item {
+          id: number;
+          text: string;
+        }
+
+        @Component({
+          imports: [NgFor],
+          template: \`<ul><li *ngFor="let itm of items; index as myIndex">{{itm.text}}</li></ul>\`
+        })
+        class Comp {
+          items: Item[] = [{id: 1, text: 'blah'},{id: 2, text: 'stuff'}];
+        }
+      `);
+
+      await runMigration();
+      const content = tree.readContent('/comp.ts');
+
+      expect(content).toContain(
+          'template: `<ul>@for (itm of items; track itm; let myIndex = $index) {<li>{{itm.text}}</li>}</ul>`');
     });
 
     it('should migrate with multiple aliases', async () => {
@@ -956,6 +1020,27 @@ describe('control flow migration', () => {
         `</ul>}`,
         `</div>}`,
       ].join('\n'));
+    });
+  });
+  describe('error handling', () => {
+    it('should log template migration errors to the console', async () => {
+      writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgIf} from '@angular/common';
+
+        @Component({
+          imports: [NgIf],
+          template: \`<div><span *ngIf="toggle>This should be hidden</span></div>\`
+        })
+        class Comp {
+          toggle = false;
+        }
+      `);
+
+      await runMigration();
+      tree.readContent('/comp.ts');
+
+      expect(warnOutput.join(' ')).toContain('WARNING: 1 errors occured during your migration');
     });
   });
 });
