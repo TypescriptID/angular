@@ -50,8 +50,12 @@ const LIST_END_MARKER = ']';
  */
 const LIST_DELIMITER = '|';
 
+/**
+ * Flags that describe what an i18n param value. These determine how the value is serialized into
+ * the final map.
+ */
 enum I18nParamValueFlags {
-  None = 0b000,
+  None = 0b0000,
 
   /**
    *  This value represtents an element tag.
@@ -61,13 +65,17 @@ enum I18nParamValueFlags {
   /**
    * This value represents a template tag.
    */
-  TemplateTag = 0b010,
+  TemplateTag = 0b0010,
 
   /**
-   * This value represents the closing of a tag. (Can only be used together with ElementTag or
-   * TemplateTag)
+   * This value represents the opening of a tag.
    */
-  CloseTag = 0b100,
+  OpenTag = 0b0100,
+
+  /**
+   * This value represents the closing of a tag.
+   */
+  CloseTag = 0b1000,
 }
 
 /**
@@ -111,9 +119,31 @@ class I18nPlaceholderParams {
   /**
    * Saves the params map, in serialized form, into the given i18n op.
    */
-  saveToOp(op: ir.I18nOp|ir.I18nStartOp) {
+  saveToOp(op: ir.I18nStartOp) {
     for (const [placeholder, placeholderValues] of this.values) {
+      // We need to run post-processing for any 1i8n ops that contain parameters with more than one
+      // value.
+      if (placeholderValues.length > 1) {
+        op.needsPostprocessing = true;
+      }
       op.params.set(placeholder, o.literal(this.serializeValues(placeholderValues)));
+    }
+  }
+
+  /**
+   * Merges another param map into this one.
+   */
+  merge(other: I18nPlaceholderParams) {
+    for (const [placeholder, otherValues] of other.values) {
+      const currentValues = this.values.get(placeholder) || [];
+      // Child element close tag params should be prepended to maintain the same order as
+      // TemplateDefinitionBuilder.
+      const flags = otherValues[0]!.flags;
+      if ((flags & I18nParamValueFlags.CloseTag) && !(flags & I18nParamValueFlags.OpenTag)) {
+        this.values.set(placeholder, [...otherValues, ...currentValues]);
+      } else {
+        this.values.set(placeholder, [...currentValues, ...otherValues]);
+      }
     }
   }
 
@@ -143,6 +173,12 @@ class I18nPlaceholderParams {
     }
     const context =
         value.subTemplateIndex === null ? '' : `${CONTEXT_MARKER}${value.subTemplateIndex}`;
+    // Self-closing tags use a special form that concatenates the start and close tag values.
+    if ((value.flags & I18nParamValueFlags.OpenTag) &&
+        (value.flags & I18nParamValueFlags.CloseTag)) {
+      return `${ESCAPE}${tagMarker}${value.value}${context}${ESCAPE}${ESCAPE}${closeMarker}${
+          tagMarker}${value.value}${context}${ESCAPE}`;
+    }
     return `${ESCAPE}${closeMarker}${tagMarker}${value.value}${context}${ESCAPE}`;
   }
 }
@@ -151,39 +187,95 @@ class I18nPlaceholderParams {
  * Resolve the placeholders in i18n messages.
  */
 export function phaseResolveI18nPlaceholders(job: ComponentCompilationJob) {
+  const params = new Map<ir.XrefId, I18nPlaceholderParams>();
+  const i18nOps = new Map<ir.XrefId, ir.I18nStartOp>();
+
+  resolvePlaceholders(job, params, i18nOps);
+  propagatePlaceholders(params, i18nOps);
+
+  // After colleccting all params, save them to the i18n ops.
+  for (const [xref, i18nOpParams] of params) {
+    i18nOpParams.saveToOp(i18nOps.get(xref)!);
+  }
+
+  // Validate the root i18n ops have all placeholders filled in.
+  for (const op of i18nOps.values()) {
+    if (op.xref === op.root) {
+      for (const placeholder in op.message.placeholders) {
+        if (!op.params.has(placeholder)) {
+          throw Error(`Failed to resolve i18n placeholder: ${placeholder}`);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Resolve placeholders for each i18n op.
+ */
+function resolvePlaceholders(
+    job: ComponentCompilationJob, params: Map<ir.XrefId, I18nPlaceholderParams>,
+    i18nOps: Map<ir.XrefId, ir.I18nStartOp>) {
   for (const unit of job.units) {
-    const i18nOps = new Map<ir.XrefId, ir.I18nOp|ir.I18nStartOp>();
-    const params = new Map<ir.XrefId, I18nPlaceholderParams>();
+    const elements = new Map<ir.XrefId, ir.ElementStartOp>();
     let currentI18nOp: ir.I18nStartOp|null = null;
 
     // Record slots for tag name placeholders.
     for (const op of unit.create) {
       switch (op.kind) {
         case ir.OpKind.I18nStart:
-        case ir.OpKind.I18n:
           i18nOps.set(op.xref, op);
           currentI18nOp = op.kind === ir.OpKind.I18nStart ? op : null;
           break;
         case ir.OpKind.I18nEnd:
           currentI18nOp = null;
           break;
-        case ir.OpKind.Element:
         case ir.OpKind.ElementStart:
-        case ir.OpKind.Template:
-          // For elements with i18n placeholders, record its slot value in the params map under both
-          // the start and close placeholders.
+          // For elements with i18n placeholders, record its slot value in the params map under the
+          // corresponding tag start placeholder.
           if (op.i18nPlaceholder !== undefined) {
             if (currentI18nOp === null) {
               throw Error('i18n tag placeholder should only occur inside an i18n block');
             }
+            elements.set(op.xref, op);
             const {startName, closeName} = op.i18nPlaceholder;
-            const subTemplateIndex = getSubTemplateIndexForTag(job, currentI18nOp, op);
-            const flags = op.kind === ir.OpKind.Template ? I18nParamValueFlags.TemplateTag :
-                                                           I18nParamValueFlags.ElementTag;
-            addParam(params, currentI18nOp, startName, op.slot!, subTemplateIndex, flags);
+            let flags = I18nParamValueFlags.ElementTag | I18nParamValueFlags.OpenTag;
+            // For self-closing tags, there is no close tag placeholder. Instead, the start tag
+            // placeholder accounts for the start and close of the element.
+            if (closeName === '') {
+              flags |= I18nParamValueFlags.CloseTag;
+            }
             addParam(
-                params, currentI18nOp, closeName, op.slot!, subTemplateIndex,
-                flags | I18nParamValueFlags.CloseTag);
+                params, currentI18nOp, startName, op.slot!, currentI18nOp.subTemplateIndex, flags);
+          }
+          break;
+        case ir.OpKind.ElementEnd:
+          const startOp = elements.get(op.xref);
+          if (startOp && startOp.i18nPlaceholder !== undefined) {
+            if (currentI18nOp === null) {
+              throw Error('i18n tag placeholder should only occur inside an i18n block');
+            }
+            const {closeName} = startOp.i18nPlaceholder;
+            // Self-closing tags don't have a closing tag placeholder.
+            if (closeName !== '') {
+              addParam(
+                  params, currentI18nOp, closeName, startOp.slot!, currentI18nOp.subTemplateIndex,
+                  I18nParamValueFlags.ElementTag | I18nParamValueFlags.CloseTag);
+            }
+          }
+          break;
+        case ir.OpKind.Template:
+          if (op.i18nPlaceholder !== undefined) {
+            if (currentI18nOp === null) {
+              throw Error('i18n tag placeholder should only occur inside an i18n block');
+            }
+            const subTemplateIndex = getSubTemplateIndexForTemplateTag(job, currentI18nOp, op);
+            addParam(
+                params, currentI18nOp, op.i18nPlaceholder.startName, op.slot!, subTemplateIndex,
+                I18nParamValueFlags.TemplateTag);
+            addParam(
+                params, currentI18nOp, op.i18nPlaceholder.closeName, op.slot!, subTemplateIndex,
+                I18nParamValueFlags.TemplateTag | I18nParamValueFlags.CloseTag);
           }
           break;
       }
@@ -202,11 +294,6 @@ export function phaseResolveI18nPlaceholders(job: ComponentCompilationJob) {
         i18nBlockPlaceholderIndices.set(op.owner, index);
       }
     }
-
-    // After colleccting all params, save them to the i18n ops.
-    for (const [xref, i18nOpParams] of params) {
-      i18nOpParams.saveToOp(i18nOps.get(xref)!);
-    }
   }
 }
 
@@ -214,27 +301,38 @@ export function phaseResolveI18nPlaceholders(job: ComponentCompilationJob) {
  * Add a param to the params map for the given i18n op.
  */
 function addParam(
-    params: Map<ir.XrefId, I18nPlaceholderParams>, i18nOp: ir.I18nOp|ir.I18nStartOp,
-    placeholder: string, value: string|number, subTemplateIndex: number|null,
+    params: Map<ir.XrefId, I18nPlaceholderParams>, i18nOp: ir.I18nStartOp, placeholder: string,
+    value: string|number, subTemplateIndex: number|null,
     flags: I18nParamValueFlags = I18nParamValueFlags.None) {
-  const i18nOpParams = params.get(i18nOp.xref) ?? new I18nPlaceholderParams();
+  const i18nOpParams = params.get(i18nOp.xref) || new I18nPlaceholderParams();
   i18nOpParams.addValue(placeholder, value, subTemplateIndex, flags);
   params.set(i18nOp.xref, i18nOpParams);
 }
 
 /**
- * Get the subTemplateIndex for the given op. For template ops, use the subTemplateIndex of the
- * child i18n block inside the template. For all other ops, use the subTemplateIndex of the i18n
- * block the op belongs to.
+ * Get the subTemplateIndex for the given template op. For template ops, use the subTemplateIndex of
+ * the child i18n block inside the template.
  */
-function getSubTemplateIndexForTag(
-    job: ComponentCompilationJob, i18nOp: ir.I18nStartOp, op: ir.CreateOp): number|null {
-  if (op.kind === ir.OpKind.Template) {
-    for (const childOp of job.views.get(op.xref)!.create) {
-      if (childOp.kind === ir.OpKind.I18nStart) {
-        return childOp.subTemplateIndex;
-      }
+function getSubTemplateIndexForTemplateTag(
+    job: ComponentCompilationJob, i18nOp: ir.I18nStartOp, op: ir.TemplateOp): number|null {
+  for (const childOp of job.views.get(op.xref)!.create) {
+    if (childOp.kind === ir.OpKind.I18nStart) {
+      return childOp.subTemplateIndex;
     }
   }
   return i18nOp.subTemplateIndex;
+}
+
+/**
+ * Propagate placeholders up to their root i18n op.
+ */
+function propagatePlaceholders(
+    params: Map<ir.XrefId, I18nPlaceholderParams>, i18nOps: Map<ir.XrefId, ir.I18nStartOp>) {
+  for (const [xref, opParams] of params) {
+    const op = i18nOps.get(xref)!;
+    if (op.xref !== op.root) {
+      const rootParams = params.get(op.root) || new I18nPlaceholderParams();
+      rootParams.merge(opParams);
+    }
+  }
 }

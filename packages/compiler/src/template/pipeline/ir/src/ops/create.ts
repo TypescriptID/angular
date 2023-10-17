@@ -107,7 +107,7 @@ export interface ElementOpBase extends ElementOrContainerOpBase {
   /**
    * The HTML tag name for this element.
    */
-  tag: string;
+  tag: string|null;
 
   /**
    * The namespace of this element, which controls the preceding namespace instruction.
@@ -195,7 +195,7 @@ export interface TemplateOp extends ElementOpBase {
  * Create a `TemplateOp`.
  */
 export function createTemplateOp(
-    xref: XrefId, tag: string, namespace: Namespace, generatedInBlock: boolean,
+    xref: XrefId, tag: string|null, namespace: Namespace, generatedInBlock: boolean,
     i18nPlaceholder: i18n.TagPlaceholder|undefined, sourceSpan: ParseSourceSpan): TemplateOp {
   return {
     kind: OpKind.Template,
@@ -719,6 +719,11 @@ export interface I18nOpBase extends Op<CreateOp>, ConsumesSlotOpTrait {
    * The index of this sub-block in the i18n message. For a root i18n block, this is null.
    */
   subTemplateIndex: number|null;
+
+  /**
+   * Whether the i18n message requires postprocessing.
+   */
+  needsPostprocessing: boolean;
 }
 
 /**
@@ -747,6 +752,7 @@ export function createI18nStartOp(xref: XrefId, message: i18n.Message, root?: Xr
     params: new Map(),
     messageIndex: null,
     subTemplateIndex: null,
+    needsPostprocessing: false,
     ...NEW_OP,
     ...TRAIT_CONSUMES_SLOT,
   };

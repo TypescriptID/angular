@@ -10,6 +10,7 @@ import {type ConstantPool} from '../../../../constant_pool';
 import * as i18n from '../../../../i18n/i18n_ast';
 import * as o from '../../../../output/output_ast';
 import {sanitizeIdentifier} from '../../../../parse_util';
+import {Identifiers} from '../../../../render3/r3_identifiers';
 import {createGoogleGetMsgStatements} from '../../../../render3/view/i18n/get_msg_utils';
 import {createLocalizeStatements} from '../../../../render3/view/i18n/localize_utils';
 import {declareI18nVariable, formatI18nPlaceholderNamesInMap, getTranslationConstPrefix} from '../../../../render3/view/i18n/util';
@@ -33,7 +34,7 @@ export function phaseI18nMessageExtraction(job: ComponentCompilationJob): void {
       job.relativeContextFilePath.replace(/[^A-Za-z0-9]/g, '_').toUpperCase() + '_';
   for (const unit of job.units) {
     for (const op of unit.create) {
-      if ((op.kind === ir.OpKind.I18nStart || op.kind === ir.OpKind.I18n)) {
+      if (op.kind === ir.OpKind.I18nStart) {
         // Only extract messages from root i18n ops, not sub-template ones.
         if (op.xref === op.root) {
           // Sort the params map to match the ordering in TemplateDefinitionBuilder.
@@ -45,9 +46,11 @@ export function phaseI18nMessageExtraction(job: ComponentCompilationJob): void {
           // `goog.getMsg` call
           const closureVar = i18nGenerateClosureVar(
               job.pool, op.message.id, fileBasedI18nSuffix, job.i18nUseExternalIds);
-          // TODO: figure out transformFn.
-          const statements = getTranslationDeclStmts(
-              op.message, mainVar, closureVar, params, undefined /*transformFn*/);
+          const transformFn = op.needsPostprocessing ?
+              (expr: o.ReadVarExpr) => o.importExpr(Identifiers.i18nPostprocess).callFn([expr]) :
+              undefined;
+          const statements =
+              getTranslationDeclStmts(op.message, mainVar, closureVar, params, transformFn);
           unit.create.push(ir.createExtractedMessageOp(op.xref, mainVar, statements));
         }
       }
