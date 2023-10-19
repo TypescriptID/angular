@@ -24,7 +24,7 @@ export type CreateOp =
     ListEndOp<CreateOp>|StatementOp<CreateOp>|ElementOp|ElementStartOp|ElementEndOp|ContainerOp|
     ContainerStartOp|ContainerEndOp|TemplateOp|EnableBindingsOp|DisableBindingsOp|TextOp|ListenerOp|
     PipeOp|VariableOp<CreateOp>|NamespaceOp|ProjectionDefOp|ProjectionOp|ExtractedAttributeOp|
-    DeferOp|DeferSecondaryBlockOp|DeferOnOp|ExtractedMessageOp|I18nOp|I18nStartOp|I18nEndOp;
+    DeferOp|DeferSecondaryBlockOp|DeferOnOp|ExtractedMessageOp|I18nOp|I18nStartOp|I18nEndOp|IcuOp;
 
 /**
  * An operation representing the creation of an element or container.
@@ -706,9 +706,15 @@ export interface I18nOpBase extends Op<CreateOp>, ConsumesSlotOpTrait {
   message: i18n.Message;
 
   /**
-   * Map of values to use for named placeholders in the i18n message.
+   * Map of values to use for named placeholders in the i18n message. (Resolved at message creation)
    */
   params: Map<string, o.Expression>;
+
+  /**
+   * Map of values to use for named placeholders in the i18n message. (Resolved during
+   * post-porcessing)
+   */
+  postprocessingParams: Map<string, o.Expression>;
 
   /**
    * The index in the consts array where the message i18n message is stored.
@@ -750,6 +756,7 @@ export function createI18nStartOp(xref: XrefId, message: i18n.Message, root?: Xr
     root: root ?? xref,
     message,
     params: new Map(),
+    postprocessingParams: new Map(),
     messageIndex: null,
     subTemplateIndex: null,
     needsPostprocessing: false,
@@ -780,6 +787,40 @@ export function createI18nEndOp(xref: XrefId): I18nEndOp {
     ...NEW_OP,
   };
 }
+
+/**
+ * An op that represents an ICU expression.
+ */
+export interface IcuOp extends Op<CreateOp> {
+  kind: OpKind.Icu;
+
+  /**
+   * The ID of the ICU.
+   */
+  xref: XrefId;
+
+  /**
+   * The i18n message for this ICU.
+   */
+  message: i18n.Message;
+
+  sourceSpan: ParseSourceSpan;
+}
+
+/**
+ * Creates an op to create an ICU expression.
+ */
+export function createIcuOp(
+    xref: XrefId, message: i18n.Message, sourceSpan: ParseSourceSpan): IcuOp {
+  return {
+    kind: OpKind.Icu,
+    xref,
+    message,
+    sourceSpan,
+    ...NEW_OP,
+  };
+}
+
 
 /**
  * An index into the `consts` array which is shared across the compilation of all views in a

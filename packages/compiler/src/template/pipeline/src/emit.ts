@@ -31,6 +31,7 @@ import {phaseHostStylePropertyParsing} from './phases/host_style_property_parsin
 import {phaseI18nConstCollection} from './phases/i18n_const_collection';
 import {phaseI18nMessageExtraction} from './phases/i18n_message_extraction';
 import {phaseI18nTextExtraction} from './phases/i18n_text_extraction';
+import {phaseIcuExtraction} from './phases/icu_extraction';
 import {phaseLocalRefs} from './phases/local_refs';
 import {phaseNamespace} from './phases/namespace';
 import {phaseNaming} from './phases/naming';
@@ -59,6 +60,7 @@ import {phaseStyleBindingSpecialization} from './phases/style_binding_specializa
 import {phaseTemporaryVariables} from './phases/temporary_variables';
 import {phaseVarCounting} from './phases/var_counting';
 import {phaseVariableOptimization} from './phases/variable_optimization';
+import {phaseWrapIcus} from './phases/wrap_icus';
 
 type Phase = {
   fn: (job: CompilationJob) => void; kind: Kind.Both | Kind.Host | Kind.Tmpl;
@@ -78,12 +80,14 @@ const phases: Phase[] = [
   {kind: Kind.Both, fn: phaseStyleBindingSpecialization},
   {kind: Kind.Both, fn: phaseBindingSpecialization},
   {kind: Kind.Tmpl, fn: phasePropagateI18nBlocks},
+  {kind: Kind.Tmpl, fn: phaseWrapIcus},
   {kind: Kind.Both, fn: phaseAttributeExtraction},
   {kind: Kind.Both, fn: phaseParseExtractedStyles},
   {kind: Kind.Tmpl, fn: phaseRemoveEmptyBindings},
   {kind: Kind.Tmpl, fn: phaseConditionals},
   {kind: Kind.Tmpl, fn: phasePipeCreation},
   {kind: Kind.Tmpl, fn: phaseI18nTextExtraction},
+  {kind: Kind.Tmpl, fn: phaseIcuExtraction},
   {kind: Kind.Tmpl, fn: phaseApplyI18nExpressions},
   {kind: Kind.Tmpl, fn: phasePipeVariadic},
   {kind: Kind.Both, fn: phasePureLiteralStructures},
