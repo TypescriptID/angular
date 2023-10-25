@@ -31,6 +31,7 @@ export const enum RuntimeErrorCode {
   EXPRESSION_CHANGED_AFTER_CHECKED = -100,
   RECURSIVE_APPLICATION_REF_TICK = 101,
   RECURSIVE_APPLICATION_RENDER = 102,
+  INFINITE_CHANGE_DETECTION = 103,
 
   // Dependency Injection Errors
   CYCLIC_DI_DEPENDENCY = -200,
@@ -92,6 +93,9 @@ export const enum RuntimeErrorCode {
   // i18n Errors
   INVALID_I18N_STRUCTURE = 700,
   MISSING_LOCALE_DATA = 701,
+
+  // Defer errors (750-799 range)
+  DEFER_LOADING_FAILED = 750,
 
   // standalone errors
   IMPORT_PROVIDERS_FROM_STANDALONE = 800,

@@ -206,7 +206,7 @@ function ingestTemplate(unit: ViewCompilationUnit, tmpl: t.Template): void {
   ingestNodes(childView, tmpl.children);
 
   for (const {name, value} of tmpl.variables) {
-    childView.contextVariables.set(name, value);
+    childView.contextVariables.set(name, value !== '' ? value : '$implicit');
   }
 
   // If this is a plain template and there is an i18n message associated with it, insert i18n start
@@ -223,7 +223,7 @@ function ingestTemplate(unit: ViewCompilationUnit, tmpl: t.Template): void {
  * Ingest a literal text node from the AST into the given `ViewCompilation`.
  */
 function ingestContent(unit: ViewCompilationUnit, content: t.Content): void {
-  const op = ir.createProjectionOp(unit.job.allocateXrefId(), content.selector);
+  const op = ir.createProjectionOp(unit.job.allocateXrefId(), content.selector, content.sourceSpan);
   for (const attr of content.attributes) {
     ingestBinding(
         unit, op.xref, attr.name, o.literal(attr.value), e.BindingType.Attribute, null,

@@ -7,12 +7,15 @@
  */
 
 import {InjectionToken, Injector} from '../di';
+import {RuntimeError, RuntimeErrorCode} from '../errors';
 import {findMatchingDehydratedView} from '../hydration/views';
 import {populateDehydratedViewsInLContainer} from '../linker/view_container_ref';
 import {assertLContainer, assertTNodeForLView} from '../render3/assert';
 import {bindingUpdated} from '../render3/bindings';
 import {getComponentDef, getDirectiveDef, getPipeDef} from '../render3/definition';
+import {getTemplateLocationDetails} from '../render3/instructions/element_validation';
 import {markViewDirty} from '../render3/instructions/mark_view_dirty';
+import {handleError} from '../render3/instructions/shared';
 import {ɵɵtemplate} from '../render3/instructions/template';
 import {LContainer} from '../render3/interfaces/container';
 import {DirectiveDefList, PipeDefList} from '../render3/interfaces/definition';
@@ -432,9 +435,14 @@ function scheduleDelayedPrefetching(
  * @param newState New state that should be applied to the defer block.
  * @param tNode TNode that represents a defer block.
  * @param lContainer Represents an instance of a defer block.
+ * @param skipTimerScheduling Indicates that `@loading` and `@placeholder` block
+ *   should be rendered immediately, even if they have `after` or `minimum` config
+ *   options setup. This flag to needed for testing APIs to transition defer block
+ *   between states via `DeferFixture.render` method.
  */
 export function renderDeferBlockState(
-    newState: DeferBlockState, tNode: TNode, lContainer: LContainer): void {
+    newState: DeferBlockState, tNode: TNode, lContainer: LContainer,
+    skipTimerScheduling = false): void {
   const hostLView = lContainer[PARENT];
   const hostTView = hostLView[TVIEW];
 
@@ -454,9 +462,10 @@ export function renderDeferBlockState(
   if (isValidStateChange(currentState, newState) &&
       isValidStateChange(lDetails[NEXT_DEFER_BLOCK_STATE] ?? -1, newState)) {
     const tDetails = getTDeferBlockDetails(hostTView, tNode);
-    const needsScheduling = getLoadingBlockAfter(tDetails) !== null ||
-        getMinimumDurationForState(tDetails, DeferBlockState.Loading) !== null ||
-        getMinimumDurationForState(tDetails, DeferBlockState.Placeholder);
+    const needsScheduling = !skipTimerScheduling &&
+        (getLoadingBlockAfter(tDetails) !== null ||
+         getMinimumDurationForState(tDetails, DeferBlockState.Loading) !== null ||
+         getMinimumDurationForState(tDetails, DeferBlockState.Placeholder));
 
     if (ngDevMode && needsScheduling) {
       assertDefined(
@@ -465,7 +474,11 @@ export function renderDeferBlockState(
 
     const applyStateFn =
         needsScheduling ? applyDeferBlockStateWithSchedulingImpl! : applyDeferBlockState;
-    applyStateFn(newState, lDetails, lContainer, tNode, hostLView);
+    try {
+      applyStateFn(newState, lDetails, lContainer, tNode, hostLView);
+    } catch (error: unknown) {
+      handleError(hostLView, error);
+    }
   }
 }
 
@@ -667,6 +680,17 @@ export function triggerResourceLoading(tDetails: TDeferBlockDetails, lView: LVie
 
     if (failed) {
       tDetails.loadingState = DeferDependenciesLoadingState.FAILED;
+
+      if (tDetails.errorTmplIndex === null) {
+        const templateLocation = getTemplateLocationDetails(lView);
+        const error = new RuntimeError(
+            RuntimeErrorCode.DEFER_LOADING_FAILED,
+            ngDevMode &&
+                'Loading dependencies for `@defer` block failed, ' +
+                    `but no \`@error\` block was configured${templateLocation}. ` +
+                    'Consider using the `@error` block to render an error state.');
+        handleError(lView, error);
+      }
     } else {
       tDetails.loadingState = DeferDependenciesLoadingState.COMPLETE;
 

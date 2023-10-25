@@ -30,14 +30,14 @@ export type CreateOp = ListEndOp<CreateOp>|StatementOp<CreateOp>|ElementOp|Eleme
  * An operation representing the creation of an element or container.
  */
 export type ElementOrContainerOps =
-    ElementOp|ElementStartOp|ContainerOp|ContainerStartOp|TemplateOp|ProjectionOp|RepeaterCreateOp;
+    ElementOp|ElementStartOp|ContainerOp|ContainerStartOp|TemplateOp|RepeaterCreateOp;
 
 /**
  * The set of OpKinds that represent the creation of an element or container
  */
 const elementContainerOpKinds = new Set([
   OpKind.Element, OpKind.ElementStart, OpKind.Container, OpKind.ContainerStart, OpKind.Template,
-  OpKind.Projection, OpKind.RepeaterCreate
+  OpKind.RepeaterCreate
 ]);
 
 /**
@@ -566,7 +566,7 @@ export function createProjectionDefOp(def: o.Expression|null): ProjectionDefOp {
 /**
  * An op that creates a content projection slot.
  */
-export interface ProjectionOp extends Op<CreateOp>, ConsumesSlotOpTrait, ElementOrContainerOpBase {
+export interface ProjectionOp extends Op<CreateOp>, ConsumesSlotOpTrait {
   kind: OpKind.Projection;
 
   xref: XrefId;
@@ -575,19 +575,25 @@ export interface ProjectionOp extends Op<CreateOp>, ConsumesSlotOpTrait, Element
 
   projectionSlotIndex: number;
 
+  attributes: string[];
+
+  localRefs: string[];
+
   selector: string;
+
+  sourceSpan: ParseSourceSpan;
 }
 
-export function createProjectionOp(xref: XrefId, selector: string): ProjectionOp {
+export function createProjectionOp(
+    xref: XrefId, selector: string, sourceSpan: ParseSourceSpan): ProjectionOp {
   return {
     kind: OpKind.Projection,
     xref,
     selector,
     projectionSlotIndex: 0,
-    attributes: null,
+    attributes: [],
     localRefs: [],
-    nonBindable: false,
-    sourceSpan: null!,  // TODO
+    sourceSpan,
     ...NEW_OP,
     ...TRAIT_CONSUMES_SLOT,
   };

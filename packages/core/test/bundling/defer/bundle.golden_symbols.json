@@ -243,6 +243,9 @@
     "name": "MATH_ML_NAMESPACE"
   },
   {
+    "name": "MAXIMUM_REFRESH_RERUNS"
+  },
+  {
     "name": "MINIMUM_SLOT"
   },
   {
@@ -753,6 +756,9 @@
     "name": "detectChangesInEmbeddedViews"
   },
   {
+    "name": "detectChangesInView"
+  },
+  {
     "name": "detectChangesInViewIfAttached"
   },
   {
@@ -961,6 +967,9 @@
   },
   {
     "name": "getTView"
+  },
+  {
+    "name": "handleError"
   },
   {
     "name": "hasInSkipHydrationBlockFlag"
@@ -2362,6 +2371,9 @@
   },
   {
     "name": "switchMap"
+  },
+  {
+    "name": "throwError"
   },
   {
     "name": "throwProviderNotFoundError"

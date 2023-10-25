@@ -214,15 +214,16 @@ export function projectionDef(def: o.Expression|null): ir.CreateOp {
 }
 
 export function projection(
-    slot: number, projectionSlotIndex: number, attributes: number|null): ir.CreateOp {
-  const args = [o.literal(slot)];
-  if (projectionSlotIndex !== 0 || attributes !== null) {
+    slot: number, projectionSlotIndex: number, attributes: string[],
+    sourceSpan: ParseSourceSpan): ir.CreateOp {
+  const args: o.Expression[] = [o.literal(slot)];
+  if (projectionSlotIndex !== 0 || attributes.length > 0) {
     args.push(o.literal(projectionSlotIndex));
-    if (attributes != null) {
-      args.push(o.literal(attributes));
+    if (attributes.length > 0) {
+      args.push(o.literalArr(attributes.map(attr => o.literal(attr))));
     }
   }
-  return call(Identifiers.projection, args, null);
+  return call(Identifiers.projection, args, sourceSpan);
 }
 
 export function i18nStart(slot: number, constIndex: number, subTemplateIndex: number): ir.CreateOp {

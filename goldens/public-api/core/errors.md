@@ -29,6 +29,8 @@ export const enum RuntimeErrorCode {
     // (undocumented)
     CYCLIC_DI_DEPENDENCY = -200,
     // (undocumented)
+    DEFER_LOADING_FAILED = 750,
+    // (undocumented)
     DUPLICATE_DIRECTITVE = 309,
     // (undocumented)
     EXPORT_NOT_FOUND = -301,
@@ -56,6 +58,8 @@ export const enum RuntimeErrorCode {
     IMAGE_PERFORMANCE_WARNING = -913,
     // (undocumented)
     IMPORT_PROVIDERS_FROM_STANDALONE = 800,
+    // (undocumented)
+    INFINITE_CHANGE_DETECTION = 103,
     // (undocumented)
     INJECTOR_ALREADY_DESTROYED = 205,
     // (undocumented)
