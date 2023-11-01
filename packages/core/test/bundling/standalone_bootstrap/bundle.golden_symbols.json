@@ -180,6 +180,9 @@
     "name": "Injector"
   },
   {
+    "name": "InternalViewRef"
+  },
+  {
     "name": "LOCALE_ID2"
   },
   {
@@ -297,6 +300,9 @@
     "name": "Observable"
   },
   {
+    "name": "PERF_MARK_STANDALONE"
+  },
+  {
     "name": "PLATFORM_DESTROY_LISTENERS"
   },
   {
@@ -328,9 +334,6 @@
   },
   {
     "name": "RendererStyleFlags2"
-  },
-  {
-    "name": "RootViewRef"
   },
   {
     "name": "RuntimeError"
@@ -406,9 +409,6 @@
   },
   {
     "name": "ViewEncapsulation"
-  },
-  {
-    "name": "ViewRef"
   },
   {
     "name": "ZONE_IS_STABLE_OBSERVABLE"
@@ -525,9 +525,6 @@
     "name": "collectNativeNodesInLContainer"
   },
   {
-    "name": "commitLViewConsumerIfHasProducers"
-  },
-  {
     "name": "concatStringsWithSpace"
   },
   {
@@ -567,9 +564,6 @@
     "name": "createLView"
   },
   {
-    "name": "createLViewConsumer"
-  },
-  {
     "name": "createNodeInjector"
   },
   {
@@ -601,9 +595,6 @@
   },
   {
     "name": "detectChangesInViewIfAttached"
-  },
-  {
-    "name": "detectChangesInternal"
   },
   {
     "name": "diPublicInInjector"
@@ -718,9 +709,6 @@
   },
   {
     "name": "getNullInjector"
-  },
-  {
-    "name": "getOrCreateCurrentLViewConsumer"
   },
   {
     "name": "getOrCreateInjectable"

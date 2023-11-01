@@ -185,28 +185,56 @@ export function text(
 
 export function defer(
     selfSlot: number, primarySlot: number, dependencyResolverFn: null, loadingSlot: number|null,
-    placeholderSlot: number|null, errorSlot: number|null, loadingConfigIndex: number|null,
-    placeholderConfigIndex: number|null, sourceSpan: ParseSourceSpan|null): ir.CreateOp {
-  const args = [
+    placeholderSlot: number|null, errorSlot: number|null, loadingConfig: o.Expression|null,
+    placeholderConfig: o.Expression|null, enableTimerScheduling: boolean,
+    sourceSpan: ParseSourceSpan|null): ir.CreateOp {
+  const args: Array<o.Expression> = [
     o.literal(selfSlot),
     o.literal(primarySlot),
     o.literal(dependencyResolverFn),
     o.literal(loadingSlot),
     o.literal(placeholderSlot),
     o.literal(errorSlot),
-    o.literal(loadingConfigIndex),
-    o.literal(placeholderConfigIndex),
+    loadingConfig ?? o.literal(null),
+    placeholderConfig ?? o.literal(null),
+    enableTimerScheduling ? o.importExpr(Identifiers.deferEnableTimerScheduling) : o.literal(null),
   ];
 
-  while (args[args.length - 1].value === null) {
+  let expr: o.Expression;
+  while ((expr = args[args.length - 1]) !== null && expr instanceof o.LiteralExpr &&
+         expr.value === null) {
     args.pop();
   }
 
   return call(Identifiers.defer, args, sourceSpan);
 }
 
-export function deferOn(sourceSpan: ParseSourceSpan|null): ir.CreateOp {
-  return call(Identifiers.deferOnIdle, [], sourceSpan);
+const deferTriggerToR3TriggerInstructionsMap = new Map([
+  [ir.DeferTriggerKind.Idle, [Identifiers.deferOnIdle, Identifiers.deferPrefetchOnIdle]],
+  [
+    ir.DeferTriggerKind.Immediate,
+    [Identifiers.deferOnImmediate, Identifiers.deferPrefetchOnImmediate]
+  ],
+  [ir.DeferTriggerKind.Timer, [Identifiers.deferOnTimer, Identifiers.deferPrefetchOnTimer]],
+  [ir.DeferTriggerKind.Hover, [Identifiers.deferOnHover, Identifiers.deferPrefetchOnHover]],
+  [
+    ir.DeferTriggerKind.Interaction,
+    [Identifiers.deferOnInteraction, Identifiers.deferPrefetchOnInteraction]
+  ],
+  [
+    ir.DeferTriggerKind.Viewport, [Identifiers.deferOnViewport, Identifiers.deferPrefetchOnViewport]
+  ],
+]);
+
+export function deferOn(
+    trigger: ir.DeferTriggerKind, args: number[], prefetch: boolean,
+    sourceSpan: ParseSourceSpan|null): ir.CreateOp {
+  const instructions = deferTriggerToR3TriggerInstructionsMap.get(trigger);
+  if (instructions === undefined) {
+    throw new Error(`Unable to determine instruction for trigger ${trigger}`);
+  }
+  const instructionToCall = prefetch ? instructions[1] : instructions[0];
+  return call(instructionToCall, args.map(a => o.literal(a)), sourceSpan);
 }
 
 export function projectionDef(def: o.Expression|null): ir.CreateOp {
@@ -235,22 +263,23 @@ export function i18nStart(slot: number, constIndex: number, subTemplateIndex: nu
 }
 
 export function repeaterCreate(
-    slot: number, viewFnName: string, decls: number, vars: number, trackByFn: o.Expression,
-    trackByUsesComponentInstance: boolean, emptyViewFnName: string|null, emptyDecls: number|null,
-    emptyVars: number|null, sourceSpan: ParseSourceSpan|null): ir.CreateOp {
-  let args = [
+    slot: number, viewFnName: string, decls: number, vars: number, tag: string|null,
+    constIndex: number|null, trackByFn: o.Expression, trackByUsesComponentInstance: boolean,
+    emptyViewFnName: string|null, emptyDecls: number|null, emptyVars: number|null,
+    sourceSpan: ParseSourceSpan|null): ir.CreateOp {
+  const args = [
     o.literal(slot),
     o.variable(viewFnName),
     o.literal(decls),
     o.literal(vars),
+    o.literal(tag),
+    o.literal(constIndex),
     trackByFn,
   ];
   if (trackByUsesComponentInstance || emptyViewFnName !== null) {
     args.push(o.literal(trackByUsesComponentInstance));
     if (emptyViewFnName !== null) {
-      args.push(o.variable(emptyViewFnName));
-      args.push(o.literal(emptyDecls));
-      args.push(o.literal(emptyVars));
+      args.push(o.variable(emptyViewFnName), o.literal(emptyDecls), o.literal(emptyVars));
     }
   }
   return call(Identifiers.repeaterCreate, args, sourceSpan);

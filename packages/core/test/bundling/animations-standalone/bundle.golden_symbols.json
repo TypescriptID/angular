@@ -270,6 +270,9 @@
     "name": "Injector"
   },
   {
+    "name": "InternalViewRef"
+  },
+  {
     "name": "LEAVE_TOKEN_REGEX"
   },
   {
@@ -408,6 +411,9 @@
     "name": "PARAM_REGEX"
   },
   {
+    "name": "PERF_MARK_STANDALONE"
+  },
+  {
     "name": "PLATFORM_DESTROY_LISTENERS"
   },
   {
@@ -439,9 +445,6 @@
   },
   {
     "name": "RendererStyleFlags2"
-  },
-  {
-    "name": "RootViewRef"
   },
   {
     "name": "RuntimeError"
@@ -544,9 +547,6 @@
   },
   {
     "name": "ViewEncapsulation"
-  },
-  {
-    "name": "ViewRef"
   },
   {
     "name": "WebAnimationsDriver"
@@ -717,9 +717,6 @@
     "name": "collectNativeNodesInLContainer"
   },
   {
-    "name": "commitLViewConsumerIfHasProducers"
-  },
-  {
     "name": "computeStaticStyling"
   },
   {
@@ -783,9 +780,6 @@
     "name": "createLView"
   },
   {
-    "name": "createLViewConsumer"
-  },
-  {
     "name": "createNodeInjector"
   },
   {
@@ -826,9 +820,6 @@
   },
   {
     "name": "detectChangesInViewIfAttached"
-  },
-  {
-    "name": "detectChangesInternal"
   },
   {
     "name": "diPublicInInjector"
@@ -970,9 +961,6 @@
   },
   {
     "name": "getOrCreateComponentTView"
-  },
-  {
-    "name": "getOrCreateCurrentLViewConsumer"
   },
   {
     "name": "getOrCreateInjectable"

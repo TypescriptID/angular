@@ -26,8 +26,8 @@ describe('control flow migration', () => {
     host.sync.write(normalize(filePath), virtualFs.stringToFileBuffer(contents));
   }
 
-  function runMigration() {
-    return runner.runSchematic('control-flow-migration', {}, tree);
+  function runMigration(path: string|undefined = undefined) {
+    return runner.runSchematic('control-flow-migration', {path}, tree);
   }
 
   beforeEach(() => {
@@ -62,6 +62,85 @@ describe('control flow migration', () => {
   afterEach(() => {
     shx.cd(previousWorkingDir);
     shx.rm('-r', tmpDirPath);
+  });
+
+  describe('path', () => {
+    it('should throw an error if no files match the passed-in path', async () => {
+      let error: string|null = null;
+
+      writeFile('dir.ts', `
+        import {Directive} from '@angular/core';
+
+        @Directive({selector: '[dir]'})
+        export class MyDir {}
+      `);
+
+      try {
+        await runMigration('./foo');
+      } catch (e: any) {
+        error = e.message;
+      }
+
+      expect(error).toMatch(
+          /Could not find any files to migrate under the path .*\/foo\. Cannot run the control flow migration/);
+    });
+
+    it('should throw an error if a path outside of the project is passed in', async () => {
+      let error: string|null = null;
+
+      writeFile('dir.ts', `
+        import {Directive} from '@angular/core';
+
+        @Directive({selector: '[dir]'})
+        export class MyDir {}
+      `);
+
+      try {
+        await runMigration('../foo');
+      } catch (e: any) {
+        error = e.message;
+      }
+
+      expect(error).toBe('Cannot run control flow migration outside of the current project.');
+    });
+
+    it('should only migrate the paths that were passed in', async () => {
+      let error: string|null = null;
+
+      writeFile('comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgIf} from '@angular/common';
+
+        @Component({
+          imports: [NgIf],
+          template: \`<div><span *ngIf="toggle">This should be hidden</span></div>\`
+        })
+        class Comp {
+          toggle = false;
+        }
+      `);
+
+      writeFile('skip.ts', `
+        import {Component} from '@angular/core';
+        import {NgIf} from '@angular/common';
+
+        @Component({
+          imports: [NgIf],
+          template: \`<div *ngIf="show">Show me</div>\`
+        })
+        class Comp {
+          show = false;
+        }
+      `);
+
+      await runMigration('./comp.ts');
+      const migratedContent = tree.readContent('/comp.ts');
+      const skippedContent = tree.readContent('/skip.ts');
+
+      expect(migratedContent)
+          .toContain('template: `<div>@if (toggle) {<span>This should be hidden</span>}</div>`');
+      expect(skippedContent).toContain('template: `<div *ngIf="show">Show me</div>`');
+    });
   });
 
   describe('ngIf', () => {
@@ -790,7 +869,6 @@ describe('control flow migration', () => {
           'template: `<ul>@for (itm of items; track trackMeFn($index, itm)) {<li>{{itm.text}}</li>}</ul>`');
     });
 
-
     it('should migrate with an index alias', async () => {
       writeFile('/comp.ts', `
         import {Component} from '@angular/core';
@@ -803,6 +881,31 @@ describe('control flow migration', () => {
         @Component({
           imports: [NgFor],
           template: \`<ul><li *ngFor="let itm of items; let index = index">{{itm.text}}</li></ul>\`
+        })
+        class Comp {
+          items: Item[] = [{id: 1, text: 'blah'},{id: 2, text: 'stuff'}];
+        }
+      `);
+
+      await runMigration();
+      const content = tree.readContent('/comp.ts');
+
+      expect(content).toContain(
+          'template: `<ul>@for (itm of items; track itm; let index = $index) {<li>{{itm.text}}</li>}</ul>`');
+    });
+
+    it('should migrate with an index alias with no spaces', async () => {
+      writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgFor} from '@angular/common';
+        interface Item {
+          id: number;
+          text: string;
+        }
+
+        @Component({
+          imports: [NgFor],
+          template: \`<ul><li *ngFor="let itm of items; let index=index">{{itm.text}}</li></ul>\`
         })
         class Comp {
           items: Item[] = [{id: 1, text: 'blah'},{id: 2, text: 'stuff'}];
@@ -839,6 +942,31 @@ describe('control flow migration', () => {
 
       expect(content).toContain(
           'template: `<ul>@for (itm of items; track itm; let myIndex = $index) {<li>{{itm.text}}</li>}</ul>`');
+    });
+
+    it('should migrate with a trackBy function and an aliased index', async () => {
+      writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgFor} from '@angular/common';
+        interface Item {
+          id: number;
+          text: string;
+        }
+
+        @Component({
+          imports: [NgFor],
+          template: \`<ul><li *ngFor="let itm of items; trackBy: trackMeFn; index as i">{{itm.text}}</li></ul>\`
+        })
+        class Comp {
+          items: Item[] = [{id: 1, text: 'blah'},{id: 2, text: 'stuff'}];
+        }
+      `);
+
+      await runMigration();
+      const content = tree.readContent('/comp.ts');
+
+      expect(content).toContain(
+          'template: `<ul>@for (itm of items; track trackMeFn(i, itm); let i = $index) {<li>{{itm.text}}</li>}</ul>`');
     });
 
     it('should migrate with multiple aliases', async () => {
@@ -1963,7 +2091,7 @@ describe('control flow migration', () => {
 
         @Component({
           imports: [NgIf],
-          template: \`<div><span *ngIf="toggle>This should be hidden</span></div>\`
+          template: \`<div><span *ngIf="toggle">This should be hidden</span></div>\`
         })
         class Comp {
           toggle = false;
@@ -1973,7 +2101,8 @@ describe('control flow migration', () => {
       await runMigration();
       tree.readContent('/comp.ts');
 
-      expect(warnOutput.join(' ')).toContain('WARNING: 1 errors occured during your migration');
+      expect(warnOutput.join(' '))
+          .toContain('IMPORTANT! This migration is in developer preview. Use with caution.');
     });
   });
 
@@ -2083,6 +2212,46 @@ describe('control flow migration', () => {
       const content = tree.readContent('/comp.ts');
 
       expect(content).toContain('template: `<div><span>shrug</span></div>`');
+    });
+
+    it('should do nothing with already present updated control flow', async () => {
+      writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgIf} from '@angular/common';
+
+        @Component({
+          imports: [NgIf],
+          template: \`<div>@if (toggle) {<span>shrug</span>}</div>\`
+        })
+        class Comp {
+          toggle = false;
+        }
+      `);
+
+      await runMigration();
+      const content = tree.readContent('/comp.ts');
+      expect(content).toContain('template: `<div>@if (toggle) {<span>shrug</span>}</div>`');
+    });
+
+    it('should migrate an ngif inside a block', async () => {
+      writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgIf} from '@angular/common';
+
+        @Component({
+          imports: [NgIf],
+          template: \`<div>@if (toggle) {<div><span *ngIf="show">shrug</span></div>}</div>\`
+        })
+        class Comp {
+          toggle = false;
+          show = false;
+        }
+      `);
+
+      await runMigration();
+      const content = tree.readContent('/comp.ts');
+      expect(content).toContain(
+          'template: `<div>@if (toggle) {<div>@if (show) {<span>shrug</span>}</div>}</div>`');
     });
   });
 });

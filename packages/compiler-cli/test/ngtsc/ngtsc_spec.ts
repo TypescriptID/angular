@@ -8713,7 +8713,7 @@ function allTests(os: string) {
         expect(jsContents).toContain(`import { externalToNumber } from 'external';`);
         expect(jsContents).toContain('inputs: { value: ["value", "value", externalToNumber] }');
         expect(jsContents).toContain('features: [i0.ɵɵInputTransformsFeature]');
-        expect(dtsContents).toContain('import * as i1 from "./node_modules/external/index";');
+        expect(dtsContents).toContain('import * as i1 from "external";');
         expect(dtsContents).toContain('static ngAcceptInputType_value: i1.ExternalToNumberType;');
       });
 
@@ -8744,8 +8744,35 @@ function allTests(os: string) {
         expect(jsContents)
             .toContain('inputs: { value: ["value", "value", (value) => value ? 1 : 0] }');
         expect(jsContents).toContain('features: [i0.ɵɵInputTransformsFeature]');
-        expect(dtsContents).toContain('import * as i1 from "./node_modules/external/index";');
+        expect(dtsContents).toContain('import * as i1 from "external";');
         expect(dtsContents).toContain('static ngAcceptInputType_value: i1.ExternalToNumberType;');
+      });
+
+      it('should compile an input referencing an imported function with literal types', () => {
+        env.write('/transforms.ts', `
+          export function toBoolean(value: boolean | '' | 'true' | 'false'): boolean {
+            return !!value;
+          }
+        `);
+        env.write('/test.ts', `
+          import {Directive, Input} from '@angular/core';
+          import {toBoolean} from './transforms';
+
+          @Directive({standalone: true})
+          export class Dir {
+            @Input({transform: toBoolean}) value!: number;
+          }
+        `);
+
+        env.driveMain();
+
+        const jsContents = env.getContents('test.js');
+        const dtsContents = env.getContents('test.d.ts');
+
+        expect(jsContents).toContain('inputs: { value: ["value", "value", toBoolean] }');
+        expect(jsContents).toContain('features: [i0.ɵɵInputTransformsFeature]');
+        expect(dtsContents)
+            .toContain(`static ngAcceptInputType_value: boolean | "" | "true" | "false";`);
       });
 
       it('should compile a directive input with a transform function with a `this` typing', () => {

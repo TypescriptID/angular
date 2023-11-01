@@ -13,7 +13,7 @@ import {getComponentViewByInstance} from '../context_discovery';
 import {executeCheckHooks, executeInitAndCheckHooks, incrementInitPhaseFlags} from '../hooks';
 import {CONTAINER_HEADER_OFFSET, HAS_CHILD_VIEWS_TO_REFRESH, HAS_TRANSPLANTED_VIEWS, LContainer, MOVED_VIEWS} from '../interfaces/container';
 import {ComponentTemplate, RenderFlags} from '../interfaces/definition';
-import {CONTEXT, ENVIRONMENT, FLAGS, InitPhaseState, LView, LViewFlags, PARENT, TVIEW, TView} from '../interfaces/view';
+import {CONTEXT, ENVIRONMENT, FLAGS, InitPhaseState, LView, LViewFlags, PARENT, REACTIVE_TEMPLATE_CONSUMER, TVIEW, TView, TViewType} from '../interfaces/view';
 import {enterView, isInCheckNoChangesMode, leaveView, setBindingIndex, setIsInCheckNoChangesMode} from '../state';
 import {getFirstLContainer, getNextLContainer} from '../util/view_traversal_utils';
 import {getComponentLViewByIndex, isCreationMode, markAncestorsForTraversal, markViewForRefresh, resetPreOrderHookFlags, viewAttachedToChangeDetector} from '../util/view_utils';
@@ -159,17 +159,23 @@ export function refreshView<T>(
     // execute pre-order hooks (OnInit, OnChanges, DoCheck)
     // PERF WARNING: do NOT extract this to a separate function without running benchmarks
     if (!isInCheckNoChangesPass) {
-      if (hooksInitPhaseCompleted) {
-        const preOrderCheckHooks = tView.preOrderCheckHooks;
-        if (preOrderCheckHooks !== null) {
-          executeCheckHooks(lView, preOrderCheckHooks, null);
+      const consumer = lView[REACTIVE_TEMPLATE_CONSUMER];
+      try {
+        consumer && (consumer.isRunning = true);
+        if (hooksInitPhaseCompleted) {
+          const preOrderCheckHooks = tView.preOrderCheckHooks;
+          if (preOrderCheckHooks !== null) {
+            executeCheckHooks(lView, preOrderCheckHooks, null);
+          }
+        } else {
+          const preOrderHooks = tView.preOrderHooks;
+          if (preOrderHooks !== null) {
+            executeInitAndCheckHooks(lView, preOrderHooks, InitPhaseState.OnInitHooksToBeRun, null);
+          }
+          incrementInitPhaseFlags(lView, InitPhaseState.OnInitHooksToBeRun);
         }
-      } else {
-        const preOrderHooks = tView.preOrderHooks;
-        if (preOrderHooks !== null) {
-          executeInitAndCheckHooks(lView, preOrderHooks, InitPhaseState.OnInitHooksToBeRun, null);
-        }
-        incrementInitPhaseFlags(lView, InitPhaseState.OnInitHooksToBeRun);
+      } finally {
+        consumer && (consumer.isRunning = false);
       }
     }
 
@@ -338,6 +344,7 @@ function detectChangesInViewIfAttached(lView: LView, mode: ChangeDetectionMode) 
  * view HasChildViewsToRefresh flag is set.
  */
 function detectChangesInView(lView: LView, mode: ChangeDetectionMode) {
+  const isInCheckNoChangesPass = ngDevMode && isInCheckNoChangesMode();
   const tView = lView[TVIEW];
   const flags = lView[FLAGS];
 
@@ -345,8 +352,14 @@ function detectChangesInView(lView: LView, mode: ChangeDetectionMode) {
   // necessary.
   lView[FLAGS] &= ~(LViewFlags.HasChildViewsToRefresh | LViewFlags.RefreshView);
 
-  if ((flags & (LViewFlags.CheckAlways | LViewFlags.Dirty) &&
-       mode === ChangeDetectionMode.Global) ||
+  if ((flags & LViewFlags.CheckAlways && mode === ChangeDetectionMode.Global) ||
+      (flags & LViewFlags.Dirty && mode === ChangeDetectionMode.Global &&
+       // CheckNoChanges never worked with `OnPush` components because the `Dirty` flag was cleared
+       // before checkNoChanges ran. Because there is now a loop for to check for backwards views,
+       // it gives an opportunity for `OnPush` components to be marked `Dirty` before the
+       // CheckNoChanges pass. We don't want existing errors that are hidden by the current
+       // CheckNoChanges bug to surface when making unrelated changes.
+       !isInCheckNoChangesPass) ||
       flags & LViewFlags.RefreshView) {
     refreshView(tView, lView, tView.template, lView[CONTEXT]);
   } else if (flags & LViewFlags.HasChildViewsToRefresh) {

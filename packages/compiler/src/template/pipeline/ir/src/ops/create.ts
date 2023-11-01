@@ -9,9 +9,10 @@
 import * as i18n from '../../../../../i18n/i18n_ast';
 import * as o from '../../../../../output/output_ast';
 import {ParseSourceSpan} from '../../../../../parse_util';
-import {BindingKind, DeferSecondaryKind, OpKind} from '../enums';
+import {BindingKind, DeferTriggerKind, I18nParamValueFlags, Namespace, OpKind} from '../enums';
+import {SlotHandle} from '../handle';
 import {Op, OpList, XrefId} from '../operations';
-import {ConsumesSlotOpTrait, HasConstTrait, TRAIT_CONSUMES_SLOT, TRAIT_HAS_CONST, TRAIT_USES_SLOT_INDEX, UsesSlotIndexTrait} from '../traits';
+import {ConsumesSlotOpTrait, TRAIT_CONSUMES_SLOT} from '../traits';
 
 import {ListEndOp, NEW_OP, StatementOp, VariableOp} from './shared';
 
@@ -20,11 +21,11 @@ import type {UpdateOp} from './update';
 /**
  * An operation usable on the creation side of the IR.
  */
-export type CreateOp = ListEndOp<CreateOp>|StatementOp<CreateOp>|ElementOp|ElementStartOp|
-    ElementEndOp|ContainerOp|ContainerStartOp|ContainerEndOp|TemplateOp|EnableBindingsOp|
-    DisableBindingsOp|TextOp|ListenerOp|PipeOp|VariableOp<CreateOp>|NamespaceOp|ProjectionDefOp|
-    ProjectionOp|ExtractedAttributeOp|DeferOp|DeferSecondaryBlockOp|DeferOnOp|RepeaterCreateOp|
-    ExtractedMessageOp|I18nOp|I18nStartOp|I18nEndOp|IcuOp;
+export type CreateOp =
+    ListEndOp<CreateOp>|StatementOp<CreateOp>|ElementOp|ElementStartOp|ElementEndOp|ContainerOp|
+    ContainerStartOp|ContainerEndOp|TemplateOp|EnableBindingsOp|DisableBindingsOp|TextOp|ListenerOp|
+    PipeOp|VariableOp<CreateOp>|NamespaceOp|ProjectionDefOp|ProjectionOp|ExtractedAttributeOp|
+    DeferOp|DeferOnOp|RepeaterCreateOp|ExtractedMessageOp|I18nOp|I18nStartOp|I18nEndOp|IcuOp;
 
 /**
  * An operation representing the creation of an element or container.
@@ -75,6 +76,8 @@ export interface ElementOrContainerOpBase extends Op<CreateOp>, ConsumesSlotOpTr
    * This ID is used to reference this element from other IR structures.
    */
   xref: XrefId;
+
+  slot: SlotHandle;
 
   /**
    * Attributes of various kinds on this element. Represented as a `ConstIndex` pointer into the
@@ -137,6 +140,7 @@ export function createElementStartOp(
     kind: OpKind.ElementStart,
     xref,
     tag,
+    slot: new SlotHandle(),
     attributes: null,
     localRefs: [],
     nonBindable: false,
@@ -179,11 +183,9 @@ export interface TemplateOp extends ElementOpBase {
   vars: number|null;
 
   /**
-   * Whether or not this template was automatically created for use with block syntax (control flow
-   * or defer). This will eventually cause the emitted template instruction to use fewer arguments,
-   * since several of the default arguments are unnecessary for blocks.
+   * Suffix to add to the name of the generated template function.
    */
-  block: boolean;
+  functionNameSuffix: string;
 
   /**
    * The i18n placeholder data associated with this template.
@@ -195,14 +197,15 @@ export interface TemplateOp extends ElementOpBase {
  * Create a `TemplateOp`.
  */
 export function createTemplateOp(
-    xref: XrefId, tag: string|null, namespace: Namespace, generatedInBlock: boolean,
+    xref: XrefId, tag: string|null, functionNameSuffix: string, namespace: Namespace,
     i18nPlaceholder: i18n.TagPlaceholder|undefined, sourceSpan: ParseSourceSpan): TemplateOp {
   return {
     kind: OpKind.Template,
     xref,
     attributes: null,
     tag,
-    block: generatedInBlock,
+    slot: new SlotHandle(),
+    functionNameSuffix,
     decls: null,
     vars: null,
     localRefs: [],
@@ -259,6 +262,11 @@ export interface RepeaterCreateOp extends ElementOpBase {
    */
   usesComponentInstance: boolean;
 
+  /**
+   * Suffix to add to the name of the generated template function.
+   */
+  functionNameSuffix: string;
+
   sourceSpan: ParseSourceSpan;
 }
 
@@ -274,16 +282,18 @@ export interface RepeaterVarNames {
 }
 
 export function createRepeaterCreateOp(
-    primaryView: XrefId, emptyView: XrefId|null, track: o.Expression, varNames: RepeaterVarNames,
-    sourceSpan: ParseSourceSpan): RepeaterCreateOp {
+    primaryView: XrefId, emptyView: XrefId|null, tag: string|null, track: o.Expression,
+    varNames: RepeaterVarNames, sourceSpan: ParseSourceSpan): RepeaterCreateOp {
   return {
     kind: OpKind.RepeaterCreate,
     attributes: null,
     xref: primaryView,
+    slot: new SlotHandle(),
     emptyView,
     track,
     trackByFn: null,
-    tag: 'For',
+    tag,
+    functionNameSuffix: 'For',
     namespace: Namespace.HTML,
     nonBindable: false,
     localRefs: [],
@@ -424,6 +434,7 @@ export function createTextOp(
   return {
     kind: OpKind.Text,
     xref,
+    slot: new SlotHandle(),
     initialValue,
     sourceSpan,
     ...TRAIT_CONSUMES_SLOT,
@@ -434,8 +445,11 @@ export function createTextOp(
 /**
  * Logical operation representing an event listener on an element in the creation IR.
  */
-export interface ListenerOp extends Op<CreateOp>, UsesSlotIndexTrait {
+export interface ListenerOp extends Op<CreateOp> {
   kind: OpKind.Listener;
+
+  target: XrefId;
+  targetSlot: SlotHandle;
 
   /**
    * Whether this listener is from a host binding.
@@ -485,11 +499,12 @@ export interface ListenerOp extends Op<CreateOp>, UsesSlotIndexTrait {
  * Create a `ListenerOp`. Host bindings reuse all the listener logic.
  */
 export function createListenerOp(
-    target: XrefId, name: string, tag: string|null, animationPhase: string|null,
-    hostListener: boolean, sourceSpan: ParseSourceSpan): ListenerOp {
+    target: XrefId, targetSlot: SlotHandle, name: string, tag: string|null,
+    animationPhase: string|null, hostListener: boolean, sourceSpan: ParseSourceSpan): ListenerOp {
   return {
     kind: OpKind.Listener,
     target,
+    targetSlot,
     tag,
     hostListener,
     name,
@@ -500,7 +515,6 @@ export function createListenerOp(
     animationPhase: animationPhase,
     sourceSpan,
     ...NEW_OP,
-    ...TRAIT_USES_SLOT_INDEX,
   };
 }
 
@@ -510,23 +524,15 @@ export interface PipeOp extends Op<CreateOp>, ConsumesSlotOpTrait {
   name: string;
 }
 
-export function createPipeOp(xref: XrefId, name: string): PipeOp {
+export function createPipeOp(xref: XrefId, slot: SlotHandle, name: string): PipeOp {
   return {
     kind: OpKind.Pipe,
     xref,
+    slot,
     name,
     ...NEW_OP,
     ...TRAIT_CONSUMES_SLOT,
   };
-}
-
-/**
- * Whether the active namespace is HTML, MathML, or SVG mode.
- */
-export enum Namespace {
-  HTML,
-  SVG,
-  Math,
 }
 
 /**
@@ -571,8 +577,6 @@ export interface ProjectionOp extends Op<CreateOp>, ConsumesSlotOpTrait {
 
   xref: XrefId;
 
-  slot: number|null;
-
   projectionSlotIndex: number;
 
   attributes: string[];
@@ -589,6 +593,7 @@ export function createProjectionOp(
   return {
     kind: OpKind.Projection,
     xref,
+    slot: new SlotHandle(),
     selector,
     projectionSlotIndex: 0,
     attributes: [],
@@ -642,7 +647,7 @@ export function createExtractedAttributeOp(
   };
 }
 
-export interface DeferOp extends Op<CreateOp>, ConsumesSlotOpTrait, UsesSlotIndexTrait {
+export interface DeferOp extends Op<CreateOp>, ConsumesSlotOpTrait {
   kind: OpKind.Defer;
 
   /**
@@ -651,92 +656,176 @@ export interface DeferOp extends Op<CreateOp>, ConsumesSlotOpTrait, UsesSlotInde
   xref: XrefId;
 
   /**
-   * The xref of the main view. This will be associated with `slot`.
+   * The xref of the main view.
    */
-  target: XrefId;
+  mainView: XrefId;
+
+  mainSlot: SlotHandle;
 
   /**
    * Secondary loading block associated with this defer op.
    */
-  loading: DeferSecondaryBlockOp|null;
+  loadingView: XrefId|null;
+
+  loadingSlot: SlotHandle|null;
 
   /**
    * Secondary placeholder block associated with this defer op.
    */
-  placeholder: DeferSecondaryBlockOp|null;
+  placeholderView: XrefId|null;
+
+  placeholderSlot: SlotHandle|null;
 
   /**
    * Secondary error block associated with this defer op.
    */
-  error: DeferSecondaryBlockOp|null;
+  errorView: XrefId|null;
+
+  errorSlot: SlotHandle|null;
+
+  placeholderMinimumTime: number|null;
+  loadingMinimumTime: number|null;
+  loadingAfterTime: number|null;
+
+  placeholderConfig: o.Expression|null;
+  loadingConfig: o.Expression|null;
 
   sourceSpan: ParseSourceSpan;
 }
 
-export function createDeferOp(xref: XrefId, main: XrefId, sourceSpan: ParseSourceSpan): DeferOp {
+export function createDeferOp(
+    xref: XrefId, main: XrefId, mainSlot: SlotHandle, sourceSpan: ParseSourceSpan): DeferOp {
   return {
     kind: OpKind.Defer,
     xref,
-    target: main,
-    loading: null,
-    placeholder: null,
-    error: null,
+    slot: new SlotHandle(),
+    mainView: main,
+    mainSlot,
+    loadingView: null,
+    loadingSlot: null,
+    loadingConfig: null,
+    loadingMinimumTime: null,
+    loadingAfterTime: null,
+    placeholderView: null,
+    placeholderSlot: null,
+    placeholderConfig: null,
+    placeholderMinimumTime: null,
+    errorView: null,
+    errorSlot: null,
     sourceSpan,
     ...NEW_OP,
     ...TRAIT_CONSUMES_SLOT,
-    ...TRAIT_USES_SLOT_INDEX,
+    numSlotsUsed: 2,
   };
 }
-
-export interface DeferSecondaryBlockOp extends Op<CreateOp>, UsesSlotIndexTrait, HasConstTrait {
-  kind: OpKind.DeferSecondaryBlock;
-
-  /**
-   * The xref of the corresponding defer op.
-   */
-  deferOp: XrefId;
-
-  /**
-   * Which kind of secondary block this op represents.
-   */
-  secondaryBlockKind: DeferSecondaryKind;
-
-  /**
-   * The xref of the secondary view. This will be associated with `slot`.
-   */
-  target: XrefId;
+interface DeferTriggerBase {
+  kind: DeferTriggerKind;
 }
 
-export function createDeferSecondaryOp(
-    deferOp: XrefId, secondaryView: XrefId,
-    secondaryBlockKind: DeferSecondaryKind): DeferSecondaryBlockOp {
-  return {
-    kind: OpKind.DeferSecondaryBlock,
-    deferOp,
-    target: secondaryView,
-    secondaryBlockKind,
-    constValue: null,
-    makeExpression: literalOrArrayLiteral,
-    ...NEW_OP,
-    ...TRAIT_USES_SLOT_INDEX,
-    ...TRAIT_HAS_CONST,
-  };
+interface DeferTriggerWithTargetBase extends DeferTriggerBase {
+  targetName: string|null;
+
+  /**
+   * The Xref of the targeted name. May be in a different view.
+   */
+  targetXref: XrefId|null;
+
+  /**
+   * The slot index of the named reference, inside the view provided below. This slot may not be
+   * inside the current view, and is handled specially as a result.
+   */
+  targetSlot: SlotHandle|null;
+
+  targetView: XrefId|null;
+
+  /**
+   * Number of steps to walk up or down the view tree to find the target localRef.
+   */
+  targetSlotViewSteps: number|null;
 }
 
-export interface DeferOnOp extends Op<CreateOp>, ConsumesSlotOpTrait {
+interface DeferIdleTrigger extends DeferTriggerBase {
+  kind: DeferTriggerKind.Idle;
+}
+
+interface DeferImmediateTrigger extends DeferTriggerBase {
+  kind: DeferTriggerKind.Immediate;
+}
+
+interface DeferHoverTrigger extends DeferTriggerWithTargetBase {
+  kind: DeferTriggerKind.Hover;
+}
+
+interface DeferTimerTrigger extends DeferTriggerBase {
+  kind: DeferTriggerKind.Timer;
+
+  delay: number;
+}
+
+interface DeferInteractionTrigger extends DeferTriggerWithTargetBase {
+  kind: DeferTriggerKind.Interaction;
+}
+
+interface DeferViewportTrigger extends DeferTriggerWithTargetBase {
+  kind: DeferTriggerKind.Viewport;
+}
+
+/**
+ * The union type of all defer trigger interfaces.
+ */
+export type DeferTrigger = DeferIdleTrigger|DeferImmediateTrigger|DeferTimerTrigger|
+    DeferHoverTrigger|DeferInteractionTrigger|DeferViewportTrigger;
+
+export interface DeferOnOp extends Op<CreateOp> {
   kind: OpKind.DeferOn;
+
+  defer: XrefId;
+
+  /**
+   * The trigger for this defer op (e.g. idle, hover, etc).
+   */
+  trigger: DeferTrigger;
+
+  /**
+   * Whether to emit the prefetch version of the instruction.
+   */
+  prefetch: boolean;
 
   sourceSpan: ParseSourceSpan;
 }
 
-export function createDeferOnOp(xref: XrefId, sourceSpan: ParseSourceSpan): DeferOnOp {
+export function createDeferOnOp(
+    defer: XrefId, trigger: DeferTrigger, prefetch: boolean,
+    sourceSpan: ParseSourceSpan): DeferOnOp {
   return {
     kind: OpKind.DeferOn,
-    xref,
+    defer,
+    trigger,
+    prefetch,
     sourceSpan,
     ...NEW_OP,
-    ...TRAIT_CONSUMES_SLOT,
   };
+}
+
+/**
+ * Represents a single value in an i18n param map. Each placeholder in the map may have multiple of
+ * these values associated with it.
+ */
+export interface I18nParamValue {
+  /**
+   * The value.
+   */
+  value: string|number;
+
+  /**
+   * The sub-template index associated with the value.
+   */
+  subTemplateIndex: number|null;
+
+  /**
+   * Flags associated with the value.
+   */
+  flags: I18nParamValueFlags;
 }
 
 /**
@@ -751,26 +840,61 @@ export interface ExtractedMessageOp extends Op<CreateOp> {
   owner: XrefId;
 
   /**
-   * The message expression.
+   * The i18n message represented by this op.
    */
-  expression: o.Expression;
+  message: i18n.Message;
 
   /**
-   * The statements to construct the message.
+   * Whether this op represents a root message (as opposed to a partial message for a sub-template
+   * in a root message).
    */
-  statements: o.Statement[];
+  isRoot: boolean;
+
+  /**
+   * The param map, with placeholders represented as an array of value objects for easy
+   * manipulation.
+   */
+  params: Map<string, I18nParamValue[]>;
+
+  /**
+   * The post-processing param map, with placeholders represented as an array of value objects for
+   * easy manipulation.
+   */
+  postprocessingParams: Map<string, I18nParamValue[]>;
+
+  /**
+   * Whether this message needs post-processing.
+   */
+  needsPostprocessing: boolean;
+
+  /**
+   * The param map, with placeholders represented as an `Expression` to facilitate extraction to the
+   * const arry.
+   */
+  formattedParams: Map<string, o.Expression>|null;
+
+  /**
+   * The post-processing param map, with placeholders represented as an `Expression` to facilitate
+   * extraction to the const arry.
+   */
+  formattedPostprocessingParams: Map<string, o.Expression>|null;
 }
 
 /**
  * Create an `ExtractedMessageOp`.
  */
 export function createExtractedMessageOp(
-    owner: XrefId, expression: o.Expression, statements: o.Statement[]): ExtractedMessageOp {
+    owner: XrefId, message: i18n.Message, isRoot: boolean): ExtractedMessageOp {
   return {
     kind: OpKind.ExtractedMessage,
     owner,
-    expression,
-    statements,
+    message,
+    isRoot,
+    params: new Map(),
+    postprocessingParams: new Map(),
+    needsPostprocessing: false,
+    formattedParams: null,
+    formattedPostprocessingParams: null,
     ...NEW_OP,
   };
 }
@@ -795,17 +919,6 @@ export interface I18nOpBase extends Op<CreateOp>, ConsumesSlotOpTrait {
   message: i18n.Message;
 
   /**
-   * Map of values to use for named placeholders in the i18n message. (Resolved at message creation)
-   */
-  params: Map<string, o.Expression>;
-
-  /**
-   * Map of values to use for named placeholders in the i18n message. (Resolved during
-   * post-porcessing)
-   */
-  postprocessingParams: Map<string, o.Expression>;
-
-  /**
    * The index in the consts array where the message i18n message is stored.
    */
   messageIndex: ConstIndex|null;
@@ -814,11 +927,6 @@ export interface I18nOpBase extends Op<CreateOp>, ConsumesSlotOpTrait {
    * The index of this sub-block in the i18n message. For a root i18n block, this is null.
    */
   subTemplateIndex: number|null;
-
-  /**
-   * Whether the i18n message requires postprocessing.
-   */
-  needsPostprocessing: boolean;
 }
 
 /**
@@ -842,13 +950,11 @@ export function createI18nStartOp(xref: XrefId, message: i18n.Message, root?: Xr
   return {
     kind: OpKind.I18nStart,
     xref,
+    slot: new SlotHandle(),
     root: root ?? xref,
     message,
-    params: new Map(),
-    postprocessingParams: new Map(),
     messageIndex: null,
     subTemplateIndex: null,
-    needsPostprocessing: false,
     ...NEW_OP,
     ...TRAIT_CONSUMES_SLOT,
   };

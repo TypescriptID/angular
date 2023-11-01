@@ -101,19 +101,15 @@ export function migrateTemplate(template: string): {migrated: string|null, error
       // Allows for ICUs to be parsed.
       tokenizeExpansionForms: true,
       // Explicitly disable blocks so that their characters are treated as plain text.
-      tokenizeBlocks: false,
+      tokenizeBlocks: true,
       preserveLineEndings: true,
     });
 
     // Don't migrate invalid templates.
     if (parsed.errors && parsed.errors.length > 0) {
-      for (let error of parsed.errors) {
-        errors.push({type: 'parse', error});
-      }
       return {migrated: null, errors};
     }
-  } catch (error: unknown) {
-    errors.push({type: 'parse', error});
+  } catch {
     return {migrated: null, errors};
   }
 
@@ -319,7 +315,7 @@ function buildIfThenElseBlock(
 }
 
 function migrateNgFor(etm: ElementToMigrate, tmpl: string, offset: number): Result {
-  const aliasWithEqualRegexp = /=\s+(count|index|first|last|even|odd)/gm;
+  const aliasWithEqualRegexp = /=\s*(count|index|first|last|even|odd)/gm;
   const aliasWithAsRegexp = /(count|index|first|last|even|odd)\s+as/gm;
   const aliases = [];
   const lbString = etm.hasLineBreaks ? lb : '';
@@ -332,6 +328,7 @@ function migrateNgFor(etm: ElementToMigrate, tmpl: string, offset: number): Resu
   const condition = parts[0].replace('let ', '');
   const loopVar = condition.split(' of ')[0];
   let trackBy = loopVar;
+  let aliasedIndex: string|null = null;
   for (let i = 1; i < parts.length; i++) {
     const part = parts[i].trim();
 
@@ -347,6 +344,11 @@ function migrateNgFor(etm: ElementToMigrate, tmpl: string, offset: number): Resu
       const aliasParts = part.split('=');
       // -> 'let myIndex = $index'
       aliases.push(` ${aliasParts[0].trim()} = $${aliasParts[1].trim()}`);
+      // if the aliased variable is the index, then we store it
+      if (aliasParts[1].trim() === 'index') {
+        // 'let myIndex' -> 'myIndex'
+        aliasedIndex = aliasParts[0].trim().split(/\s+as\s+/)[1];
+      }
     }
     // declared with `index as myIndex`
     if (part.match(aliasWithAsRegexp)) {
@@ -354,7 +356,16 @@ function migrateNgFor(etm: ElementToMigrate, tmpl: string, offset: number): Resu
       const aliasParts = part.split(/\s+as\s+/);
       // -> 'let myIndex = $index'
       aliases.push(` let ${aliasParts[1].trim()} = $${aliasParts[0].trim()}`);
+      // if the aliased variable is the index, then we store it
+      if (aliasParts[0].trim() === 'index') {
+        aliasedIndex = aliasParts[1].trim();
+      }
     }
+  }
+  // if an alias has been defined for the index, then the trackBy function must use it
+  if (aliasedIndex !== null && trackBy !== loopVar) {
+    // byId($index, user) -> byId(i, user)
+    trackBy = trackBy.replace('$index', aliasedIndex);
   }
 
   const aliasStr = (aliases.length > 0) ? `;${aliases.join(';')}` : '';

@@ -324,6 +324,9 @@
     "name": "InnerSubscriber"
   },
   {
+    "name": "InternalViewRef"
+  },
+  {
     "name": "ItemComponent"
   },
   {
@@ -537,6 +540,9 @@
     "name": "OutletInjector"
   },
   {
+    "name": "PERF_MARK_STANDALONE"
+  },
+  {
     "name": "PLATFORM_DESTROY_LISTENERS"
   },
   {
@@ -625,9 +631,6 @@
   },
   {
     "name": "ResolveStart"
-  },
-  {
-    "name": "RootViewRef"
   },
   {
     "name": "RouteConfigLoadEnd"
@@ -843,9 +846,6 @@
     "name": "ViewEngineTemplateRef"
   },
   {
-    "name": "ViewRef"
-  },
-  {
     "name": "XSS_SECURITY_URL"
   },
   {
@@ -1008,9 +1008,6 @@
     "name": "combineLatest"
   },
   {
-    "name": "commitLViewConsumerIfHasProducers"
-  },
-  {
     "name": "compare"
   },
   {
@@ -1090,9 +1087,6 @@
   },
   {
     "name": "createLView"
-  },
-  {
-    "name": "createLViewConsumer"
   },
   {
     "name": "createNewSegmentChildren"
@@ -1183,9 +1177,6 @@
   },
   {
     "name": "detectChangesInViewIfAttached"
-  },
-  {
-    "name": "detectChangesInternal"
   },
   {
     "name": "diPublicInInjector"
@@ -1405,9 +1396,6 @@
   },
   {
     "name": "getOrCreateComponentTView"
-  },
-  {
-    "name": "getOrCreateCurrentLViewConsumer"
   },
   {
     "name": "getOrCreateInjectable"

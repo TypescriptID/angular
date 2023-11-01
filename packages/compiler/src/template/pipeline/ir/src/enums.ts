@@ -355,6 +355,11 @@ export enum ExpressionKind {
    * properties ($even, $first, etc.).
    */
   DerivedRepeaterVar,
+
+  /**
+   * An expression that will be automatically extracted to the component const array.
+   */
+  ConstCollected,
 }
 
 export enum VariableFlags {
@@ -478,4 +483,53 @@ export enum I18nParamResolutionTime {
    * an ICU.
    */
   Postproccessing
+}
+
+/**
+ * Flags that describe what an i18n param value. These determine how the value is serialized into
+ * the final map.
+ */
+export enum I18nParamValueFlags {
+  None = 0b0000,
+
+  /**
+   *  This value represtents an element tag.
+   */
+  ElementTag = 0b001,
+
+  /**
+   * This value represents a template tag.
+   */
+  TemplateTag = 0b0010,
+
+  /**
+   * This value represents the opening of a tag.
+   */
+  OpenTag = 0b0100,
+
+  /**
+   * This value represents the closing of a tag.
+   */
+  CloseTag = 0b1000,
+}
+
+/**
+ * Whether the active namespace is HTML, MathML, or SVG mode.
+ */
+export enum Namespace {
+  HTML,
+  SVG,
+  Math,
+}
+
+/**
+ * The type of a `@defer` trigger, for use in the ir.
+ */
+export enum DeferTriggerKind {
+  Idle,
+  Immediate,
+  Timer,
+  Hover,
+  Interaction,
+  Viewport,
 }

@@ -10,7 +10,6 @@ import {sanitizeIdentifier} from '../../../../parse_util';
 import {hyphenate} from '../../../../render3/view/style_parser';
 import * as ir from '../../ir';
 import {ViewCompilationUnit, type CompilationJob, type CompilationUnit} from '../compilation';
-import {prefixWithNamespace} from '../conversion';
 
 /**
  * Generate names for functions and variables across all views.
@@ -46,7 +45,7 @@ function addNamesToView(
         if (op.handlerFnName !== null) {
           break;
         }
-        if (!op.hostListener && op.targetSlot === null) {
+        if (!op.hostListener && op.targetSlot.slot === null) {
           throw new Error(`Expected a slot to be assigned`);
         }
         let animation = '';
@@ -58,7 +57,7 @@ function addNamesToView(
           op.handlerFnName = `${baseName}_${animation}${op.name}_HostBindingHandler`;
         } else {
           op.handlerFnName = `${unit.fnName}_${op.tag!.replace('-', '_')}_${animation}${op.name}_${
-              op.targetSlot}_listener`;
+              op.targetSlot.slot}_listener`;
         }
         op.handlerFnName = sanitizeIdentifier(op.handlerFnName);
         break;
@@ -69,34 +68,31 @@ function addNamesToView(
         if (!(unit instanceof ViewCompilationUnit)) {
           throw new Error(`AssertionError: must be compiling a component`);
         }
-        if (op.slot === null) {
+        if (op.slot.slot === null) {
           throw new Error(`Expected slot to be assigned`);
         }
         if (op.emptyView !== null) {
           const emptyView = unit.job.views.get(op.emptyView)!;
           // Repeater empty view function is at slot +2 (metadata is in the first slot).
           addNamesToView(
-              emptyView,
-              `${baseName}_${prefixWithNamespace(`${op.tag}Empty`, op.namespace)}_${op.slot + 2}`,
+              emptyView, `${baseName}_${`${op.functionNameSuffix}Empty`}_${op.slot.slot + 2}`,
               state, compatibility);
         }
-        const repeaterToken =
-            op.tag === null ? '' : '_' + prefixWithNamespace(op.tag, op.namespace);
         // Repeater primary view function is at slot +1 (metadata is in the first slot).
         addNamesToView(
-            unit.job.views.get(op.xref)!, `${baseName}${repeaterToken}_${op.slot + 1}`, state,
-            compatibility);
+            unit.job.views.get(op.xref)!,
+            `${baseName}_${op.functionNameSuffix}_${op.slot.slot + 1}`, state, compatibility);
         break;
       case ir.OpKind.Template:
         if (!(unit instanceof ViewCompilationUnit)) {
           throw new Error(`AssertionError: must be compiling a component`);
         }
         const childView = unit.job.views.get(op.xref)!;
-        if (op.slot === null) {
+        if (op.slot.slot === null) {
           throw new Error(`Expected slot to be assigned`);
         }
-        const tagToken = op.tag === null ? '' : '_' + prefixWithNamespace(op.tag, op.namespace);
-        addNamesToView(childView, `${baseName}${tagToken}_${op.slot}`, state, compatibility);
+        const suffix = op.functionNameSuffix.length === 0 ? '' : `_${op.functionNameSuffix}`;
+        addNamesToView(childView, `${baseName}${suffix}_${op.slot.slot}`, state, compatibility);
         break;
       case ir.OpKind.StyleProp:
         op.name = normalizeStylePropName(op.name);

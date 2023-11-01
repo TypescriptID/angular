@@ -30,6 +30,9 @@ import {getParentInjectorIndex, getParentInjectorView, hasParentInjector} from '
 import {assertTNodeForLView, assertTNode} from '../assert';
 import {RElement} from '../interfaces/renderer_dom';
 import {getNativeByTNode} from './view_utils';
+import {INJECTOR_DEF_TYPES} from '../../di/internal_tokens';
+import {ENVIRONMENT_INITIALIZER} from '../../di/initializer_token';
+import {ValueProvider} from '../../di/interface/provider';
 
 /**
  * Discovers the dependencies of an injectable instance. Provides DI information about each
@@ -57,26 +60,32 @@ export function getDependenciesFromInjectable<T>(
   const resolutionPath = getInjectorResolutionPath(injector);
 
   const dependencies = unformattedDependencies.map(dep => {
+    // injectedIn contains private fields, so we omit it from the response
+    const formattedDependency: Omit<InjectedService, 'injectedIn'> = {
+      value: dep.value,
+    };
+
     // convert injection flags to booleans
     const flags = dep.flags as InternalInjectFlags;
-    dep.flags = {
+    formattedDependency.flags = {
       optional: (InternalInjectFlags.Optional & flags) === InternalInjectFlags.Optional,
       host: (InternalInjectFlags.Host & flags) === InternalInjectFlags.Host,
       self: (InternalInjectFlags.Self & flags) === InternalInjectFlags.Self,
       skipSelf: (InternalInjectFlags.SkipSelf & flags) === InternalInjectFlags.SkipSelf,
     };
 
+
     // find the injector that provided the dependency
     for (let i = 0; i < resolutionPath.length; i++) {
       const injectorToCheck = resolutionPath[i];
 
       // if skipSelf is true we skip the first injector
-      if (i === 0 && dep.flags.skipSelf) {
+      if (i === 0 && formattedDependency.flags.skipSelf) {
         continue;
       }
 
       // host only applies to NodeInjectors
-      if (dep.flags.host && injectorToCheck instanceof EnvironmentInjector) {
+      if (formattedDependency.flags.host && injectorToCheck instanceof EnvironmentInjector) {
         break;
       }
 
@@ -88,36 +97,29 @@ export function getDependenciesFromInjectable<T>(
         // in the resolution path by using the host flag. This is done to make sure that we've found
         // the correct providing injector, and not a node injector that is connected to our path via
         // a router outlet.
-        if (dep.flags.host) {
+        if (formattedDependency.flags.host) {
           const firstInjector = resolutionPath[0];
-          const lookupFromFirstInjector =
-              firstInjector.get(dep.token as Type<unknown>, null, {...dep.flags, optional: true});
+          const lookupFromFirstInjector = firstInjector.get(
+              dep.token as Type<unknown>, null, {...formattedDependency.flags, optional: true});
 
           if (lookupFromFirstInjector !== null) {
-            dep.providedIn = injectorToCheck;
+            formattedDependency.providedIn = injectorToCheck;
           }
 
           break;
         }
 
-        dep.providedIn = injectorToCheck;
+        formattedDependency.providedIn = injectorToCheck;
         break;
       }
 
       // if self is true we stop after the first injector
-      if (i === 0 && dep.flags.self) {
+      if (i === 0 && formattedDependency.flags.self) {
         break;
       }
     }
 
-    // injectedIn contains private fields, so we omit it from the response
-    const formattedDependency: Omit<InjectedService, 'injectedIn'> = {
-      value: dep.value,
-    };
-
     if (dep.token) formattedDependency.token = dep.token;
-    if (dep.flags) formattedDependency.flags = dep.flags;
-    if (dep.providedIn) formattedDependency.providedIn = dep.providedIn;
 
     return formattedDependency;
   });
@@ -392,12 +394,13 @@ function walkProviderTreeToDiscoverImportPaths(
  * @returns an array of objects representing the providers of the given injector
  */
 function getEnvironmentInjectorProviders(injector: EnvironmentInjector): ProviderRecord[] {
-  const providerRecords = getFrameworkDIDebugData().resolverToProviders.get(injector) ?? [];
+  const providerRecordsWithoutImportPaths =
+      getFrameworkDIDebugData().resolverToProviders.get(injector) ?? [];
 
   // platform injector has no provider imports container so can we skip trying to
   // find import paths
   if (isPlatformInjector(injector)) {
-    return providerRecords;
+    return providerRecordsWithoutImportPaths;
   }
 
   const providerImportsContainer = getProviderImportsContainer(injector);
@@ -408,27 +411,37 @@ function getEnvironmentInjectorProviders(injector: EnvironmentInjector): Provide
     // container (and thus no concept of module import paths). Therefore we simply
     // return the provider records as is.
     if (isRootInjector(injector)) {
-      return providerRecords;
+      return providerRecordsWithoutImportPaths;
     }
 
     throwError('Could not determine where injector providers were configured.');
   }
 
   const providerToPath = getProviderImportPaths(providerImportsContainer);
+  const providerRecords = [];
 
-  return providerRecords.map(providerRecord => {
-    let importPath = providerToPath.get(providerRecord.provider) ?? [providerImportsContainer];
+  for (const providerRecord of providerRecordsWithoutImportPaths) {
+    const provider = providerRecord.provider;
+    // Ignore these special providers for now until we have a cleaner way of
+    // determing when they are provided by the framework vs provided by the user.
+    const token = (provider as ValueProvider).provide;
+    if (token === ENVIRONMENT_INITIALIZER || token === INJECTOR_DEF_TYPES) {
+      continue;
+    }
+
+    let importPath = providerToPath.get(provider) ?? [];
 
     const def = getComponentDef(providerImportsContainer);
     const isStandaloneComponent = !!def?.standalone;
     // We prepend the component constructor in the standalone case
     // because walkProviderTree does not visit this constructor during it's traversal
     if (isStandaloneComponent) {
-      importPath = [providerImportsContainer, ...providerToPath.get(providerRecord.provider) ?? []];
+      importPath = [providerImportsContainer, ...importPath];
     }
 
-    return {...providerRecord, importPath};
-  });
+    providerRecords.push({...providerRecord, importPath});
+  }
+  return providerRecords;
 }
 
 function isPlatformInjector(injector: Injector) {

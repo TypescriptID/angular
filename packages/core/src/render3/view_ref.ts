@@ -8,7 +8,7 @@
 
 import {ChangeDetectorRef} from '../change_detection/change_detector_ref';
 import {RuntimeError, RuntimeErrorCode} from '../errors';
-import {EmbeddedViewRef, InternalViewRef, ViewRefTracker} from '../linker/view_ref';
+import {EmbeddedViewRef, ViewRefTracker} from '../linker/view_ref';
 import {removeFromArray} from '../util/array_utils';
 import {assertEqual} from '../util/assert';
 
@@ -27,7 +27,7 @@ import {storeLViewOnDestroy, updateAncestorTraversalFlagsOnAttach} from './util/
 // the multiple @extends by making the annotation @implements instead
 interface ChangeDetectorRefInterface extends ChangeDetectorRef {}
 
-export class ViewRef<T> implements EmbeddedViewRef<T>, InternalViewRef, ChangeDetectorRefInterface {
+export class InternalViewRef<T> implements EmbeddedViewRef<T>, ChangeDetectorRefInterface {
   private _appRef: ViewRefTracker|null = null;
   private _attachedToViewContainer = false;
 
@@ -46,8 +46,6 @@ export class ViewRef<T> implements EmbeddedViewRef<T>, InternalViewRef, ChangeDe
        *
        * For a "regular" ViewRef created for an embedded view, this is the `LView` for the embedded
        * view.
-       *
-       * @internal
        */
       public _lView: LView,
 
@@ -57,7 +55,7 @@ export class ViewRef<T> implements EmbeddedViewRef<T>, InternalViewRef, ChangeDe
        *
        * This may be different from `_lView` if the `_cdRefInjectingView` is an embedded view.
        */
-      private _cdRefInjectingView?: LView) {}
+      private _cdRefInjectingView?: LView, private readonly notifyErrorHandler = true) {}
 
   get context(): T {
     return this._lView[CONTEXT] as unknown as T;
@@ -89,7 +87,7 @@ export class ViewRef<T> implements EmbeddedViewRef<T>, InternalViewRef, ChangeDe
     } else if (this._attachedToViewContainer) {
       const parent = this._lView[PARENT];
       if (isLContainer(parent)) {
-        const viewRefs = parent[VIEW_REFS] as ViewRef<unknown>[] | null;
+        const viewRefs = parent[VIEW_REFS] as InternalViewRef<unknown>[] | null;
         const index = viewRefs ? viewRefs.indexOf(this) : -1;
         if (index > -1) {
           ngDevMode &&
@@ -284,7 +282,8 @@ export class ViewRef<T> implements EmbeddedViewRef<T>, InternalViewRef, ChangeDe
    * See {@link ChangeDetectorRef#detach} for more information.
    */
   detectChanges(): void {
-    detectChangesInternal(this._lView[TVIEW], this._lView, this.context as unknown as {});
+    detectChangesInternal(
+        this._lView[TVIEW], this._lView, this.context as unknown as {}, this.notifyErrorHandler);
   }
 
   /**
@@ -295,7 +294,8 @@ export class ViewRef<T> implements EmbeddedViewRef<T>, InternalViewRef, ChangeDe
    */
   checkNoChanges(): void {
     if (ngDevMode) {
-      checkNoChangesInternal(this._lView[TVIEW], this._lView, this.context as unknown as {});
+      checkNoChangesInternal(
+          this._lView[TVIEW], this._lView, this.context as unknown as {}, this.notifyErrorHandler);
     }
   }
 
@@ -320,32 +320,5 @@ export class ViewRef<T> implements EmbeddedViewRef<T>, InternalViewRef, ChangeDe
           ngDevMode && 'This view is already attached to a ViewContainer!');
     }
     this._appRef = appRef;
-  }
-}
-
-/** @internal */
-export class RootViewRef<T> extends ViewRef<T> {
-  constructor(public _view: LView) {
-    super(_view);
-  }
-
-  override detectChanges(): void {
-    const lView = this._view;
-    const tView = lView[TVIEW];
-    const context = lView[CONTEXT];
-    detectChangesInternal(tView, lView, context, false);
-  }
-
-  override checkNoChanges(): void {
-    if (ngDevMode) {
-      const lView = this._view;
-      const tView = lView[TVIEW];
-      const context = lView[CONTEXT];
-      checkNoChangesInternal(tView, lView, context, false);
-    }
-  }
-
-  override get context(): T {
-    return null!;
   }
 }
