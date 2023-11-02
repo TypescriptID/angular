@@ -13,11 +13,12 @@ import {getComponentViewByInstance} from '../context_discovery';
 import {executeCheckHooks, executeInitAndCheckHooks, incrementInitPhaseFlags} from '../hooks';
 import {CONTAINER_HEADER_OFFSET, HAS_CHILD_VIEWS_TO_REFRESH, HAS_TRANSPLANTED_VIEWS, LContainer, MOVED_VIEWS} from '../interfaces/container';
 import {ComponentTemplate, RenderFlags} from '../interfaces/definition';
-import {CONTEXT, ENVIRONMENT, FLAGS, InitPhaseState, LView, LViewFlags, PARENT, REACTIVE_TEMPLATE_CONSUMER, TVIEW, TView, TViewType} from '../interfaces/view';
+import {CONTEXT, EFFECTS_TO_SCHEDULE, ENVIRONMENT, FLAGS, InitPhaseState, LView, LViewFlags, PARENT, REACTIVE_TEMPLATE_CONSUMER, TVIEW, TView, TViewType} from '../interfaces/view';
 import {enterView, isInCheckNoChangesMode, leaveView, setBindingIndex, setIsInCheckNoChangesMode} from '../state';
 import {getFirstLContainer, getNextLContainer} from '../util/view_traversal_utils';
 import {getComponentLViewByIndex, isCreationMode, markAncestorsForTraversal, markViewForRefresh, resetPreOrderHookFlags, viewAttachedToChangeDetector} from '../util/view_utils';
 
+import {RUN_IN_CHECK_NO_CHANGES_ANYWAY} from './change_detection_flags';
 import {executeTemplate, executeViewQueryFn, handleError, processHostBindingOpCodes, refreshContentQueries} from './shared';
 
 /**
@@ -250,6 +251,16 @@ export function refreshView<T>(
       tView.firstUpdatePass = false;
     }
 
+    // Schedule any effects that are waiting on the update pass of this view.
+    if (lView[EFFECTS_TO_SCHEDULE]) {
+      for (const notifyEffect of lView[EFFECTS_TO_SCHEDULE]) {
+        notifyEffect();
+      }
+
+      // Once they've been run, we can drop the array.
+      lView[EFFECTS_TO_SCHEDULE] = null;
+    }
+
     // Do not reset the dirty state when running in check no changes mode. We don't want components
     // to behave differently depending on whether check no changes is enabled or not. For example:
     // Marking an OnPush component as dirty from within the `ngAfterViewInit` hook in order to
@@ -359,7 +370,7 @@ function detectChangesInView(lView: LView, mode: ChangeDetectionMode) {
        // it gives an opportunity for `OnPush` components to be marked `Dirty` before the
        // CheckNoChanges pass. We don't want existing errors that are hidden by the current
        // CheckNoChanges bug to surface when making unrelated changes.
-       !isInCheckNoChangesPass) ||
+       (!isInCheckNoChangesPass || RUN_IN_CHECK_NO_CHANGES_ANYWAY)) ||
       flags & LViewFlags.RefreshView) {
     refreshView(tView, lView, tView.template, lView[CONTEXT]);
   } else if (flags & LViewFlags.HasChildViewsToRefresh) {

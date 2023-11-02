@@ -138,9 +138,6 @@
     "name": "Injector"
   },
   {
-    "name": "InternalViewRef"
-  },
-  {
     "name": "LOCALE_ID2"
   },
   {
@@ -285,6 +282,9 @@
     "name": "RendererFactory2"
   },
   {
+    "name": "RootViewRef"
+  },
+  {
     "name": "RuntimeError"
   },
   {
@@ -349,6 +349,9 @@
   },
   {
     "name": "ViewEncapsulation"
+  },
+  {
+    "name": "ViewRef"
   },
   {
     "name": "ZONE_IS_STABLE_OBSERVABLE"
@@ -523,6 +526,9 @@
   },
   {
     "name": "detectChangesInViewIfAttached"
+  },
+  {
+    "name": "detectChangesInternal"
   },
   {
     "name": "diPublicInInjector"

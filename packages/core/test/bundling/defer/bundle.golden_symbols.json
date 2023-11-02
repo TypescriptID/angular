@@ -228,9 +228,6 @@
     "name": "Injector"
   },
   {
-    "name": "InternalViewRef"
-  },
-  {
     "name": "KeyEventsPlugin"
   },
   {
@@ -423,6 +420,9 @@
     "name": "RendererStyleFlags2"
   },
   {
+    "name": "RootViewRef"
+  },
+  {
     "name": "RuntimeError"
   },
   {
@@ -508,6 +508,9 @@
   },
   {
     "name": "ViewEncapsulation"
+  },
+  {
+    "name": "ViewRef"
   },
   {
     "name": "ZONE_IS_STABLE_OBSERVABLE"
@@ -754,6 +757,9 @@
   },
   {
     "name": "detectChangesInViewIfAttached"
+  },
+  {
+    "name": "detectChangesInternal"
   },
   {
     "name": "diPublicInInjector"
@@ -1093,6 +1099,9 @@
   },
   {
     "name": "init_change_detection3"
+  },
+  {
+    "name": "init_change_detection_flags"
   },
   {
     "name": "init_change_detection_utils"
