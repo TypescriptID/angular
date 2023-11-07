@@ -17,10 +17,10 @@ import {ViewCompilationUnit, type CompilationJob, type CompilationUnit} from '..
  * This includes propagating those names into any `ir.ReadVariableExpr`s of those variables, so that
  * the reads can be emitted correctly.
  */
-export function phaseNaming(cpl: CompilationJob): void {
+export function nameFunctionsAndVariables(job: CompilationJob): void {
   addNamesToView(
-      cpl.root, cpl.componentName, {index: 0},
-      cpl.compatibility === ir.CompatibilityMode.TemplateDefinitionBuilder);
+      job.root, job.componentName, {index: 0},
+      job.compatibility === ir.CompatibilityMode.TemplateDefinitionBuilder);
 }
 
 function addNamesToView(
@@ -68,31 +68,31 @@ function addNamesToView(
         if (!(unit instanceof ViewCompilationUnit)) {
           throw new Error(`AssertionError: must be compiling a component`);
         }
-        if (op.slot.slot === null) {
+        if (op.handle.slot === null) {
           throw new Error(`Expected slot to be assigned`);
         }
         if (op.emptyView !== null) {
           const emptyView = unit.job.views.get(op.emptyView)!;
           // Repeater empty view function is at slot +2 (metadata is in the first slot).
           addNamesToView(
-              emptyView, `${baseName}_${`${op.functionNameSuffix}Empty`}_${op.slot.slot + 2}`,
+              emptyView, `${baseName}_${`${op.functionNameSuffix}Empty`}_${op.handle.slot + 2}`,
               state, compatibility);
         }
         // Repeater primary view function is at slot +1 (metadata is in the first slot).
         addNamesToView(
             unit.job.views.get(op.xref)!,
-            `${baseName}_${op.functionNameSuffix}_${op.slot.slot + 1}`, state, compatibility);
+            `${baseName}_${op.functionNameSuffix}_${op.handle.slot + 1}`, state, compatibility);
         break;
       case ir.OpKind.Template:
         if (!(unit instanceof ViewCompilationUnit)) {
           throw new Error(`AssertionError: must be compiling a component`);
         }
         const childView = unit.job.views.get(op.xref)!;
-        if (op.slot.slot === null) {
+        if (op.handle.slot === null) {
           throw new Error(`Expected slot to be assigned`);
         }
         const suffix = op.functionNameSuffix.length === 0 ? '' : `_${op.functionNameSuffix}`;
-        addNamesToView(childView, `${baseName}${suffix}_${op.slot.slot}`, state, compatibility);
+        addNamesToView(childView, `${baseName}${suffix}_${op.handle.slot}`, state, compatibility);
         break;
       case ir.OpKind.StyleProp:
         op.name = normalizeStylePropName(op.name);

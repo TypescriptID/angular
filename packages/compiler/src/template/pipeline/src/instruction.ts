@@ -73,13 +73,21 @@ export function elementContainerEnd(): ir.CreateOp {
 
 export function template(
     slot: number, templateFnRef: o.Expression, decls: number, vars: number, tag: string|null,
-    constIndex: number|null, sourceSpan: ParseSourceSpan): ir.CreateOp {
-  const args = [o.literal(slot), templateFnRef, o.literal(decls), o.literal(vars)];
-  if (tag !== null || constIndex !== null) {
-    args.push(o.literal(tag));
-    if (constIndex !== null) {
-      args.push(o.literal(constIndex));
-    }
+    constIndex: number|null, localRefs: number|null, sourceSpan: ParseSourceSpan): ir.CreateOp {
+  const args = [
+    o.literal(slot),
+    templateFnRef,
+    o.literal(decls),
+    o.literal(vars),
+    o.literal(tag),
+    o.literal(constIndex),
+  ];
+  if (localRefs !== null) {
+    args.push(o.literal(localRefs));
+    args.push(o.importExpr(Identifiers.templateRefExtractor));
+  }
+  while (args[args.length - 1].isEquivalent(o.NULL_EXPR)) {
+    args.pop();
   }
   return call(Identifiers.templateCreate, args, sourceSpan);
 }
@@ -184,14 +192,14 @@ export function text(
 }
 
 export function defer(
-    selfSlot: number, primarySlot: number, dependencyResolverFn: null, loadingSlot: number|null,
-    placeholderSlot: number|null, errorSlot: number|null, loadingConfig: o.Expression|null,
-    placeholderConfig: o.Expression|null, enableTimerScheduling: boolean,
-    sourceSpan: ParseSourceSpan|null): ir.CreateOp {
+    selfSlot: number, primarySlot: number, dependencyResolverFn: o.Expression|null,
+    loadingSlot: number|null, placeholderSlot: number|null, errorSlot: number|null,
+    loadingConfig: o.Expression|null, placeholderConfig: o.Expression|null,
+    enableTimerScheduling: boolean, sourceSpan: ParseSourceSpan|null): ir.CreateOp {
   const args: Array<o.Expression> = [
     o.literal(selfSlot),
     o.literal(primarySlot),
-    o.literal(dependencyResolverFn),
+    dependencyResolverFn ?? o.literal(null),
     o.literal(loadingSlot),
     o.literal(placeholderSlot),
     o.literal(errorSlot),
@@ -288,6 +296,11 @@ export function repeaterCreate(
 export function repeater(
     metadataSlot: number, collection: o.Expression, sourceSpan: ParseSourceSpan|null): ir.UpdateOp {
   return call(Identifiers.repeater, [o.literal(metadataSlot), collection], sourceSpan);
+}
+
+export function deferWhen(
+    prefetch: boolean, expr: o.Expression, sourceSpan: ParseSourceSpan|null): ir.UpdateOp {
+  return call(prefetch ? Identifiers.deferPrefetchWhen : Identifiers.deferWhen, [expr], sourceSpan);
 }
 
 export function i18n(slot: number, constIndex: number, subTemplateIndex: number): ir.CreateOp {

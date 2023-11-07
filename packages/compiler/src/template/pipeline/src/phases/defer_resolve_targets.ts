@@ -6,11 +6,16 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import * as o from '../../../../output/output_ast';
 import * as ir from '../../ir';
-import type {ViewCompilationUnit, ComponentCompilationJob} from '../compilation';
+import type {ComponentCompilationJob, ViewCompilationUnit} from '../compilation';
 
-export function phaseDeferResolveTargets(job: ComponentCompilationJob): void {
+/**
+ * Some `defer` conditions can reference other elements in the template, using their local reference
+ * names. However, the semantics are quite different from the normal local reference system: in
+ * particular, we need to look at local reference names in enclosing views. This phase resolves
+ * all such references to actual xrefs.
+ */
+export function resolveDeferTargetNames(job: ComponentCompilationJob): void {
   const scopes = new Map<ir.XrefId, Scope>();
 
   function getScopeForView(view: ViewCompilationUnit): Scope {
@@ -33,7 +38,7 @@ export function phaseDeferResolveTargets(job: ComponentCompilationJob): void {
         if (ref.target !== '') {
           continue;
         }
-        scope.targets.set(ref.name, {xref: op.xref, slot: op.slot});
+        scope.targets.set(ref.name, {xref: op.xref, slot: op.handle});
       }
     }
 
@@ -53,6 +58,26 @@ export function phaseDeferResolveTargets(job: ComponentCompilationJob): void {
       case ir.DeferTriggerKind.Interaction:
       case ir.DeferTriggerKind.Viewport:
         if (op.trigger.targetName === null) {
+          // A `null` target name indicates we should default to the first element in the
+          // placeholder block.
+          if (placeholderView === null) {
+            throw new Error('defer on trigger with no target name must have a placeholder block');
+          }
+          const placeholder = job.views.get(placeholderView);
+          if (placeholder == undefined) {
+            throw new Error('AssertionError: could not find placeholder view for defer on trigger');
+          }
+          for (const placeholderOp of placeholder.create) {
+            if (ir.hasConsumesSlotTrait(placeholderOp) &&
+                (ir.isElementOrContainerOp(placeholderOp) ||
+                 placeholderOp.kind === ir.OpKind.Projection)) {
+              op.trigger.targetXref = placeholderOp.xref;
+              op.trigger.targetView = placeholderView;
+              op.trigger.targetSlotViewSteps = -1;
+              op.trigger.targetSlot = placeholderOp.handle;
+              return;
+            }
+          }
           return;
         }
         let view: ViewCompilationUnit|null =

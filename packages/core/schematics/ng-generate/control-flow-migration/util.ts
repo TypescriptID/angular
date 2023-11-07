@@ -6,11 +6,11 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {HtmlParser, Node, ParseTreeResult, visitAll} from '@angular/compiler';
+import {HtmlParser, ParseTreeResult, visitAll} from '@angular/compiler';
 import {dirname, join} from 'path';
 import ts from 'typescript';
 
-import {AnalyzedFile, boundcase, boundngif, ElementCollector, ElementToMigrate, MigrateError, nakedcase, nakeddefault, nakedngif, ngfor, ngif, ngswitch, Result, switchcase, switchdefault, Template} from './types';
+import {AnalyzedFile, boundcase, boundngif, commaSeparatedSyntax, ElementCollector, ElementToMigrate, MigrateError, nakedcase, nakeddefault, nakedngif, ngfor, ngif, ngswitch, Result, stringPairs, switchcase, switchdefault, Template} from './types';
 
 /**
  * Analyzes a source file to find file that need to be migrated and the text ranges within them.
@@ -122,7 +122,7 @@ export function migrateTemplate(template: string): {migrated: string|null, error
 
   // count usages of each ng-template
   for (let [key, tmpl] of visitor.templates) {
-    const regex = new RegExp(`\\W${key.slice(1)}\\W`, 'gm');
+    const regex = new RegExp(`[^a-zA-Z0-9-<]+${key.slice(1)}\\W`, 'gm');
     const matches = template.match(regex);
     tmpl.count = matches?.length ?? 0;
     tmpl.generateContents(template);
@@ -214,8 +214,8 @@ export function migrateTemplate(template: string): {migrated: string|null, error
 function migrateNgIf(
     etm: ElementToMigrate, ngTemplates: Map<string, Template>, tmpl: string,
     offset: number): Result {
-  const matchThen = etm.attr.value.match(/;\s+then/gm);
-  const matchElse = etm.attr.value.match(/;\s+else/gm);
+  const matchThen = etm.attr.value.match(/;\s*then/gm);
+  const matchElse = etm.attr.value.match(/;\s*else/gm);
 
   if (matchThen && matchThen.length > 0) {
     return buildIfThenElseBlock(etm, ngTemplates, tmpl, matchThen[0], matchElse![0], offset);
@@ -320,7 +320,7 @@ function migrateNgFor(etm: ElementToMigrate, tmpl: string, offset: number): Resu
   const aliases = [];
   const lbString = etm.hasLineBreaks ? lb : '';
   const lbSpaces = etm.hasLineBreaks ? `${lb}  ` : '';
-  const parts = etm.attr.value.split(';');
+  const parts = getNgForParts(etm.attr.value);
 
   const originals = getOriginals(etm, tmpl, offset);
 
@@ -347,7 +347,7 @@ function migrateNgFor(etm: ElementToMigrate, tmpl: string, offset: number): Resu
       // if the aliased variable is the index, then we store it
       if (aliasParts[1].trim() === 'index') {
         // 'let myIndex' -> 'myIndex'
-        aliasedIndex = aliasParts[0].trim().split(/\s+as\s+/)[1];
+        aliasedIndex = aliasParts[0].replace('let', '').trim();
       }
     }
     // declared with `index as myIndex`
@@ -382,6 +382,50 @@ function migrateNgFor(etm: ElementToMigrate, tmpl: string, offset: number): Resu
   const post = originals.end.length - endBlock.length;
 
   return {tmpl: updatedTmpl, offsets: {pre, post}};
+}
+
+function getNgForParts(expression: string): string[] {
+  const parts: string[] = [];
+  const commaSeparatedStack: string[] = [];
+  const stringStack: string[] = [];
+  let current = '';
+
+  for (let i = 0; i < expression.length; i++) {
+    const char = expression[i];
+    const isInString = stringStack.length === 0;
+    const isInCommaSeparated = commaSeparatedStack.length === 0;
+
+    // Any semicolon is a delimiter, as well as any comma outside
+    // of comma-separated syntax, as long as they're outside of a string.
+    if (isInString && current.length > 0 &&
+        (char === ';' || (char === ',' && isInCommaSeparated))) {
+      parts.push(current);
+      current = '';
+      continue;
+    }
+
+    if (stringPairs.has(char)) {
+      stringStack.push(stringPairs.get(char)!);
+    } else if (stringStack.length > 0 && stringStack[stringStack.length - 1] === char) {
+      stringStack.pop();
+    }
+
+    if (commaSeparatedSyntax.has(char)) {
+      commaSeparatedStack.push(commaSeparatedSyntax.get(char)!);
+    } else if (
+        commaSeparatedStack.length > 0 &&
+        commaSeparatedStack[commaSeparatedStack.length - 1] === char) {
+      commaSeparatedStack.pop();
+    }
+
+    current += char;
+  }
+
+  if (current.length > 0) {
+    parts.push(current);
+  }
+
+  return parts;
 }
 
 function getOriginals(

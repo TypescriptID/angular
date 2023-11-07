@@ -1058,6 +1058,22 @@ groups:
         - mgechev
 
   # =========================================================
+  #  Docs: Angular Dev Site
+  # =========================================================
+  angular-dev:
+    <<: *defaults
+    conditions:
+      - >
+        contains_any_globs(files, [
+          'adev/**/{.*,*}'
+          ])
+    reviewers:
+      users:
+        - twerske
+        - josephperrott
+        - jelbourn
+
+  # =========================================================
   #  Docs-infra
   # =========================================================
   docs-infra:
@@ -1168,10 +1184,11 @@ groups:
           'tools/esm-interop/**/{*,.*}',
           'tools/gulp-tasks/**/{*,.*}',
           'tools/legacy-saucelabs/**/{*,.*}',
+          'tools/manual_api_docs/**/{*,.*}',
           'tools/npm-patches/**/{*,.*}',
           'tools/rxjs/**/{*,.*}',
-          'tools/saucelabs/**/{*,.*}',
           'tools/saucelabs-daemon/**/{*,.*}',
+          'tools/saucelabs/**/{*,.*}',
           'tools/symbol-extractor/**/{*,.*}',
           'tools/testing/**/{*,.*}',
           'tools/tslint/**/{*,.*}',

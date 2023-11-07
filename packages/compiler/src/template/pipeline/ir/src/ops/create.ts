@@ -9,6 +9,7 @@
 import * as i18n from '../../../../../i18n/i18n_ast';
 import * as o from '../../../../../output/output_ast';
 import {ParseSourceSpan} from '../../../../../parse_util';
+import {R3DeferBlockMetadata} from '../../../../../render3/view/api';
 import {BindingKind, DeferTriggerKind, I18nParamValueFlags, Namespace, OpKind} from '../enums';
 import {SlotHandle} from '../handle';
 import {Op, OpList, XrefId} from '../operations';
@@ -21,11 +22,11 @@ import type {UpdateOp} from './update';
 /**
  * An operation usable on the creation side of the IR.
  */
-export type CreateOp =
-    ListEndOp<CreateOp>|StatementOp<CreateOp>|ElementOp|ElementStartOp|ElementEndOp|ContainerOp|
-    ContainerStartOp|ContainerEndOp|TemplateOp|EnableBindingsOp|DisableBindingsOp|TextOp|ListenerOp|
-    PipeOp|VariableOp<CreateOp>|NamespaceOp|ProjectionDefOp|ProjectionOp|ExtractedAttributeOp|
-    DeferOp|DeferOnOp|RepeaterCreateOp|ExtractedMessageOp|I18nOp|I18nStartOp|I18nEndOp|IcuOp;
+export type CreateOp = ListEndOp<CreateOp>|StatementOp<CreateOp>|ElementOp|ElementStartOp|
+    ElementEndOp|ContainerOp|ContainerStartOp|ContainerEndOp|TemplateOp|EnableBindingsOp|
+    DisableBindingsOp|TextOp|ListenerOp|PipeOp|VariableOp<CreateOp>|NamespaceOp|ProjectionDefOp|
+    ProjectionOp|ExtractedAttributeOp|DeferOp|DeferOnOp|RepeaterCreateOp|I18nMessageOp|I18nOp|
+    I18nStartOp|I18nEndOp|IcuOp|I18nContextOp;
 
 /**
  * An operation representing the creation of an element or container.
@@ -76,8 +77,6 @@ export interface ElementOrContainerOpBase extends Op<CreateOp>, ConsumesSlotOpTr
    * This ID is used to reference this element from other IR structures.
    */
   xref: XrefId;
-
-  slot: SlotHandle;
 
   /**
    * Attributes of various kinds on this element. Represented as a `ConstIndex` pointer into the
@@ -140,7 +139,7 @@ export function createElementStartOp(
     kind: OpKind.ElementStart,
     xref,
     tag,
-    slot: new SlotHandle(),
+    handle: new SlotHandle(),
     attributes: null,
     localRefs: [],
     nonBindable: false,
@@ -204,7 +203,7 @@ export function createTemplateOp(
     xref,
     attributes: null,
     tag,
-    slot: new SlotHandle(),
+    handle: new SlotHandle(),
     functionNameSuffix,
     decls: null,
     vars: null,
@@ -288,7 +287,7 @@ export function createRepeaterCreateOp(
     kind: OpKind.RepeaterCreate,
     attributes: null,
     xref: primaryView,
-    slot: new SlotHandle(),
+    handle: new SlotHandle(),
     emptyView,
     track,
     trackByFn: null,
@@ -434,7 +433,7 @@ export function createTextOp(
   return {
     kind: OpKind.Text,
     xref,
-    slot: new SlotHandle(),
+    handle: new SlotHandle(),
     initialValue,
     sourceSpan,
     ...TRAIT_CONSUMES_SLOT,
@@ -528,7 +527,7 @@ export function createPipeOp(xref: XrefId, slot: SlotHandle, name: string): Pipe
   return {
     kind: OpKind.Pipe,
     xref,
-    slot,
+    handle: slot,
     name,
     ...NEW_OP,
     ...TRAIT_CONSUMES_SLOT,
@@ -593,7 +592,7 @@ export function createProjectionOp(
   return {
     kind: OpKind.Projection,
     xref,
-    slot: new SlotHandle(),
+    handle: new SlotHandle(),
     selector,
     projectionSlotIndex: 0,
     attributes: [],
@@ -690,15 +689,27 @@ export interface DeferOp extends Op<CreateOp>, ConsumesSlotOpTrait {
   placeholderConfig: o.Expression|null;
   loadingConfig: o.Expression|null;
 
+  /**
+   * Metadata about this defer block, provided by the parser.
+   */
+  metadata: R3DeferBlockMetadata;
+
+  /**
+   * After processing, the resolver function for the defer deps will be extracted to the constant
+   * pool, and a reference to that function will be populated here.
+   */
+  resolverFn: o.Expression|null;
+
   sourceSpan: ParseSourceSpan;
 }
 
 export function createDeferOp(
-    xref: XrefId, main: XrefId, mainSlot: SlotHandle, sourceSpan: ParseSourceSpan): DeferOp {
+    xref: XrefId, main: XrefId, mainSlot: SlotHandle, metadata: R3DeferBlockMetadata,
+    sourceSpan: ParseSourceSpan): DeferOp {
   return {
     kind: OpKind.Defer,
     xref,
-    slot: new SlotHandle(),
+    handle: new SlotHandle(),
     mainView: main,
     mainSlot,
     loadingView: null,
@@ -712,6 +723,8 @@ export function createDeferOp(
     placeholderMinimumTime: null,
     errorView: null,
     errorSlot: null,
+    metadata,
+    resolverFn: null,
     sourceSpan,
     ...NEW_OP,
     ...TRAIT_CONSUMES_SLOT,
@@ -831,13 +844,18 @@ export interface I18nParamValue {
 /**
  * Represents an i18n message that has been extracted for inclusion in the consts array.
  */
-export interface ExtractedMessageOp extends Op<CreateOp> {
-  kind: OpKind.ExtractedMessage;
+export interface I18nMessageOp extends Op<CreateOp> {
+  kind: OpKind.I18nMessage;
+
+  /**
+   * An id used to reference this message.
+   */
+  xref: XrefId;
 
   /**
    * A reference to the i18n op this message was extracted from.
    */
-  owner: XrefId;
+  i18nBlock: XrefId;
 
   /**
    * The i18n message represented by this op.
@@ -845,22 +863,10 @@ export interface ExtractedMessageOp extends Op<CreateOp> {
   message: i18n.Message;
 
   /**
-   * Whether this op represents a root message (as opposed to a partial message for a sub-template
-   * in a root message).
+   * The placeholder used for this message when it is referenced in another message.
+   * For a top-level message that isn't referenced from another message, this will be null.
    */
-  isRoot: boolean;
-
-  /**
-   * The param map, with placeholders represented as an array of value objects for easy
-   * manipulation.
-   */
-  params: Map<string, I18nParamValue[]>;
-
-  /**
-   * The post-processing param map, with placeholders represented as an array of value objects for
-   * easy manipulation.
-   */
-  postprocessingParams: Map<string, I18nParamValue[]>;
+  messagePlaceholder: string|null;
 
   /**
    * Whether this message needs post-processing.
@@ -868,33 +874,38 @@ export interface ExtractedMessageOp extends Op<CreateOp> {
   needsPostprocessing: boolean;
 
   /**
-   * The param map, with placeholders represented as an `Expression` to facilitate extraction to the
-   * const arry.
+   * The param map, with placeholders represented as an `Expression`.
    */
-  formattedParams: Map<string, o.Expression>|null;
+  params: Map<string, o.Expression>;
 
   /**
-   * The post-processing param map, with placeholders represented as an `Expression` to facilitate
-   * extraction to the const arry.
+   * The post-processing param map, with placeholders represented as an `Expression`.
    */
-  formattedPostprocessingParams: Map<string, o.Expression>|null;
+  postprocessingParams: Map<string, o.Expression>;
+
+  /**
+   * A list of sub-messages that are referenced by this message.
+   */
+  subMessages: XrefId[];
 }
 
 /**
  * Create an `ExtractedMessageOp`.
  */
-export function createExtractedMessageOp(
-    owner: XrefId, message: i18n.Message, isRoot: boolean): ExtractedMessageOp {
+export function createI18nMessageOp(
+    xref: XrefId, i18nBlock: XrefId, message: i18n.Message, messagePlaceholder: string|null,
+    params: Map<string, o.Expression>, postprocessingParams: Map<string, o.Expression>,
+    needsPostprocessing: boolean): I18nMessageOp {
   return {
-    kind: OpKind.ExtractedMessage,
-    owner,
+    kind: OpKind.I18nMessage,
+    xref,
+    i18nBlock,
     message,
-    isRoot,
-    params: new Map(),
-    postprocessingParams: new Map(),
-    needsPostprocessing: false,
-    formattedParams: null,
-    formattedPostprocessingParams: null,
+    messagePlaceholder,
+    params,
+    postprocessingParams,
+    needsPostprocessing,
+    subMessages: [],
     ...NEW_OP,
   };
 }
@@ -908,7 +919,7 @@ export interface I18nOpBase extends Op<CreateOp>, ConsumesSlotOpTrait {
   xref: XrefId;
 
   /**
-   * A reference to the root i18n block that this one belongs to. For a a root i18n block, this is
+   * A reference to the root i18n block that this one belongs to. For a root i18n block, this is
    * the same as xref.
    */
   root: XrefId;
@@ -927,6 +938,11 @@ export interface I18nOpBase extends Op<CreateOp>, ConsumesSlotOpTrait {
    * The index of this sub-block in the i18n message. For a root i18n block, this is null.
    */
   subTemplateIndex: number|null;
+
+  /**
+   * The i18n context generated from this block. Initially null, until the context is created.
+   */
+  context: XrefId|null;
 }
 
 /**
@@ -950,11 +966,12 @@ export function createI18nStartOp(xref: XrefId, message: i18n.Message, root?: Xr
   return {
     kind: OpKind.I18nStart,
     xref,
-    slot: new SlotHandle(),
+    handle: new SlotHandle(),
     root: root ?? xref,
     message,
     messageIndex: null,
     subTemplateIndex: null,
+    context: null,
     ...NEW_OP,
     ...TRAIT_CONSUMES_SLOT,
   };
@@ -999,6 +1016,21 @@ export interface IcuOp extends Op<CreateOp> {
    */
   message: i18n.Message;
 
+  /**
+   * The ICU associated with this op.
+   */
+  icu: i18n.Icu;
+
+  /**
+   * Placeholder used to reference this ICU in other i18n messages.
+   */
+  messagePlaceholder: string;
+
+  /**
+   * A reference to the i18n context for this op. Initially null, until the context is created.
+   */
+  context: XrefId|null;
+
   sourceSpan: ParseSourceSpan;
 }
 
@@ -1006,16 +1038,84 @@ export interface IcuOp extends Op<CreateOp> {
  * Creates an op to create an ICU expression.
  */
 export function createIcuOp(
-    xref: XrefId, message: i18n.Message, sourceSpan: ParseSourceSpan): IcuOp {
+    xref: XrefId, message: i18n.Message, icu: i18n.Icu, messagePlaceholder: string,
+    sourceSpan: ParseSourceSpan): IcuOp {
   return {
     kind: OpKind.Icu,
     xref,
     message,
+    icu,
+    messagePlaceholder,
+    context: null,
     sourceSpan,
     ...NEW_OP,
   };
 }
 
+/**
+ * An i18n context that is used to generate snippets of a full translated message.
+ * A separate context is created in a few different scenarios:
+ *
+ * 1. For each top-level i18n block. A context generated for a top-level i18n block, will be used to
+ *    eventually generate the translated message for that block that is extracted into the const
+ *    array.
+ * 2. For each child i18n block (resulting from using an ng-template inside of another i18n block).
+ *    A context generated for a child i18n block will be used to generate the portion of the final
+ *    message represented by the template. It will not result in a separate message in the consts
+ *    array, but will instead be rolled into the root message that spawned it.
+ * 3. For each ICU referenced as a sub-message. ICUs that are referenced as a sub-message will be
+ *    used to generate a separate i18n message, but will not be extracted directly into the consts
+ *    array. Instead they will be pulled in as part of the initialization statements for the message
+ *    that references them.
+ */
+export interface I18nContextOp extends Op<CreateOp> {
+  kind: OpKind.I18nContext;
+
+  /**
+   *  The id of this context.
+   */
+  xref: XrefId;
+
+  /**
+   * A reference to the I18nStartOp or I18nOp this context belongs to.
+   *
+   * It is possible for multiple contexts to belong to the same block, since both the block and any
+   * ICUs inside the block will each get their own context.
+   */
+  i18nBlock: XrefId;
+
+  /**
+   * The i18n message associated with this context.
+   */
+  message: i18n.Message;
+
+  /**
+   * The param map for this context.
+   */
+  params: Map<string, I18nParamValue[]>;
+
+  /**
+   * The post-processing param map for this context.
+   */
+  postprocessingParams: Map<string, I18nParamValue[]>;
+
+  sourceSpan: ParseSourceSpan;
+}
+
+export function createI18nContextOp(
+    xref: XrefId, i18nBlock: XrefId, message: i18n.Message,
+    sourceSpan: ParseSourceSpan): I18nContextOp {
+  return {
+    kind: OpKind.I18nContext,
+    xref,
+    i18nBlock,
+    message,
+    sourceSpan,
+    params: new Map(),
+    postprocessingParams: new Map(),
+    ...NEW_OP,
+  };
+}
 
 /**
  * An index into the `consts` array which is shared across the compilation of all views in a

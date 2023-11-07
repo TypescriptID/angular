@@ -391,6 +391,75 @@ describe('control flow migration', () => {
       ].join('\n'));
     });
 
+    it('should migrate an if else case with no space after ;', async () => {
+      writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgIf} from '@angular/common';
+
+        @Component({
+          templateUrl: './comp.html'
+        })
+        class Comp {
+          show = false;
+        }
+      `);
+
+      writeFile('/comp.html', [
+        `<div>`,
+        `<span *ngIf="show;else elseBlock">Content here</span>`,
+        `<ng-template #elseBlock>Else Content</ng-template>`,
+        `</div>`,
+      ].join('\n'));
+
+      await runMigration();
+      const content = tree.readContent('/comp.html');
+
+      expect(content).toBe([
+        `<div>`,
+        `@if (show) {`,
+        `<span>Content here</span>`,
+        `} @else {`,
+        `Else Content`,
+        `}`,
+        `</div>`,
+      ].join('\n'));
+    });
+
+    it('should migrate an if then else case with no spaces before ;', async () => {
+      writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgIf} from '@angular/common';
+
+        @Component({
+          templateUrl: './comp.html'
+        })
+        class Comp {
+          show = false;
+        }
+      `);
+
+      writeFile('/comp.html', [
+        `<div>`,
+        `<span *ngIf="show;then thenBlock;else elseBlock">Ignored</span>`,
+        `<ng-template #thenBlock><div>THEN Stuff</div></ng-template>`,
+        `<ng-template #elseBlock>Else Content</ng-template>`,
+        `</div>`,
+      ].join('\n'));
+
+      await runMigration();
+      const content = tree.readContent('/comp.html');
+
+      expect(content).toBe([
+        `<div>`,
+        `@if (show) {`,
+        `<div>THEN Stuff</div>`,
+        `} @else {`,
+        `Else Content`,
+        `}`,
+        `</div>`,
+      ].join('\n'));
+    });
+
     it('should migrate an if else case when the template is above the block', async () => {
       writeFile('/comp.ts', `
         import {Component} from '@angular/core';
@@ -894,6 +963,97 @@ describe('control flow migration', () => {
           'template: `<ul>@for (itm of items; track itm; let index = $index) {<li>{{itm.text}}</li>}</ul>`');
     });
 
+    it('should migrate with a comma-separated index alias', async () => {
+      writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgFor} from '@angular/common';
+        interface Item {
+          id: number;
+          text: string;
+        }
+
+        @Component({
+          imports: [NgFor],
+          template: \`<ul><li *ngFor="let itm of items, let index = index">{{itm.text}}</li></ul>\`
+        })
+        class Comp {
+          items: Item[] = [{id: 1, text: 'blah'},{id: 2, text: 'stuff'}];
+        }
+      `);
+
+      await runMigration();
+      const content = tree.readContent('/comp.ts');
+
+      expect(content).toContain(
+          'template: `<ul>@for (itm of items; track itm; let index = $index) {<li>{{itm.text}}</li>}</ul>`');
+    });
+
+    it('should migrate with an old style alias', async () => {
+      writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgFor} from '@angular/common';
+        interface Item {
+          id: number;
+          text: string;
+        }
+
+        @Component({
+          imports: [NgFor],
+          templateUrl: 'comp.html',
+        })
+        class Comp {
+          items: Item[] = [{id: 1, text: 'blah'},{id: 2, text: 'stuff'}];
+        }
+      `);
+
+      writeFile('/comp.html', [
+        `<tbody>`,
+        `  <tr *ngFor="let row of field(); let y = index; trackBy: trackByIndex">`,
+        `    <td`,
+        `      *ngFor="let cell of row; let x = index; trackBy: trackByIndex"`,
+        `    ></td>`,
+        `  </tr>`,
+        `</tbody>`,
+      ].join('\n'));
+
+      await runMigration();
+      const actual = tree.readContent('/comp.html');
+
+      const expected = [
+        `<tbody>`,
+        `  @for (row of field(); track trackByIndex(y, row); let y = $index) {`,
+        `  <tr>`,
+        `    @for (cell of row; track trackByIndex(x, cell); let x = $index) {`,
+        `  <td\n     `,
+        `    ></td>`,
+        `}`,
+        `  </tr>`,
+        `}`,
+        `</tbody>`,
+      ].join('\n');
+
+      expect(actual).toBe(expected);
+    });
+
+    it('should migrate an index alias after an expression containing commas', async () => {
+      writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgFor} from '@angular/common';
+
+        @Component({
+          imports: [NgFor],
+          template: \`<ul><li *ngFor="let itm of foo({a: 1, b: 2}, [1, 2]), let index = index">{{itm.text}}</li></ul>\`
+        })
+        class Comp {}
+      `);
+
+      await runMigration();
+      const content = tree.readContent('/comp.ts');
+
+      expect(content).toContain(
+          'template: `<ul>@for (itm of foo({a: 1, b: 2}, [1, 2]); track itm; let index = $index) {<li>{{itm.text}}</li>}</ul>`');
+    });
+
     it('should migrate with an index alias with no spaces', async () => {
       writeFile('/comp.ts', `
         import {Component} from '@angular/core';
@@ -931,6 +1091,31 @@ describe('control flow migration', () => {
         @Component({
           imports: [NgFor],
           template: \`<ul><li *ngFor="let itm of items; index as myIndex">{{itm.text}}</li></ul>\`
+        })
+        class Comp {
+          items: Item[] = [{id: 1, text: 'blah'},{id: 2, text: 'stuff'}];
+        }
+      `);
+
+      await runMigration();
+      const content = tree.readContent('/comp.ts');
+
+      expect(content).toContain(
+          'template: `<ul>@for (itm of items; track itm; let myIndex = $index) {<li>{{itm.text}}</li>}</ul>`');
+    });
+
+    it('should migrate with alias declared with a comma-separated `as` expression', async () => {
+      writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgFor} from '@angular/common';
+        interface Item {
+          id: number;
+          text: string;
+        }
+
+        @Component({
+          imports: [NgFor],
+          template: \`<ul><li *ngFor="let itm of items, index as myIndex">{{itm.text}}</li></ul>\`
         })
         class Comp {
           items: Item[] = [{id: 1, text: 'blah'},{id: 2, text: 'stuff'}];
@@ -1095,6 +1280,44 @@ describe('control flow migration', () => {
 
       expect(content).toContain(
           'template: `<ul>@for (item of items; track item) {<li>{{item.text}}</li>}</ul>`');
+    });
+
+    it('should migrate an ngFor with quoted semicolon in expression', async () => {
+      writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgFor} from '@angular/common';
+
+        @Component({
+          imports: [NgFor],
+          template: \`<ul><li *ngFor="let itm of '1;2;3'">{{itm}}</li></ul>\`
+        })
+        class Comp {}
+      `);
+
+      await runMigration();
+      const content = tree.readContent('/comp.ts');
+
+      expect(content).toContain(
+          'template: `<ul>@for (itm of \'1;2;3\'; track itm) {<li>{{itm}}</li>}</ul>`');
+    });
+
+    it('should migrate an ngFor with quoted semicolon in expression', async () => {
+      writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgFor} from '@angular/common';
+
+        @Component({
+          imports: [NgFor],
+          template: \`<ul><li *ngFor="let itm of '1,2,3'">{{itm}}</li></ul>\`
+        })
+        class Comp {}
+      `);
+
+      await runMigration();
+      const content = tree.readContent('/comp.ts');
+
+      expect(content).toContain(
+          'template: `<ul>@for (itm of \'1,2,3\'; track itm) {<li>{{itm}}</li>}</ul>`');
     });
   });
 
@@ -2190,6 +2413,69 @@ describe('control flow migration', () => {
       const content = tree.readContent('/comp.ts');
 
       expect(content).toContain('<ng-template #myTmpl let-greeting>');
+    });
+
+    it('should remove a template thats only used in control flow', async () => {
+      writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgIf} from '@angular/common';
+
+        @Component({
+          selector: 'declare-comp',
+          templateUrl: 'comp.html',
+        })
+        class DeclareComp {}
+      `);
+
+      writeFile('/comp.html', [
+        `<div class="statistics">`,
+        `    <ng-container *ngIf="null !== value; else preload">`,
+        `      <div class="statistics__counter"`,
+        `        *ngIf="!isMoney"`,
+        `      >`,
+        `        {{ value | number }}`,
+        `      </div>`,
+        `      <div class="statistics__counter"`,
+        `        *ngIf="isMoney"`,
+        `      >`,
+        `      {{ value | number }}$`,
+        `      </div>`,
+        `    </ng-container>`,
+        `</div>`,
+        `<ng-template #preload>`,
+        `  <preload-rect`,
+        `    height="2rem"`,
+        `    width="6rem" />`,
+        `</ng-template>`,
+      ].join('\n'));
+
+      await runMigration();
+      const content = tree.readContent('/comp.html');
+
+      const result = [
+        `<div class="statistics">`,
+        `    @if (null !== value) {\n`,
+        `      @if (!isMoney) {`,
+        `<div class="statistics__counter"\n       `,
+        `      >`,
+        `        {{ value | number }}`,
+        `      </div>`,
+        `}`,
+        `      @if (isMoney) {`,
+        `<div class="statistics__counter"\n       `,
+        `      >`,
+        `      {{ value | number }}$`,
+        `      </div>`,
+        `}`,
+        `    \n} @else {\n`,
+        `  <preload-rect`,
+        `    height="2rem"`,
+        `    width="6rem" />\n`,
+        `}`,
+        `</div>\n`,
+      ].join('\n');
+
+      expect(content).toBe(result);
     });
   });
 

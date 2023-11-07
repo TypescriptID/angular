@@ -159,7 +159,7 @@
   "// 2": "devDependencies are not used under Bazel. Many can be removed after test.sh is deleted.",
   "devDependencies": {
     "@actions/core": "^1.10.0",
-    "@angular/build-tooling": "https://github.com/angular/dev-infra-private-build-tooling-builds.git#8fa10a4dc43b9780f09c99f11d805e733107ed70",
+    "@angular/build-tooling": "https://github.com/angular/dev-infra-private-build-tooling-builds.git#cf8da67c048dde33354eb64e18b60eced1f62ea6",
     "@angular/ng-dev": "https://github.com/angular/dev-infra-private-ng-dev-builds.git#c773500c56bada879d4a5a4169a04bdb039262d1",
     "@babel/helper-remap-async-to-generator": "^7.18.9",
     "@babel/plugin-proposal-async-generator-functions": "^7.20.7",
@@ -186,7 +186,7 @@
     "inquirer": "^9.2.7",
     "karma-sauce-launcher": "^4.3.6",
     "madge": "^6.0.0",
-    "multimatch": "^6.0.0",
+    "multimatch": "^7.0.0",
     "patch-package": "^7.0.0",
     "prettier": "^3.0.0",
     "sauce-connect": "https://saucelabs.com/downloads/sc-4.9.1-linux.tar.gz",

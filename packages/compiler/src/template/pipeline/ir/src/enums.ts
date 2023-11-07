@@ -151,19 +151,19 @@ export enum OpKind {
   Defer,
 
   /**
-   * An IR operation that provides secondary templates of a `@defer` block.
-   */
-  DeferSecondaryBlock,
-
-  /**
    * An operation that controls when a `@defer` loads.
    */
   DeferOn,
 
   /**
+   * An operation that controls when a `@defer` loads, using a custom expression as the condition.
+   */
+  DeferWhen,
+
+  /**
    * An i18n message that has been extracted for inclusion in the consts array.
    */
-  ExtractedMessage,
+  I18nMessage,
 
   /**
    * A host binding property.
@@ -229,6 +229,11 @@ export enum OpKind {
    * An instruction to update an ICU expression.
    */
   IcuUpdate,
+
+  /**
+   * An i18n context containing information needed to generate an i18n message.
+   */
+  I18nContext,
 }
 
 /**
@@ -532,4 +537,14 @@ export enum DeferTriggerKind {
   Hover,
   Interaction,
   Viewport,
+}
+
+/**
+ * Repeaters implicitly define these derived variables, and child nodes may read them.
+ */
+export enum DerivedRepeaterVarIdentity {
+  First,
+  Last,
+  Even,
+  Odd,
 }

@@ -50,8 +50,7 @@
           ],
           "failureMessage": "Incorrect template"
         }
-      ],
-      "skipForTemplatePipeline": true
+      ]
     },
     {
       "description": "should generate a deferred block with loading block parameters",
@@ -85,8 +84,7 @@
           ],
           "failureMessage": "Incorrect template"
         }
-      ],
-      "skipForTemplatePipeline": true
+      ]
     },
     {
       "description": "should generate a deferred block with external dependencies",
@@ -106,8 +104,7 @@
           ],
           "failureMessage": "Incorrect template"
         }
-      ],
-      "skipForTemplatePipeline": true
+      ]
     },
     {
       "description": "should generate a deferred block with triggers",
@@ -124,8 +121,7 @@
           ],
           "failureMessage": "Incorrect template"
         }
-      ],
-      "skipForTemplatePipeline": true
+      ]
     },
     {
       "description": "should generate a deferred block with prefetch triggers",
@@ -142,8 +138,7 @@
           ],
           "failureMessage": "Incorrect template"
         }
-      ],
-      "skipForTemplatePipeline": true
+      ]
     },
     {
       "description": "should generate a deferred block with a `when` trigger that has a pipe",
@@ -155,13 +150,13 @@
           "files": [
             {
               "expected": "deferred_when_with_pipe_template.js",
+              "templatePipelineExpected": "deferred_when_with_pipe_template.pipeline.js",
               "generated": "deferred_when_with_pipe.js"
             }
           ],
           "failureMessage": "Incorrect template"
         }
-      ],
-      "skipForTemplatePipeline": true
+      ]
     },
     {
       "description": "should generate a deferred block with an interaction trigger in the same view",
@@ -229,8 +224,7 @@
           ],
           "failureMessage": "Incorrect template"
         }
-      ],
-      "skipForTemplatePipeline": true
+      ]
     }
   ]
 }

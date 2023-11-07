@@ -8,14 +8,13 @@
 
 import {REACTIVE_NODE, ReactiveNode} from '@angular/core/primitives/signals';
 
-import {LView, REACTIVE_HOST_BINDING_CONSUMER, REACTIVE_TEMPLATE_CONSUMER} from './interfaces/view';
-import {markViewDirtyFromSignal} from './util/view_utils';
+import {LView, REACTIVE_TEMPLATE_CONSUMER} from './interfaces/view';
+import {markAncestorsForTraversal} from './util/view_utils';
 
-let currentConsumer: ReactiveLViewConsumer|null = null;
+let freeConsumers: ReactiveLViewConsumer[] = [];
 export interface ReactiveLViewConsumer extends ReactiveNode {
-  lView: LView;
-  slot: typeof REACTIVE_TEMPLATE_CONSUMER|typeof REACTIVE_HOST_BINDING_CONSUMER;
-  isRunning: boolean;
+  lView: LView|null;
+  slot: typeof REACTIVE_TEMPLATE_CONSUMER;
 }
 
 /**
@@ -23,43 +22,33 @@ export interface ReactiveLViewConsumer extends ReactiveNode {
  * Sometimes, a previously created consumer may be reused, in order to save on allocations. In that
  * case, the LView will be updated.
  */
-export function getReactiveLViewConsumer(
-    lView: LView, slot: typeof REACTIVE_TEMPLATE_CONSUMER|typeof REACTIVE_HOST_BINDING_CONSUMER):
-    ReactiveLViewConsumer {
-  return lView[slot] ?? getOrCreateCurrentLViewConsumer(lView, slot);
+export function getOrBorrowReactiveLViewConsumer(lView: LView): ReactiveLViewConsumer {
+  return lView[REACTIVE_TEMPLATE_CONSUMER] ?? borrowReactiveLViewConsumer(lView);
+}
+
+function borrowReactiveLViewConsumer(lView: LView): ReactiveLViewConsumer {
+  const consumer: ReactiveLViewConsumer =
+      freeConsumers.pop() ?? Object.create(REACTIVE_LVIEW_CONSUMER_NODE);
+  consumer.lView = lView;
+  return consumer;
+}
+
+export function maybeReturnReactiveLViewConsumer(consumer: ReactiveLViewConsumer): void {
+  if (consumer.lView![REACTIVE_TEMPLATE_CONSUMER] === consumer) {
+    // The consumer got committed.
+    return;
+  }
+  consumer.lView = null;
+  freeConsumers.push(consumer);
 }
 
 const REACTIVE_LVIEW_CONSUMER_NODE: Omit<ReactiveLViewConsumer, 'lView'|'slot'> = {
   ...REACTIVE_NODE,
   consumerIsAlwaysLive: true,
   consumerMarkedDirty: (node: ReactiveLViewConsumer) => {
-    if (ngDevMode && node.isRunning) {
-      console.warn(
-          `Angular detected a signal being set which makes the template for this component dirty` +
-          ` while it's being executed, which is not currently supported and will likely result` +
-          ` in ExpressionChangedAfterItHasBeenChecked errors or future updates not working` +
-          ` entirely.`);
-    }
-    markViewDirtyFromSignal(node.lView);
+    markAncestorsForTraversal(node.lView!);
   },
   consumerOnSignalRead(this: ReactiveLViewConsumer): void {
-    if (currentConsumer !== this) {
-      return;
-    }
-    this.lView[this.slot] = currentConsumer;
-    currentConsumer = null;
+    this.lView![REACTIVE_TEMPLATE_CONSUMER] = this;
   },
-  isRunning: false,
 };
-
-function createLViewConsumer(): ReactiveLViewConsumer {
-  return Object.create(REACTIVE_LVIEW_CONSUMER_NODE);
-}
-
-function getOrCreateCurrentLViewConsumer(
-    lView: LView, slot: typeof REACTIVE_TEMPLATE_CONSUMER|typeof REACTIVE_HOST_BINDING_CONSUMER) {
-  currentConsumer ??= createLViewConsumer();
-  currentConsumer.lView = lView;
-  currentConsumer.slot = slot;
-  return currentConsumer;
-}

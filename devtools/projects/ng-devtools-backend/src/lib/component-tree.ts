@@ -25,6 +25,7 @@ import type {ClassProvider, ExistingProvider, FactoryProvider, InjectionToken, I
 
 const ngDebug = () => (window as any).ng;
 export const injectorToId = new WeakMap<Injector|HTMLElement, string>();
+export const nodeInjectorToResolutionPath = new WeakMap<HTMLElement, SerializedInjector[]>();
 export const idToInjector = new Map<string, Injector>();
 export const injectorsSeen = new Set<string>();
 let injectorId = 0;
@@ -61,6 +62,10 @@ export function getInjectorMetadata(injector: Injector):
 }
 
 export function getInjectorResolutionPath(injector: Injector): Injector[] {
+  if (!ngDebugApiIsSupported('ɵgetInjectorResolutionPath')) {
+    return [];
+  }
+
   return ngDebug().ɵgetInjectorResolutionPath(injector);
 }
 
@@ -154,6 +159,14 @@ export function serializeElementInjectorWithId(injector: Injector): SerializedIn
   return {id, ...serializedInjector};
 }
 
+export function serializeInjectorWithId(injector: Injector): SerializedInjector|null {
+  if (isElementInjector(injector)) {
+    return serializeElementInjectorWithId(injector);
+  } else {
+    return serializeEnvironmentInjectorWithId(injector);
+  }
+}
+
 export function serializeEnvironmentInjectorWithId(injector: Injector): SerializedInjector|null {
   let id: string;
 
@@ -218,10 +231,6 @@ export const getDirectiveMetadata = (dir: any): DirectiveMetadata => {
 };
 
 export function getInjectorProviders(injector: Injector): ProviderRecord[] {
-  if (isPlatformInjector(injector)) {
-    return [];
-  }
-
   if (isNullInjector(injector)) {
     return [];
   }
@@ -232,6 +241,10 @@ export function getInjectorProviders(injector: Injector): ProviderRecord[] {
 const getDependenciesForDirective =
     (injector: Injector, resolutionPath: {injector: Injector; providers: ProviderRecord[]}[],
      directive: any): SerializedInjectedService[] => {
+      if (!ngDebugApiIsSupported('ɵgetDependenciesFromInjectable')) {
+        return [];
+      }
+
       let dependencies: InjectedService[] =
           ngDebug().ɵgetDependenciesFromInjectable(injector, directive).dependencies;
       const serializedInjectedServices: SerializedInjectedService[] = [];
@@ -256,42 +269,36 @@ const getDependenciesForDirective =
         // dependency (2)
         const dependencyResolutionPath = [
           // (1)
-          ...resolutionPath.slice(0, foundInjectorIndex + 1).map(node => {
-            if (isElementInjector(node.injector)) {
-              return {injector: serializeElementInjectorWithId(node.injector)};
-            }
-            return {injector: serializeEnvironmentInjectorWithId(node.injector)};
-          }),
+          ...resolutionPath.slice(0, foundInjectorIndex + 1)
+              .map(node => serializeInjectorWithId(node.injector)),
 
           // (2)
           // We slice the import path to remove the first element because this is the same
           // injector as the last injector in the resolution path.
           ...(foundProvider?.importPath ?? []).slice(1).map(node => {
-            return {
-              injector: {type: 'imported-module', name: valueToLabel(node), id: getInjectorId()}
-            };
+            return {type: 'imported-module', name: valueToLabel(node), id: getInjectorId()};
           })
-        ];
+        ] as SerializedInjector[];
+
 
         if (dependency.token && isInjectionToken(dependency.token)) {
           serializedInjectedServices.push({
             token: dependency.token!.toString(),
             value: valueToLabel(dependency.value),
             flags: dependency.flags,
-            position: [position],
+            position: [position++],
             resolutionPath: dependencyResolutionPath
           });
+          continue;
         }
 
         serializedInjectedServices.push({
           token: valueToLabel(dependency.token),
           value: valueToLabel(dependency.value),
           flags: dependency.flags,
-          position: [position],
+          position: [position++],
           resolutionPath: dependencyResolutionPath
         });
-
-        position++;
       }
 
       return serializedInjectedServices;
@@ -303,15 +310,23 @@ export const valueToLabel = (value: any): string => {
   }
 
   if (typeof value === 'object') {
-    return value.constructor.name;
+    return stripUnderscore(value.constructor.name);
   }
 
   if (typeof value === 'function') {
-    return value.name;
+    return stripUnderscore(value.name);
   }
 
-  return value;
+  return stripUnderscore(value);
 };
+
+function stripUnderscore(str: string): string {
+  if (str.startsWith('_')) {
+    return str.slice(1);
+  }
+
+  return str;
+}
 
 export function serializeInjector(injector: Injector): Omit<SerializedInjector, 'id'>|null {
   const metadata = getInjectorMetadata(injector);
@@ -321,19 +336,31 @@ export function serializeInjector(injector: Injector): Omit<SerializedInjector, 
     return null;
   }
 
+  const providers = getInjectorProviders(injector).length;
+
+  if (metadata.type === 'null') {
+    return {type: 'null', name: 'Null Injector', providers: 0};
+  }
+
   if (metadata.type === 'element') {
     const source = metadata.source! as HTMLElement;
-    const name = elementToDirectiveNames(source)[0];
+    const name = stripUnderscore(elementToDirectiveNames(source)[0]);
 
-    return {type: 'element', name};
+    return {type: 'element', name, providers};
   }
 
   if (metadata.type === 'environment') {
-    return {type: 'environment', name: metadata.source as string};
-  }
+    if ((injector as any).scopes instanceof Set) {
+      if ((injector as any).scopes.has('platform')) {
+        return {type: 'environment', name: 'Platform', providers};
+      }
 
-  if (metadata.type === 'null') {
-    return {type: 'null', name: 'Null Injector'};
+      if ((injector as any).scopes.has('root')) {
+        return {type: 'environment', name: 'Root', providers};
+      }
+    }
+
+    return {type: 'environment', name: stripUnderscore(metadata.source as string), providers};
   }
 
   console.error('Angular DevTools: Could not serialize injector.', injector);
@@ -341,7 +368,8 @@ export function serializeInjector(injector: Injector): Omit<SerializedInjector, 
 }
 
 export function serializeProviderRecord(
-    providerRecord: ProviderRecord, hasImportPath = false): SerializedProviderRecord {
+    providerRecord: ProviderRecord, index: number,
+    hasImportPath = false): SerializedProviderRecord {
   let type: 'type'|'class'|'value'|'factory'|'existing' = 'type';
   let multi = false;
 
@@ -366,11 +394,12 @@ export function serializeProviderRecord(
     type,
     multi,
     isViewProvider: providerRecord.isViewProvider,
+    index
   };
 
   if (hasImportPath) {
     serializedProvider['importPath'] =
-        (providerRecord.importPath ?? []).map(injector => valueToLabel(injector as any));
+        (providerRecord.importPath ?? []).map(injector => valueToLabel(injector));
   }
 
   return serializedProvider;
@@ -391,11 +420,6 @@ export function getElementInjectorElement(elementInjector: Injector): HTMLElemen
 
 export function isInjectionToken(token: Type<unknown>|InjectionToken<unknown>): boolean {
   return token.constructor.name === 'InjectionToken';
-}
-
-export function isPlatformInjector(injector: Injector) {
-  return isEnvironmentInjector(injector) && injector['scopes'] instanceof Set &&
-      injector['scopes'].has('platform');
 }
 
 export function isEnvironmentInjector(injector: Injector) {
@@ -525,3 +549,25 @@ const mutateComponentOrDirective = (updatedStateData: UpdatedStateData, compOrDi
   } catch {
   }
 };
+
+export function serializeResolutionPath(resolutionPath: Injector[]): SerializedInjector[] {
+  const serializedResolutionPath: SerializedInjector[] = [];
+
+  for (const injector of resolutionPath) {
+    let serializedInjectorWithId: SerializedInjector|null = null;
+
+    if (isElementInjector(injector)) {
+      serializedInjectorWithId = serializeElementInjectorWithId(injector);
+    } else {
+      serializedInjectorWithId = serializeEnvironmentInjectorWithId(injector);
+    }
+
+    if (serializedInjectorWithId === null) {
+      continue;
+    }
+
+    serializedResolutionPath.push(serializedInjectorWithId);
+  }
+
+  return serializedResolutionPath;
+}

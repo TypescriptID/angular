@@ -9,17 +9,16 @@
 import * as ir from '../../ir';
 import {CompilationJob} from '../compilation';
 
-
 /**
  * Adds apply operations after i18n expressions.
  */
-export function phaseApplyI18nExpressions(job: CompilationJob): void {
+export function applyI18nExpressions(job: CompilationJob): void {
   for (const unit of job.units) {
     for (const op of unit.update) {
       // Only add apply after expressions that are not followed by more expressions.
       if (op.kind === ir.OpKind.I18nExpression && needsApplication(op)) {
         // TODO: what should be the source span for the apply op?
-        ir.OpList.insertAfter<ir.UpdateOp>(ir.createI18nApplyOp(op.owner, op.ownerSlot, null!), op);
+        ir.OpList.insertAfter<ir.UpdateOp>(ir.createI18nApplyOp(op.target, op.handle, null!), op);
       }
     }
   }
@@ -33,8 +32,8 @@ function needsApplication(op: ir.I18nExpressionOp) {
   if (op.next?.kind !== ir.OpKind.I18nExpression) {
     return true;
   }
-  // If the next op is an expression targeting a different i18n block, we need to apply.
-  if (op.next.owner !== op.owner) {
+  // If the next op is an expression targeting a different i18n context, we need to apply.
+  if (op.next.context !== op.context) {
     return true;
   }
   return false;

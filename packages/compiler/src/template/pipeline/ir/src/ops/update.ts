@@ -12,9 +12,9 @@ import * as o from '../../../../../output/output_ast';
 import {ParseSourceSpan} from '../../../../../parse_util';
 import {BindingKind, I18nParamResolutionTime, OpKind} from '../enums';
 import type {ConditionalCaseExpr} from '../expression';
-import {Op, XrefId} from '../operations';
-import {ConsumesSlotOpTrait, ConsumesVarsTrait, DependsOnSlotContextOpTrait, TRAIT_CONSUMES_VARS, TRAIT_DEPENDS_ON_SLOT_CONTEXT} from '../traits';
 import {SlotHandle} from '../handle';
+import {Op, XrefId} from '../operations';
+import {ConsumesVarsTrait, DependsOnSlotContextOpTrait, TRAIT_CONSUMES_VARS, TRAIT_DEPENDS_ON_SLOT_CONTEXT} from '../traits';
 import type {HostPropertyOp} from './host';
 import {ListEndOp, NEW_OP, StatementOp, VariableOp} from './shared';
 
@@ -24,7 +24,7 @@ import {ListEndOp, NEW_OP, StatementOp, VariableOp} from './shared';
  */
 export type UpdateOp = ListEndOp<UpdateOp>|StatementOp<UpdateOp>|PropertyOp|AttributeOp|StylePropOp|
     ClassPropOp|StyleMapOp|ClassMapOp|InterpolateTextOp|AdvanceOp|VariableOp<UpdateOp>|BindingOp|
-    HostPropertyOp|ConditionalOp|I18nExpressionOp|I18nApplyOp|IcuUpdateOp|RepeaterOp;
+    HostPropertyOp|ConditionalOp|I18nExpressionOp|I18nApplyOp|IcuUpdateOp|RepeaterOp|DeferWhenOp;
 
 /**
  * A logical operation to perform string interpolation on a text node.
@@ -566,6 +566,41 @@ export function createRepeaterOp(
   };
 }
 
+export interface DeferWhenOp extends Op<UpdateOp>, DependsOnSlotContextOpTrait {
+  kind: OpKind.DeferWhen;
+
+  /**
+   * The `defer` create op associated with this when condition.
+   */
+  target: XrefId;
+
+  /**
+   * A user-provided expression that triggers the defer op.
+   */
+  expr: o.Expression;
+
+  /**
+   * Whether to emit the prefetch version of the instruction.
+   */
+  prefetch: boolean;
+
+  sourceSpan: ParseSourceSpan;
+}
+
+export function createDeferWhenOp(
+    target: XrefId, expr: o.Expression, prefetch: boolean,
+    sourceSpan: ParseSourceSpan): DeferWhenOp {
+  return {
+    kind: OpKind.DeferWhen,
+    target,
+    expr,
+    prefetch,
+    sourceSpan,
+    ...NEW_OP,
+    ...TRAIT_DEPENDS_ON_SLOT_CONTEXT,
+  };
+}
+
 /**
  * An op that represents an expression in an i18n message.
  */
@@ -574,17 +609,20 @@ export interface I18nExpressionOp extends Op<UpdateOp>, ConsumesVarsTrait,
   kind: OpKind.I18nExpression;
 
   /**
-   * The i18n block that this expression belongs to.
+   * The i18n context that this expression belongs to.
    */
-  owner: XrefId;
-
-  ownerSlot: SlotHandle;
+  context: XrefId;
 
   /**
    * The Xref of the op that we need to `advance` to. This should be the final op in the owning i18n
    * block. This is necessary so that we run all lifecycle hooks.
    */
   target: XrefId;
+
+  /**
+   * A handle for the slot of the i18n block this expression belongs to.
+   */
+  handle: SlotHandle;
 
   /**
    * The expression value.
@@ -604,19 +642,18 @@ export interface I18nExpressionOp extends Op<UpdateOp>, ConsumesVarsTrait,
   sourceSpan: ParseSourceSpan;
 }
 
-
-
 /**
  * Create an i18n expression op.
  */
 export function createI18nExpressionOp(
-    owner: XrefId, ownerSlot: SlotHandle, expression: o.Expression, i18nPlaceholder: string,
-    resolutionTime: I18nParamResolutionTime, sourceSpan: ParseSourceSpan): I18nExpressionOp {
+    context: XrefId, target: XrefId, handle: SlotHandle, expression: o.Expression,
+    i18nPlaceholder: string, resolutionTime: I18nParamResolutionTime,
+    sourceSpan: ParseSourceSpan): I18nExpressionOp {
   return {
     kind: OpKind.I18nExpression,
-    owner,
-    ownerSlot,
-    target: owner,
+    context,
+    target,
+    handle,
     expression,
     i18nPlaceholder,
     resolutionTime,
@@ -634,11 +671,15 @@ export interface I18nApplyOp extends Op<UpdateOp> {
   kind: OpKind.I18nApply;
 
   /**
-   * The i18n block to which expressions are applied
+   * The Xref of the op that we need to `advance` to. This should be the final op in the owning i18n
+   * block. This is necessary so that we run all lifecycle hooks.
    */
   target: XrefId;
 
-  targetSlot: SlotHandle;
+  /**
+   * A handle for the slot of the i18n block this expression belongs to.
+   */
+  handle: SlotHandle;
 
   sourceSpan: ParseSourceSpan;
 }
@@ -647,11 +688,11 @@ export interface I18nApplyOp extends Op<UpdateOp> {
  *Creates an op to apply i18n expression ops
  */
 export function createI18nApplyOp(
-    target: XrefId, targetSlot: SlotHandle, sourceSpan: ParseSourceSpan): I18nApplyOp {
+    target: XrefId, handle: SlotHandle, sourceSpan: ParseSourceSpan): I18nApplyOp {
   return {
     kind: OpKind.I18nApply,
     target,
-    targetSlot,
+    handle,
     sourceSpan,
     ...NEW_OP,
   };
