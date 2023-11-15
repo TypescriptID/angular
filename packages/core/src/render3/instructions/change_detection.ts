@@ -11,7 +11,6 @@ import {consumerAfterComputation, consumerBeforeComputation, consumerPollProduce
 import {RuntimeError, RuntimeErrorCode} from '../../errors';
 import {assertDefined, assertEqual} from '../../util/assert';
 import {assertLContainer} from '../assert';
-import {getComponentViewByInstance} from '../context_discovery';
 import {executeCheckHooks, executeInitAndCheckHooks, incrementInitPhaseFlags} from '../hooks';
 import {CONTAINER_HEADER_OFFSET, LContainer, LContainerFlags, MOVED_VIEWS} from '../interfaces/container';
 import {ComponentTemplate, RenderFlags} from '../interfaces/definition';
@@ -28,8 +27,7 @@ import {executeTemplate, executeViewQueryFn, handleError, processHostBindingOpCo
  */
 const MAXIMUM_REFRESH_RERUNS = 100;
 
-export function detectChangesInternal<T>(
-    tView: TView, lView: LView, context: T, notifyErrorHandler = true) {
+export function detectChangesInternal(lView: LView, notifyErrorHandler = true) {
   const environment = lView[ENVIRONMENT];
   const rendererFactory = environment.rendererFactory;
   const afterRenderEventManager = environment.afterRenderEventManager;
@@ -45,6 +43,8 @@ export function detectChangesInternal<T>(
   }
 
   try {
+    const tView = lView[TVIEW];
+    const context = lView[CONTEXT];
     refreshView(tView, lView, tView.template, context);
     detectChangesInViewWhileDirty(lView);
   } catch (error) {
@@ -89,27 +89,15 @@ function detectChangesInViewWhileDirty(lView: LView) {
   }
 }
 
-export function checkNoChangesInternal<T>(
-    tView: TView, lView: LView, context: T, notifyErrorHandler = true) {
+export function checkNoChangesInternal(lView: LView, notifyErrorHandler = true) {
   setIsInCheckNoChangesMode(true);
   try {
-    detectChangesInternal(tView, lView, context, notifyErrorHandler);
+    detectChangesInternal(lView, notifyErrorHandler);
   } finally {
     setIsInCheckNoChangesMode(false);
   }
 }
 
-/**
- * Synchronously perform change detection on a component (and possibly its sub-components).
- *
- * This function triggers change detection in a synchronous way on a component.
- *
- * @param component The component which the change detection should be performed on.
- */
-export function detectChanges(component: {}): void {
-  const view = getComponentViewByInstance(component);
-  detectChangesInternal(view[TVIEW], view, component);
-}
 
 /**
  * Different modes of traversing the logical view tree during change detection.
