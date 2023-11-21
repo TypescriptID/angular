@@ -1881,10 +1881,10 @@
     "name": "replaceSegment"
   },
   {
-    "name": "resetPreOrderHookFlags"
+    "name": "requiresRefreshOrTraversal"
   },
   {
-    "name": "resolveData"
+    "name": "resetPreOrderHookFlags"
   },
   {
     "name": "resolveForwardRef"
@@ -1897,6 +1897,9 @@
   },
   {
     "name": "routes"
+  },
+  {
+    "name": "runInInjectionContext"
   },
   {
     "name": "rxSubscriber"

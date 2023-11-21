@@ -25,11 +25,12 @@ const ifs = [
  * Replaces structural directive ngif instances with new if.
  * Returns null if the migration failed (e.g. there was a syntax error).
  */
-export function migrateIf(template: string): {migrated: string, errors: MigrateError[]} {
+export function migrateIf(template: string):
+    {migrated: string, errors: MigrateError[], changed: boolean} {
   let errors: MigrateError[] = [];
   let parsed = parseTemplate(template);
   if (parsed === null) {
-    return {migrated: template, errors};
+    return {migrated: template, errors, changed: false};
   }
 
   let result = template;
@@ -61,7 +62,9 @@ export function migrateIf(template: string): {migrated: string, errors: MigrateE
     nestLevel = el.nestCount;
   }
 
-  return {migrated: result, errors};
+  const changed = visitor.elements.length > 0;
+
+  return {migrated: result, errors, changed};
 }
 
 function migrateNgIf(etm: ElementToMigrate, tmpl: string, offset: number): Result {
@@ -84,7 +87,10 @@ function migrateNgIf(etm: ElementToMigrate, tmpl: string, offset: number): Resul
 function buildIfBlock(etm: ElementToMigrate, tmpl: string, offset: number): Result {
   // includes the mandatory semicolon before as
   const lbString = etm.hasLineBreaks ? '\n' : '';
-  const condition = etm.attr.value.replace(' as ', '; as ');
+  const condition = etm.attr.value
+                        .replace(' as ', '; as ')
+                        // replace 'let' with 'as' whatever spaces are between ; and 'let'
+                        .replace(/;\s*let/g, '; as');
 
   const originals = getOriginals(etm, tmpl, offset);
 
@@ -106,7 +112,10 @@ function buildIfBlock(etm: ElementToMigrate, tmpl: string, offset: number): Resu
 function buildStandardIfElseBlock(
     etm: ElementToMigrate, tmpl: string, elseString: string, offset: number): Result {
   // includes the mandatory semicolon before as
-  const condition = etm.getCondition(elseString).replace(' as ', '; as ');
+  const condition = etm.getCondition(elseString)
+                        .replace(' as ', '; as ')
+                        // replace 'let' with 'as' whatever spaces are between ; and 'let'
+                        .replace(/;\s*let/g, '; as');
   const elsePlaceholder = `#${etm.getTemplateName(elseString)}|`;
   return buildIfElseBlock(etm, tmpl, condition, elsePlaceholder, offset);
 }
@@ -151,7 +160,10 @@ function buildStandardIfThenElseBlock(
     etm: ElementToMigrate, tmpl: string, thenString: string, elseString: string,
     offset: number): Result {
   // includes the mandatory semicolon before as
-  const condition = etm.getCondition(thenString).replace(' as ', '; as ');
+  const condition = etm.getCondition(thenString)
+                        .replace(' as ', '; as ')
+                        // replace 'let' with 'as' whatever spaces are between ; and 'let'
+                        .replace(/;\s*let/g, '; as');
   const thenPlaceholder = `#${etm.getTemplateName(thenString, elseString)}|`;
   const elsePlaceholder = `#${etm.getTemplateName(elseString)}|`;
   return buildIfThenElseBlock(etm, tmpl, condition, thenPlaceholder, elsePlaceholder, offset);
@@ -175,7 +187,9 @@ function buildIfThenElseBlock(
 
   const updatedTmpl = tmplStart + ifThenElseBlock + tmplEnd;
 
-  const pre = originals.start.length - startBlock.length;
+  // We ignore the contents of the element on if then else.
+  // If there's anything there, we need to account for the length in the offset.
+  const pre = originals.start.length + originals.childLength - startBlock.length;
   const post = originals.end.length - postBlock.length;
 
   return {tmpl: updatedTmpl, offsets: {pre, post}};

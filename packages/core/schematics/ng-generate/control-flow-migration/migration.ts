@@ -8,6 +8,7 @@
 
 import ts from 'typescript';
 
+import {migrateCase} from './cases';
 import {migrateFor} from './fors';
 import {migrateIf} from './ifs';
 import {migrateSwitch} from './switches';
@@ -26,8 +27,11 @@ export function migrateTemplate(
     const ifResult = migrateIf(template);
     const forResult = migrateFor(ifResult.migrated);
     const switchResult = migrateSwitch(forResult.migrated);
-    migrated = processNgTemplates(switchResult.migrated);
-    if (format) {
+    const caseResult = migrateCase(switchResult.migrated);
+    migrated = processNgTemplates(caseResult.migrated);
+    const changed =
+        ifResult.changed || forResult.changed || switchResult.changed || caseResult.changed;
+    if (format && changed) {
       migrated = formatTemplate(migrated);
     }
     file.removeCommonModule = canRemoveCommonModule(template);
@@ -36,6 +40,7 @@ export function migrateTemplate(
       ...ifResult.errors,
       ...forResult.errors,
       ...switchResult.errors,
+      ...caseResult.errors,
     ];
   } else {
     migrated = removeImports(template, node, file.removeCommonModule);

@@ -33,13 +33,30 @@ export function analyze(sourceFile: ts.SourceFile, analyzedFiles: Map<string, An
   });
 }
 
+function checkIfShouldChange(decl: ts.ImportDeclaration, removeCommonModule: boolean) {
+  // should change if you can remove the common module
+  // if it's not safe to remove the common module
+  // and that's the only thing there, we should do nothing.
+  const clause = decl.getChildAt(1) as ts.ImportClause;
+  return !(
+      !removeCommonModule && clause.namedBindings && ts.isNamedImports(clause.namedBindings) &&
+      clause.namedBindings.elements.length === 1 &&
+      clause.namedBindings.elements[0].getText() === 'CommonModule');
+}
+
 function updateImportDeclaration(decl: ts.ImportDeclaration, removeCommonModule: boolean): string {
   const clause = decl.getChildAt(1) as ts.ImportClause;
   const updatedClause = updateImportClause(clause, removeCommonModule);
   if (updatedClause === null) {
     return '';
   }
-  const printer = ts.createPrinter();
+  // removeComments is set to true to prevent duplication of comments
+  // when the import declaration is at the top of the file, but right after a comment
+  // without this, the comment gets duplicated when the declaration is updated.
+  // the typescript AST includes that preceding comment as part of the import declaration full text.
+  const printer = ts.createPrinter({
+    removeComments: true,
+  });
   const updated = ts.factory.updateImportDeclaration(
       decl, decl.modifiers, updatedClause, decl.moduleSpecifier, undefined);
   return printer.printNode(ts.EmitHint.Unspecified, updated, clause.getSourceFile());
@@ -326,7 +343,7 @@ export function removeImports(
     template: string, node: ts.Node, removeCommonModule: boolean): string {
   if (template.startsWith('imports') && ts.isPropertyAssignment(node)) {
     return updateClassImports(node, removeCommonModule);
-  } else if (ts.isImportDeclaration(node)) {
+  } else if (ts.isImportDeclaration(node) && checkIfShouldChange(node, removeCommonModule)) {
     return updateImportDeclaration(node, removeCommonModule);
   }
   return template;
@@ -336,10 +353,12 @@ export function removeImports(
  * retrieves the original block of text in the template for length comparison during migration
  * processing
  */
-export function getOriginals(
-    etm: ElementToMigrate, tmpl: string, offset: number): {start: string, end: string} {
+export function getOriginals(etm: ElementToMigrate, tmpl: string, offset: number):
+    {start: string, end: string, childLength: number} {
   // original opening block
   if (etm.el.children.length > 0) {
+    const childStart = etm.el.children[0].sourceSpan.start.offset - offset;
+    const childEnd = etm.el.children[etm.el.children.length - 1].sourceSpan.end.offset - offset;
     const start = tmpl.slice(
         etm.el.sourceSpan.start.offset - offset,
         etm.el.children[0].sourceSpan.start.offset - offset);
@@ -347,13 +366,14 @@ export function getOriginals(
     const end = tmpl.slice(
         etm.el.children[etm.el.children.length - 1].sourceSpan.end.offset - offset,
         etm.el.sourceSpan.end.offset - offset);
-    return {start, end};
+    const childLength = childEnd - childStart;
+    return {start, end, childLength};
   }
   // self closing or no children
   const start =
       tmpl.slice(etm.el.sourceSpan.start.offset - offset, etm.el.sourceSpan.end.offset - offset);
   // original closing block
-  return {start, end: ''};
+  return {start, end: '', childLength: 0};
 }
 
 function isI18nTemplate(etm: ElementToMigrate, i18nAttr: Attribute|undefined): boolean {
@@ -420,7 +440,7 @@ export function formatTemplate(tmpl: string): string {
 
     // regex for matching an html element opening
     // <div thing="stuff" [binding]="true"> || <div thing="stuff" [binding]="true"
-    const openElRegex = /^\s*<([a-z]+)(?![^>]*\/>)[^>]*>?/;
+    const openElRegex = /^\s*<([a-z0-9]+)(?![^>]*\/>)[^>]*>?/;
 
     // match closing block or else block
     // } | } @else
@@ -428,7 +448,7 @@ export function formatTemplate(tmpl: string): string {
 
     // matches closing of an html element
     // </element>
-    const closeElRegex = /\s*<\/([a-z\-]+)*>/;
+    const closeElRegex = /\s*<\/([a-z0-9\-]+)*>/;
 
     // matches closing of a self closing html element when the element is on multiple lines
     // [binding]="value" />
@@ -436,13 +456,13 @@ export function formatTemplate(tmpl: string): string {
 
     // matches an open and close of an html element on a single line with no breaks
     // <div>blah</div>
-    const singleLineElRegex = /^\s*<([a-z]+)(?![^>]*\/>)[^>]*>.*<\/([a-z\-]+)*>/;
+    const singleLineElRegex = /^\s*<([a-z0-9]+)(?![^>]*\/>)[^>]*>.*<\/([a-z0-9\-]+)*>/;
     const lines = tmpl.split('\n');
     const formatted = [];
     let indent = '';
-    for (let line of lines) {
-      if (line.trim() === '') {
-        // skip blank lines
+    for (let [index, line] of lines.entries()) {
+      if (line.trim() === '' && index !== 0 && index !== lines.length - 1) {
+        // skip blank lines except if it's the first line or last line
         continue;
       }
       if ((closeBlockRegex.test(line) ||

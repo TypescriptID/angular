@@ -100,7 +100,6 @@ describe('control flow migration', () => {
       } catch (e: any) {
         error = e.message;
       }
-
       expect(error).toBe('Cannot run control flow migration outside of the current project.');
     });
 
@@ -358,7 +357,7 @@ describe('control flow migration', () => {
         `  } @else {`,
         `    <p>Stuff</p>`,
         `  }`,
-        `</div>`,
+        `</div>\n`,
       ].join('\n'));
     });
 
@@ -393,7 +392,7 @@ describe('control flow migration', () => {
         `  } @else {`,
         `    <p>Stuff</p>`,
         `  }`,
-        `</div>`,
+        `</div>\n`,
       ].join('\n'));
     });
 
@@ -583,7 +582,7 @@ describe('control flow migration', () => {
         `  } @else {`,
         `    <ng-container i18n="@@somethingElse"><p>other</p></ng-container>`,
         `  }`,
-        `</div>`,
+        `</div>\n`,
       ].join('\n'));
     });
 
@@ -617,7 +616,7 @@ describe('control flow migration', () => {
         `  } @else {`,
         `    <ng-container i18n="@@somethingElse"><p>other</p></ng-container>`,
         `  }`,
-        `</div>`,
+        `</div>\n`,
       ].join('\n'));
     });
 
@@ -825,6 +824,59 @@ describe('control flow migration', () => {
         `    Else Content`,
         `  }`,
         `</div>`,
+      ].join('\n'));
+    });
+
+    it('should migrate a complex if then else case on ng-containers', async () => {
+      writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgIf} from '@angular/common';
+
+        @Component({
+          templateUrl: './comp.html'
+        })
+        class Comp {
+          show = false;
+        }
+      `);
+
+      writeFile('/comp.html', [
+        `<ng-container>`,
+        `  <ng-container`,
+        `    *ngIf="loading; then loadingTmpl; else showTmpl"`,
+        `  >`,
+        `  </ng-container>`,
+        `<ng-template #showTmpl>`,
+        `  <ng-container`,
+        `    *ngIf="selected; else emptyTmpl"`,
+        `  >`,
+        `    <div></div>`,
+        `  </ng-container>`,
+        `</ng-template>`,
+        `<ng-template #emptyTmpl>`,
+        `  Empty`,
+        `</ng-template>`,
+        `</ng-container>`,
+        `<ng-template #loadingTmpl>`,
+        `  <p>Loading</p>`,
+        `</ng-template>`,
+      ].join('\n'));
+
+      await runMigration();
+      const content = tree.readContent('/comp.html');
+
+      expect(content).toBe([
+        `<ng-container>`,
+        `  @if (loading) {`,
+        `    <p>Loading</p>`,
+        `  } @else {`,
+        `    @if (selected) {`,
+        `      <div></div>`,
+        `    } @else {`,
+        `      Empty`,
+        `    }`,
+        `  }`,
+        `</ng-container>\n`,
       ].join('\n'));
     });
 
@@ -2072,6 +2124,58 @@ describe('control flow migration', () => {
       expect(content).toContain(
           'template: `<div>@switch (testOpts) { @case (1) { <p>Option 1</p> } @case (2) { <p>Option 2</p> }}</div>`');
     });
+
+    it('should migrate nested switches', async () => {
+      writeFile('/comp.ts', `
+      import {Component} from '@angular/core';
+      import {NgIf} from '@angular/common';
+
+      @Component({
+        imports: [NgFor, NgIf],
+        templateUrl: './comp.html'
+      })
+      class Comp {
+        show = false;
+        nest = true;
+        again = true;
+        more = true;
+      }`);
+
+      writeFile('/comp.html', [
+        `<div [ngSwitch]="thing">`,
+        `  <div *ngSwitchCase="'item'" [ngSwitch]="anotherThing">`,
+        `    <img *ngSwitchCase="'png'" src="/img.png" alt="PNG" />`,
+        `    <img *ngSwitchDefault src="/default.jpg" alt="default" />`,
+        `  </div>`,
+        `  <img *ngSwitchDefault src="/default.jpg" alt="default" />`,
+        `</div>`,
+      ].join('\n'));
+
+      await runMigration();
+      const content = tree.readContent('/comp.html');
+
+      expect(content).toBe([
+        `<div>`,
+        `  @switch (thing) {`,
+        `    @case ('item') {`,
+        `      <div>`,
+        `        @switch (anotherThing) {`,
+        `          @case ('png') {`,
+        `            <img src="/img.png" alt="PNG" />`,
+        `          }`,
+        `          @default {`,
+        `            <img src="/default.jpg" alt="default" />`,
+        `          }`,
+        `        }`,
+        `      </div>`,
+        `    }`,
+        `    @default {`,
+        `      <img src="/default.jpg" alt="default" />`,
+        `    }`,
+        `  }`,
+        `</div>`,
+      ].join('\n'));
+    });
   });
 
   describe('nested structures', () => {
@@ -2977,7 +3081,7 @@ describe('control flow migration', () => {
         `      height="2rem"`,
         `      width="6rem" />`,
         `  }`,
-        `</div>`,
+        `</div>\n`,
       ].join('\n');
 
       expect(content).toBe(result);
@@ -3018,7 +3122,7 @@ describe('control flow migration', () => {
         `      <div class="test"></div>`,
         `    }`,
         `  }`,
-        `</div>`,
+        `</div>\n`,
       ].join('\n');
 
       expect(actual).toBe(expected);
@@ -3061,7 +3165,7 @@ describe('control flow migration', () => {
         `      }`,
         `    </ng-container>`,
         `  }`,
-        `</div>`,
+        `</div>\n`,
       ].join('\n');
 
       expect(actual).toBe(expected);
@@ -3104,7 +3208,7 @@ describe('control flow migration', () => {
         `  } @else {`,
         `    <p>No Permissions</p>`,
         `  }`,
-        `</div>`,
+        `</div>\n`,
       ].join('\n');
 
       expect(actual).toBe(expected);
@@ -3124,8 +3228,10 @@ describe('control flow migration', () => {
       `);
 
       writeFile('/comp.html', [
+        `<div *ngIf="true">changed</div>`,
         `<div>`,
         `@if (stuff) {`,
+        `<h2>Title</h2>`,
         `<p>Stuff</p>`,
         `} @else if (things) {`,
         `<p>Things</p>`,
@@ -3139,8 +3245,12 @@ describe('control flow migration', () => {
       const actual = tree.readContent('/comp.html');
 
       const expected = [
+        `@if (true) {`,
+        `  <div>changed</div>`,
+        `}`,
         `<div>`,
         `  @if (stuff) {`,
+        `    <h2>Title</h2>`,
         `    <p>Stuff</p>`,
         `  } @else if (things) {`,
         `    <p>Things</p>`,
@@ -3166,6 +3276,7 @@ describe('control flow migration', () => {
       `);
 
       writeFile('/comp.html', [
+        `<div *ngIf="true">changed</div>`,
         `<div>`,
         `@if (stuff) {`,
         `<img src="path.png" alt="stuff" />`,
@@ -3173,13 +3284,16 @@ describe('control flow migration', () => {
         `<img src="path.png"`,
         `alt="stuff" />`,
         `}`,
-        `</div>`,
+        `</div>\n`,
       ].join('\n'));
 
       await runMigration();
       const actual = tree.readContent('/comp.html');
 
       const expected = [
+        `@if (true) {`,
+        `  <div>changed</div>`,
+        `}`,
         `<div>`,
         `  @if (stuff) {`,
         `    <img src="path.png" alt="stuff" />`,
@@ -3187,7 +3301,7 @@ describe('control flow migration', () => {
         `    <img src="path.png"`,
         `      alt="stuff" />`,
         `  }`,
-        `</div>`,
+        `</div>\n`,
       ].join('\n');
 
       expect(actual).toBe(expected);
@@ -3249,6 +3363,68 @@ describe('control flow migration', () => {
         `@Component({`,
         `  imports: [],`,
         `  template: \`<div>@if (toggle) {<span>shrug</span>}</div>\``,
+        `})`,
+        `class Comp {`,
+        `  toggle = false;`,
+        `}`,
+      ].join('\n');
+
+      expect(actual).toBe(expected);
+    });
+
+    it('should not remove common module imports post migration if other items used', async () => {
+      writeFile('/comp.ts', [
+        `import {CommonModule} from '@angular/common';`,
+        `import {Component} from '@angular/core';\n`,
+        `@Component({`,
+        `  imports: [NgIf, DatePipe],`,
+        `  template: \`<div><span *ngIf="toggle">{{ d | date }}</span></div>\``,
+        `})`,
+        `class Comp {`,
+        `  toggle = false;`,
+        `}`,
+      ].join('\n'));
+
+      await runMigration();
+      const actual = tree.readContent('/comp.ts');
+      const expected = [
+        `import {CommonModule} from '@angular/common';`,
+        `import {Component} from '@angular/core';\n`,
+        `@Component({`,
+        `  imports: [DatePipe],`,
+        `  template: \`<div>@if (toggle) {<span>{{ d | date }}</span>}</div>\``,
+        `})`,
+        `class Comp {`,
+        `  toggle = false;`,
+        `}`,
+      ].join('\n');
+
+      expect(actual).toBe(expected);
+    });
+
+    it('should not duplicate comments post migration if other items used', async () => {
+      writeFile('/comp.ts', [
+        `// comment here`,
+        `import {NgIf, CommonModule} from '@angular/common';`,
+        `import {Component} from '@angular/core';\n`,
+        `@Component({`,
+        `  imports: [NgIf, DatePipe],`,
+        `  template: \`<div><span *ngIf="toggle">{{ d | date }}</span></div>\``,
+        `})`,
+        `class Comp {`,
+        `  toggle = false;`,
+        `}`,
+      ].join('\n'));
+
+      await runMigration();
+      const actual = tree.readContent('/comp.ts');
+      const expected = [
+        `// comment here`,
+        `import { CommonModule } from '@angular/common';`,
+        `import {Component} from '@angular/core';\n`,
+        `@Component({`,
+        `  imports: [DatePipe],`,
+        `  template: \`<div>@if (toggle) {<span>{{ d | date }}</span>}</div>\``,
         `})`,
         `class Comp {`,
         `  toggle = false;`,
@@ -3334,7 +3510,7 @@ describe('control flow migration', () => {
       const actual = tree.readContent('/comp.ts');
       const expected = [
         `import {Component} from '@angular/core';`,
-        `import { CommonModule } from '@angular/common';\n`,
+        `import {CommonModule} from '@angular/common';\n`,
         `@Component({`,
         `  imports: [CommonModule],`,
         `  template: \`<div>@if (toggle) {<span>{{ shrug | lowercase }}</span>}</div>\``,
@@ -3408,5 +3584,68 @@ describe('control flow migration', () => {
       expect(content).toContain(
           'template: `<div>@if (toggle) {<div>@if (show) {<span>shrug</span>}</div>}</div>`');
     });
+
+    it('should update let value in a build if block to as value for the new control flow',
+       async () => {
+         writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgIf} from '@angular/common';
+
+        @Component({
+          imports: [NgIf],
+          template: \`<ng-container *ngIf="value$ | async; let value"> {{value}} </ng-container>\`
+        })
+        class Comp {
+          value$ = of('Rica');
+        }
+      `);
+
+         await runMigration();
+         const content = tree.readContent('/comp.ts');
+         expect(content).toContain('template: `@if (value$ | async; as value) { {{value}} }`');
+       });
+
+    it('should update let value in a standard if else block to as value for the new control flow',
+       async () => {
+         writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {CommonModule} from '@angular/common';
+
+        @Component({
+          imports: [CommonModule],
+          template: \`<div *ngIf="(logStatus$ | async)?.name; let userName; else loggedOut"> Hello {{ userName }} ! </div><ng-template #loggedOut></ng-template>\`
+        })
+        class Comp {
+          logStatus$ =  of({ name: 'Robert' });
+        }
+      `);
+
+         await runMigration();
+         const content = tree.readContent('/comp.ts');
+         expect(content).toContain(
+             'template: `@if ((logStatus$ | async)?.name; as userName) {<div> Hello {{ userName }} ! </div>} @else {}`');
+       });
+
+    it('should update let value in a standard if else, then block to as value for the new control flow',
+       async () => {
+         writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {CommonModule} from '@angular/common';
+
+        @Component({
+          imports: [CommonModule],
+          template: \`<div *ngIf="isLoggedIn$ | async; let logIn; then loggedIn; else loggedOut"></div><ng-template #loggedIn>Log In</ng-template>
+          <ng-template #loggedOut>Log Out</ng-template>\`
+        })
+        class Comp {
+          isLoggedIn$ = of(true);
+        }
+      `);
+
+         await runMigration();
+         const content = tree.readContent('/comp.ts');
+         expect(content).toContain(
+             'template: `@if (isLoggedIn$ | async; as logIn) {\n  Log In\n} @else {\n  Log Out\n}`');
+       });
   });
 });
