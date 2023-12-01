@@ -10,7 +10,7 @@ import * as i18n from '../../../../../i18n/i18n_ast';
 import * as o from '../../../../../output/output_ast';
 import {ParseSourceSpan} from '../../../../../parse_util';
 import {R3DeferBlockMetadata} from '../../../../../render3/view/api';
-import {BindingKind, DeferTriggerKind, I18nParamValueFlags, Namespace, OpKind} from '../enums';
+import {BindingKind, DeferTriggerKind, I18nContextKind, I18nParamValueFlags, Namespace, OpKind} from '../enums';
 import {SlotHandle} from '../handle';
 import {Op, OpList, XrefId} from '../operations';
 import {ConsumesSlotOpTrait, TRAIT_CONSUMES_SLOT} from '../traits';
@@ -1070,23 +1070,23 @@ export function createIcuEndOp(xref: XrefId): IcuEndOp {
 }
 
 /**
- * An i18n context that is used to generate snippets of a full translated message.
- * A separate context is created in a few different scenarios:
+ * An i18n context that is used to generate a translated i18n message. A separate context is created
+ * for two different scenarios:
  *
- * 1. For each top-level i18n block. A context generated for a top-level i18n block, will be used to
- *    eventually generate the translated message for that block that is extracted into the const
- *    array.
- * 2. For each child i18n block (resulting from using an ng-template inside of another i18n block).
- *    A context generated for a child i18n block will be used to generate the portion of the final
- *    message represented by the template. It will not result in a separate message in the consts
- *    array, but will instead be rolled into the root message that spawned it.
- * 3. For each ICU referenced as a sub-message. ICUs that are referenced as a sub-message will be
+ * 1. For each top-level i18n block.
+ * 2. For each ICU referenced as a sub-message. ICUs that are referenced as a sub-message will be
  *    used to generate a separate i18n message, but will not be extracted directly into the consts
  *    array. Instead they will be pulled in as part of the initialization statements for the message
  *    that references them.
+ *
+ * Child i18n blocks, resulting from the use of an ng-template inside of a parent i18n block, do not
+ * generate a separate context. Instead their content is included in the translated message for
+ * their root block.
  */
 export interface I18nContextOp extends Op<CreateOp> {
   kind: OpKind.I18nContext;
+
+  contextKind: I18nContextKind;
 
   /**
    *  The id of this context.
@@ -1120,10 +1120,11 @@ export interface I18nContextOp extends Op<CreateOp> {
 }
 
 export function createI18nContextOp(
-    xref: XrefId, i18nBlock: XrefId, message: i18n.Message,
+    contextKind: I18nContextKind, xref: XrefId, i18nBlock: XrefId, message: i18n.Message,
     sourceSpan: ParseSourceSpan): I18nContextOp {
   return {
     kind: OpKind.I18nContext,
+    contextKind,
     xref,
     i18nBlock,
     message,

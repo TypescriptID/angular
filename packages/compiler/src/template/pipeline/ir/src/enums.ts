@@ -553,3 +553,11 @@ export enum DerivedRepeaterVarIdentity {
   Even,
   Odd,
 }
+
+/**
+ * Kinds of i18n contexts. They can be created because of root i18n blocks, or ICUs.
+ */
+export enum I18nContextKind {
+  RootI18n,
+  Icu
+}

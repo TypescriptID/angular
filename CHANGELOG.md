@@ -1,3 +1,69 @@
+<a name="17.1.0-next.2"></a>
+# 17.1.0-next.2 (2023-11-29)
+### compiler
+| Commit | Type | Description |
+| -- | -- | -- |
+| [79ff91a813](https://github.com/angular/angular/commit/79ff91a813e544929cb5eb5f9aab762a9f3d0435) | fix | allow TS jsDocParsingMode host option to be programmatically set ([#53126](https://github.com/angular/angular/pull/53126)) |
+### compiler-cli
+| Commit | Type | Description |
+| -- | -- | -- |
+| [4c1d69e288](https://github.com/angular/angular/commit/4c1d69e2880f22745c820eee630d10071e4fa86b) | fix | add diagnostic for control flow that prevents content projection ([#53190](https://github.com/angular/angular/pull/53190)) |
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [58cf389d80](https://github.com/angular/angular/commit/58cf389d8095dd522a998b6b9a7d7b8da1656644) | fix | avoid stale provider info when TestBed.overrideProvider is used ([#52918](https://github.com/angular/angular/pull/52918)) |
+| [c7c7ea9813](https://github.com/angular/angular/commit/c7c7ea9813f6dcf91c096bb37d36bfe0c715a04f) | fix | inherit host directives ([#52992](https://github.com/angular/angular/pull/52992)) |
+| [b35c6731e5](https://github.com/angular/angular/commit/b35c6731e51de9c33707010fc780cbaa559be6c3) | fix | Reattached views that are dirty from a signal update should refresh ([#53001](https://github.com/angular/angular/pull/53001)) |
+### migrations
+| Commit | Type | Description |
+| -- | -- | -- |
+| [dbca1c9d61](https://github.com/angular/angular/commit/dbca1c9d618be4d195d779ef80606c6d22f7c977) | fix | Add ngForTemplate support to control flow migration ([#53076](https://github.com/angular/angular/pull/53076)) |
+| [53912fdf74](https://github.com/angular/angular/commit/53912fdf74e1224f95edc3dd550c51451e613c44) | fix | allows colons in ngIf else cases to migrate ([#53076](https://github.com/angular/angular/pull/53076)) |
+| [fadfee4324](https://github.com/angular/angular/commit/fadfee43247acec7e450d5cc929a0a6780a54bd1) | fix | cf migration fix migrating empty switch default ([#53237](https://github.com/angular/angular/pull/53237)) |
+| [b2aeaf5d97](https://github.com/angular/angular/commit/b2aeaf5d97327842a5bb657e9f02bb4f1358304b) | fix | CF migration log warning when collection aliasing detected in `@for` ([#53238](https://github.com/angular/angular/pull/53238)) |
+| [c6326289f8](https://github.com/angular/angular/commit/c6326289f87089b3415ba0f3e371206b8a396b66) | fix | cf migration removes unnecessary bound ngifelse attribute ([#53236](https://github.com/angular/angular/pull/53236)) |
+| [e6f10e81d2](https://github.com/angular/angular/commit/e6f10e81d2486b5cc1f468777b7e1057d3f09dc5) | fix | control flow migration formatting fixes ([#53076](https://github.com/angular/angular/pull/53076)) |
+| [6291c8db09](https://github.com/angular/angular/commit/6291c8db092c0ab67f6789cc03c19dfa0bdc251d) | fix | fix off by one issue with template removal in CF migration ([#53255](https://github.com/angular/angular/pull/53255)) |
+| [f1b7d40057](https://github.com/angular/angular/commit/f1b7d400575a6a02a2fc2b642c2b8c15cca9b3c4) | fix | fixes CF migration i18n ng-template offsets ([#53212](https://github.com/angular/angular/pull/53212)) |
+| [a738b48717](https://github.com/angular/angular/commit/a738b48717e16613b34c3e50480cd49f2a31858f) | fix | fixes control flow migration common module removal ([#53076](https://github.com/angular/angular/pull/53076)) |
+| [a3599515bb](https://github.com/angular/angular/commit/a3599515bb2513fbcb2899284c7f6b4bc021ddaf) | fix | properly handle ngIfThen cases in CF migration ([#53256](https://github.com/angular/angular/pull/53256)) |
+| [8a52674faa](https://github.com/angular/angular/commit/8a52674faacefd4042726383fdf0aed59a04fb7e) | fix | Update CF migration to skip templates with duplicate ng-template names ([#53204](https://github.com/angular/angular/pull/53204)) |
+### router
+| Commit | Type | Description |
+| -- | -- | -- |
+| [29e0834c4d](https://github.com/angular/angular/commit/29e0834c4deecfa8bf384b5e4359796c8123afcd) | fix | Resolvers in different parts of the route tree should be able to execute together ([#52934](https://github.com/angular/angular/pull/52934)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="17.0.5"></a>
+# 17.0.5 (2023-11-29)
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [6be88040d1](https://github.com/angular/angular/commit/6be88040d134b8c8d7efd2068296f68b8b7efbdd) | fix | avoid stale provider info when TestBed.overrideProvider is used ([#52918](https://github.com/angular/angular/pull/52918)) |
+| [dee50f1d78](https://github.com/angular/angular/commit/dee50f1d78d009f74edfa53f11fd6998b1af5441) | fix | inherit host directives ([#52992](https://github.com/angular/angular/pull/52992)) |
+| [07920d96d4](https://github.com/angular/angular/commit/07920d96d4e9831fd14ff01a3dd44af1017b28ca) | fix | Reattached views that are dirty from a signal update should refresh ([#53001](https://github.com/angular/angular/pull/53001)) |
+### migrations
+| Commit | Type | Description |
+| -- | -- | -- |
+| [aab7fb8654](https://github.com/angular/angular/commit/aab7fb865486b94d6aabbe548894f8083f4e6cfe) | fix | Add ngForTemplate support to control flow migration ([#53076](https://github.com/angular/angular/pull/53076)) |
+| [dbd6f386ea](https://github.com/angular/angular/commit/dbd6f386ea81e7f29bc1cb34fb8efbba8c290ea8) | fix | allows colons in ngIf else cases to migrate ([#53076](https://github.com/angular/angular/pull/53076)) |
+| [5b9f896009](https://github.com/angular/angular/commit/5b9f896009d9c57c91d44e1cb7adf80c29fbfb4c) | fix | cf migration fix migrating empty switch default ([#53237](https://github.com/angular/angular/pull/53237)) |
+| [2b3d3b0fe1](https://github.com/angular/angular/commit/2b3d3b0fe10134739ec9982a776837a273ec8e1d) | fix | CF migration log warning when collection aliasing detected in `@for` ([#53238](https://github.com/angular/angular/pull/53238)) |
+| [dffeac8386](https://github.com/angular/angular/commit/dffeac8386bed73ef0b2337c33f122af9884bb82) | fix | cf migration removes unnecessary bound ngifelse attribute ([#53236](https://github.com/angular/angular/pull/53236)) |
+| [00cb3339ba](https://github.com/angular/angular/commit/00cb3339bab738100e4164339420f2492be91fd1) | fix | control flow migration formatting fixes ([#53076](https://github.com/angular/angular/pull/53076)) |
+| [c22af72f75](https://github.com/angular/angular/commit/c22af72f753b9ad3886561228a0cfd938a2a6de9) | fix | fix off by one issue with template removal in CF migration ([#53255](https://github.com/angular/angular/pull/53255)) |
+| [ba6d7fe018](https://github.com/angular/angular/commit/ba6d7fe0184dd1d9dbab088d767097948b78d9a4) | fix | fixes CF migration i18n ng-template offsets ([#53212](https://github.com/angular/angular/pull/53212)) |
+| [8f6affdd64](https://github.com/angular/angular/commit/8f6affdd64c6022c6a96fddac564c0ec05c5da9b) | fix | fixes control flow migration common module removal ([#53076](https://github.com/angular/angular/pull/53076)) |
+| [6ae408847c](https://github.com/angular/angular/commit/6ae408847ce5943ff34c7432a76533b69f08cb63) | fix | properly handle ngIfThen cases in CF migration ([#53256](https://github.com/angular/angular/pull/53256)) |
+| [0fcef65cea](https://github.com/angular/angular/commit/0fcef65cea8a7687afdf90e6e0e0c396f5792606) | fix | Update CF migration to skip templates with duplicate ng-template names ([#53204](https://github.com/angular/angular/pull/53204)) |
+### router
+| Commit | Type | Description |
+| -- | -- | -- |
+| [91486aaf07](https://github.com/angular/angular/commit/91486aaf0754cb38bc9846f1d9532b1a0941f53a) | fix | Resolvers in different parts of the route tree should be able to execute together ([#52934](https://github.com/angular/angular/pull/52934)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
 <a name="17.1.0-next.1"></a>
 # 17.1.0-next.1 (2023-11-20)
 ### common

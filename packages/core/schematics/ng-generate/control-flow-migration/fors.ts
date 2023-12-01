@@ -92,9 +92,16 @@ function migrateStandardNgFor(etm: ElementToMigrate, tmpl: string, offset: numbe
 
   // first portion should always be the loop definition prefixed with `let`
   const condition = parts[0].replace('let ', '');
+  if (condition.indexOf(' as ') > -1) {
+    let errorMessage = `Found an aliased collection on an ngFor: "${condition}".` +
+        ' Collection aliasing is not supported with @for.' +
+        ' Refactor the code to remove the `as` alias and re-run the migration.';
+    throw new Error(errorMessage);
+  }
   const loopVar = condition.split(' of ')[0];
   let trackBy = loopVar;
   let aliasedIndex: string|null = null;
+  let tmplPlaceholder = '';
   for (let i = 1; i < parts.length; i++) {
     const part = parts[i].trim();
 
@@ -102,6 +109,12 @@ function migrateStandardNgFor(etm: ElementToMigrate, tmpl: string, offset: numbe
       // build trackby value
       const trackByFn = part.replace('trackBy:', '').trim();
       trackBy = `${trackByFn}($index, ${loopVar})`;
+    }
+    // template
+    if (part.startsWith('template:')) {
+      // this generates a special template placeholder just for this use case
+      // which has a # at the end instead of the standard | in other placeholders
+      tmplPlaceholder = `#${part.split(':')[1].trim()}#`;
     }
     // aliases
     // declared with `let myIndex = index`
@@ -136,11 +149,19 @@ function migrateStandardNgFor(etm: ElementToMigrate, tmpl: string, offset: numbe
 
   const aliasStr = (aliases.length > 0) ? `;${aliases.join(';')}` : '';
 
-  const {start, middle, end} = getMainBlock(etm, tmpl, offset);
-  const startBlock = `@for (${condition}; track ${trackBy}${aliasStr}) {${lbString}${start}`;
+  let startBlock = `@for (${condition}; track ${trackBy}${aliasStr}) {${lbString}`;
+  let endBlock = `${lbString}}`;
+  let forBlock = '';
 
-  const endBlock = `${end}${lbString}}`;
-  const forBlock = startBlock + middle + endBlock;
+  if (tmplPlaceholder !== '') {
+    startBlock = startBlock + tmplPlaceholder;
+    forBlock = startBlock + endBlock;
+  } else {
+    const {start, middle, end} = getMainBlock(etm, tmpl, offset);
+    startBlock += start;
+    endBlock = end + endBlock;
+    forBlock = startBlock + middle + endBlock;
+  }
 
   const updatedTmpl = tmpl.slice(0, etm.start(offset)) + forBlock + tmpl.slice(etm.end(offset));
 
@@ -152,10 +173,11 @@ function migrateStandardNgFor(etm: ElementToMigrate, tmpl: string, offset: numbe
 
 function migrateBoundNgFor(etm: ElementToMigrate, tmpl: string, offset: number): Result {
   const forAttrs = etm.forAttrs!;
-  const aliasMap = forAttrs.aliases;
+  const aliasAttrs = etm.aliasAttrs!;
+  const aliasMap = aliasAttrs.aliases;
 
   const originals = getOriginals(etm, tmpl, offset);
-  const condition = `${forAttrs.item} of ${forAttrs.forOf}`;
+  const condition = `${aliasAttrs.item} of ${forAttrs.forOf}`;
 
   const aliases = [];
   let aliasedIndex = '$index';
@@ -167,10 +189,10 @@ function migrateBoundNgFor(etm: ElementToMigrate, tmpl: string, offset: number):
   }
   const aliasStr = (aliases.length > 0) ? `;${aliases.join(';')}` : '';
 
-  let trackBy = forAttrs.item;
+  let trackBy = aliasAttrs.item;
   if (forAttrs.trackBy !== '') {
     // build trackby value
-    trackBy = `${forAttrs.trackBy.trim()}(${aliasedIndex}, ${forAttrs.item})`;
+    trackBy = `${forAttrs.trackBy.trim()}(${aliasedIndex}, ${aliasAttrs.item})`;
   }
 
   const {start, middle, end} = getMainBlock(etm, tmpl, offset);
