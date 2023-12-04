@@ -8,6 +8,7 @@
 
 import {type ConstantPool} from '../../../../constant_pool';
 import * as i18n from '../../../../i18n/i18n_ast';
+import {mapLiteral} from '../../../../output/map_util';
 import * as o from '../../../../output/output_ast';
 import {sanitizeIdentifier} from '../../../../parse_util';
 import {Identifiers} from '../../../../render3/r3_identifiers';
@@ -26,6 +27,14 @@ const NG_I18N_CLOSURE_MODE = 'ngI18nClosureMode';
  * considers variables like `I18N_0` as constants and throws an error when their value changes.
  */
 const TRANSLATION_VAR_PREFIX = 'i18n_';
+
+/** Prefix of ICU expressions for post processing */
+export const I18N_ICU_MAPPING_PREFIX = 'I18N_EXP_';
+
+/**
+ * The escape sequence used for message param values.
+ */
+const ESCAPE = '\uFFFD';
 
 /**
  * Lifts i18n properties into the consts array.
@@ -73,21 +82,25 @@ function collectMessage(
     job: ComponentCompilationJob, fileBasedI18nSuffix: string,
     messages: Map<ir.XrefId, ir.I18nMessageOp>,
     messageOp: ir.I18nMessageOp): {mainVar: o.ReadVarExpr, statements: o.Statement[]} {
-  // Recursively collect any sub-messages, and fill in their placeholders in this message.
+  // Recursively collect any sub-messages, record each sub-message's main variable under its
+  // placeholder so that we can add them to the params for the parent message. It is possible that
+  // multiple sub-messages will share the same placeholder, so we need to track an array of
+  // variables for each placeholder.
   const statements: o.Statement[] = [];
+  const subMessagePlaceholders = new Map<string, o.Expression[]>();
   for (const subMessageId of messageOp.subMessages) {
     const subMessage = messages.get(subMessageId)!;
     const {mainVar: subMessageVar, statements: subMessageStatements} =
         collectMessage(job, fileBasedI18nSuffix, messages, subMessage);
     statements.push(...subMessageStatements);
-    messageOp.params.set(subMessage.messagePlaceholder!, subMessageVar);
+    const subMessages = subMessagePlaceholders.get(subMessage.messagePlaceholder!) ?? [];
+    subMessages.push(subMessageVar);
+    subMessagePlaceholders.set(subMessage.messagePlaceholder!, subMessages);
   }
+  addSubMessageParams(messageOp, subMessagePlaceholders);
 
   // Sort the params for consistency with TemaplateDefinitionBuilder output.
   messageOp.params = new Map([...messageOp.params.entries()].sort());
-
-  // Check that the message has all of its parameters filled out.
-  assertAllParamsResolved(messageOp);
 
   const mainVar = o.variable(job.pool.uniqueName(TRANSLATION_VAR_PREFIX));
   // Closure Compiler requires const names to start with `MSG_` but disallows any other
@@ -101,12 +114,13 @@ function collectMessage(
   // set in post-processing.
   if (messageOp.needsPostprocessing) {
     // Sort the post-processing params for consistency with TemaplateDefinitionBuilder output.
-    messageOp.postprocessingParams = new Map([...messageOp.postprocessingParams.entries()].sort());
-
+    const postprocessingParams =
+        Object.fromEntries([...messageOp.postprocessingParams.entries()].sort());
+    const formattedPostprocessingParams =
+        formatI18nPlaceholderNamesInMap(postprocessingParams, /* useCamelCase */ false);
     const extraTransformFnParams: o.Expression[] = [];
     if (messageOp.postprocessingParams.size > 0) {
-      extraTransformFnParams.push(o.literalMap(
-          [...messageOp.postprocessingParams].map(([key, value]) => ({key, value, quoted: true}))));
+      extraTransformFnParams.push(mapLiteral(formattedPostprocessingParams, /* quoted */ true));
     }
     transformFn = (expr: o.ReadVarExpr) =>
         o.importExpr(Identifiers.i18nPostprocess).callFn([expr, ...extraTransformFnParams]);
@@ -117,6 +131,28 @@ function collectMessage(
       messageOp.message, mainVar, closureVar, messageOp.params, transformFn));
 
   return {mainVar, statements};
+}
+
+/**
+ * Adds the given subMessage placeholders to the given message op.
+ *
+ * If a placeholder only corresponds to a single sub-message variable, we just set that variable as
+ * the param value. However, if the placeholder corresponds to multiple sub-message variables, we
+ * need to add a special placeholder value that is handled by the post-processing step. We then add
+ * the array of variables as a post-processing param.
+ */
+function addSubMessageParams(
+    messageOp: ir.I18nMessageOp, subMessagePlaceholders: Map<string, o.Expression[]>) {
+  for (const [placeholder, subMessages] of subMessagePlaceholders) {
+    if (subMessages.length === 1) {
+      messageOp.params.set(placeholder, subMessages[0]);
+    } else {
+      messageOp.params.set(
+          placeholder, o.literal(`${ESCAPE}${I18N_ICU_MAPPING_PREFIX}${placeholder}${ESCAPE}`));
+      messageOp.postprocessingParams.set(placeholder, o.literalArr(subMessages));
+      messageOp.needsPostprocessing = true;
+    }
+  }
 }
 
 /**
@@ -198,22 +234,4 @@ function i18nGenerateClosureVar(
     name = pool.uniqueName(prefix);
   }
   return o.variable(name);
-}
-
-/**
- * Asserts that all of the message's placeholders have values.
- */
-function assertAllParamsResolved(op: ir.I18nMessageOp): asserts op is ir.I18nMessageOp {
-  for (let placeholder in op.message.placeholders) {
-    placeholder = placeholder.trimEnd();
-    if (!op.params.has(placeholder) && !op.postprocessingParams.has(placeholder)) {
-      throw Error(`Failed to resolve i18n placeholder: ${placeholder}`);
-    }
-  }
-  for (let placeholder in op.message.placeholderToMessage) {
-    placeholder = placeholder.trimEnd();
-    if (!op.params.has(placeholder) && !op.postprocessingParams.has(placeholder)) {
-      throw Error(`Failed to resolve i18n message placeholder: ${placeholder}`);
-    }
-  }
 }

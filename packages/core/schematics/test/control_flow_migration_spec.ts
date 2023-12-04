@@ -487,6 +487,38 @@ describe('control flow migration', () => {
       ].join('\n'));
     });
 
+    it('should migrate an if case on an empty container', async () => {
+      writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgIf} from '@angular/common';
+
+        @Component({
+          templateUrl: './comp.html'
+        })
+        class Comp {
+          show = false;
+        }
+      `);
+
+      writeFile('/comp.html', [
+        `<ng-container`,
+        `  *ngIf="true; then template"`,
+        `></ng-container>`,
+        `<ng-template #template>`,
+        `  Hello!`,
+        `</ng-template>  `,
+      ].join('\n'));
+
+      await runMigration();
+      const content = tree.readContent('/comp.html');
+
+      expect(content).toBe([
+        `@if (true) {`,
+        `  Hello!`,
+        `}\n`,
+      ].join('\n'));
+    });
+
     it('should migrate an if case with an ng-template with i18n', async () => {
       writeFile('/comp.ts', `
         import {Component} from '@angular/core';
@@ -580,6 +612,40 @@ describe('control flow migration', () => {
       ].join('\n'));
     });
 
+    it('should migrate a bound if case on an ng-template with i18n', async () => {
+      writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgIf} from '@angular/common';
+
+        @Component({
+          templateUrl: './comp.html'
+        })
+        class Comp {
+          show = false;
+        }
+      `);
+
+      writeFile('/comp.html', [
+        `<ng-template`,
+        `  [ngIf]="data$ | async"`,
+        `  let-data="ngIf"`,
+        `  i18n="@@i18n-label">`,
+        `  {{ data }}`,
+        `</ng-template>`,
+      ].join('\n'));
+
+      await runMigration();
+      const content = tree.readContent('/comp.html');
+
+      expect(content).toBe([
+        `@if (data$ | async; as data) {`,
+        `  <ng-container i18n="@@i18n-label">`,
+        `    {{ data }}`,
+        `  </ng-container>`,
+        `}`,
+      ].join('\n'));
+    });
+
     it('should migrate an if case with an ng-container with empty i18n', async () => {
       writeFile('/comp.ts', `
         import {Component} from '@angular/core';
@@ -610,6 +676,45 @@ describe('control flow migration', () => {
         `</div>`,
       ].join('\n'));
     });
+
+    it('should migrate a bound NgIfElse case with ng-templates and remove all unnecessary attributes',
+       async () => {
+         writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgIf} from '@angular/common';
+
+        @Component({
+          templateUrl: './comp.html'
+        })
+        class Comp {
+          show = false;
+        }
+      `);
+
+         writeFile('/comp.html', [
+           `<ng-template`,
+           `  [ngIf]="fooTemplate"`,
+           `  [ngIfElse]="barTemplate"`,
+           `  [ngTemplateOutlet]="fooTemplate"`,
+           `></ng-template>`,
+           `<ng-template #fooTemplate>Foo</ng-template>`,
+           `<ng-template #barTemplate>Bar</ng-template>`,
+         ].join('\n'));
+
+         await runMigration();
+         const content = tree.readContent('/comp.html');
+
+         expect(content).toBe([
+           `@if (fooTemplate) {`,
+           `  <ng-template`,
+           `    [ngTemplateOutlet]="fooTemplate"`,
+           `  ></ng-template>`,
+           `} @else {`,
+           `  Bar`,
+           `}`,
+           `<ng-template #fooTemplate>Foo</ng-template>\n`,
+         ].join('\n'));
+       });
 
     it('should migrate a bound NgIfThenElse case with ng-templates with i18n', async () => {
       writeFile('/comp.ts', `

@@ -411,8 +411,9 @@ export function getOriginals(etm: ElementToMigrate, tmpl: string, offset: number
 }
 
 function isI18nTemplate(etm: ElementToMigrate, i18nAttr: Attribute|undefined): boolean {
-  return etm.el.name === 'ng-template' && i18nAttr !== undefined &&
-      (etm.el.attrs.length === 2 || (etm.el.attrs.length === 3 && etm.elseAttr !== undefined));
+  let attrCount = countAttributes(etm);
+  const safeToRemove = etm.el.attrs.length === attrCount + (i18nAttr !== undefined ? 1 : 0);
+  return etm.el.name === 'ng-template' && i18nAttr !== undefined && safeToRemove;
 }
 
 function isRemovableContainer(etm: ElementToMigrate): boolean {
@@ -471,16 +472,17 @@ export function getMainBlock(etm: ElementToMigrate, tmpl: string, offset: number
 
   // the beginning of the updated string in the main block, for example: <div some="attributes">
   let start = tmpl.slice(etm.start(offset), attrStart) + tmpl.slice(valEnd, childStart);
-
-  if (etm.shouldRemoveElseAttr()) {
-    // this removes a bound ngIfElse attribute that's no longer needed
-    start = start.replace(etm.getElseAttrStr(), '');
-  }
-
   // the middle is the actual contents of the element
   const middle = tmpl.slice(childStart, childEnd);
   // the end is the closing part of the element, example: </div>
-  const end = tmpl.slice(childEnd, etm.end(offset));
+  let end = tmpl.slice(childEnd, etm.end(offset));
+
+  if (etm.shouldRemoveElseAttr()) {
+    // this removes a bound ngIfElse attribute that's no longer needed
+    // this could be on the start or end
+    start = start.replace(etm.getElseAttrStr(), '');
+    end = end.replace(etm.getElseAttrStr(), '');
+  }
 
   return {start, middle, end};
 }
