@@ -10,7 +10,7 @@ import * as i18n from '../../../../../i18n/i18n_ast';
 import * as o from '../../../../../output/output_ast';
 import {ParseSourceSpan} from '../../../../../parse_util';
 import {R3DeferBlockMetadata} from '../../../../../render3/view/api';
-import {BindingKind, DeferTriggerKind, I18nContextKind, I18nParamValueFlags, Namespace, OpKind} from '../enums';
+import {BindingKind, DeferTriggerKind, I18nContextKind, I18nParamValueFlags, Namespace, OpKind, TemplateKind} from '../enums';
 import {SlotHandle} from '../handle';
 import {Op, OpList, XrefId} from '../operations';
 import {ConsumesSlotOpTrait, TRAIT_CONSUMES_SLOT} from '../traits';
@@ -169,6 +169,8 @@ export interface ElementOp extends ElementOpBase {
 export interface TemplateOp extends ElementOpBase {
   kind: OpKind.Template;
 
+  templateKind: TemplateKind;
+
   /**
    * The number of declaration slots used by this template, or `null` if slots have not yet been
    * assigned.
@@ -196,11 +198,13 @@ export interface TemplateOp extends ElementOpBase {
  * Create a `TemplateOp`.
  */
 export function createTemplateOp(
-    xref: XrefId, tag: string|null, functionNameSuffix: string, namespace: Namespace,
-    i18nPlaceholder: i18n.TagPlaceholder|undefined, sourceSpan: ParseSourceSpan): TemplateOp {
+    xref: XrefId, templateKind: TemplateKind, tag: string|null, functionNameSuffix: string,
+    namespace: Namespace, i18nPlaceholder: i18n.TagPlaceholder|undefined,
+    sourceSpan: ParseSourceSpan): TemplateOp {
   return {
     kind: OpKind.Template,
     xref,
+    templateKind,
     attributes: null,
     tag,
     handle: new SlotHandle(),
@@ -584,18 +588,22 @@ export interface ProjectionOp extends Op<CreateOp>, ConsumesSlotOpTrait {
 
   selector: string;
 
+  i18nPlaceholder?: i18n.TagPlaceholder;
+
   sourceSpan: ParseSourceSpan;
 }
 
 export function createProjectionOp(
-    xref: XrefId, selector: string, sourceSpan: ParseSourceSpan): ProjectionOp {
+    xref: XrefId, selector: string, i18nPlaceholder: i18n.TagPlaceholder|undefined,
+    attributes: string[], sourceSpan: ParseSourceSpan): ProjectionOp {
   return {
     kind: OpKind.Projection,
     xref,
     handle: new SlotHandle(),
     selector,
+    i18nPlaceholder,
     projectionSlotIndex: 0,
-    attributes: [],
+    attributes,
     localRefs: [],
     sourceSpan,
     ...NEW_OP,
@@ -826,9 +834,10 @@ export function createDeferOnOp(
  */
 export interface I18nParamValue {
   /**
-   * The value.
+   * The value. This can be either a slot number, special string, or compound-value consisting of an
+   * element slot number and template slot number.
    */
-  value: string|number;
+  value: string|number|{element: number, template: number};
 
   /**
    * The sub-template index associated with the value.
