@@ -21,9 +21,9 @@ import {Events, MessageBus, SerializedInjector, SerializedProviderRecord} from '
         <h1>
           Providers for {{ injector?.name  }}
         </h1>
-        @if (injector){
+        @if (injector) {
           <div class="injector-providers">
-            <mat-form-field appearance="fill" class="form-field-spacer">
+          <mat-form-field appearance="fill" class="form-field-spacer">
               <mat-label>Search by token</mat-label>
               <input type="text" matInput
                 placeholder="Provider token"
@@ -40,47 +40,41 @@ import {Events, MessageBus, SerializedInjector, SerializedProviderRecord} from '
               >
                 <mat-option>None</mat-option>
                 @for (type of providerTypes; track type) {
-                  <mat-option [value]="type">{{providerTypeToLabel[type]}}</mat-option>
+                  <mat-option [value]="type">{{$any(providerTypeToLabel)[type]}}</mat-option>
                 }
               </mat-select>
             </mat-form-field>
-
-          @if(visibleProviders().length > 0){
-            <table mat-table [dataSource]="visibleProviders()" class="mat-elevation-z4">
-              <ng-container matColumnDef="token">
-                <th mat-header-cell *matHeaderCellDef> <h3 class="column-title">Token</h3> </th>
-                <td mat-cell *matCellDef="let provider"> {{provider.token}} </td>
-              </ng-container>
-
-              <ng-container matColumnDef="type">
-                <th mat-header-cell *matHeaderCellDef> <h3 class="column-title">Type</h3> </th>
-                <td mat-cell *matCellDef="let provider">
-                  @if (provider.type === 'multi') {
-                    multi (x{{ provider.index.length }})
-                  } @else {
-                    {{providerTypeToLabel[provider.type]}}
-                  }
-                </td>
-              </ng-container>
-
-              <ng-container matColumnDef="isViewProvider">
-                <th mat-header-cell *matHeaderCellDef> <h3 class="column-title">Is View Provider</h3> </th>
-                <td mat-cell *matCellDef="let provider"> <mat-icon>{{provider.isViewProvider ? 'check_circle' : 'cancel'}}</mat-icon> </td>
-              </ng-container>
-
-              <ng-container matColumnDef="log">
-                <th mat-header-cell *matHeaderCellDef> <h3 class="column-title"></h3> </th>
-                <td mat-cell *matCellDef="let provider"> <mat-icon matTooltipPosition="left" matTooltip="Log provider in console" class="select" (click)="select(provider)">send</mat-icon> </td>
-              </ng-container>
-
-              <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-              <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-            </table>
-          }
-
-        </div>
-      }
-    `,
+            @if (providers.length > 0) {
+              <table mat-table [dataSource]="providers" class="mat-elevation-z4">
+                <ng-container matColumnDef="token">
+                  <th mat-header-cell *matHeaderCellDef> <h3 class="column-title">Token</h3> </th>
+                  <td mat-cell *matCellDef="let provider"> {{provider.token}} </td>
+                </ng-container>
+                <ng-container matColumnDef="type">
+                  <th mat-header-cell *matHeaderCellDef> <h3 class="column-title">Type</h3> </th>
+                  <td mat-cell *matCellDef="let provider">
+                    @if (provider.type === 'multi') {
+                      multi (x{{ provider.index.length }})
+                    } @else {
+                      {{$any(providerTypeToLabel)[provider.type]}}
+                    }
+                  </td>
+                </ng-container>
+                <ng-container matColumnDef="isViewProvider">
+                  <th mat-header-cell *matHeaderCellDef> <h3 class="column-title">Is View Provider</h3> </th>
+                  <td mat-cell *matCellDef="let provider"> <mat-icon>{{provider.isViewProvider ? 'check_circle' : 'cancel'}}</mat-icon> </td>
+                </ng-container>
+                <ng-container matColumnDef="log">
+                  <th mat-header-cell *matHeaderCellDef> <h3 class="column-title"></h3> </th>
+                  <td mat-cell *matCellDef="let provider"> <mat-icon matTooltipPosition="left" matTooltip="Log provider in console" class="select" (click)="select(provider)">send</mat-icon> </td>
+                </ng-container>
+                <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+              </table>
+            }
+          </div>
+        }
+        `,
   styles: [`
         .select {
           cursor: pointer;
@@ -147,7 +141,7 @@ import {Events, MessageBus, SerializedInjector, SerializedProviderRecord} from '
   ],
 })
 export class InjectorProvidersComponent {
-  @Input() injector: SerializedInjector;
+  @Input({required: true}) injector!: SerializedInjector;
   @Input() providers: SerializedProviderRecord[] = [];
 
   searchToken = signal('');
