@@ -325,8 +325,8 @@ export function processNgTemplates(template: string): {migrated: string, err: Er
 
     // swap placeholders and remove
     for (const [name, t] of templates) {
-      const replaceRegex = new RegExp(`${name}\\|`, 'g');
-      const forRegex = new RegExp(`${name}\\#`, 'g');
+      const replaceRegex = new RegExp(`θ${name.slice(1)}\\δ`, 'g');
+      const forRegex = new RegExp(`θ${name.slice(1)}\\φ`, 'g');
       const forMatches = [...template.matchAll(forRegex)];
       const matches = [...forMatches, ...template.matchAll(replaceRegex)];
       let safeToRemove = true;
@@ -367,16 +367,15 @@ export function processNgTemplates(template: string): {migrated: string, err: Er
 }
 
 function replaceRemainingPlaceholders(template: string): string {
-  const replaceRegex = new RegExp(`#\\w*\\|`, 'g');
+  const replaceRegex = new RegExp(`θ.*δ`, 'g');
   const placeholders = [...template.matchAll(replaceRegex)];
-  let migrated = template;
   for (let ph of placeholders) {
     const placeholder = ph[0];
     const name = placeholder.slice(1, placeholder.length - 1);
-    migrated =
+    template =
         template.replace(placeholder, `<ng-template [ngTemplateOutlet]="${name}"></ng-template>`);
   }
-  return migrated;
+  return template;
 }
 
 /**
@@ -530,11 +529,11 @@ export function formatTemplate(tmpl: string, templateType: string): string {
     const openElRegex = /^\s*<([a-z0-9]+)(?![^>]*\/>)[^>]*>?/;
 
     // regex for matching a self closing html element that has no />
-    // <div thing="stuff" [binding]="true"> || <div thing="stuff" [binding]="true"
+    // <input type="button" [binding]="true">
     const selfClosingRegex = new RegExp(`^\\s*<(${selfClosingList}).+\\/?>`);
 
     // regex for matching a self closing html element that is on multi lines
-    // <div thing="stuff" [binding]="true"> || <div thing="stuff" [binding]="true"
+    // <input type="button" [binding]="true"> || <input type="button" [binding]="true"
     const openSelfClosingRegex = new RegExp(`^\\s*<(${selfClosingList})(?![^>]*\\/>)[^>]*$`);
 
     // match closing block or else block
