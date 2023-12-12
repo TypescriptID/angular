@@ -43,7 +43,6 @@
     },
     {
       "description": "should support @for blocks",
-      "skipForTemplatePipeline": true,
       "inputFiles": [
         "for.ts"
       ],
@@ -64,7 +63,6 @@
     },
     {
       "description": "should support @defer blocks",
-      "skipForTemplatePipeline": true,
       "inputFiles": [
         "defer.ts"
       ],

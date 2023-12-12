@@ -19,7 +19,7 @@ import {icuFromI18nMessage, isSingleI18nIcu} from '../../../render3/view/i18n/ut
 import {BindingParser} from '../../../template_parser/binding_parser';
 import * as ir from '../ir';
 
-import {ComponentCompilationJob, HostBindingCompilationJob, type CompilationJob, type ViewCompilationUnit} from './compilation';
+import {CompilationUnit, ComponentCompilationJob, HostBindingCompilationJob, type CompilationJob, type ViewCompilationUnit} from './compilation';
 import {BINARY_OPERATORS, namespaceForKey, prefixWithNamespace} from './conversion';
 
 const compatibilityMode = ir.CompatibilityMode.TemplateDefinitionBuilder;
@@ -92,7 +92,7 @@ export function ingestHostProperty(
       job.root.xref, bindingKind, property.name, expression, null,
       SecurityContext
           .NONE /* TODO: what should we pass as security context? Passing NONE for now. */,
-      isTextAttribute, false, /* TODO: How do Host bindings handle i18n attrs? */ null,
+      isTextAttribute, false, null, /* TODO: How do Host bindings handle i18n attrs? */ null,
       property.sourceSpan));
 }
 
@@ -100,6 +100,7 @@ export function ingestHostAttribute(
     job: HostBindingCompilationJob, name: string, value: o.Expression): void {
   const attrBinding = ir.createBindingOp(
       job.root.xref, ir.BindingKind.Attribute, name, value, null, SecurityContext.NONE, true, false,
+      null,
       /* TODO */ null,
       /* TODO: host attribute source spans */ null!);
   job.root.update.push(attrBinding);
@@ -107,7 +108,7 @@ export function ingestHostAttribute(
 
 export function ingestHostEvent(job: HostBindingCompilationJob, event: e.ParsedEvent) {
   const eventBinding = ir.createListenerOp(
-      job.root.xref, new ir.SlotHandle(), event.name, null, event.targetOrPhase, true,
+      job.root.xref, new ir.SlotHandle(), event.name, null, [], event.targetOrPhase, true,
       event.sourceSpan);
   // TODO: Can this be a chain?
   eventBinding.handlerOps.push(ir.createStatementOp(new o.ReturnStatement(
@@ -165,8 +166,16 @@ function ingestElement(unit: ViewCompilationUnit, element: t.Element): void {
       element.startSourceSpan);
   unit.create.push(startOp);
 
-  ingestBindings(unit, startOp, element);
+  ingestElementBindings(unit, startOp, element);
   ingestReferences(startOp, element);
+
+  // Start i18n, if needed, goes after the element create and bindings, but before the nodes
+  let i18nBlockId: ir.XrefId|null = null;
+  if (element.i18n instanceof i18n.Message) {
+    i18nBlockId = unit.job.allocateXrefId();
+    unit.create.push(ir.createI18nStartOp(i18nBlockId, element.i18n));
+  }
+
   ingestNodes(unit, element.children);
 
   // The source span for the end op is typically the element closing tag. However, if no closing tag
@@ -178,9 +187,7 @@ function ingestElement(unit: ViewCompilationUnit, element: t.Element): void {
   unit.create.push(endOp);
 
   // If there is an i18n message associated with this element, insert i18n start and end ops.
-  if (element.i18n instanceof i18n.Message) {
-    const i18nBlockId = unit.job.allocateXrefId();
-    ir.OpList.insertAfter<ir.CreateOp>(ir.createI18nStartOp(i18nBlockId, element.i18n), startOp);
+  if (i18nBlockId !== null) {
     ir.OpList.insertBefore<ir.CreateOp>(ir.createI18nEndOp(i18nBlockId), endOp);
   }
 }
@@ -214,7 +221,7 @@ function ingestTemplate(unit: ViewCompilationUnit, tmpl: t.Template): void {
       i18nPlaceholder, tmpl.startSourceSpan);
   unit.create.push(templateOp);
 
-  ingestBindings(unit, templateOp, tmpl);
+  ingestTemplateBindings(unit, templateOp, tmpl, templateKind);
   ingestReferences(templateOp, tmpl);
   ingestNodes(childView, tmpl.children);
 
@@ -233,7 +240,7 @@ function ingestTemplate(unit: ViewCompilationUnit, tmpl: t.Template): void {
 }
 
 /**
- * Ingest a literal text node from the AST into the given `ViewCompilation`.
+ * Ingest a content node from the AST into the given `ViewCompilation`.
  */
 function ingestContent(unit: ViewCompilationUnit, content: t.Content): void {
   if (content.i18n !== undefined && !(content.i18n instanceof i18n.TagPlaceholder)) {
@@ -243,9 +250,9 @@ function ingestContent(unit: ViewCompilationUnit, content: t.Content): void {
   const op = ir.createProjectionOp(
       unit.job.allocateXrefId(), content.selector, content.i18n, attrs, content.sourceSpan);
   for (const attr of content.attributes) {
-    ingestBinding(
-        unit, op.xref, attr.name, o.literal(attr.value), e.BindingType.Attribute, null,
-        SecurityContext.NONE, attr.sourceSpan, BindingFlags.TextValue, attr.i18n);
+    unit.update.push(ir.createBindingOp(
+        op.xref, ir.BindingKind.Attribute, attr.name, o.literal(attr.value), null,
+        SecurityContext.NONE, true, false, null, asMessage(attr.i18n), attr.sourceSpan));
   }
   unit.create.push(op);
 }
@@ -392,8 +399,11 @@ function ingestSwitchBlock(unit: ViewCompilationUnit, switchBlock: t.SwitchBlock
 }
 
 function ingestDeferView(
-    unit: ViewCompilationUnit, suffix: string, children?: t.Node[],
-    sourceSpan?: ParseSourceSpan): ir.TemplateOp|null {
+    unit: ViewCompilationUnit, suffix: string, i18nMeta: i18n.I18nMeta|undefined,
+    children?: t.Node[], sourceSpan?: ParseSourceSpan): ir.TemplateOp|null {
+  if (i18nMeta !== undefined && !(i18nMeta instanceof i18n.BlockPlaceholder)) {
+    throw Error('Unhandled i18n metadata type for defer block');
+  }
   if (children === undefined) {
     return null;
   }
@@ -401,7 +411,7 @@ function ingestDeferView(
   ingestNodes(secondaryView, children);
   const templateOp = ir.createTemplateOp(
       secondaryView.xref, ir.TemplateKind.Block, null, `Defer${suffix}`, ir.Namespace.HTML,
-      undefined, sourceSpan!);
+      i18nMeta, sourceSpan!);
   unit.create.push(templateOp);
   return templateOp;
 }
@@ -413,13 +423,17 @@ function ingestDeferBlock(unit: ViewCompilationUnit, deferBlock: t.DeferredBlock
   }
 
   // Generate the defer main view and all secondary views.
-  const main = ingestDeferView(unit, '', deferBlock.children, deferBlock.sourceSpan)!;
+  const main =
+      ingestDeferView(unit, '', deferBlock.i18n, deferBlock.children, deferBlock.sourceSpan)!;
   const loading = ingestDeferView(
-      unit, 'Loading', deferBlock.loading?.children, deferBlock.loading?.sourceSpan);
+      unit, 'Loading', deferBlock.loading?.i18n, deferBlock.loading?.children,
+      deferBlock.loading?.sourceSpan);
   const placeholder = ingestDeferView(
-      unit, 'Placeholder', deferBlock.placeholder?.children, deferBlock.placeholder?.sourceSpan);
-  const error =
-      ingestDeferView(unit, 'Error', deferBlock.error?.children, deferBlock.error?.sourceSpan);
+      unit, 'Placeholder', deferBlock.placeholder?.i18n, deferBlock.placeholder?.children,
+      deferBlock.placeholder?.sourceSpan);
+  const error = ingestDeferView(
+      unit, 'Error', deferBlock.error?.i18n, deferBlock.error?.children,
+      deferBlock.error?.sourceSpan);
 
   // Create the main defer op, and ops for all secondary views.
   const deferXref = unit.job.allocateXrefId();
@@ -581,9 +595,20 @@ function ingestForBlock(unit: ViewCompilationUnit, forBlock: t.ForLoopBlock): vo
     $implicit: forBlock.item.name,
   };
 
+  if (forBlock.i18n !== undefined && !(forBlock.i18n instanceof i18n.BlockPlaceholder)) {
+    throw Error('AssertionError: Unhandled i18n metadata type or @for');
+  }
+  if (forBlock.empty?.i18n !== undefined &&
+      !(forBlock.empty.i18n instanceof i18n.BlockPlaceholder)) {
+    throw Error('AssertionError: Unhandled i18n metadata type or @empty');
+  }
+  const i18nPlaceholder = forBlock.i18n;
+  const emptyI18nPlaceholder = forBlock.empty?.i18n;
+
   const tagName = ingestControlFlowInsertionPoint(unit, repeaterView.xref, forBlock);
   const repeaterCreate = ir.createRepeaterCreateOp(
-      repeaterView.xref, emptyView?.xref ?? null, tagName, track, varNames, forBlock.sourceSpan);
+      repeaterView.xref, emptyView?.xref ?? null, tagName, track, varNames, i18nPlaceholder,
+      emptyI18nPlaceholder, forBlock.sourceSpan);
   unit.create.push(repeaterCreate);
 
   const expression = convertAst(
@@ -722,6 +747,31 @@ function convertAst(
   }
 }
 
+function convertAstWithInterpolation(
+    job: CompilationJob, value: e.AST|string,
+    i18nMeta: i18n.I18nMeta|null|undefined): o.Expression|ir.Interpolation {
+  let expression: o.Expression|ir.Interpolation;
+  if (value instanceof e.Interpolation) {
+    expression = new ir.Interpolation(
+        value.strings, value.expressions.map(e => convertAst(e, job, null)),
+        Object.keys(asMessage(i18nMeta)?.placeholders ?? {}));
+  } else if (value instanceof e.AST) {
+    expression = convertAst(value, job, null);
+  } else {
+    expression = o.literal(value);
+  }
+  return expression;
+}
+
+// TODO: Can we populate Template binding kinds in ingest?
+const BINDING_KINDS = new Map<e.BindingType, ir.BindingKind>([
+  [e.BindingType.Property, ir.BindingKind.Property],
+  [e.BindingType.Attribute, ir.BindingKind.Attribute],
+  [e.BindingType.Class, ir.BindingKind.ClassName],
+  [e.BindingType.Style, ir.BindingKind.StyleProperty],
+  [e.BindingType.Animation, ir.BindingKind.Animation],
+]);
+
 /**
  * Checks whether the given template is a plain ng-template (as opposed to another kind of template
  * such as a structural directive template or control flow template). This is checked based on the
@@ -744,189 +794,238 @@ function isPlainTemplate(tmpl: t.Template) {
 }
 
 /**
- * Process all of the bindings on an element-like structure in the template AST and convert them
- * to their IR representation.
+ * Ensures that the i18nMeta, if provided, is an i18n.Message.
  */
-function ingestBindings(
-    unit: ViewCompilationUnit, op: ir.ElementOpBase, element: t.Element|t.Template): void {
-  let flags: BindingFlags = BindingFlags.None;
-  let hasI18nAttributes = false;
-
-  if (element instanceof t.Template) {
-    flags |= BindingFlags.OnNgTemplateElement;
-    if (element instanceof t.Template && isPlainTemplate(element)) {
-      flags |= BindingFlags.BindingTargetsTemplate;
-    }
-
-    const templateAttrFlags =
-        flags | BindingFlags.BindingTargetsTemplate | BindingFlags.IsStructuralTemplateAttribute;
-    for (const attr of element.templateAttrs) {
-      if (attr instanceof t.TextAttribute) {
-        ingestBinding(
-            unit, op.xref, attr.name, o.literal(attr.value), e.BindingType.Attribute, null,
-            SecurityContext.NONE, attr.sourceSpan, templateAttrFlags | BindingFlags.TextValue,
-            attr.i18n);
-        hasI18nAttributes ||= attr.i18n !== undefined;
-      } else {
-        ingestBinding(
-            unit, op.xref, attr.name, attr.value, attr.type, attr.unit, attr.securityContext,
-            attr.sourceSpan, templateAttrFlags, attr.i18n);
-        hasI18nAttributes ||= attr.i18n !== undefined;
-      }
-    }
+function asMessage(i18nMeta: i18n.I18nMeta|null|undefined): i18n.Message|null {
+  if (i18nMeta == null) {
+    return null;
   }
+  if (!(i18nMeta instanceof i18n.Message)) {
+    throw Error(`Expected i18n meta to be a Message, but got: ${i18nMeta.constructor.name}`);
+  }
+  return i18nMeta;
+}
+
+/**
+ * Process all of the bindings on an element in the template AST and convert them to their IR
+ * representation.
+ */
+function ingestElementBindings(
+    unit: ViewCompilationUnit, op: ir.ElementOpBase, element: t.Element): void {
+  let bindings = new Array<ir.BindingOp|ir.ExtractedAttributeOp|null>();
 
   for (const attr of element.attributes) {
-    // This is only attribute TextLiteral bindings, such as `attr.foo="bar"`. This can never be
-    // `[attr.foo]="bar"` or `attr.foo="{{bar}}"`, both of which will be handled as inputs with
-    // `BindingType.Attribute`.
-    ingestBinding(
-        unit, op.xref, attr.name, o.literal(attr.value), e.BindingType.Attribute, null,
-        SecurityContext.NONE, attr.sourceSpan, flags | BindingFlags.TextValue, attr.i18n);
-    hasI18nAttributes ||= attr.i18n !== undefined;
+    // Attribute literal bindings, such as `attr.foo="bar"`.
+    bindings.push(ir.createBindingOp(
+        op.xref, ir.BindingKind.Attribute, attr.name,
+        convertAstWithInterpolation(unit.job, attr.value, attr.i18n), null, SecurityContext.NONE,
+        true, false, null, asMessage(attr.i18n), attr.sourceSpan));
   }
+
   for (const input of element.inputs) {
-    ingestBinding(
-        unit, op.xref, input.name, input.value, input.type, input.unit, input.securityContext,
-        input.sourceSpan, flags, input.i18n);
-    hasI18nAttributes ||= input.i18n !== undefined;
+    // All dynamic bindings (both attribute and property bindings).
+    bindings.push(ir.createBindingOp(
+        op.xref, BINDING_KINDS.get(input.type)!, input.name,
+        convertAstWithInterpolation(unit.job, astOf(input.value), input.i18n), input.unit,
+        input.securityContext, false, false, null, asMessage(input.i18n) ?? null,
+        input.sourceSpan));
   }
+
+  unit.create.push(bindings.filter(
+      (b): b is ir.ExtractedAttributeOp => b?.kind === ir.OpKind.ExtractedAttribute));
+  unit.update.push(bindings.filter((b): b is ir.BindingOp => b?.kind === ir.OpKind.Binding));
 
   for (const output of element.outputs) {
-    let listenerOp: ir.ListenerOp;
-    if (output.type === e.ParsedEventType.Animation) {
-      if (output.phase === null) {
-        throw Error('Animation listener should have a phase');
-      }
+    if (output.type === e.ParsedEventType.Animation && output.phase === null) {
+      throw Error('Animation listener should have a phase');
     }
 
-    if (element instanceof t.Template && !isPlainTemplate(element)) {
-      unit.create.push(
-          ir.createExtractedAttributeOp(op.xref, ir.BindingKind.Property, output.name, null, null));
-      continue;
-    }
-
-    listenerOp = ir.createListenerOp(
-        op.xref, op.handle, output.name, op.tag, output.phase, false, output.sourceSpan);
-
-    // if output.handler is a chain, then push each statement from the chain separately, and
-    // return the last one?
-    let handlerExprs: e.AST[];
-    let handler: e.AST = output.handler;
-    if (handler instanceof e.ASTWithSource) {
-      handler = handler.ast;
-    }
-
-    if (handler instanceof e.Chain) {
-      handlerExprs = handler.expressions;
-    } else {
-      handlerExprs = [handler];
-    }
-
-    if (handlerExprs.length === 0) {
-      throw new Error('Expected listener to have non-empty expression list.');
-    }
-
-    const expressions = handlerExprs.map(expr => convertAst(expr, unit.job, output.handlerSpan));
-    const returnExpr = expressions.pop()!;
-
-    for (const expr of expressions) {
-      const stmtOp =
-          ir.createStatementOp<ir.UpdateOp>(new o.ExpressionStatement(expr, expr.sourceSpan));
-      listenerOp.handlerOps.push(stmtOp);
-    }
-    listenerOp.handlerOps.push(
-        ir.createStatementOp(new o.ReturnStatement(returnExpr, returnExpr.sourceSpan)));
-    unit.create.push(listenerOp);
+    unit.create.push(ir.createListenerOp(
+        op.xref, op.handle, output.name, op.tag,
+        makeListenerHandlerOps(unit, output.handler, output.handlerSpan), output.phase, false,
+        output.sourceSpan));
   }
 
-  // TODO: Perhaps we could do this in a phase? (It likely wouldn't change the slot indices.)
-  if (hasI18nAttributes) {
+  // If any of the bindings on this element have an i18n message, then an i18n attrs configuration
+  // op is also required.
+  if (bindings.some(b => b?.i18nMessage) !== null) {
     unit.create.push(
         ir.createI18nAttributesOp(unit.job.allocateXrefId(), new ir.SlotHandle(), op.xref));
   }
 }
 
-const BINDING_KINDS = new Map<e.BindingType, ir.BindingKind>([
-  [e.BindingType.Property, ir.BindingKind.Property],
-  [e.BindingType.Attribute, ir.BindingKind.Attribute],
-  [e.BindingType.Class, ir.BindingKind.ClassName],
-  [e.BindingType.Style, ir.BindingKind.StyleProperty],
-  [e.BindingType.Animation, ir.BindingKind.Animation],
-]);
+/**
+ * Process all of the bindings on a template in the template AST and convert them to their IR
+ * representation.
+ */
+function ingestTemplateBindings(
+    unit: ViewCompilationUnit, op: ir.ElementOpBase, template: t.Template,
+    templateKind: ir.TemplateKind|null): void {
+  let bindings = new Array<ir.BindingOp|ir.ExtractedAttributeOp|null>();
 
-enum BindingFlags {
-  None = 0b000,
+  for (const attr of template.templateAttrs) {
+    if (attr instanceof t.TextAttribute) {
+      bindings.push(createTemplateBinding(
+          unit, op.xref, e.BindingType.Attribute, attr.name, attr.value, null, SecurityContext.NONE,
+          true, templateKind, asMessage(attr.i18n), attr.sourceSpan));
+    } else {
+      bindings.push(createTemplateBinding(
+          unit, op.xref, attr.type, attr.name, astOf(attr.value), attr.unit, attr.securityContext,
+          true, templateKind, asMessage(attr.i18n), attr.sourceSpan));
+    }
+  }
 
-  /**
-   * The binding is to a static text literal and not to an expression.
-   */
-  TextValue = 0b0001,
+  for (const attr of template.attributes) {
+    // Attribute literal bindings, such as `attr.foo="bar"`.
+    bindings.push(createTemplateBinding(
+        unit, op.xref, e.BindingType.Attribute, attr.name, attr.value, null, SecurityContext.NONE,
+        false, templateKind, asMessage(attr.i18n), attr.sourceSpan));
+  }
 
-  /**
-   * The binding belongs to the `<ng-template>` side of a `t.Template`.
-   */
-  BindingTargetsTemplate = 0b0010,
+  for (const input of template.inputs) {
+    // Dynamic bindings (both attribute and property bindings).
+    bindings.push(createTemplateBinding(
+        unit, op.xref, input.type, input.name, astOf(input.value), input.unit,
+        input.securityContext, false, templateKind, asMessage(input.i18n), input.sourceSpan));
+  }
 
-  /**
-   * The binding is on a structural directive.
-   */
-  IsStructuralTemplateAttribute = 0b0100,
+  unit.create.push(bindings.filter(
+      (b): b is ir.ExtractedAttributeOp => b?.kind === ir.OpKind.ExtractedAttribute));
+  unit.update.push(bindings.filter((b): b is ir.BindingOp => b?.kind === ir.OpKind.Binding));
 
-  /**
-   * The binding is on a `t.Template`.
-   */
-  OnNgTemplateElement = 0b1000,
+  for (const output of template.outputs) {
+    if (output.type === e.ParsedEventType.Animation && output.phase === null) {
+      throw Error('Animation listener should have a phase');
+    }
+
+    if (templateKind === ir.TemplateKind.NgTemplate) {
+      unit.create.push(ir.createListenerOp(
+          op.xref, op.handle, output.name, op.tag,
+          makeListenerHandlerOps(unit, output.handler, output.handlerSpan), output.phase, false,
+          output.sourceSpan));
+    }
+    if (templateKind === ir.TemplateKind.Structural &&
+        output.type !== e.ParsedEventType.Animation) {
+      // Animation bindings are excluded from the structural template's const array.
+      unit.create.push(ir.createExtractedAttributeOp(
+          op.xref, ir.BindingKind.Property, output.name, null, null, null));
+    }
+  }
+
+  // TODO: Perhaps we could do this in a phase? (It likely wouldn't change the slot indices.)
+  if (bindings.some(b => b?.i18nMessage) !== null) {
+    unit.create.push(
+        ir.createI18nAttributesOp(unit.job.allocateXrefId(), new ir.SlotHandle(), op.xref));
+  }
 }
 
-function ingestBinding(
-    view: ViewCompilationUnit, xref: ir.XrefId, name: string, value: e.AST|o.Expression,
-    type: e.BindingType, unit: string|null, securityContext: SecurityContext,
-    sourceSpan: ParseSourceSpan, flags: BindingFlags, i18nMeta: i18n.I18nMeta|undefined): void {
-  if (value instanceof e.ASTWithSource) {
-    value = value.ast;
-  }
-
-  let i18nContext: ir.XrefId|null = null;
-  if (i18nMeta !== undefined) {
-    if (!(i18nMeta instanceof i18n.Message)) {
-      throw Error(`Unhandled i18n metadata type for binding: ${i18nMeta.constructor.name}`);
+/**
+ * Helper to ingest an individual binding on a template, either an explicit `ng-template`, or an
+ * implicit template created via structural directive.
+ *
+ * Bindings on templates are *extremely* tricky. I have tried to isolate all of the confusing edge
+ * cases into this function, and to comment it well to document the behavior.
+ *
+ * Some of this behavior is intuitively incorrect, and we should consider changing it in the future.
+ *
+ * @param view The compilation unit for the view containing the template.
+ * @param xref The xref of the template op.
+ * @param type The binding type, according to the parser. This is fairly reasonable, e.g. both
+ *     dynamic and static attributes have e.BindingType.Attribute.
+ * @param name The binding's name.
+ * @param value The bindings's value, which will either be an input AST expression, or a string
+ *     literal. Note that the input AST expression may or may not be const -- it will only be a
+ *     string literal if the parser considered it a text binding.
+ * @param unit If the binding has a unit (e.g. `px` for style bindings), then this is the unit.
+ * @param securityContext The security context of the binding.
+ * @param isStructuralTemplateAttribute Whether this binding actually applies to the structural
+ *     ng-template. For example, an `ngFor` would actually apply to the structural template. (Most
+ *     bindings on structural elements target the inner element, not the template.)
+ * @param templateKind Whether this is an explicit `ng-template` or an implicit template created by
+ *     a structural directive. This should never be a block template.
+ * @param i18nMessage The i18n metadata for the binding, if any.
+ * @param sourceSpan The source span of the binding.
+ * @returns An IR binding op, or null if the binding should be skipped.
+ */
+function createTemplateBinding(
+    view: ViewCompilationUnit, xref: ir.XrefId, type: e.BindingType, name: string,
+    value: e.AST|string, unit: string|null, securityContext: SecurityContext,
+    isStructuralTemplateAttribute: boolean, templateKind: ir.TemplateKind|null,
+    i18nMessage: i18n.Message|null, sourceSpan: ParseSourceSpan): ir.BindingOp|
+    ir.ExtractedAttributeOp|null {
+  const isTextBinding = typeof value === 'string';
+  // If this is a structural template, then several kinds of bindings should not result in an
+  // update instruction.
+  if (templateKind === ir.TemplateKind.Structural) {
+    if (!isStructuralTemplateAttribute &&
+        (type === e.BindingType.Property || type === e.BindingType.Class ||
+         type === e.BindingType.Style)) {
+      // Because this binding doesn't really target the ng-template, it must be a binding on an
+      // inner node of a structural template. We can't skip it entirely, because we still need it on
+      // the ng-template's consts (e.g. for the purposes of directive matching). However, we should
+      // not generate an update instruction for it.
+      return ir.createExtractedAttributeOp(
+          xref, ir.BindingKind.Property, name, null, null, i18nMessage);
     }
-    i18nContext = view.job.allocateXrefId();
-    view.create.push(
-        ir.createI18nContextOp(ir.I18nContextKind.Attr, i18nContext, null, i18nMeta, null!));
-  }
 
-  if (flags & BindingFlags.OnNgTemplateElement && !(flags & BindingFlags.BindingTargetsTemplate) &&
-      type === e.BindingType.Property) {
-    // This binding only exists for later const extraction, and is not an actual binding to be
-    // created.
-    view.create.push(
-        ir.createExtractedAttributeOp(xref, ir.BindingKind.Property, name, null, i18nContext));
-    return;
-  }
-
-  let expression: o.Expression|ir.Interpolation;
-  // TODO: We could easily generate source maps for subexpressions in these cases, but
-  // TemplateDefinitionBuilder does not. Should we do so?
-  if (value instanceof e.Interpolation) {
-    let i18nPlaceholders: string[] = [];
-    if (i18nMeta !== undefined) {
-      i18nPlaceholders = Object.keys(i18nMeta.placeholders);
+    if (!isTextBinding && (type === e.BindingType.Attribute || type === e.BindingType.Animation)) {
+      // Again, this binding doesn't really target the ng-template; it actually targets the element
+      // inside the structural template. In the case of non-text attribute or animation bindings,
+      // the binding doesn't even show up on the ng-template const array, so we just skip it
+      // entirely.
+      return null;
     }
-    expression = new ir.Interpolation(
-        value.strings, value.expressions.map(expr => convertAst(expr, view.job, null)),
-        i18nPlaceholders);
-  } else if (value instanceof e.AST) {
-    expression = convertAst(value, view.job, null);
-  } else {
-    expression = value;
   }
 
-  const kind: ir.BindingKind = BINDING_KINDS.get(type)!;
-  view.update.push(ir.createBindingOp(
-      xref, kind, name, expression, unit, securityContext, !!(flags & BindingFlags.TextValue),
-      !!(flags & BindingFlags.IsStructuralTemplateAttribute), i18nContext, sourceSpan));
+  let bindingType = BINDING_KINDS.get(type)!;
+
+  if (templateKind === ir.TemplateKind.NgTemplate) {
+    // We know we are dealing with bindings directly on an explicit ng-template.
+    // Static attribute bindings should be collected into the const array as k/v pairs. Property
+    // bindings should result in a `property` instruction, and `AttributeMarker.Bindings` const
+    // entries.
+    //
+    // The difficulty is with dynamic attribute, style, and class bindings. These don't really make
+    // sense on an `ng-template` and should probably be parser errors. However,
+    // TemplateDefinitionBuilder generates `property` instructions for them, and so we do that as
+    // well.
+    //
+    // Note that we do have a slight behavior difference with TemplateDefinitionBuilder: although
+    // TDB emits `property` instructions for dynamic attributes, styles, and classes, only styles
+    // and classes also get const collected into the `AttributeMarker.Bindings` field. Dynamic
+    // attribute bindings are missing from the consts entirely. We choose to emit them into the
+    // consts field anyway, to avoid creating special cases for something so arcane and nonsensical.
+    if (type === e.BindingType.Class || type === e.BindingType.Style ||
+        (type === e.BindingType.Attribute && !isTextBinding)) {
+      // TODO: These cases should be parse errors.
+      bindingType = ir.BindingKind.Property;
+    }
+  }
+
+  return ir.createBindingOp(
+      xref, bindingType, name, convertAstWithInterpolation(view.job, value, i18nMessage), unit,
+      securityContext, isTextBinding, isStructuralTemplateAttribute, templateKind, i18nMessage,
+      sourceSpan);
+}
+
+function makeListenerHandlerOps(
+    unit: CompilationUnit, handler: e.AST, handlerSpan: ParseSourceSpan): ir.UpdateOp[] {
+  handler = astOf(handler);
+  const handlerOps = new Array<ir.UpdateOp>();
+  let handlerExprs: e.AST[] = handler instanceof e.Chain ? handler.expressions : [handler];
+  if (handlerExprs.length === 0) {
+    throw new Error('Expected listener to have non-empty expression list.');
+  }
+  const expressions = handlerExprs.map(expr => convertAst(expr, unit.job, handlerSpan));
+  const returnExpr = expressions.pop()!;
+  handlerOps.push(...expressions.map(
+      e => ir.createStatementOp<ir.UpdateOp>(new o.ExpressionStatement(e, e.sourceSpan))));
+  handlerOps.push(ir.createStatementOp(new o.ReturnStatement(returnExpr, returnExpr.sourceSpan)));
+  return handlerOps;
+}
+
+function astOf(ast: e.AST|e.ASTWithSource): e.AST {
+  return ast instanceof e.ASTWithSource ? ast.ast : ast;
 }
 
 /**
@@ -1024,9 +1123,9 @@ function ingestControlFlowInsertionPoint(
   // and they can be used in directive matching (in the case of `Template.templateAttrs`).
   if (root !== null) {
     for (const attr of root.attributes) {
-      ingestBinding(
-          unit, xref, attr.name, o.literal(attr.value), e.BindingType.Attribute, null,
-          SecurityContext.NONE, attr.sourceSpan, BindingFlags.TextValue, attr.i18n);
+      unit.update.push(ir.createBindingOp(
+          xref, ir.BindingKind.Attribute, attr.name, o.literal(attr.value), null,
+          SecurityContext.NONE, true, false, null, asMessage(attr.i18n), attr.sourceSpan));
     }
 
     const tagName = root instanceof t.Element ? root.name : root.tagName;

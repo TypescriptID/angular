@@ -270,6 +270,16 @@ export interface RepeaterCreateOp extends ElementOpBase {
    */
   functionNameSuffix: string;
 
+  /**
+   * The i18n placeholder for the repeated item template.
+   */
+  i18nPlaceholder: i18n.BlockPlaceholder|undefined;
+
+  /**
+   * The i18n placeholder for the empty template.
+   */
+  emptyI18nPlaceholder: i18n.BlockPlaceholder|undefined;
+
   sourceSpan: ParseSourceSpan;
 }
 
@@ -286,7 +296,9 @@ export interface RepeaterVarNames {
 
 export function createRepeaterCreateOp(
     primaryView: XrefId, emptyView: XrefId|null, tag: string|null, track: o.Expression,
-    varNames: RepeaterVarNames, sourceSpan: ParseSourceSpan): RepeaterCreateOp {
+    varNames: RepeaterVarNames, i18nPlaceholder: i18n.BlockPlaceholder|undefined,
+    emptyI18nPlaceholder: i18n.BlockPlaceholder|undefined,
+    sourceSpan: ParseSourceSpan): RepeaterCreateOp {
   return {
     kind: OpKind.RepeaterCreate,
     attributes: null,
@@ -304,6 +316,8 @@ export function createRepeaterCreateOp(
     vars: null,
     varNames,
     usesComponentInstance: false,
+    i18nPlaceholder,
+    emptyI18nPlaceholder,
     sourceSpan,
     ...TRAIT_CONSUMES_SLOT,
     ...NEW_OP,
@@ -503,7 +517,10 @@ export interface ListenerOp extends Op<CreateOp> {
  */
 export function createListenerOp(
     target: XrefId, targetSlot: SlotHandle, name: string, tag: string|null,
-    animationPhase: string|null, hostListener: boolean, sourceSpan: ParseSourceSpan): ListenerOp {
+    handlerOps: Array<UpdateOp>, animationPhase: string|null, hostListener: boolean,
+    sourceSpan: ParseSourceSpan): ListenerOp {
+  const handlerList = new OpList<UpdateOp>();
+  handlerList.push(handlerOps);
   return {
     kind: OpKind.Listener,
     target,
@@ -511,7 +528,7 @@ export function createListenerOp(
     tag,
     hostListener,
     name,
-    handlerOps: new OpList(),
+    handlerOps: handlerList,
     handlerFnName: null,
     consumesDollarEvent: false,
     isAnimationListener: animationPhase !== null,
@@ -642,6 +659,8 @@ export interface ExtractedAttributeOp extends Op<CreateOp> {
    * i18n context for it.
    */
   i18nContext: XrefId|null;
+
+  i18nMessage: i18n.Message|null;
 }
 
 /**
@@ -649,7 +668,7 @@ export interface ExtractedAttributeOp extends Op<CreateOp> {
  */
 export function createExtractedAttributeOp(
     target: XrefId, bindingKind: BindingKind, name: string, expression: o.Expression|null,
-    i18nContext: XrefId|null): ExtractedAttributeOp {
+    i18nContext: XrefId|null, i18nMessage: i18n.Message|null): ExtractedAttributeOp {
   return {
     kind: OpKind.ExtractedAttribute,
     target,
@@ -657,6 +676,7 @@ export function createExtractedAttributeOp(
     name,
     expression,
     i18nContext,
+    i18nMessage,
     ...NEW_OP,
   };
 }

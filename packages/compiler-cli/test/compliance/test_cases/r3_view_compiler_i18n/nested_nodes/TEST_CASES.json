@@ -148,13 +148,19 @@
       ],
       "expectations": [
         {
+          "files": [
+            {
+              "generated": "nested_elements_with_i18n_attributes.js",
+              "expected": "nested_elements_with_i18n_attributes_template.js",
+              "templatePipelineExpected": "nested_elements_with_i18n_attributes_template.pipeline.js"
+            }
+          ],
           "extraChecks": [
             "verifyPlaceholdersIntegrity",
             "verifyUniqueConsts"
           ]
         }
-      ],
-      "skipForTemplatePipeline": true
+      ]
     },
     {
       "description": "should handle i18n attributes in nested templates",
@@ -184,13 +190,19 @@
       ],
       "expectations": [
         {
+          "files": [
+            {
+              "generated": "self_closing.js",
+              "expected": "self_closing_template.js",
+              "templatePipelineExpected": "self_closing_template.pipeline.js"
+            }
+          ],
           "extraChecks": [
             "verifyPlaceholdersIntegrity",
             "verifyUniqueConsts"
           ]
         }
-      ],
-      "skipForTemplatePipeline": true
+      ]
     },
     {
       "description": "should handle i18n context in nested templates",
@@ -234,18 +246,38 @@
       ],
       "expectations": [
         {
+          "files": [
+            {
+              "generated": "event_listeners.js",
+              "expected": "event_listeners_template.js",
+              "templatePipelineExpected": "event_listeners_template.pipeline.js"
+            }
+          ],
           "extraChecks": [
             "verifyPlaceholdersIntegrity",
             "verifyUniqueConsts"
           ]
         }
-      ],
-      "skipForTemplatePipeline": true
+      ]
     },
     {
       "description": "should handle ng-content in i18n block",
       "inputFiles": [
         "nested_ng-content.ts"
+      ],
+      "expectations": [
+        {
+          "extraChecks": [
+            "verifyPlaceholdersIntegrity",
+            "verifyUniqueConsts"
+          ]
+        }
+      ]
+    },
+    {
+      "description": "should handle ng-content in i18n block",
+      "inputFiles": [
+        "i18n_after_binding.ts"
       ],
       "expectations": [
         {
