@@ -8,7 +8,7 @@
 
 import {visitAll} from '@angular/compiler';
 
-import {ElementCollector, ElementToMigrate, MigrateError, Result} from './types';
+import {ElementCollector, ElementToMigrate, endMarker, MigrateError, Result, startMarker} from './types';
 import {calculateNesting, getMainBlock, getOriginals, hasLineBreaks, parseTemplate, reduceNestingOffset} from './util';
 
 export const boundcase = '[ngSwitchCase]';
@@ -17,7 +17,7 @@ export const nakedcase = 'ngSwitchCase';
 export const switchdefault = '*ngSwitchDefault';
 export const nakeddefault = 'ngSwitchDefault';
 
-const cases = [
+export const cases = [
   boundcase,
   switchcase,
   nakedcase,
@@ -33,13 +33,13 @@ export function migrateCase(template: string):
     {migrated: string, errors: MigrateError[], changed: boolean} {
   let errors: MigrateError[] = [];
   let parsed = parseTemplate(template);
-  if (parsed === null) {
+  if (parsed.tree === undefined) {
     return {migrated: template, errors, changed: false};
   }
 
   let result = template;
   const visitor = new ElementCollector(cases);
-  visitAll(visitor, parsed.rootNodes);
+  visitAll(visitor, parsed.tree.rootNodes);
   calculateNesting(visitor, hasLineBreaks(template));
 
   // this tracks the character shift from different lengths of blocks from
@@ -88,8 +88,9 @@ function migrateNgSwitchCase(etm: ElementToMigrate, tmpl: string, offset: number
   const originals = getOriginals(etm, tmpl, offset);
 
   const {start, middle, end} = getMainBlock(etm, tmpl, offset);
-  const startBlock = `${leadingSpace}@case (${condition}) {${leadingSpace}${lbString}${start}`;
-  const endBlock = `${end}${lbString}${leadingSpace}}`;
+  const startBlock =
+      `${startMarker}${leadingSpace}@case (${condition}) {${leadingSpace}${lbString}${start}`;
+  const endBlock = `${end}${lbString}${leadingSpace}}${endMarker}`;
 
   const defaultBlock = startBlock + middle + endBlock;
   const updatedTmpl = tmpl.slice(0, etm.start(offset)) + defaultBlock + tmpl.slice(etm.end(offset));
@@ -110,8 +111,8 @@ function migrateNgSwitchDefault(etm: ElementToMigrate, tmpl: string, offset: num
   const originals = getOriginals(etm, tmpl, offset);
 
   const {start, middle, end} = getMainBlock(etm, tmpl, offset);
-  const startBlock = `${leadingSpace}@default {${leadingSpace}${lbString}${start}`;
-  const endBlock = `${end}${lbString}${leadingSpace}}`;
+  const startBlock = `${startMarker}${leadingSpace}@default {${leadingSpace}${lbString}${start}`;
+  const endBlock = `${end}${lbString}${leadingSpace}}${endMarker}`;
 
   const defaultBlock = startBlock + middle + endBlock;
   const updatedTmpl = tmpl.slice(0, etm.start(offset)) + defaultBlock + tmpl.slice(etm.end(offset));

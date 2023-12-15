@@ -16,6 +16,7 @@ import {ParseSourceSpan} from '../../../parse_util';
 import * as t from '../../../render3/r3_ast';
 import {R3DeferBlockMetadata} from '../../../render3/view/api';
 import {icuFromI18nMessage, isSingleI18nIcu} from '../../../render3/view/i18n/util';
+import {DomElementSchemaRegistry} from '../../../schema/dom_element_schema_registry';
 import {BindingParser} from '../../../template_parser/binding_parser';
 import * as ir from '../ir';
 
@@ -23,6 +24,12 @@ import {CompilationUnit, ComponentCompilationJob, HostBindingCompilationJob, typ
 import {BINARY_OPERATORS, namespaceForKey, prefixWithNamespace} from './conversion';
 
 const compatibilityMode = ir.CompatibilityMode.TemplateDefinitionBuilder;
+
+// Schema containing DOM elements and their properties.
+const domSchema = new DomElementSchemaRegistry();
+
+// Tag name of the `ng-template` element.
+const NG_TEMPLATE_TAG_NAME = 'ng-template';
 
 /**
  * Process a template AST and convert it into a `ComponentCompilation` in the intermediate
@@ -42,6 +49,7 @@ export function ingestComponent(
 
 export interface HostBindingInput {
   componentName: string;
+  componentSelector: string;
   properties: e.ParsedProperty[]|null;
   attributes: {[key: string]: o.Expression};
   events: e.ParsedEvent[]|null;
@@ -56,10 +64,27 @@ export function ingestHostBinding(
     constantPool: ConstantPool): HostBindingCompilationJob {
   const job = new HostBindingCompilationJob(input.componentName, constantPool, compatibilityMode);
   for (const property of input.properties ?? []) {
-    ingestHostProperty(job, property, false);
+    let bindingKind = ir.BindingKind.Property;
+    // TODO: this should really be handled in the parser.
+    if (property.name.startsWith('attr.')) {
+      property.name = property.name.substring('attr.'.length);
+      bindingKind = ir.BindingKind.Attribute;
+    }
+    if (property.isAnimation) {
+      bindingKind = ir.BindingKind.Animation;
+    }
+    const securityContexts =
+        bindingParser
+            .calcPossibleSecurityContexts(
+                input.componentSelector, property.name, bindingKind === ir.BindingKind.Attribute)
+            .filter(context => context !== SecurityContext.NONE);
+    ingestHostProperty(job, property, bindingKind, false, securityContexts);
   }
   for (const [name, expr] of Object.entries(input.attributes) ?? []) {
-    ingestHostAttribute(job, name, expr);
+    const securityContexts =
+        bindingParser.calcPossibleSecurityContexts(input.componentSelector, name, true)
+            .filter(context => context !== SecurityContext.NONE);
+    ingestHostAttribute(job, name, expr, securityContexts);
   }
   for (const event of input.events ?? []) {
     ingestHostEvent(job, event);
@@ -70,7 +95,8 @@ export function ingestHostBinding(
 // TODO: We should refactor the parser to use the same types and structures for host bindings as
 // with ordinary components. This would allow us to share a lot more ingestion code.
 export function ingestHostProperty(
-    job: HostBindingCompilationJob, property: e.ParsedProperty, isTextAttribute: boolean): void {
+    job: HostBindingCompilationJob, property: e.ParsedProperty, bindingKind: ir.BindingKind,
+    isTextAttribute: boolean, securityContexts: SecurityContext[]): void {
   let expression: o.Expression|ir.Interpolation;
   const ast = property.expression.ast;
   if (ast instanceof e.Interpolation) {
@@ -79,27 +105,17 @@ export function ingestHostProperty(
   } else {
     expression = convertAst(ast, job, property.sourceSpan);
   }
-  let bindingKind = ir.BindingKind.Property;
-  // TODO: this should really be handled in the parser.
-  if (property.name.startsWith('attr.')) {
-    property.name = property.name.substring('attr.'.length);
-    bindingKind = ir.BindingKind.Attribute;
-  }
-  if (property.isAnimation) {
-    bindingKind = ir.BindingKind.Animation;
-  }
   job.root.update.push(ir.createBindingOp(
-      job.root.xref, bindingKind, property.name, expression, null,
-      SecurityContext
-          .NONE /* TODO: what should we pass as security context? Passing NONE for now. */,
+      job.root.xref, bindingKind, property.name, expression, null, securityContexts,
       isTextAttribute, false, null, /* TODO: How do Host bindings handle i18n attrs? */ null,
       property.sourceSpan));
 }
 
 export function ingestHostAttribute(
-    job: HostBindingCompilationJob, name: string, value: o.Expression): void {
+    job: HostBindingCompilationJob, name: string, value: o.Expression,
+    securityContexts: SecurityContext[]): void {
   const attrBinding = ir.createBindingOp(
-      job.root.xref, ir.BindingKind.Attribute, name, value, null, SecurityContext.NONE, true, false,
+      job.root.xref, ir.BindingKind.Attribute, name, value, null, securityContexts, true, false,
       null,
       /* TODO */ null,
       /* TODO: host attribute source spans */ null!);
@@ -107,8 +123,10 @@ export function ingestHostAttribute(
 }
 
 export function ingestHostEvent(job: HostBindingCompilationJob, event: e.ParsedEvent) {
+  const [phase, target] = event.type === e.ParsedEventType.Regular ? [null, event.targetOrPhase] :
+                                                                     [event.targetOrPhase, null];
   const eventBinding = ir.createListenerOp(
-      job.root.xref, new ir.SlotHandle(), event.name, null, [], event.targetOrPhase, true,
+      job.root.xref, new ir.SlotHandle(), event.name, null, [], phase, target, true,
       event.sourceSpan);
   // TODO: Can this be a chain?
   eventBinding.handlerOps.push(ir.createStatementOp(new o.ReturnStatement(
@@ -250,9 +268,10 @@ function ingestContent(unit: ViewCompilationUnit, content: t.Content): void {
   const op = ir.createProjectionOp(
       unit.job.allocateXrefId(), content.selector, content.i18n, attrs, content.sourceSpan);
   for (const attr of content.attributes) {
+    const securityContext = domSchema.securityContext(content.name, attr.name, true);
     unit.update.push(ir.createBindingOp(
-        op.xref, ir.BindingKind.Attribute, attr.name, o.literal(attr.value), null,
-        SecurityContext.NONE, true, false, null, asMessage(attr.i18n), attr.sourceSpan));
+        op.xref, ir.BindingKind.Attribute, attr.name, o.literal(attr.value), null, securityContext,
+        true, false, null, asMessage(attr.i18n), attr.sourceSpan));
   }
   unit.create.push(op);
 }
@@ -790,7 +809,7 @@ const BINDING_KINDS = new Map<e.BindingType, ir.BindingKind>([
  * | `<ng-template *ngIf>` (structural) | null               |
  */
 function isPlainTemplate(tmpl: t.Template) {
-  return splitNsName(tmpl.tagName ?? '')[1] === 'ng-template';
+  return splitNsName(tmpl.tagName ?? '')[1] === NG_TEMPLATE_TAG_NAME;
 }
 
 /**
@@ -816,10 +835,11 @@ function ingestElementBindings(
 
   for (const attr of element.attributes) {
     // Attribute literal bindings, such as `attr.foo="bar"`.
+    const securityContext = domSchema.securityContext(element.name, attr.name, true);
     bindings.push(ir.createBindingOp(
         op.xref, ir.BindingKind.Attribute, attr.name,
-        convertAstWithInterpolation(unit.job, attr.value, attr.i18n), null, SecurityContext.NONE,
-        true, false, null, asMessage(attr.i18n), attr.sourceSpan));
+        convertAstWithInterpolation(unit.job, attr.value, attr.i18n), null, securityContext, true,
+        false, null, asMessage(attr.i18n), attr.sourceSpan));
   }
 
   for (const input of element.inputs) {
@@ -842,8 +862,8 @@ function ingestElementBindings(
 
     unit.create.push(ir.createListenerOp(
         op.xref, op.handle, output.name, op.tag,
-        makeListenerHandlerOps(unit, output.handler, output.handlerSpan), output.phase, false,
-        output.sourceSpan));
+        makeListenerHandlerOps(unit, output.handler, output.handlerSpan), output.phase,
+        output.target, false, output.sourceSpan));
   }
 
   // If any of the bindings on this element have an i18n message, then an i18n attrs configuration
@@ -865,8 +885,9 @@ function ingestTemplateBindings(
 
   for (const attr of template.templateAttrs) {
     if (attr instanceof t.TextAttribute) {
+      const securityContext = domSchema.securityContext(NG_TEMPLATE_TAG_NAME, attr.name, true);
       bindings.push(createTemplateBinding(
-          unit, op.xref, e.BindingType.Attribute, attr.name, attr.value, null, SecurityContext.NONE,
+          unit, op.xref, e.BindingType.Attribute, attr.name, attr.value, null, securityContext,
           true, templateKind, asMessage(attr.i18n), attr.sourceSpan));
     } else {
       bindings.push(createTemplateBinding(
@@ -877,9 +898,10 @@ function ingestTemplateBindings(
 
   for (const attr of template.attributes) {
     // Attribute literal bindings, such as `attr.foo="bar"`.
+    const securityContext = domSchema.securityContext(NG_TEMPLATE_TAG_NAME, attr.name, true);
     bindings.push(createTemplateBinding(
-        unit, op.xref, e.BindingType.Attribute, attr.name, attr.value, null, SecurityContext.NONE,
-        false, templateKind, asMessage(attr.i18n), attr.sourceSpan));
+        unit, op.xref, e.BindingType.Attribute, attr.name, attr.value, null, securityContext, false,
+        templateKind, asMessage(attr.i18n), attr.sourceSpan));
   }
 
   for (const input of template.inputs) {
@@ -901,14 +923,15 @@ function ingestTemplateBindings(
     if (templateKind === ir.TemplateKind.NgTemplate) {
       unit.create.push(ir.createListenerOp(
           op.xref, op.handle, output.name, op.tag,
-          makeListenerHandlerOps(unit, output.handler, output.handlerSpan), output.phase, false,
-          output.sourceSpan));
+          makeListenerHandlerOps(unit, output.handler, output.handlerSpan), output.phase,
+          output.target, false, output.sourceSpan));
     }
     if (templateKind === ir.TemplateKind.Structural &&
         output.type !== e.ParsedEventType.Animation) {
       // Animation bindings are excluded from the structural template's const array.
+      const securityContext = domSchema.securityContext(NG_TEMPLATE_TAG_NAME, output.name, false);
       unit.create.push(ir.createExtractedAttributeOp(
-          op.xref, ir.BindingKind.Property, output.name, null, null, null));
+          op.xref, ir.BindingKind.Property, output.name, null, null, null, securityContext));
     }
   }
 
@@ -965,7 +988,7 @@ function createTemplateBinding(
       // the ng-template's consts (e.g. for the purposes of directive matching). However, we should
       // not generate an update instruction for it.
       return ir.createExtractedAttributeOp(
-          xref, ir.BindingKind.Property, name, null, null, i18nMessage);
+          xref, ir.BindingKind.Property, name, null, null, i18nMessage, securityContext);
     }
 
     if (!isTextBinding && (type === e.BindingType.Attribute || type === e.BindingType.Animation)) {
@@ -1123,15 +1146,16 @@ function ingestControlFlowInsertionPoint(
   // and they can be used in directive matching (in the case of `Template.templateAttrs`).
   if (root !== null) {
     for (const attr of root.attributes) {
+      const securityContext = domSchema.securityContext(NG_TEMPLATE_TAG_NAME, attr.name, true);
       unit.update.push(ir.createBindingOp(
-          xref, ir.BindingKind.Attribute, attr.name, o.literal(attr.value), null,
-          SecurityContext.NONE, true, false, null, asMessage(attr.i18n), attr.sourceSpan));
+          xref, ir.BindingKind.Attribute, attr.name, o.literal(attr.value), null, securityContext,
+          true, false, null, asMessage(attr.i18n), attr.sourceSpan));
     }
 
     const tagName = root instanceof t.Element ? root.name : root.tagName;
 
     // Don't pass along `ng-template` tag name since it enables directive matching.
-    return tagName === 'ng-template' ? null : tagName;
+    return tagName === NG_TEMPLATE_TAG_NAME ? null : tagName;
   }
 
   return null;

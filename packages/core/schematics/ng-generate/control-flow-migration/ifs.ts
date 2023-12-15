@@ -8,7 +8,7 @@
 
 import {visitAll} from '@angular/compiler';
 
-import {ElementCollector, ElementToMigrate, MigrateError, Result} from './types';
+import {ElementCollector, ElementToMigrate, endMarker, MigrateError, Result, startMarker} from './types';
 import {calculateNesting, getMainBlock, getOriginals, hasLineBreaks, parseTemplate, reduceNestingOffset} from './util';
 
 export const ngif = '*ngIf';
@@ -29,13 +29,13 @@ export function migrateIf(template: string):
     {migrated: string, errors: MigrateError[], changed: boolean} {
   let errors: MigrateError[] = [];
   let parsed = parseTemplate(template);
-  if (parsed === null) {
+  if (parsed.tree === undefined) {
     return {migrated: template, errors, changed: false};
   }
 
   let result = template;
   const visitor = new ElementCollector(ifs);
-  visitAll(visitor, parsed.rootNodes);
+  visitAll(visitor, parsed.tree.rootNodes);
   calculateNesting(visitor, hasLineBreaks(template));
 
   // this tracks the character shift from different lengths of blocks from
@@ -112,8 +112,8 @@ function buildIfBlock(etm: ElementToMigrate, tmpl: string, offset: number): Resu
   const originals = getOriginals(etm, tmpl, offset);
 
   const {start, middle, end} = getMainBlock(etm, tmpl, offset);
-  const startBlock = `@if (${condition}) {${lbString}${start}`;
-  const endBlock = `${end}${lbString}}`;
+  const startBlock = `${startMarker}@if (${condition}) {${lbString}${start}`;
+  const endBlock = `${end}${lbString}}${endMarker}`;
 
   const ifBlock = startBlock + middle + endBlock;
   const updatedTmpl = tmpl.slice(0, etm.start(offset)) + ifBlock + tmpl.slice(etm.end(offset));
@@ -169,11 +169,11 @@ function buildIfElseBlock(
   const originals = getOriginals(etm, tmpl, offset);
 
   const {start, middle, end} = getMainBlock(etm, tmpl, offset);
-  const startBlock = `@if (${condition}) {${lbString}${start}`;
+  const startBlock = `${startMarker}@if (${condition}) {${lbString}${start}`;
 
   const elseBlock = `${end}${lbString}} @else {${lbString}`;
 
-  const postBlock = elseBlock + elsePlaceholder + `${lbString}}`;
+  const postBlock = elseBlock + elsePlaceholder + `${lbString}}${endMarker}`;
   const ifElseBlock = startBlock + middle + postBlock;
 
   const tmplStart = tmpl.slice(0, etm.start(offset));
@@ -217,10 +217,10 @@ function buildIfThenElseBlock(
 
   const originals = getOriginals(etm, tmpl, offset);
 
-  const startBlock = `@if (${condition}) {${lbString}`;
+  const startBlock = `${startMarker}@if (${condition}) {${lbString}`;
   const elseBlock = `${lbString}} @else {${lbString}`;
 
-  const postBlock = thenPlaceholder + elseBlock + elsePlaceholder + `${lbString}}`;
+  const postBlock = thenPlaceholder + elseBlock + elsePlaceholder + `${lbString}}${endMarker}`;
   const ifThenElseBlock = startBlock + postBlock;
 
   const tmplStart = tmpl.slice(0, etm.start(offset));
@@ -243,9 +243,9 @@ function buildIfThenBlock(
 
   const originals = getOriginals(etm, tmpl, offset);
 
-  const startBlock = `@if (${condition}) {${lbString}`;
+  const startBlock = `${startMarker}@if (${condition}) {${lbString}`;
 
-  const postBlock = thenPlaceholder + `${lbString}}`;
+  const postBlock = thenPlaceholder + `${lbString}}${endMarker}`;
   const ifThenBlock = startBlock + postBlock;
 
   const tmplStart = tmpl.slice(0, etm.start(offset));

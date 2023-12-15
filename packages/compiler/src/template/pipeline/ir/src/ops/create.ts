@@ -6,6 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {SecurityContext} from '../../../../../core';
 import * as i18n from '../../../../../i18n/i18n_ast';
 import * as o from '../../../../../output/output_ast';
 import {ParseSourceSpan} from '../../../../../parse_util';
@@ -509,6 +510,11 @@ export interface ListenerOp extends Op<CreateOp> {
    */
   animationPhase: string|null;
 
+  /**
+   * Some event listeners can have a target, e.g. in `document:dragover`.
+   */
+  eventTarget: string|null;
+
   sourceSpan: ParseSourceSpan;
 }
 
@@ -517,8 +523,8 @@ export interface ListenerOp extends Op<CreateOp> {
  */
 export function createListenerOp(
     target: XrefId, targetSlot: SlotHandle, name: string, tag: string|null,
-    handlerOps: Array<UpdateOp>, animationPhase: string|null, hostListener: boolean,
-    sourceSpan: ParseSourceSpan): ListenerOp {
+    handlerOps: Array<UpdateOp>, animationPhase: string|null, eventTarget: string|null,
+    hostListener: boolean, sourceSpan: ParseSourceSpan): ListenerOp {
   const handlerList = new OpList<UpdateOp>();
   handlerList.push(handlerOps);
   return {
@@ -532,7 +538,8 @@ export function createListenerOp(
     handlerFnName: null,
     consumesDollarEvent: false,
     isAnimationListener: animationPhase !== null,
-    animationPhase: animationPhase,
+    animationPhase,
+    eventTarget,
     sourceSpan,
     ...NEW_OP,
   };
@@ -660,6 +667,16 @@ export interface ExtractedAttributeOp extends Op<CreateOp> {
    */
   i18nContext: XrefId|null;
 
+  /**
+   * The security context of the binding.
+   */
+  securityContext: SecurityContext|SecurityContext[];
+
+  /**
+   * The trusted value function for this property.
+   */
+  trustedValueFn: o.Expression|null;
+
   i18nMessage: i18n.Message|null;
 }
 
@@ -668,7 +685,8 @@ export interface ExtractedAttributeOp extends Op<CreateOp> {
  */
 export function createExtractedAttributeOp(
     target: XrefId, bindingKind: BindingKind, name: string, expression: o.Expression|null,
-    i18nContext: XrefId|null, i18nMessage: i18n.Message|null): ExtractedAttributeOp {
+    i18nContext: XrefId|null, i18nMessage: i18n.Message|null,
+    securityContext: SecurityContext|SecurityContext[]): ExtractedAttributeOp {
   return {
     kind: OpKind.ExtractedAttribute,
     target,
@@ -677,6 +695,8 @@ export function createExtractedAttributeOp(
     expression,
     i18nContext,
     i18nMessage,
+    securityContext,
+    trustedValueFn: null,
     ...NEW_OP,
   };
 }

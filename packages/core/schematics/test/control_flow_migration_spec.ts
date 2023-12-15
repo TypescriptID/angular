@@ -669,8 +669,8 @@ describe('control flow migration', () => {
       expect(content).toBe([
         `@if (data$ | async; as data) {`,
         `  <ng-container i18n="@@i18n-label">`,
-        `    {{ data }}`,
-        `  </ng-container>`,
+        `  {{ data }}`,
+        `</ng-container>`,
         `}`,
       ].join('\n'));
     });
@@ -842,8 +842,8 @@ describe('control flow migration', () => {
          expect(content).toBe([
            `@if (false) {`,
            `  <ng-container i18n="@@foo">`,
-           `    Foo`,
-           `  </ng-container>`,
+           `  Foo`,
+           `</ng-container>`,
            `} @else {`,
            `  <ng-container i18n="@@bar"> Bar </ng-container>`,
            `}`,
@@ -2279,6 +2279,64 @@ describe('control flow migration', () => {
         `    <tr><td>{{rowIndex}}</td><td>{{rowData}}</td></tr>`,
         `  }`,
         `</tbody>`,
+      ].join('\n');
+
+      expect(actual).toBe(expected);
+    });
+
+    it('should migrate ngFor with a long ternary and trackby', async () => {
+      writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgFor} from '@angular/common';
+        interface Item {
+          id: number;
+          text: string;
+        }
+
+        @Component({
+          imports: [NgFor,NgForOf],
+          templateUrl: 'comp.html',
+        })
+        class Comp {
+          items: Item[] = [{id: 1, text: 'blah'},{id: 2, text: 'stuff'}];
+        }
+      `);
+
+      writeFile('/comp.html', [
+        `<div`,
+        `  *ngFor="`,
+        `    let item of section === 'manage'`,
+        `      ? filteredPermissions?.manage`,
+        `      : section === 'customFields'`,
+        `      ? filteredPermissions?.customFields`,
+        `      : section === 'createAndDelete'`,
+        `      ? filteredPermissions?.createAndDelete`,
+        `      : filteredPermissions?.team;`,
+        `    trackBy: trackById`,
+        `  "`,
+        `>`,
+        `  {{ item }}`,
+        `</div>`,
+      ].join('\n'));
+
+      await runMigration();
+      const actual = tree.readContent('/comp.html');
+
+      const expected = [
+        `@for (`,
+        `  item of section === 'manage'`,
+        `  ? filteredPermissions?.manage`,
+        `  : section === 'customFields'`,
+        `  ? filteredPermissions?.customFields`,
+        `  : section === 'createAndDelete'`,
+        `  ? filteredPermissions?.createAndDelete`,
+        `  : filteredPermissions?.team; track trackById($index,`,
+        `  item)) {`,
+        `  <div`,
+        `    >`,
+        `    {{ item }}`,
+        `  </div>`,
+        `}`,
       ].join('\n');
 
       expect(actual).toBe(expected);
@@ -3866,10 +3924,10 @@ describe('control flow migration', () => {
         `    bla bla`,
         `  } @else {`,
         `    <ng-container i18n="@@test_key">`,
-        `      @for (item of items; track item) {`,
-        `        <div class="test"></div>`,
-        `      }`,
-        `    </ng-container>`,
+        `  @for (item of items; track item) {`,
+        `<div class="test"></div>`,
+        `}`,
+        `</ng-container>`,
         `  }`,
         `</div>\n`,
       ].join('\n');
@@ -4380,12 +4438,56 @@ describe('control flow migration', () => {
         `    <ng-container`,
         `      i18n="{{i18n}}"`,
         `      >`,
-        `      Match <strong>EVERY</strong> rule in this group`,
-        `    </ng-container>`,
+        `Match <strong>EVERY</strong> rule in this group`,
+        `</ng-container>`,
         `  } @else {`,
         `    {{ruleGroupDropdownLabels?.get(JoinOperator.AND)}}`,
         `  }`,
         `</div>`,
+      ].join('\n');
+
+      expect(actual).toBe(expected);
+    });
+
+    it('should remove empty lines only in parts of template that were changed', async () => {
+      writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgIf} from '@angular/common';
+
+        @Component({
+          selector: 'declare-comp',
+          templateUrl: 'comp.html',
+        })
+        class DeclareComp {}
+      `);
+
+      writeFile('/comp.html', [
+        `<div>header</div>\n`,
+        `<span>header</span>\n\n\n`,
+        `<div *ngIf="true">changed</div>`,
+        `<div>\n`,
+        `  <ul>`,
+        `    <li *ngFor="let item of items">{{ item }}</li>`,
+        `  </ul>`,
+        `</div>\n\n`,
+      ].join('\n'));
+
+      await runMigration();
+      const actual = tree.readContent('/comp.html');
+
+      const expected = [
+        `<div>header</div>\n`,
+        `<span>header</span>\n\n\n`,
+        `@if (true) {`,
+        `  <div>changed</div>`,
+        `}`,
+        `<div>\n`,
+        `  <ul>`,
+        `    @for (item of items; track item) {`,
+        `      <li>{{ item }}</li>`,
+        `    }`,
+        `  </ul>`,
+        `</div>\n\n`,
       ].join('\n');
 
       expect(actual).toBe(expected);
@@ -4606,6 +4708,51 @@ describe('control flow migration', () => {
         `</div>`,
       ].join('\n'));
     });
+
+    it('should ignore formatting on i18n sections', async () => {
+      writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgIf} from '@angular/common';
+
+        @Component({
+          templateUrl: './comp.html'
+        })
+        class Comp {
+          show = false;
+        }
+      `);
+
+      writeFile('/comp.html', [
+        `<div>`,
+        `  <p i18n>`,
+        `  blah`,
+        `</p>`,
+        `<span *ngIf="show;else elseBlock" i18n>Content here</span>`,
+        `<ng-template #elseBlock i18n>`,
+        `  <p>Else Content</p>`,
+        `</ng-template>`,
+        `</div>`,
+      ].join('\n'));
+
+      await runMigration();
+      const actual = tree.readContent('/comp.html');
+      const expected = [
+        `<div>`,
+        `  <p i18n>`,
+        `  blah`,
+        `</p>`,
+        `  @if (show) {`,
+        `    <span i18n>Content here</span>`,
+        `  } @else {`,
+        `    <ng-container i18n>`,
+        `  <p>Else Content</p>`,
+        `</ng-container>`,
+        `  }`,
+        `</div>`,
+      ].join('\n');
+
+      expect(actual).toBe(expected);
+    });
   });
 
   describe('imports', () => {
@@ -4637,6 +4784,55 @@ describe('control flow migration', () => {
 
       expect(actual).toBe(expected);
     });
+
+    it('should not remove common module imports post migration if errors prevented migrating the external template file',
+       async () => {
+         writeFile('/comp.ts', [
+           `import {Component} from '@angular/core';`,
+           `import {NgIf} from '@angular/common';`,
+           `@Component({`,
+           `  imports: [NgIf],`,
+           `  templateUrl: './comp.html',`,
+           `})`,
+           `class Comp {`,
+           `  toggle = false;`,
+           `}`,
+         ].join('\n'));
+
+         writeFile('/comp.html', [
+           `<div>`,
+           `  <span *ngIf="toggle; else elseTmpl">shrug</span>`,
+           `</div>`,
+           `<ng-template #elseTmpl>else content</ng-template>`,
+           `<ng-template #elseTmpl>different</ng-template>`,
+         ].join('\n'));
+
+         await runMigration();
+         const actualCmp = tree.readContent('/comp.ts');
+         const expectedCmp = [
+           `import {Component} from '@angular/core';`,
+           `import {NgIf} from '@angular/common';`,
+           `@Component({`,
+           `  imports: [NgIf],`,
+           `  templateUrl: './comp.html',`,
+           `})`,
+           `class Comp {`,
+           `  toggle = false;`,
+           `}`,
+         ].join('\n');
+         const actualTemplate = tree.readContent('/comp.html');
+
+         const expectedTemplate = [
+           `<div>`,
+           `  <span *ngIf="toggle; else elseTmpl">shrug</span>`,
+           `</div>`,
+           `<ng-template #elseTmpl>else content</ng-template>`,
+           `<ng-template #elseTmpl>different</ng-template>`,
+         ].join('\n');
+
+         expect(actualCmp).toBe(expectedCmp);
+         expect(actualTemplate).toBe(expectedTemplate);
+       });
 
     it('should not remove common module imports post migration if other items used', async () => {
       writeFile('/comp.ts', [
@@ -4947,6 +5143,88 @@ describe('control flow migration', () => {
          const content = tree.readContent('/comp.ts');
          expect(content).toContain(
              'template: `@if (isLoggedIn$ | async; as logIn) {\n  Log In\n} @else {\n  Log Out\n}\n`');
+       });
+  });
+
+  describe('error handling', () => {
+    it('should not migrate a template that would result in invalid html', async () => {
+      writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+
+        @Component({
+          templateUrl: './comp.html'
+        })
+        class Comp {
+          testOpts = 2;
+        }
+      `);
+
+      writeFile('/comp.html', [
+        `<div *ngIf="stuff; else elseTmpl">`,
+        `    Stuff`,
+        `</div>`,
+        `<ng-template #elseTmpl>`,
+        `  <div>things</div>`,
+        `<ng-template>`,
+      ].join('\n'));
+
+      await runMigration();
+      const content = tree.readContent('/comp.html');
+      expect(content).toBe([
+        `<div *ngIf="stuff; else elseTmpl">`,
+        `    Stuff`,
+        `</div>`,
+        `<ng-template #elseTmpl>`,
+        `  <div>things</div>`,
+        `<ng-template>`,
+      ].join('\n'));
+
+      const warnings = warnOutput.join(' ');
+
+      expect(warnings).toContain('The migration resulted in invalid HTML for');
+      expect(warnings).toContain(
+          'Please check the template for valid HTML structures and run the migration again.');
+    });
+
+    it('should not migrate a template that would result in invalid switch block contents',
+       async () => {
+         writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+
+        @Component({
+          templateUrl: './comp.html'
+        })
+        class Comp {
+          testOpts = 2;
+        }
+      `);
+
+         writeFile('/comp.html', [
+           `<div [ngSwitch]="testOpts">`,
+           `<strong>`,
+           `<p *ngSwitchCase="1">Option 1</p>`,
+           `<p *ngSwitchCase="2">Option 2</p>`,
+           `<p *ngSwitchDefault>Option 3</p>`,
+           `</strong>`,
+           `</div>`,
+         ].join('\n'));
+
+         await runMigration();
+         const content = tree.readContent('/comp.html');
+         expect(content).toBe([
+           `<div [ngSwitch]="testOpts">`,
+           `<strong>`,
+           `<p *ngSwitchCase="1">Option 1</p>`,
+           `<p *ngSwitchCase="2">Option 2</p>`,
+           `<p *ngSwitchDefault>Option 3</p>`,
+           `</strong>`,
+           `</div>`,
+         ].join('\n'));
+
+         expect(warnOutput.join(' '))
+             .toContain(
+                 `Element node: "strong" would result in invalid migrated @switch block structure. ` +
+                 `@switch can only have @case or @default as children.`);
        });
   });
 });

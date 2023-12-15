@@ -6,17 +6,22 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Attribute, HtmlParser, ParseTreeResult, visitAll} from '@angular/compiler';
+import {Attribute, Element, HtmlParser, Node, ParseTreeResult, visitAll} from '@angular/compiler';
 import {dirname, join} from 'path';
 import ts from 'typescript';
 
-import {AnalyzedFile, CommonCollector, ElementCollector, ElementToMigrate, Template, TemplateCollector} from './types';
+import {AnalyzedFile, CommonCollector, ElementCollector, ElementToMigrate, endI18nMarker, endMarker, i18nCollector, ParseResult, startI18nMarker, startMarker, Template, TemplateCollector} from './types';
 
 const importRemovals = [
   'NgIf', 'NgIfElse', 'NgIfThenElse', 'NgFor', 'NgForOf', 'NgForTrackBy', 'NgSwitch',
   'NgSwitchCase', 'NgSwitchDefault'
 ];
 const importWithCommonRemovals = [...importRemovals, 'CommonModule'];
+const startMarkerRegex = new RegExp(startMarker, 'gm');
+const endMarkerRegex = new RegExp(endMarker, 'gm');
+const startI18nMarkerRegex = new RegExp(startI18nMarker, 'gm');
+const endI18nMarkerRegex = new RegExp(endI18nMarker, 'gm');
+const replaceMarkerRegex = new RegExp(`${startMarker}|${endMarker}`, 'gm');
 
 /**
  * Analyzes a source file to find file that need to be migrated and the text ranges within them.
@@ -195,7 +200,7 @@ function getNestedCount(etm: ElementToMigrate, aggregator: number[]) {
 /**
  * parses the template string into the Html AST
  */
-export function parseTemplate(template: string): ParseTreeResult|null {
+export function parseTemplate(template: string): ParseResult {
   let parsed: ParseTreeResult;
   try {
     // Note: we use the HtmlParser here, instead of the `parseTemplate` function, because the
@@ -213,12 +218,13 @@ export function parseTemplate(template: string): ParseTreeResult|null {
 
     // Don't migrate invalid templates.
     if (parsed.errors && parsed.errors.length > 0) {
-      return null;
+      const errors = parsed.errors.map(e => ({type: 'parse', error: e}));
+      return {tree: undefined, errors};
     }
-  } catch {
-    return null;
+  } catch (e: any) {
+    return {tree: undefined, errors: [{type: 'parse', error: e}]};
   }
-  return parsed;
+  return {tree: parsed, errors: []};
 }
 
 /**
@@ -277,9 +283,9 @@ export function reduceNestingOffset(
  */
 export function getTemplates(template: string): Map<string, Template> {
   const parsed = parseTemplate(template);
-  if (parsed !== null) {
+  if (parsed.tree !== undefined) {
     const visitor = new TemplateCollector();
-    visitAll(visitor, parsed.rootNodes);
+    visitAll(visitor, parsed.tree.rootNodes);
 
     // count usages of each ng-template
     for (let [key, tmpl] of visitor.templates) {
@@ -348,7 +354,7 @@ export function processNgTemplates(template: string): {migrated: string, err: Er
         }
         // the +1 accounts for the t.count's counting of the original template
         if (t.count === matches.length + 1 && safeToRemove) {
-          template = template.replace(t.contents, '');
+          template = template.replace(t.contents, `${startMarker}${endMarker}`);
         }
         // templates may have changed structure from nested replaced templates
         // so we need to reprocess them before the next loop.
@@ -384,9 +390,9 @@ function replaceRemainingPlaceholders(template: string): string {
 export function canRemoveCommonModule(template: string): boolean {
   const parsed = parseTemplate(template);
   let removeCommonModule = false;
-  if (parsed !== null) {
+  if (parsed.tree !== undefined) {
     const visitor = new CommonCollector();
-    visitAll(visitor, parsed.rootNodes);
+    visitAll(visitor, parsed.tree.rootNodes);
     removeCommonModule = visitor.count === 0;
   }
   return removeCommonModule;
@@ -411,7 +417,7 @@ export function removeImports(
  * processing
  */
 export function getOriginals(etm: ElementToMigrate, tmpl: string, offset: number):
-    {start: string, end: string, childLength: number} {
+    {start: string, end: string, childLength: number, children: string[], childNodes: Node[]} {
   // original opening block
   if (etm.el.children.length > 0) {
     const childStart = etm.el.children[0].sourceSpan.start.offset - offset;
@@ -424,13 +430,25 @@ export function getOriginals(etm: ElementToMigrate, tmpl: string, offset: number
         etm.el.children[etm.el.children.length - 1].sourceSpan.end.offset - offset,
         etm.el.sourceSpan.end.offset - offset);
     const childLength = childEnd - childStart;
-    return {start, end, childLength};
+    return {
+      start,
+      end,
+      childLength,
+      children: getOriginalChildren(etm.el.children, tmpl, offset),
+      childNodes: etm.el.children
+    };
   }
   // self closing or no children
   const start =
       tmpl.slice(etm.el.sourceSpan.start.offset - offset, etm.el.sourceSpan.end.offset - offset);
   // original closing block
-  return {start, end: '', childLength: 0};
+  return {start, end: '', childLength: 0, children: [], childNodes: []};
+}
+
+function getOriginalChildren(children: Node[], tmpl: string, offset: number) {
+  return children.map(child => {
+    return tmpl.slice(child.sourceSpan.start.offset - offset, child.sourceSpan.end.offset - offset);
+  });
 }
 
 function isI18nTemplate(etm: ElementToMigrate, i18nAttr: Attribute|undefined): boolean {
@@ -474,6 +492,8 @@ export function getMainBlock(etm: ElementToMigrate, tmpl: string, offset: number
     if (etm.hasChildren()) {
       const {childStart, childEnd} = etm.getChildSpan(offset);
       middle = tmpl.slice(childStart, childEnd);
+    } else {
+      middle = startMarker + endMarker;
     }
     return {start: '', middle, end: ''};
   } else if (isI18nTemplate(etm, i18nAttr)) {
@@ -510,6 +530,33 @@ export function getMainBlock(etm: ElementToMigrate, tmpl: string, offset: number
   return {start, middle, end};
 }
 
+function generateI18nMarkers(tmpl: string): string {
+  let parsed = parseTemplate(tmpl);
+  if (parsed.tree !== undefined) {
+    const visitor = new i18nCollector();
+    visitAll(visitor, parsed.tree.rootNodes);
+
+    for (const [ix, el] of visitor.elements.entries()) {
+      // we only care about elements with children and i18n tags
+      // elements without children have nothing to translate
+
+      // offset accounts for the addition of the 2 marker characters with each loop.
+      const offset = ix * 2;
+      if (el.children.length > 0) {
+        tmpl = addI18nMarkers(tmpl, el, offset);
+      }
+    }
+  }
+  return tmpl;
+}
+
+function addI18nMarkers(tmpl: string, el: Element, offset: number): string {
+  const startPos = el.children[0].sourceSpan.start.offset + offset;
+  const endPos = el.children[el.children.length - 1].sourceSpan.end.offset + offset;
+  return tmpl.slice(0, startPos) + startI18nMarker + tmpl.slice(startPos, endPos) + endI18nMarker +
+      tmpl.slice(endPos);
+}
+
 const selfClosingList = 'input|br|img|base|wbr|area|col|embed|hr|link|meta|param|source|track';
 
 /**
@@ -517,6 +564,8 @@ const selfClosingList = 'input|br|img|base|wbr|area|col|embed|hr|link|meta|param
  */
 export function formatTemplate(tmpl: string, templateType: string): string {
   if (tmpl.indexOf('\n') > -1) {
+    tmpl = generateI18nMarkers(tmpl);
+
     // tracks if a self closing element opened without closing yet
     let openSelfClosingEl = false;
 
@@ -555,14 +604,31 @@ export function formatTemplate(tmpl: string, templateType: string): string {
     // matches an open and close of an html element on a single line with no breaks
     // <div>blah</div>
     const singleLineElRegex = /\s*<([a-zA-Z0-9]+)(?![^>]*\/>)[^>]*>.*<\/([a-zA-Z0-9\-]+)*>/;
+
     const lines = tmpl.split('\n');
     const formatted = [];
     // the indent applied during formatting
     let indent = '';
     // the pre-existing indent in an inline template that we'd like to preserve
     let mindent = '';
+    let depth = 0;
+    let i18nDepth = 0;
+    let inMigratedBlock = false;
+    let inI18nBlock = false;
     for (let [index, line] of lines.entries()) {
-      if (line.trim() === '' && index !== 0 && index !== lines.length - 1) {
+      depth +=
+          [...line.matchAll(startMarkerRegex)].length - [...line.matchAll(endMarkerRegex)].length;
+      inMigratedBlock = depth > 0;
+      i18nDepth += [...line.matchAll(startI18nMarkerRegex)].length -
+          [...line.matchAll(endI18nMarkerRegex)].length;
+
+      let lineWasMigrated = false;
+      if (line.match(replaceMarkerRegex)) {
+        line = line.replace(replaceMarkerRegex, '');
+        lineWasMigrated = true;
+      }
+      if ((line.trim() === '' && index !== 0 && index !== lines.length - 1) &&
+          (inMigratedBlock || lineWasMigrated)) {
         // skip blank lines except if it's the first line or last line
         // this preserves leading and trailing spaces if they are already present
         continue;
@@ -584,7 +650,9 @@ export function formatTemplate(tmpl: string, templateType: string): string {
         indent = indent.slice(2);
       }
 
-      formatted.push(mindent + indent + line.trim());
+      const newLine =
+          inI18nBlock ? line : mindent + (line.trim() !== '' ? indent : '') + line.trim();
+      formatted.push(newLine);
 
       // this matches any self closing element that actually has a />
       if (closeMultiLineElRegex.test(line)) {
@@ -615,6 +683,7 @@ export function formatTemplate(tmpl: string, templateType: string): string {
         // add to the indent for the properties on it to look nice
         indent += '  ';
       }
+      inI18nBlock = i18nDepth > 0;
     }
     tmpl = formatted.join('\n');
   }

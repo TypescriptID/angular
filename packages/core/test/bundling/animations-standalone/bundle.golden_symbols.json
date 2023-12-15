@@ -741,16 +741,7 @@
     "name": "convertToBitFlags"
   },
   {
-    "name": "convertToMap"
-  },
-  {
     "name": "copyAnimationEvent"
-  },
-  {
-    "name": "copyObj"
-  },
-  {
-    "name": "copyStyles"
   },
   {
     "name": "createElementNode"
@@ -1158,9 +1149,6 @@
     "name": "iterator"
   },
   {
-    "name": "iteratorToArray"
-  },
-  {
     "name": "leaveDI"
   },
   {
@@ -1405,9 +1393,6 @@
   },
   {
     "name": "setupStaticAttributes"
-  },
-  {
-    "name": "share"
   },
   {
     "name": "shareSubjectFactory"

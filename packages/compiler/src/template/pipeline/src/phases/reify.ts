@@ -13,14 +13,12 @@ import {ViewCompilationUnit, type CompilationJob, type CompilationUnit} from '..
 import * as ng from '../instruction';
 
 /**
- * Map of sanitizers to their identifier.
+ * Map of target resolvers for event listeners.
  */
-const sanitizerIdentifierMap = new Map<ir.SanitizerFn, o.ExternalReference>([
-  [ir.SanitizerFn.Html, Identifiers.sanitizeHtml],
-  [ir.SanitizerFn.IframeAttribute, Identifiers.validateIframeAttribute],
-  [ir.SanitizerFn.ResourceUrl, Identifiers.sanitizeResourceUrl],
-  [ir.SanitizerFn.Script, Identifiers.sanitizeScript],
-  [ir.SanitizerFn.Style, Identifiers.sanitizeStyle], [ir.SanitizerFn.Url, Identifiers.sanitizeUrl]
+const GLOBAL_TARGET_RESOLVERS = new Map<string, o.ExternalReference>([
+  ['window', Identifiers.resolveWindow],
+  ['document', Identifiers.resolveDocument],
+  ['body', Identifiers.resolveBody],
 ]);
 
 /**
@@ -124,10 +122,16 @@ function reifyCreateOperations(unit: CompilationUnit, ops: ir.OpList<ir.CreateOp
       case ir.OpKind.Listener:
         const listenerFn =
             reifyListenerHandler(unit, op.handlerFnName!, op.handlerOps, op.consumesDollarEvent);
-        const reified = op.hostListener && op.isAnimationListener ?
-            ng.syntheticHostListener(op.name, listenerFn, op.sourceSpan) :
-            ng.listener(op.name, listenerFn, op.sourceSpan);
-        ir.OpList.replace(op, reified);
+        const eventTargetResolver =
+            op.eventTarget ? GLOBAL_TARGET_RESOLVERS.get(op.eventTarget) : null;
+        if (eventTargetResolver === undefined) {
+          throw new Error(`AssertionError: unknown event target ${op.eventTarget}`);
+        }
+        ir.OpList.replace(
+            op,
+            ng.listener(
+                op.name, listenerFn, eventTargetResolver, op.hostListener && op.isAnimationListener,
+                op.sourceSpan));
         break;
       case ir.OpKind.Variable:
         if (op.variable.name === null) {
@@ -329,7 +333,8 @@ function reifyUpdateOperations(_unit: CompilationUnit, ops: ir.OpList<ir.UpdateO
           if (op.isAnimationTrigger) {
             ir.OpList.replace(op, ng.syntheticHostProperty(op.name, op.expression, op.sourceSpan));
           } else {
-            ir.OpList.replace(op, ng.hostProperty(op.name, op.expression, op.sourceSpan));
+            ir.OpList.replace(
+                op, ng.hostProperty(op.name, op.expression, op.sanitizer, op.sourceSpan));
           }
         }
         break;
@@ -415,8 +420,6 @@ function reifyIrExpression(expr: o.Expression): o.Expression {
       return ng.pipeBind(expr.targetSlot.slot!, expr.varOffset!, expr.args);
     case ir.ExpressionKind.PipeBindingVariadic:
       return ng.pipeBindV(expr.targetSlot.slot!, expr.varOffset!, expr.args);
-    case ir.ExpressionKind.SanitizerExpr:
-      return o.importExpr(sanitizerIdentifierMap.get(expr.fn)!);
     case ir.ExpressionKind.SlotLiteralExpr:
       return o.literal(expr.slot.slot!);
     default:

@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Attribute, Element, RecursiveVisitor, Text} from '@angular/compiler';
+import {Attribute, Element, ParseTreeResult, RecursiveVisitor, Text} from '@angular/compiler';
 import ts from 'typescript';
 
 export const ngtemplate = 'ng-template';
@@ -14,6 +14,12 @@ export const boundngifelse = '[ngIfElse]';
 export const boundngifthenelse = '[ngIfThenElse]';
 export const boundngifthen = '[ngIfThen]';
 export const nakedngfor = 'ngFor';
+
+export const startMarker = '◬';
+export const endMarker = '✢';
+
+export const startI18nMarker = '⚈';
+export const endI18nMarker = '⚉';
 
 function allFormsOf(selector: string): string[] {
   return [
@@ -86,6 +92,11 @@ export interface ForAttributes {
 export interface AliasAttributes {
   item: string;
   aliases: Map<string, string>;
+}
+
+export interface ParseResult {
+  tree: ParseTreeResult|undefined;
+  errors: MigrateError[];
 }
 
 /**
@@ -240,6 +251,7 @@ export class Template {
 export class AnalyzedFile {
   private ranges: Range[] = [];
   removeCommonModule = false;
+  canRemoveImports = false;
   sourceFilePath: string = '';
 
   /** Returns the ranges in the order in which they should be migrated. */
@@ -307,6 +319,18 @@ export class CommonCollector extends RecursiveVisitor {
 
   private hasPipes(input: string): boolean {
     return commonModulePipes.some(regexp => regexp.test(input));
+  }
+}
+
+/** Finds all elements that represent i18n blocks. */
+export class i18nCollector extends RecursiveVisitor {
+  readonly elements: Element[] = [];
+
+  override visitElement(el: Element): void {
+    if (el.attrs.find(a => a.name === 'i18n') !== undefined) {
+      this.elements.push(el);
+    }
+    super.visitElement(el, null);
   }
 }
 

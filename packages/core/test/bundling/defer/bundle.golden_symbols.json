@@ -534,6 +534,9 @@
     "name": "_enable_super_gross_mode_that_will_cause_bad_things"
   },
   {
+    "name": "_ensureDirtyViewsAreAlwaysReachable"
+  },
+  {
     "name": "_findMatchingDehydratedViewImpl"
   },
   {
@@ -1065,6 +1068,9 @@
     "name": "init_attrs_utils"
   },
   {
+    "name": "init_authoring"
+  },
+  {
     "name": "init_bindings"
   },
   {
@@ -1332,6 +1338,9 @@
     "name": "init_fields"
   },
   {
+    "name": "init_flags"
+  },
+  {
     "name": "init_forward_ref"
   },
   {
@@ -1465,6 +1474,12 @@
   },
   {
     "name": "init_innerSubscribe"
+  },
+  {
+    "name": "init_input"
+  },
+  {
+    "name": "init_input_signal"
   },
   {
     "name": "init_input_transforms_feature"
@@ -2335,9 +2350,6 @@
   },
   {
     "name": "setupStaticAttributes"
-  },
-  {
-    "name": "share"
   },
   {
     "name": "shareSubjectFactory"

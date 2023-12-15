@@ -630,6 +630,9 @@
     "name": "_enable_super_gross_mode_that_will_cause_bad_things"
   },
   {
+    "name": "_ensureDirtyViewsAreAlwaysReachable"
+  },
+  {
     "name": "_getInsertInFrontOfRNodeWithI18n"
   },
   {
@@ -1624,9 +1627,6 @@
   },
   {
     "name": "setupStaticAttributes"
-  },
-  {
-    "name": "share"
   },
   {
     "name": "shareSubjectFactory"

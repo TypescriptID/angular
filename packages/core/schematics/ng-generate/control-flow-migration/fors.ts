@@ -8,7 +8,7 @@
 
 import {visitAll} from '@angular/compiler';
 
-import {ElementCollector, ElementToMigrate, MigrateError, Result} from './types';
+import {ElementCollector, ElementToMigrate, endMarker, MigrateError, Result, startMarker} from './types';
 import {calculateNesting, getMainBlock, getOriginals, hasLineBreaks, parseTemplate, reduceNestingOffset} from './util';
 
 export const ngfor = '*ngFor';
@@ -36,13 +36,13 @@ export function migrateFor(template: string):
     {migrated: string, errors: MigrateError[], changed: boolean} {
   let errors: MigrateError[] = [];
   let parsed = parseTemplate(template);
-  if (parsed === null) {
+  if (parsed.tree === undefined) {
     return {migrated: template, errors, changed: false};
   }
 
   let result = template;
   const visitor = new ElementCollector(fors);
-  visitAll(visitor, parsed.rootNodes);
+  visitAll(visitor, parsed.tree.rootNodes);
   calculateNesting(visitor, hasLineBreaks(template));
 
   // this tracks the character shift from different lengths of blocks from
@@ -149,8 +149,8 @@ function migrateStandardNgFor(etm: ElementToMigrate, tmpl: string, offset: numbe
 
   const aliasStr = (aliases.length > 0) ? `;${aliases.join(';')}` : '';
 
-  let startBlock = `@for (${condition}; track ${trackBy}${aliasStr}) {${lbString}`;
-  let endBlock = `${lbString}}`;
+  let startBlock = `${startMarker}@for (${condition}; track ${trackBy}${aliasStr}) {${lbString}`;
+  let endBlock = `${lbString}}${endMarker}`;
   let forBlock = '';
 
   if (tmplPlaceholder !== '') {
@@ -196,9 +196,9 @@ function migrateBoundNgFor(etm: ElementToMigrate, tmpl: string, offset: number):
   }
 
   const {start, middle, end} = getMainBlock(etm, tmpl, offset);
-  const startBlock = `@for (${condition}; track ${trackBy}${aliasStr}) {\n${start}`;
+  const startBlock = `${startMarker}@for (${condition}; track ${trackBy}${aliasStr}) {\n${start}`;
 
-  const endBlock = `${end}\n}`;
+  const endBlock = `${end}\n}${endMarker}`;
   const forBlock = startBlock + middle + endBlock;
 
   const updatedTmpl = tmpl.slice(0, etm.start(offset)) + forBlock + tmpl.slice(etm.end(offset));
@@ -219,7 +219,6 @@ function getNgForParts(expression: string): string[] {
     const char = expression[i];
     const isInString = stringStack.length === 0;
     const isInCommaSeparated = commaSeparatedStack.length === 0;
-
     // Any semicolon is a delimiter, as well as any comma outside
     // of comma-separated syntax, as long as they're outside of a string.
     if (isInString && current.length > 0 &&
@@ -229,10 +228,10 @@ function getNgForParts(expression: string): string[] {
       continue;
     }
 
-    if (stringPairs.has(char)) {
-      stringStack.push(stringPairs.get(char)!);
-    } else if (stringStack.length > 0 && stringStack[stringStack.length - 1] === char) {
+    if (stringStack.length > 0 && stringStack[stringStack.length - 1] === char) {
       stringStack.pop();
+    } else if (stringPairs.has(char)) {
+      stringStack.push(stringPairs.get(char)!);
     }
 
     if (commaSeparatedSyntax.has(char)) {
