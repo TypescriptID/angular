@@ -4729,6 +4729,7 @@ describe('control flow migration', () => {
         `</p>`,
         `<span *ngIf="show;else elseBlock" i18n>Content here</span>`,
         `<ng-template #elseBlock i18n>`,
+        `  `,
         `  <p>Else Content</p>`,
         `</ng-template>`,
         `</div>`,
@@ -4745,6 +4746,7 @@ describe('control flow migration', () => {
         `    <span i18n>Content here</span>`,
         `  } @else {`,
         `    <ng-container i18n>`,
+        `  `,
         `  <p>Else Content</p>`,
         `</ng-container>`,
         `  }`,
@@ -4753,6 +4755,83 @@ describe('control flow migration', () => {
 
       expect(actual).toBe(expected);
     });
+
+    it('should indent multi-line attribute strings to the right place', async () => {
+      writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgIf} from '@angular/common';
+
+        @Component({
+          templateUrl: './comp.html'
+        })
+        class Comp {
+          show = false;
+        }
+      `);
+
+      writeFile('/comp.html', [
+        `<div *ngIf="show">show</div>`,
+        `<span i18n-message="this is a multi-`,
+        `                    line attribute`,
+        `                    with cool things">`,
+        `  Content here`,
+        `</span>`,
+      ].join('\n'));
+
+      await runMigration();
+      const actual = tree.readContent('/comp.html');
+      const expected = [
+        `@if (show) {`,
+        `  <div>show</div>`,
+        `}`,
+        `<span i18n-message="this is a multi-`,
+        `                    line attribute`,
+        `                    with cool things">`,
+        `  Content here`,
+        `</span>`,
+      ].join('\n');
+
+      expect(actual).toBe(expected);
+    });
+
+    it('should indent multi-line attribute strings as single quotes to the right place',
+       async () => {
+         writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+        import {NgIf} from '@angular/common';
+
+        @Component({
+          templateUrl: './comp.html'
+        })
+        class Comp {
+          show = false;
+        }
+      `);
+
+         writeFile('/comp.html', [
+           `<div *ngIf="show">show</div>`,
+           `<span i18n-message='this is a multi-`,
+           `                    line attribute`,
+           `                    with cool things'>`,
+           `  Content here`,
+           `</span>`,
+         ].join('\n'));
+
+         await runMigration();
+         const actual = tree.readContent('/comp.html');
+         const expected = [
+           `@if (show) {`,
+           `  <div>show</div>`,
+           `}`,
+           `<span i18n-message='this is a multi-`,
+           `                    line attribute`,
+           `                    with cool things'>`,
+           `  Content here`,
+           `</span>`,
+         ].join('\n');
+
+         expect(actual).toBe(expected);
+       });
   });
 
   describe('imports', () => {
@@ -5015,6 +5094,134 @@ describe('control flow migration', () => {
         `class Comp {`,
         `  toggle = false;`,
         `}`,
+      ].join('\n');
+
+      expect(actual).toBe(expected);
+    });
+
+    it('should not remove common module when more common module symbols are found', async () => {
+      writeFile('/comp.ts', [
+        `import {Component, NgModule} from '@angular/core';`,
+        `import {CommonModule} from '@angular/common';\n`,
+        `@Component({`,
+        `  selector: 'example-cmp',`,
+        `  templateUrl: './comp.html',`,
+        `})`,
+        `export class ExampleCmp {`,
+        `}`,
+        `@Component({`,
+        `  standalone: true`,
+        `  selector: 'example2-cmp',`,
+        `  imports: [CommonModule],`,
+        `  templateUrl: './comp.html',`,
+        `})`,
+        `export class Example2Cmp {`,
+        `}`,
+        `const NG_MODULE_IMPORTS = [CommonModule, OtherModule];`,
+        ``,
+        `@NgModule({`,
+        `  declarations: [ExampleCmp],`,
+        `  exports: [ExampleCmp],`,
+        `  imports: [NG_MODULE_IMPORTS],`,
+        `})`,
+        `export class ExampleModule {}`,
+      ].join('\n'));
+
+      writeFile('/comp.html', [
+        `<div>`,
+        `<span *ngIf="show">Content here</span>`,
+        `</div>`,
+      ].join('\n'));
+
+      await runMigration();
+      const actual = tree.readContent('/comp.ts');
+      const expected = [
+        `import {Component, NgModule} from '@angular/core';`,
+        `import {CommonModule} from '@angular/common';\n`,
+        `@Component({`,
+        `  selector: 'example-cmp',`,
+        `  templateUrl: './comp.html',`,
+        `})`,
+        `export class ExampleCmp {`,
+        `}`,
+        `@Component({`,
+        `  standalone: true`,
+        `  selector: 'example2-cmp',`,
+        `  imports: [],`,
+        `  templateUrl: './comp.html',`,
+        `})`,
+        `export class Example2Cmp {`,
+        `}`,
+        `const NG_MODULE_IMPORTS = [CommonModule, OtherModule];`,
+        ``,
+        `@NgModule({`,
+        `  declarations: [ExampleCmp],`,
+        `  exports: [ExampleCmp],`,
+        `  imports: [NG_MODULE_IMPORTS],`,
+        `})`,
+        `export class ExampleModule {}`,
+      ].join('\n');
+
+      expect(actual).toBe(expected);
+    });
+
+    it('should not remove imports when mismatch in counts', async () => {
+      writeFile('/comp.ts', [
+        `import {CommonModule} from '@angular/common';`,
+        `import {Component, NgModule, Pipe, PipeTransform} from '@angular/core';`,
+        `@Component({`,
+        `  selector: 'description',`,
+        `  template: \`<span>{{getDescription()}}</span>\`,`,
+        `})`,
+        `export class DescriptionController {`,
+        `  getDescription(): string {`,
+        `    return 'stuff';`,
+        `  }`,
+        `}`,
+        ``,
+        `@Pipe({name: 'description'})`,
+        `export class DescriptionPipe implements PipeTransform {`,
+        `  transform(nameString?: string): string {`,
+        `    return nameString ?? '';`,
+        `  }`,
+        `}`,
+        `@NgModule({`,
+        `  declarations: [DescriptionController, DescriptionPipe],`,
+        `  imports: [CommonModule],`,
+        `  providers: [],`,
+        `  exports: [DescriptionController, DescriptionPipe],`,
+        `})`,
+        `export class DescriptionModule {}`,
+      ].join('\n'));
+
+      await runMigration();
+      const actual = tree.readContent('/comp.ts');
+      const expected = [
+        `import {CommonModule} from '@angular/common';`,
+        `import {Component, NgModule, Pipe, PipeTransform} from '@angular/core';`,
+        `@Component({`,
+        `  selector: 'description',`,
+        `  template: \`<span>{{getDescription()}}</span>\`,`,
+        `})`,
+        `export class DescriptionController {`,
+        `  getDescription(): string {`,
+        `    return 'stuff';`,
+        `  }`,
+        `}`,
+        ``,
+        `@Pipe({name: 'description'})`,
+        `export class DescriptionPipe implements PipeTransform {`,
+        `  transform(nameString?: string): string {`,
+        `    return nameString ?? '';`,
+        `  }`,
+        `}`,
+        `@NgModule({`,
+        `  declarations: [DescriptionController, DescriptionPipe],`,
+        `  imports: [CommonModule],`,
+        `  providers: [],`,
+        `  exports: [DescriptionController, DescriptionPipe],`,
+        `})`,
+        `export class DescriptionModule {}`,
       ].join('\n');
 
       expect(actual).toBe(expected);

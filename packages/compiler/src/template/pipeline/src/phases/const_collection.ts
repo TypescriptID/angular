@@ -25,7 +25,8 @@ export function collectElementConsts(job: CompilationJob): void {
   for (const unit of job.units) {
     for (const op of unit.create) {
       if (op.kind === ir.OpKind.ExtractedAttribute) {
-        const attributes = allElementAttributes.get(op.target) || new ElementAttributes();
+        const attributes =
+            allElementAttributes.get(op.target) || new ElementAttributes(job.compatibility);
         allElementAttributes.set(op.target, attributes);
         attributes.add(op.bindingKind, op.name, op.expression, op.trustedValueFn);
         ir.OpList.remove<ir.CreateOp>(op);
@@ -73,7 +74,7 @@ const FLYWEIGHT_ARRAY: ReadonlyArray<o.Expression> = Object.freeze<o.Expression[
  * Container for all of the various kinds of attributes which are applied on an element.
  */
 class ElementAttributes {
-  private known = new Set<string>();
+  private known = new Map<ir.BindingKind, Set<string>>();
   private byKind = new Map<ir.BindingKind, o.Expression[]>;
 
   projectAs: string|null = null;
@@ -102,12 +103,30 @@ class ElementAttributes {
     return this.byKind.get(ir.BindingKind.I18n) ?? FLYWEIGHT_ARRAY;
   }
 
+  constructor(private compatibility: ir.CompatibilityMode) {}
+
+  isKnown(kind: ir.BindingKind, name: string, value: o.Expression|null) {
+    const nameToValue = this.known.get(kind) ?? new Set<string>();
+    this.known.set(kind, nameToValue);
+    if (nameToValue.has(name)) {
+      return true;
+    }
+    nameToValue.add(name);
+    return false;
+  }
+
   add(kind: ir.BindingKind, name: string, value: o.Expression|null,
       trustedValueFn: o.Expression|null): void {
-    if (this.known.has(name)) {
+    // TemplateDefinitionBuilder puts duplicate attribute, class, and style values into the consts
+    // array. This seems inefficient, we can probably keep just the first one or the last value
+    // (whichever actually gets applied when multiple values are listed for the same attribute).
+    const allowDuplicates = this.compatibility === ir.CompatibilityMode.TemplateDefinitionBuilder &&
+        (kind === ir.BindingKind.Attribute || kind === ir.BindingKind.ClassName ||
+         kind === ir.BindingKind.StyleProperty);
+    if (!allowDuplicates && this.isKnown(kind, name, value)) {
       return;
     }
-    this.known.add(name);
+
     // TODO: Can this be its own phase
     if (name === 'ngProjectAs') {
       if (value === null || !(value instanceof o.LiteralExpr) || (value.value == null) ||
@@ -151,7 +170,7 @@ class ElementAttributes {
  * Gets an array of literal expressions representing the attribute's namespaced name.
  */
 function getAttributeNameLiterals(name: string): o.LiteralExpr[] {
-  const [attributeNamespace, attributeName] = splitNsName(name);
+  const [attributeNamespace, attributeName] = splitNsName(name, false);
   const nameLiteral = o.literal(attributeName);
 
   if (attributeNamespace) {

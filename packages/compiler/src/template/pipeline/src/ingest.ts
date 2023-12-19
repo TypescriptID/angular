@@ -78,7 +78,7 @@ export function ingestHostBinding(
             .calcPossibleSecurityContexts(
                 input.componentSelector, property.name, bindingKind === ir.BindingKind.Attribute)
             .filter(context => context !== SecurityContext.NONE);
-    ingestHostProperty(job, property, bindingKind, false, securityContexts);
+    ingestHostProperty(job, property, bindingKind, securityContexts);
   }
   for (const [name, expr] of Object.entries(input.attributes) ?? []) {
     const securityContexts =
@@ -96,7 +96,7 @@ export function ingestHostBinding(
 // with ordinary components. This would allow us to share a lot more ingestion code.
 export function ingestHostProperty(
     job: HostBindingCompilationJob, property: e.ParsedProperty, bindingKind: ir.BindingKind,
-    isTextAttribute: boolean, securityContexts: SecurityContext[]): void {
+    securityContexts: SecurityContext[]): void {
   let expression: o.Expression|ir.Interpolation;
   const ast = property.expression.ast;
   if (ast instanceof e.Interpolation) {
@@ -106,19 +106,20 @@ export function ingestHostProperty(
     expression = convertAst(ast, job, property.sourceSpan);
   }
   job.root.update.push(ir.createBindingOp(
-      job.root.xref, bindingKind, property.name, expression, null, securityContexts,
-      isTextAttribute, false, null, /* TODO: How do Host bindings handle i18n attrs? */ null,
-      property.sourceSpan));
+      job.root.xref, bindingKind, property.name, expression, null, securityContexts, false, false,
+      null, /* TODO: How do Host bindings handle i18n attrs? */ null, property.sourceSpan));
 }
 
 export function ingestHostAttribute(
     job: HostBindingCompilationJob, name: string, value: o.Expression,
     securityContexts: SecurityContext[]): void {
   const attrBinding = ir.createBindingOp(
-      job.root.xref, ir.BindingKind.Attribute, name, value, null, securityContexts, true, false,
-      null,
+      job.root.xref, ir.BindingKind.Attribute, name, value, null, securityContexts,
+      /* Host attributes should always be extracted to const hostAttrs, even if they are not
+       *strictly* text literals */
+      true, false, null,
       /* TODO */ null,
-      /* TODO: host attribute source spans */ null!);
+      /** TODO: May be null? */ value.sourceSpan!);
   job.root.update.push(attrBinding);
 }
 
@@ -126,11 +127,9 @@ export function ingestHostEvent(job: HostBindingCompilationJob, event: e.ParsedE
   const [phase, target] = event.type === e.ParsedEventType.Regular ? [null, event.targetOrPhase] :
                                                                      [event.targetOrPhase, null];
   const eventBinding = ir.createListenerOp(
-      job.root.xref, new ir.SlotHandle(), event.name, null, [], phase, target, true,
+      job.root.xref, new ir.SlotHandle(), event.name, null,
+      makeListenerHandlerOps(job.root, event.handler, event.handlerSpan), phase, target, true,
       event.sourceSpan);
-  // TODO: Can this be a chain?
-  eventBinding.handlerOps.push(ir.createStatementOp(new o.ReturnStatement(
-      convertAst(event.handler.ast, job, event.sourceSpan), event.handlerSpan)));
   job.root.create.push(eventBinding);
 }
 
@@ -181,7 +180,7 @@ function ingestElement(unit: ViewCompilationUnit, element: t.Element): void {
   const startOp = ir.createElementStartOp(
       elementName, id, namespaceForKey(namespaceKey),
       element.i18n instanceof i18n.TagPlaceholder ? element.i18n : undefined,
-      element.startSourceSpan);
+      element.startSourceSpan, element.sourceSpan);
   unit.create.push(startOp);
 
   ingestElementBindings(unit, startOp, element);
@@ -236,7 +235,7 @@ function ingestTemplate(unit: ViewCompilationUnit, tmpl: t.Template): void {
       isPlainTemplate(tmpl) ? ir.TemplateKind.NgTemplate : ir.TemplateKind.Structural;
   const templateOp = ir.createTemplateOp(
       childView.xref, templateKind, tagNameWithoutNamespace, functionNameSuffix, namespace,
-      i18nPlaceholder, tmpl.startSourceSpan);
+      i18nPlaceholder, tmpl.startSourceSpan, tmpl.sourceSpan);
   unit.create.push(templateOp);
 
   ingestTemplateBindings(unit, templateOp, tmpl, templateKind);
@@ -359,7 +358,7 @@ function ingestIfBlock(unit: ViewCompilationUnit, ifBlock: t.IfBlock): void {
 
     const templateOp = ir.createTemplateOp(
         cView.xref, ir.TemplateKind.Block, tagName, 'Conditional', ir.Namespace.HTML,
-        ifCaseI18nMeta, ifCase.sourceSpan);
+        ifCaseI18nMeta, ifCase.startSourceSpan, ifCase.sourceSpan);
     unit.create.push(templateOp);
 
     if (firstXref === null) {
@@ -397,7 +396,7 @@ function ingestSwitchBlock(unit: ViewCompilationUnit, switchBlock: t.SwitchBlock
     }
     const templateOp = ir.createTemplateOp(
         cView.xref, ir.TemplateKind.Block, null, 'Case', ir.Namespace.HTML, switchCaseI18nMeta,
-        switchCase.sourceSpan);
+        switchCase.startSourceSpan, switchCase.sourceSpan);
     unit.create.push(templateOp);
     if (firstXref === null) {
       firstXref = cView.xref;
@@ -430,7 +429,7 @@ function ingestDeferView(
   ingestNodes(secondaryView, children);
   const templateOp = ir.createTemplateOp(
       secondaryView.xref, ir.TemplateKind.Block, null, `Defer${suffix}`, ir.Namespace.HTML,
-      i18nMeta, sourceSpan!);
+      i18nMeta, sourceSpan!, sourceSpan!);
   unit.create.push(templateOp);
   return templateOp;
 }
@@ -531,6 +530,11 @@ function ingestDeferBlock(unit: ViewCompilationUnit, deferBlock: t.DeferredBlock
       deferOnOps.push(deferOnOp);
     }
     if (triggers.when !== undefined) {
+      if (triggers.when.value instanceof e.Interpolation) {
+        // TemplateDefinitionBuilder supports this case, but it's very strange to me. What would it
+        // even mean?
+        throw new Error(`Unexpected interpolation in defer block when trigger`);
+      }
       const deferOnOp = ir.createDeferWhenOp(
           deferXref, convertAst(triggers.when.value, unit.job, triggers.when.sourceSpan), prefetch,
           triggers.when.sourceSpan);
@@ -627,7 +631,7 @@ function ingestForBlock(unit: ViewCompilationUnit, forBlock: t.ForLoopBlock): vo
   const tagName = ingestControlFlowInsertionPoint(unit, repeaterView.xref, forBlock);
   const repeaterCreate = ir.createRepeaterCreateOp(
       repeaterView.xref, emptyView?.xref ?? null, tagName, track, varNames, i18nPlaceholder,
-      emptyI18nPlaceholder, forBlock.sourceSpan);
+      emptyI18nPlaceholder, forBlock.startSourceSpan, forBlock.sourceSpan);
   unit.create.push(repeaterCreate);
 
   const expression = convertAst(
@@ -767,15 +771,15 @@ function convertAst(
 }
 
 function convertAstWithInterpolation(
-    job: CompilationJob, value: e.AST|string,
-    i18nMeta: i18n.I18nMeta|null|undefined): o.Expression|ir.Interpolation {
+    job: CompilationJob, value: e.AST|string, i18nMeta: i18n.I18nMeta|null|undefined,
+    sourceSpan?: ParseSourceSpan): o.Expression|ir.Interpolation {
   let expression: o.Expression|ir.Interpolation;
   if (value instanceof e.Interpolation) {
     expression = new ir.Interpolation(
-        value.strings, value.expressions.map(e => convertAst(e, job, null)),
+        value.strings, value.expressions.map(e => convertAst(e, job, sourceSpan ?? null)),
         Object.keys(asMessage(i18nMeta)?.placeholders ?? {}));
   } else if (value instanceof e.AST) {
-    expression = convertAst(value, job, null);
+    expression = convertAst(value, job, sourceSpan ?? null);
   } else {
     expression = o.literal(value);
   }

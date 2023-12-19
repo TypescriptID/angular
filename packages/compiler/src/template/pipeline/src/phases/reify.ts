@@ -49,14 +49,14 @@ function reifyCreateOperations(unit: CompilationUnit, ops: ir.OpList<ir.CreateOp
             op,
             ng.elementStart(
                 op.handle.slot!, op.tag!, op.attributes as number | null,
-                op.localRefs as number | null, op.sourceSpan));
+                op.localRefs as number | null, op.startSourceSpan));
         break;
       case ir.OpKind.Element:
         ir.OpList.replace(
             op,
             ng.element(
                 op.handle.slot!, op.tag!, op.attributes as number | null,
-                op.localRefs as number | null, op.sourceSpan));
+                op.localRefs as number | null, op.wholeSourceSpan));
         break;
       case ir.OpKind.ElementEnd:
         ir.OpList.replace(op, ng.elementEnd(op.sourceSpan));
@@ -66,14 +66,14 @@ function reifyCreateOperations(unit: CompilationUnit, ops: ir.OpList<ir.CreateOp
             op,
             ng.elementContainerStart(
                 op.handle.slot!, op.attributes as number | null, op.localRefs as number | null,
-                op.sourceSpan));
+                op.startSourceSpan));
         break;
       case ir.OpKind.Container:
         ir.OpList.replace(
             op,
             ng.elementContainer(
                 op.handle.slot!, op.attributes as number | null, op.localRefs as number | null,
-                op.sourceSpan));
+                op.wholeSourceSpan));
         break;
       case ir.OpKind.ContainerEnd:
         ir.OpList.replace(op, ng.elementContainerEnd());
@@ -107,7 +107,7 @@ function reifyCreateOperations(unit: CompilationUnit, ops: ir.OpList<ir.CreateOp
             op,
             ng.template(
                 op.handle.slot!, o.variable(childView.fnName!), childView.decls!, childView.vars!,
-                op.tag, op.attributes, op.localRefs, op.sourceSpan),
+                op.tag, op.attributes, op.localRefs, op.startSourceSpan),
         );
         break;
       case ir.OpKind.DisableBindings:
@@ -125,7 +125,8 @@ function reifyCreateOperations(unit: CompilationUnit, ops: ir.OpList<ir.CreateOp
         const eventTargetResolver =
             op.eventTarget ? GLOBAL_TARGET_RESOLVERS.get(op.eventTarget) : null;
         if (eventTargetResolver === undefined) {
-          throw new Error(`AssertionError: unknown event target ${op.eventTarget}`);
+          throw new Error(`Unexpected global target '${op.eventTarget}' defined for '${
+              op.name}' event. Supported list of global targets: window,document,body.`);
         }
         ir.OpList.replace(
             op,
@@ -238,7 +239,7 @@ function reifyCreateOperations(unit: CompilationUnit, ops: ir.OpList<ir.CreateOp
             ng.repeaterCreate(
                 op.handle.slot, repeaterView.fnName, op.decls!, op.vars!, op.tag, op.attributes,
                 op.trackByFn!, op.usesComponentInstance, emptyViewFnName, emptyDecls, emptyVars,
-                op.sourceSpan));
+                op.wholeSourceSpan));
         break;
       case ir.OpKind.Statement:
         // Pass statement operations directly through.

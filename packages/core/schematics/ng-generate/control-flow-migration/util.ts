@@ -10,13 +10,8 @@ import {Attribute, Element, HtmlParser, Node, ParseTreeResult, visitAll} from '@
 import {dirname, join} from 'path';
 import ts from 'typescript';
 
-import {AnalyzedFile, CommonCollector, ElementCollector, ElementToMigrate, endI18nMarker, endMarker, i18nCollector, ParseResult, startI18nMarker, startMarker, Template, TemplateCollector} from './types';
+import {AnalyzedFile, CommonCollector, ElementCollector, ElementToMigrate, endI18nMarker, endMarker, i18nCollector, importRemovals, importWithCommonRemovals, ParseResult, startI18nMarker, startMarker, Template, TemplateCollector} from './types';
 
-const importRemovals = [
-  'NgIf', 'NgIfElse', 'NgIfThenElse', 'NgFor', 'NgForOf', 'NgForTrackBy', 'NgSwitch',
-  'NgSwitchCase', 'NgSwitchDefault'
-];
-const importWithCommonRemovals = [...importRemovals, 'CommonModule'];
 const startMarkerRegex = new RegExp(startMarker, 'gm');
 const endMarkerRegex = new RegExp(endMarker, 'gm');
 const startI18nMarkerRegex = new RegExp(startI18nMarker, 'gm');
@@ -38,13 +33,18 @@ export function analyze(sourceFile: ts.SourceFile, analyzedFiles: Map<string, An
   });
 }
 
-function checkIfShouldChange(decl: ts.ImportDeclaration, removeCommonModule: boolean) {
+function checkIfShouldChange(decl: ts.ImportDeclaration, file: AnalyzedFile) {
+  const range = file.importRanges.find(r => r.type === 'importDeclaration');
+  if (range === undefined || !range.remove) {
+    return false;
+  }
+
   // should change if you can remove the common module
   // if it's not safe to remove the common module
   // and that's the only thing there, we should do nothing.
   const clause = decl.getChildAt(1) as ts.ImportClause;
   return !(
-      !removeCommonModule && clause.namedBindings && ts.isNamedImports(clause.namedBindings) &&
+      !file.removeCommonModule && clause.namedBindings && ts.isNamedImports(clause.namedBindings) &&
       clause.namedBindings.elements.length === 1 &&
       clause.namedBindings.elements[0].getText() === 'CommonModule');
 }
@@ -109,9 +109,13 @@ function analyzeImportDeclarations(
     const elements =
         clause.namedBindings.elements.filter(el => importWithCommonRemovals.includes(el.getText()));
     if (elements.length > 0) {
-      AnalyzedFile.addRange(
-          sourceFile.fileName, sourceFile.fileName, analyzedFiles,
-          {start: node.getStart(), end: node.getEnd(), node, type: 'import'});
+      AnalyzedFile.addRange(sourceFile.fileName, sourceFile, analyzedFiles, {
+        start: node.getStart(),
+        end: node.getEnd(),
+        node,
+        type: 'importDeclaration',
+        remove: true
+      });
     }
   }
 }
@@ -148,20 +152,22 @@ function analyzeDecorators(
     switch (prop.name.text) {
       case 'template':
         // +1/-1 to exclude the opening/closing characters from the range.
-        AnalyzedFile.addRange(sourceFile.fileName, sourceFile.fileName, analyzedFiles, {
+        AnalyzedFile.addRange(sourceFile.fileName, sourceFile, analyzedFiles, {
           start: prop.initializer.getStart() + 1,
           end: prop.initializer.getEnd() - 1,
           node: prop,
-          type: 'template'
+          type: 'template',
+          remove: true,
         });
         break;
 
       case 'imports':
-        AnalyzedFile.addRange(sourceFile.fileName, sourceFile.fileName, analyzedFiles, {
+        AnalyzedFile.addRange(sourceFile.fileName, sourceFile, analyzedFiles, {
           start: prop.name.getStart(),
           end: prop.initializer.getEnd(),
           node: prop,
-          type: 'import'
+          type: 'importDecorator',
+          remove: true,
         });
         break;
 
@@ -170,8 +176,8 @@ function analyzeDecorators(
         if (ts.isStringLiteralLike(prop.initializer)) {
           const path = join(dirname(sourceFile.fileName), prop.initializer.text);
           AnalyzedFile.addRange(
-              path, sourceFile.fileName, analyzedFiles,
-              {start: 0, node: prop, type: 'templateUrl'});
+              path, sourceFile, analyzedFiles,
+              {start: 0, node: prop, type: 'templateUrl', remove: true});
         }
         break;
     }
@@ -401,13 +407,12 @@ export function canRemoveCommonModule(template: string): boolean {
 /**
  * removes imports from template imports and import declarations
  */
-export function removeImports(
-    template: string, node: ts.Node, removeCommonModule: boolean): string {
+export function removeImports(template: string, node: ts.Node, file: AnalyzedFile): string {
   if (template.startsWith('imports') && ts.isPropertyAssignment(node)) {
-    const updatedImport = updateClassImports(node, removeCommonModule);
+    const updatedImport = updateClassImports(node, file.removeCommonModule);
     return updatedImport ?? template;
-  } else if (ts.isImportDeclaration(node) && checkIfShouldChange(node, removeCommonModule)) {
-    return updateImportDeclaration(node, removeCommonModule);
+  } else if (ts.isImportDeclaration(node) && checkIfShouldChange(node, file)) {
+    return updateImportDeclaration(node, file.removeCommonModule);
   }
   return template;
 }
@@ -577,6 +582,19 @@ export function formatTemplate(tmpl: string, templateType: string): string {
     // <div thing="stuff" [binding]="true"> || <div thing="stuff" [binding]="true"
     const openElRegex = /^\s*<([a-z0-9]+)(?![^>]*\/>)[^>]*>?/;
 
+    // regex for matching an attribute string that was left open at the endof a line
+    // so we can ensure we have the proper indent
+    // <div thing="aefaefwe
+    const openAttrDoubleRegex = /="([^"]|\\")*$/;
+    const openAttrSingleRegex = /='([^']|\\')*$/;
+
+    // regex for matching an attribute string that was closes on a separate line
+    // from when it was opened.
+    // <div thing="aefaefwe
+    //             i18n message is here">
+    const closeAttrDoubleRegex = /^\s*([^><]|\\")*"/;
+    const closeAttrSingleRegex = /^\s*([^><]|\\')*'/;
+
     // regex for matching a self closing html element that has no />
     // <input type="button" [binding]="true">
     const selfClosingRegex = new RegExp(`^\\s*<(${selfClosingList}).+\\/?>`);
@@ -615,6 +633,8 @@ export function formatTemplate(tmpl: string, templateType: string): string {
     let i18nDepth = 0;
     let inMigratedBlock = false;
     let inI18nBlock = false;
+    let inAttribute = false;
+    let isDoubleQuotes = false;
     for (let [index, line] of lines.entries()) {
       depth +=
           [...line.matchAll(startMarkerRegex)].length - [...line.matchAll(endMarkerRegex)].length;
@@ -628,7 +648,7 @@ export function formatTemplate(tmpl: string, templateType: string): string {
         lineWasMigrated = true;
       }
       if ((line.trim() === '' && index !== 0 && index !== lines.length - 1) &&
-          (inMigratedBlock || lineWasMigrated)) {
+          (inMigratedBlock || lineWasMigrated) && !inI18nBlock && !inAttribute) {
         // skip blank lines except if it's the first line or last line
         // this preserves leading and trailing spaces if they are already present
         continue;
@@ -650,9 +670,24 @@ export function formatTemplate(tmpl: string, templateType: string): string {
         indent = indent.slice(2);
       }
 
-      const newLine =
-          inI18nBlock ? line : mindent + (line.trim() !== '' ? indent : '') + line.trim();
+      // if a line ends in an unclosed attribute, we need to note that and close it later
+      if (!inAttribute && openAttrDoubleRegex.test(line)) {
+        inAttribute = true;
+        isDoubleQuotes = true;
+      } else if (!inAttribute && openAttrSingleRegex.test(line)) {
+        inAttribute = true;
+        isDoubleQuotes = false;
+      }
+
+      const newLine = (inI18nBlock || inAttribute) ?
+          line :
+          mindent + (line.trim() !== '' ? indent : '') + line.trim();
       formatted.push(newLine);
+
+      if ((inAttribute && isDoubleQuotes && closeAttrDoubleRegex.test(line)) ||
+          (inAttribute && !isDoubleQuotes && closeAttrSingleRegex.test(line))) {
+        inAttribute = false;
+      }
 
       // this matches any self closing element that actually has a />
       if (closeMultiLineElRegex.test(line)) {
