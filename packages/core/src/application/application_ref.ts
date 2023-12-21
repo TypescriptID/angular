@@ -9,8 +9,8 @@
 import '../util/ng_jit_mode';
 
 import {setThrowInvalidWriteToSignalError} from '@angular/core/primitives/signals';
-import {Observable, of} from 'rxjs';
-import {distinctUntilChanged, first, switchMap} from 'rxjs/operators';
+import {Observable} from 'rxjs';
+import {first, map} from 'rxjs/operators';
 
 import {getCompilerFacade, JitCompilerUsage} from '../compiler/compiler_facade';
 import {Console} from '../console';
@@ -21,7 +21,6 @@ import {Injector} from '../di/injector';
 import {EnvironmentInjector} from '../di/r3_injector';
 import {ErrorHandler, INTERNAL_APPLICATION_ERROR_HANDLER} from '../error_handler';
 import {formatRuntimeError, RuntimeError, RuntimeErrorCode} from '../errors';
-import {InitialRenderPendingTasks} from '../initial_render_pending_tasks';
 import {Type} from '../interface/type';
 import {COMPILER_OPTIONS, CompilerOptions} from '../linker/compiler';
 import {ComponentFactory, ComponentRef} from '../linker/component_factory';
@@ -29,6 +28,7 @@ import {ComponentFactoryResolver} from '../linker/component_factory_resolver';
 import {NgModuleFactory, NgModuleRef} from '../linker/ng_module_factory';
 import {ViewRef} from '../linker/view_ref';
 import {isComponentResourceResolutionQueueEmpty, resolveComponentResources} from '../metadata/resource_loading';
+import {PendingTasks} from '../pending_tasks';
 import {assertNgModuleType} from '../render3/assert';
 import {ComponentFactory as R3ComponentFactory} from '../render3/component_ref';
 import {isStandalone} from '../render3/definition';
@@ -38,7 +38,7 @@ import {publishDefaultGlobalUtils as _publishDefaultGlobalUtils} from '../render
 import {ViewRef as InternalViewRef} from '../render3/view_ref';
 import {TESTABILITY} from '../testability/testability';
 import {isPromise} from '../util/lang';
-import {NgZone, ZONE_IS_STABLE_OBSERVABLE} from '../zone/ng_zone';
+import {NgZone} from '../zone/ng_zone';
 
 import {ApplicationInitStatus} from './application_init';
 
@@ -323,7 +323,6 @@ export class ApplicationRef {
   /** @internal */
   _views: InternalViewRef<unknown>[] = [];
   private readonly internalErrorHandler = inject(INTERNAL_APPLICATION_ERROR_HANDLER);
-  private readonly zoneIsStable = inject(ZONE_IS_STABLE_OBSERVABLE);
 
   /**
    * Indicates whether this instance was destroyed.
@@ -347,11 +346,7 @@ export class ApplicationRef {
    * Returns an Observable that indicates when the application is stable or unstable.
    */
   public readonly isStable: Observable<boolean> =
-      inject(InitialRenderPendingTasks)
-          .hasPendingTasks.pipe(
-              switchMap(hasPendingTasks => hasPendingTasks ? of(false) : this.zoneIsStable),
-              distinctUntilChanged(),
-          );
+      inject(PendingTasks).hasPendingTasks.pipe(map(pending => !pending));
 
   private readonly _injector = inject(EnvironmentInjector);
   /**

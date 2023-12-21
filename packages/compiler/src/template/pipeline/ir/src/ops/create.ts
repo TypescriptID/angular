@@ -27,7 +27,7 @@ export type CreateOp = ListEndOp<CreateOp>|StatementOp<CreateOp>|ElementOp|Eleme
     ElementEndOp|ContainerOp|ContainerStartOp|ContainerEndOp|TemplateOp|EnableBindingsOp|
     DisableBindingsOp|TextOp|ListenerOp|PipeOp|VariableOp<CreateOp>|NamespaceOp|ProjectionDefOp|
     ProjectionOp|ExtractedAttributeOp|DeferOp|DeferOnOp|RepeaterCreateOp|I18nMessageOp|I18nOp|
-    I18nStartOp|I18nEndOp|IcuStartOp|IcuEndOp|I18nContextOp|I18nAttributesOp;
+    I18nStartOp|I18nEndOp|IcuStartOp|IcuEndOp|IcuPlaceholderOp|I18nContextOp|I18nAttributesOp;
 
 /**
  * An operation representing the creation of an element or container.
@@ -282,6 +282,17 @@ export interface RepeaterCreateOp extends ElementOpBase, ConsumesVarsTrait {
   functionNameSuffix: string;
 
   /**
+   * Tag name for the empty block.
+   */
+  emptyTag: string|null;
+
+  /**
+   * Attributes of various kinds on the empty block. Represented as a `ConstIndex` pointer into the
+   * shared `consts` array of the component compilation.
+   */
+  emptyAttributes: ConstIndex|null;
+
+  /**
    * The i18n placeholder for the repeated item template.
    */
   i18nPlaceholder: i18n.BlockPlaceholder|undefined;
@@ -305,7 +316,8 @@ export interface RepeaterVarNames {
 
 export function createRepeaterCreateOp(
     primaryView: XrefId, emptyView: XrefId|null, tag: string|null, track: o.Expression,
-    varNames: RepeaterVarNames, i18nPlaceholder: i18n.BlockPlaceholder|undefined,
+    varNames: RepeaterVarNames, emptyTag: string|null,
+    i18nPlaceholder: i18n.BlockPlaceholder|undefined,
     emptyI18nPlaceholder: i18n.BlockPlaceholder|undefined, startSourceSpan: ParseSourceSpan,
     wholeSourceSpan: ParseSourceSpan): RepeaterCreateOp {
   return {
@@ -317,6 +329,8 @@ export function createRepeaterCreateOp(
     track,
     trackByFn: null,
     tag,
+    emptyTag,
+    emptyAttributes: null,
     functionNameSuffix: 'For',
     namespace: Namespace.HTML,
     nonBindable: false,
@@ -451,6 +465,12 @@ export interface TextOp extends Op<CreateOp>, ConsumesSlotOpTrait {
    */
   initialValue: string;
 
+  /**
+   * The placeholder for this text in its parent ICU. If this text is not part of an ICU, the
+   * placeholder is null.
+   */
+  icuPlaceholder: string|null;
+
   sourceSpan: ParseSourceSpan|null;
 }
 
@@ -458,12 +478,14 @@ export interface TextOp extends Op<CreateOp>, ConsumesSlotOpTrait {
  * Create a `TextOp`.
  */
 export function createTextOp(
-    xref: XrefId, initialValue: string, sourceSpan: ParseSourceSpan|null): TextOp {
+    xref: XrefId, initialValue: string, icuPlaceholder: string|null,
+    sourceSpan: ParseSourceSpan|null): TextOp {
   return {
     kind: OpKind.Text,
     xref,
     handle: new SlotHandle(),
     initialValue,
+    icuPlaceholder,
     sourceSpan,
     ...TRAIT_CONSUMES_SLOT,
     ...NEW_OP,
@@ -616,7 +638,7 @@ export interface ProjectionOp extends Op<CreateOp>, ConsumesSlotOpTrait {
 
   projectionSlotIndex: number;
 
-  attributes: string[];
+  attributes: null|o.LiteralArrayExpr;
 
   localRefs: string[];
 
@@ -629,7 +651,7 @@ export interface ProjectionOp extends Op<CreateOp>, ConsumesSlotOpTrait {
 
 export function createProjectionOp(
     xref: XrefId, selector: string, i18nPlaceholder: i18n.TagPlaceholder|undefined,
-    attributes: string[], sourceSpan: ParseSourceSpan): ProjectionOp {
+    sourceSpan: ParseSourceSpan): ProjectionOp {
   return {
     kind: OpKind.Projection,
     xref,
@@ -637,7 +659,7 @@ export function createProjectionOp(
     selector,
     i18nPlaceholder,
     projectionSlotIndex: 0,
-    attributes,
+    attributes: null,
     localRefs: [],
     sourceSpan,
     ...NEW_OP,
@@ -1019,6 +1041,8 @@ export interface I18nOpBase extends Op<CreateOp>, ConsumesSlotOpTrait {
    * The i18n context generated from this block. Initially null, until the context is created.
    */
   context: XrefId|null;
+
+  sourceSpan: ParseSourceSpan|null;
 }
 
 /**
@@ -1038,7 +1062,9 @@ export interface I18nStartOp extends I18nOpBase {
 /**
  * Create an `I18nStartOp`.
  */
-export function createI18nStartOp(xref: XrefId, message: i18n.Message, root?: XrefId): I18nStartOp {
+export function createI18nStartOp(
+    xref: XrefId, message: i18n.Message, root: XrefId|undefined,
+    sourceSpan: ParseSourceSpan|null): I18nStartOp {
   return {
     kind: OpKind.I18nStart,
     xref,
@@ -1048,6 +1074,7 @@ export function createI18nStartOp(xref: XrefId, message: i18n.Message, root?: Xr
     messageIndex: null,
     subTemplateIndex: null,
     context: null,
+    sourceSpan,
     ...NEW_OP,
     ...TRAIT_CONSUMES_SLOT,
   };
@@ -1063,15 +1090,18 @@ export interface I18nEndOp extends Op<CreateOp> {
    * The `XrefId` of the `I18nStartOp` that created this block.
    */
   xref: XrefId;
+
+  sourceSpan: ParseSourceSpan|null;
 }
 
 /**
  * Create an `I18nEndOp`.
  */
-export function createI18nEndOp(xref: XrefId): I18nEndOp {
+export function createI18nEndOp(xref: XrefId, sourceSpan: ParseSourceSpan|null): I18nEndOp {
   return {
     kind: OpKind.I18nEnd,
     xref,
+    sourceSpan,
     ...NEW_OP,
   };
 }
@@ -1141,6 +1171,51 @@ export function createIcuEndOp(xref: XrefId): IcuEndOp {
   return {
     kind: OpKind.IcuEnd,
     xref,
+    ...NEW_OP,
+  };
+}
+
+/**
+ * An op that represents a placeholder in an ICU expression.
+ */
+export interface IcuPlaceholderOp extends Op<CreateOp> {
+  kind: OpKind.IcuPlaceholder;
+
+  /**
+   * The ID of the ICU placeholder.
+   */
+  xref: XrefId;
+
+  /**
+   * The name of the placeholder in the ICU expression.
+   */
+  name: string;
+
+  /**
+   * The static strings to be combined with dynamic expression values to form the text. This works
+   * like interpolation, but the strings are combined at compile time, using special placeholders
+   * for the dynamic expressions, and put into the translated message.
+   */
+  strings: string[];
+
+  /**
+   * Placeholder values for the i18n expressions to be combined with the static strings to form the
+   * full placeholder value.
+   */
+  expressionPlaceholders: I18nParamValue[];
+}
+
+/**
+ * Creates an ICU placeholder op.
+ */
+export function createIcuPlaceholderOp(
+    xref: XrefId, name: string, strings: string[]): IcuPlaceholderOp {
+  return {
+    kind: OpKind.IcuPlaceholder,
+    xref,
+    name,
+    strings,
+    expressionPlaceholders: [],
     ...NEW_OP,
   };
 }

@@ -102,6 +102,9 @@
     "name": "ChainedInjector"
   },
   {
+    "name": "ChangeDetectionScheduler"
+  },
+  {
     "name": "ChangeDetectionStrategy"
   },
   {
@@ -268,9 +271,6 @@
   },
   {
     "name": "INTERNAL_BROWSER_PLATFORM_PROVIDERS"
-  },
-  {
-    "name": "InitialRenderPendingTasks"
   },
   {
     "name": "InjectFlags"
@@ -496,6 +496,9 @@
   },
   {
     "name": "PathLocationStrategy"
+  },
+  {
+    "name": "PendingTasks"
   },
   {
     "name": "PlatformLocation"
@@ -726,7 +729,7 @@
     "name": "XSS_SECURITY_URL"
   },
   {
-    "name": "ZONE_IS_STABLE_OBSERVABLE"
+    "name": "ZoneStablePendingTask"
   },
   {
     "name": "_DOM"
@@ -1030,9 +1033,6 @@
   },
   {
     "name": "deepForEachProvider"
-  },
-  {
-    "name": "defaultCompare"
   },
   {
     "name": "defaultErrorFactory"
@@ -1371,9 +1371,6 @@
     "name": "handleError"
   },
   {
-    "name": "handleReset"
-  },
-  {
     "name": "handleStoppedNotification"
   },
   {
@@ -1552,9 +1549,6 @@
   },
   {
     "name": "isReadableStreamLike"
-  },
-  {
-    "name": "isStableFactory"
   },
   {
     "name": "isSubscription"

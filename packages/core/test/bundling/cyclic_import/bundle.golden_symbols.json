@@ -69,6 +69,9 @@
     "name": "ChainedInjector"
   },
   {
+    "name": "ChangeDetectionScheduler"
+  },
+  {
     "name": "ChangeDetectionStrategy"
   },
   {
@@ -118,9 +121,6 @@
   },
   {
     "name": "DomRendererFactory2"
-  },
-  {
-    "name": "EMPTY"
   },
   {
     "name": "EMPTY_ARRAY"
@@ -178,9 +178,6 @@
   },
   {
     "name": "INTERNAL_APPLICATION_ERROR_HANDLER"
-  },
-  {
-    "name": "InitialRenderPendingTasks"
   },
   {
     "name": "InjectFlags"
@@ -336,6 +333,9 @@
     "name": "PRESERVE_HOST_CONTENT"
   },
   {
+    "name": "PendingTasks"
+  },
+  {
     "name": "PlatformRef"
   },
   {
@@ -423,19 +423,13 @@
     "name": "ViewRef"
   },
   {
-    "name": "ZONE_IS_STABLE_OBSERVABLE"
+    "name": "ZoneStablePendingTask"
   },
   {
     "name": "_DOM"
   },
   {
     "name": "_NullComponentFactoryResolver"
-  },
-  {
-    "name": "__asyncValues"
-  },
-  {
-    "name": "__await"
   },
   {
     "name": "__forward_ref__"
@@ -597,9 +591,6 @@
     "name": "createInjectorWithoutInjectorInstances"
   },
   {
-    "name": "createInvalidObservableTypeError"
-  },
-  {
     "name": "createLFrame"
   },
   {
@@ -612,9 +603,6 @@
     "name": "createNotification"
   },
   {
-    "name": "createOperatorSubscriber"
-  },
-  {
     "name": "createPlatformFactory"
   },
   {
@@ -625,9 +613,6 @@
   },
   {
     "name": "deepForEachProvider"
-  },
-  {
-    "name": "defaultCompare"
   },
   {
     "name": "detachMovedView"
@@ -675,9 +660,6 @@
     "name": "executeInitAndCheckHooks"
   },
   {
-    "name": "executeSchedule"
-  },
-  {
     "name": "executeTemplate"
   },
   {
@@ -700,12 +682,6 @@
   },
   {
     "name": "freeConsumers"
-  },
-  {
-    "name": "from"
-  },
-  {
-    "name": "fromAsyncIterable"
   },
   {
     "name": "generateInitialInputs"
@@ -822,16 +798,10 @@
     "name": "getSimpleChangesStore"
   },
   {
-    "name": "getSymbolIterator"
-  },
-  {
     "name": "getTNodeFromLView"
   },
   {
     "name": "getTView"
-  },
-  {
-    "name": "handleReset"
   },
   {
     "name": "handleStoppedNotification"
@@ -879,9 +849,6 @@
     "name": "injectableDefOrInjectorDefFactory"
   },
   {
-    "name": "innerFrom"
-  },
-  {
     "name": "insertBloom"
   },
   {
@@ -898,12 +865,6 @@
   },
   {
     "name": "invokeHostBindingsInCreationMode"
-  },
-  {
-    "name": "isArrayLike"
-  },
-  {
-    "name": "isAsyncIterable"
   },
   {
     "name": "isComponentDef"
@@ -930,12 +891,6 @@
     "name": "isInlineTemplate"
   },
   {
-    "name": "isInteropObservable"
-  },
-  {
-    "name": "isIterable"
-  },
-  {
     "name": "isLContainer"
   },
   {
@@ -957,15 +912,6 @@
     "name": "isPromise"
   },
   {
-    "name": "isPromise2"
-  },
-  {
-    "name": "isReadableStreamLike"
-  },
-  {
-    "name": "isStableFactory"
-  },
-  {
     "name": "isSubscription"
   },
   {
@@ -976,12 +922,6 @@
   },
   {
     "name": "isValueProvider"
-  },
-  {
-    "name": "iterator"
-  },
-  {
-    "name": "last"
   },
   {
     "name": "lastNodeWasCreated"
@@ -1005,6 +945,9 @@
     "name": "makeRecord"
   },
   {
+    "name": "map"
+  },
+  {
     "name": "markAncestorsForTraversal"
   },
   {
@@ -1024,9 +967,6 @@
   },
   {
     "name": "mergeHostAttrs"
-  },
-  {
-    "name": "mergeMap"
   },
   {
     "name": "nativeAppendChild"
@@ -1065,16 +1005,10 @@
     "name": "observable"
   },
   {
-    "name": "observeOn"
-  },
-  {
     "name": "onEnter"
   },
   {
     "name": "onLeave"
-  },
-  {
-    "name": "operate"
   },
   {
     "name": "optionsReducer"
@@ -1084,9 +1018,6 @@
   },
   {
     "name": "platformCore"
-  },
-  {
-    "name": "popScheduler"
   },
   {
     "name": "processInjectorTypesWithProviders"
@@ -1099,9 +1030,6 @@
   },
   {
     "name": "profiler"
-  },
-  {
-    "name": "readableStreamLikeToAsyncGenerator"
   },
   {
     "name": "refreshContentQueries"
@@ -1128,9 +1056,6 @@
     "name": "renderView"
   },
   {
-    "name": "reportUnhandledError"
-  },
-  {
     "name": "requiresRefreshOrTraversal"
   },
   {
@@ -1144,9 +1069,6 @@
   },
   {
     "name": "saveNameToExportMap"
-  },
-  {
-    "name": "scheduleAsyncIterable"
   },
   {
     "name": "searchTokensOnInjector"
@@ -1206,9 +1128,6 @@
     "name": "stringifyCSSSelector"
   },
   {
-    "name": "subscribeOn"
-  },
-  {
     "name": "throwProviderNotFoundError"
   },
   {
@@ -1222,6 +1141,9 @@
   },
   {
     "name": "unwrapRNode"
+  },
+  {
+    "name": "updateAncestorTraversalFlagsOnAttach"
   },
   {
     "name": "updateMicroTaskStatus"

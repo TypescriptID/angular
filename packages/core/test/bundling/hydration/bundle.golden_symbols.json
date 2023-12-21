@@ -69,6 +69,9 @@
     "name": "ChainedInjector"
   },
   {
+    "name": "ChangeDetectionScheduler"
+  },
+  {
     "name": "ChangeDetectionStrategy"
   },
   {
@@ -115,9 +118,6 @@
   },
   {
     "name": "DomRendererFactory2"
-  },
-  {
-    "name": "EMPTY"
   },
   {
     "name": "EMPTY_ARRAY"
@@ -211,9 +211,6 @@
   },
   {
     "name": "IS_HYDRATION_DOM_REUSE_ENABLED"
-  },
-  {
-    "name": "InitialRenderPendingTasks"
   },
   {
     "name": "InjectFlags"
@@ -366,6 +363,9 @@
     "name": "PRESERVE_HOST_CONTENT"
   },
   {
+    "name": "PendingTasks"
+  },
+  {
     "name": "R3Injector"
   },
   {
@@ -468,7 +468,7 @@
     "name": "ViewRef"
   },
   {
-    "name": "ZONE_IS_STABLE_OBSERVABLE"
+    "name": "ZoneStablePendingTask"
   },
   {
     "name": "_DOM"
@@ -672,9 +672,6 @@
     "name": "deepForEachProvider"
   },
   {
-    "name": "defaultCompare"
-  },
-  {
     "name": "defaultErrorFactory"
   },
   {
@@ -745,9 +742,6 @@
   },
   {
     "name": "freeConsumers"
-  },
-  {
-    "name": "from"
   },
   {
     "name": "fromAsyncIterable"
@@ -877,9 +871,6 @@
   },
   {
     "name": "getTNodeFromLView"
-  },
-  {
-    "name": "handleReset"
   },
   {
     "name": "handleStoppedNotification"
@@ -1014,9 +1005,6 @@
     "name": "isRootView"
   },
   {
-    "name": "isStableFactory"
-  },
-  {
     "name": "isSubscription"
   },
   {
@@ -1030,9 +1018,6 @@
   },
   {
     "name": "iterator"
-  },
-  {
-    "name": "last"
   },
   {
     "name": "lastNodeWasCreated"
@@ -1084,9 +1069,6 @@
   },
   {
     "name": "mergeHostAttrs"
-  },
-  {
-    "name": "mergeMap"
   },
   {
     "name": "nativeAppendChild"
@@ -1144,9 +1126,6 @@
   },
   {
     "name": "performanceMarkFeature"
-  },
-  {
-    "name": "popScheduler"
   },
   {
     "name": "populateDehydratedViewsInLContainerImpl"
@@ -1294,6 +1273,9 @@
   },
   {
     "name": "unwrapRNode"
+  },
+  {
+    "name": "updateAncestorTraversalFlagsOnAttach"
   },
   {
     "name": "updateMicroTaskStatus"

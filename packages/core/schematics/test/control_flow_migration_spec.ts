@@ -4776,6 +4776,13 @@ describe('control flow migration', () => {
         `                    with cool things">`,
         `  Content here`,
         `</span>`,
+        `<span`,
+        `    i18n-message="this is a multi-`,
+        `                    line attribute`,
+        `                    that starts`,
+        `                    on a newline">`,
+        `  Different Content`,
+        `</span>`,
       ].join('\n'));
 
       await runMigration();
@@ -4788,6 +4795,13 @@ describe('control flow migration', () => {
         `                    line attribute`,
         `                    with cool things">`,
         `  Content here`,
+        `</span>`,
+        `<span`,
+        `    i18n-message="this is a multi-`,
+        `                    line attribute`,
+        `                    that starts`,
+        `                    on a newline">`,
+        `  Different Content`,
         `</span>`,
       ].join('\n');
 
@@ -4815,6 +4829,13 @@ describe('control flow migration', () => {
            `                    with cool things'>`,
            `  Content here`,
            `</span>`,
+           `<span`,
+           `    i18n-message='this is a multi-`,
+           `                    line attribute`,
+           `                    that starts`,
+           `                    on a newline'>`,
+           `  Different here`,
+           `</span>`,
          ].join('\n'));
 
          await runMigration();
@@ -4827,6 +4848,13 @@ describe('control flow migration', () => {
            `                    line attribute`,
            `                    with cool things'>`,
            `  Content here`,
+           `</span>`,
+           `<span`,
+           `    i18n-message='this is a multi-`,
+           `                    line attribute`,
+           `                    that starts`,
+           `                    on a newline'>`,
+           `  Different here`,
            `</span>`,
          ].join('\n');
 
@@ -5226,6 +5254,56 @@ describe('control flow migration', () => {
 
       expect(actual).toBe(expected);
     });
+
+    it('should not remove other imports when mismatch in counts', async () => {
+      writeFile('/comp.ts', [
+        `import {DatePipe, NgIf} from '@angular/common';`,
+        `import {Component, NgModule, Pipe, PipeTransform} from '@angular/core';`,
+        `@Component({`,
+        `  selector: 'example',`,
+        `  template: \`<span>{{ example | date }}</span>\`,`,
+        `})`,
+        `export class ExampleCmp {`,
+        `  example: 'stuff',`,
+        `}`,
+        `const NG_MODULE_IMPORTS = [`,
+        `  DatePipe,`,
+        `  NgIf,`,
+        `];`,
+        `@NgModule({`,
+        `  declarations: [ExampleCmp],`,
+        `  imports: [NG_MODULE_IMPORTS],`,
+        `  exports: [ExampleCmp],`,
+        `})`,
+        `export class ExampleModule {}`,
+      ].join('\n'));
+
+      await runMigration();
+      const actual = tree.readContent('/comp.ts');
+      const expected = [
+        `import {DatePipe, NgIf} from '@angular/common';`,
+        `import {Component, NgModule, Pipe, PipeTransform} from '@angular/core';`,
+        `@Component({`,
+        `  selector: 'example',`,
+        `  template: \`<span>{{ example | date }}</span>\`,`,
+        `})`,
+        `export class ExampleCmp {`,
+        `  example: 'stuff',`,
+        `}`,
+        `const NG_MODULE_IMPORTS = [`,
+        `  DatePipe,`,
+        `  NgIf,`,
+        `];`,
+        `@NgModule({`,
+        `  declarations: [ExampleCmp],`,
+        `  imports: [NG_MODULE_IMPORTS],`,
+        `  exports: [ExampleCmp],`,
+        `})`,
+        `export class ExampleModule {}`,
+      ].join('\n');
+
+      expect(actual).toBe(expected);
+    });
   });
 
   describe('no migration needed', () => {
@@ -5433,5 +5511,47 @@ describe('control flow migration', () => {
                  `Element node: "strong" would result in invalid migrated @switch block structure. ` +
                  `@switch can only have @case or @default as children.`);
        });
+
+    it('should not migrate a template that would result in invalid i18n nesting', async () => {
+      writeFile('/comp.ts', `
+        import {Component} from '@angular/core';
+
+        @Component({
+          templateUrl: './comp.html'
+        })
+        class Comp {
+          testOpts = 2;
+        }
+      `);
+
+      writeFile('/comp.html', [
+        `<ng-container i18n="messageid">`,
+        `  <div *ngIf="condition; else elseTmpl">`,
+        `    If content here`,
+        `  </div>`,
+        `</ng-container>`,
+        `<ng-template #elseTmpl i18n="elsemessageid">`,
+        `  <div>Else content here</div>`,
+        `</ng-template>`,
+      ].join('\n'));
+
+      await runMigration();
+      const content = tree.readContent('/comp.html');
+      expect(content).toBe([
+        `<ng-container i18n="messageid">`,
+        `  <div *ngIf="condition; else elseTmpl">`,
+        `    If content here`,
+        `  </div>`,
+        `</ng-container>`,
+        `<ng-template #elseTmpl i18n="elsemessageid">`,
+        `  <div>Else content here</div>`,
+        `</ng-template>`,
+      ].join('\n'));
+
+      expect(warnOutput.join(' '))
+          .toContain(
+              `Element with i18n attribute "ng-container" would result having a child of element with i18n attribute ` +
+              `"ng-container". Please fix and re-run the migration.`);
+    });
   });
 });
