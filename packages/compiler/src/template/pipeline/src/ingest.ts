@@ -383,6 +383,11 @@ function ingestIfBlock(unit: ViewCompilationUnit, ifBlock: t.IfBlock): void {
  * Ingest an `@switch` block into the given `ViewCompilation`.
  */
 function ingestSwitchBlock(unit: ViewCompilationUnit, switchBlock: t.SwitchBlock): void {
+  // Don't ingest empty switches since they won't render anything.
+  if (switchBlock.cases.length === 0) {
+    return;
+  }
+
   let firstXref: ir.XrefId|null = null;
   let firstSlotHandle: ir.SlotHandle|null = null;
   let conditions: Array<ir.ConditionalCaseExpr> = [];
@@ -579,25 +584,48 @@ function ingestIcu(unit: ViewCompilationUnit, icu: t.Icu) {
 function ingestForBlock(unit: ViewCompilationUnit, forBlock: t.ForLoopBlock): void {
   const repeaterView = unit.job.allocateView(unit.xref);
 
-  const createRepeaterAlias = (ident: string, repeaterVar: ir.DerivedRepeaterVarIdentity) => {
-    repeaterView.aliases.add({
-      kind: ir.SemanticVariableKind.Alias,
-      name: null,
-      identifier: ident,
-      expression: new ir.DerivedRepeaterVarExpr(repeaterView.xref, repeaterVar),
-    });
-  };
-
   // Set all the context variables and aliases available in the repeater.
   repeaterView.contextVariables.set(forBlock.item.name, forBlock.item.value);
   repeaterView.contextVariables.set(
       forBlock.contextVariables.$index.name, forBlock.contextVariables.$index.value);
   repeaterView.contextVariables.set(
       forBlock.contextVariables.$count.name, forBlock.contextVariables.$count.value);
-  createRepeaterAlias(forBlock.contextVariables.$first.name, ir.DerivedRepeaterVarIdentity.First);
-  createRepeaterAlias(forBlock.contextVariables.$last.name, ir.DerivedRepeaterVarIdentity.Last);
-  createRepeaterAlias(forBlock.contextVariables.$even.name, ir.DerivedRepeaterVarIdentity.Even);
-  createRepeaterAlias(forBlock.contextVariables.$odd.name, ir.DerivedRepeaterVarIdentity.Odd);
+
+  // We copy TemplateDefinitionBuilder's scheme of creating names for `$count` and `$index` that are
+  // suffixed with special information, to disambiguate which level of nested loop the below aliases
+  // refer to.
+  // TODO: We should refactor Template Pipeline's variable phases to gracefully handle shadowing,
+  // and arbitrarily many levels of variables depending on each other.
+  const indexName = `ɵ${forBlock.contextVariables.$index.name}_${repeaterView.xref}`;
+  const countName = `ɵ${forBlock.contextVariables.$count.name}_${repeaterView.xref}`;
+  repeaterView.contextVariables.set(indexName, forBlock.contextVariables.$index.value);
+  repeaterView.contextVariables.set(countName, forBlock.contextVariables.$count.value);
+
+  repeaterView.aliases.add({
+    kind: ir.SemanticVariableKind.Alias,
+    name: null,
+    identifier: forBlock.contextVariables.$first.name,
+    expression: new ir.LexicalReadExpr(indexName).identical(o.literal(0))
+  });
+  repeaterView.aliases.add({
+    kind: ir.SemanticVariableKind.Alias,
+    name: null,
+    identifier: forBlock.contextVariables.$last.name,
+    expression: new ir.LexicalReadExpr(indexName).identical(
+        new ir.LexicalReadExpr(countName).minus(o.literal(1)))
+  });
+  repeaterView.aliases.add({
+    kind: ir.SemanticVariableKind.Alias,
+    name: null,
+    identifier: forBlock.contextVariables.$even.name,
+    expression: new ir.LexicalReadExpr(indexName).modulo(o.literal(2)).identical(o.literal(0))
+  });
+  repeaterView.aliases.add({
+    kind: ir.SemanticVariableKind.Alias,
+    name: null,
+    identifier: forBlock.contextVariables.$odd.name,
+    expression: new ir.LexicalReadExpr(indexName).modulo(o.literal(2)).notIdentical(o.literal(0))
+  });
 
   const sourceSpan = convertSourceSpan(forBlock.trackBy.span, forBlock.sourceSpan);
   const track = convertAst(forBlock.trackBy, unit.job, sourceSpan);
@@ -962,7 +990,7 @@ function ingestTemplateBindings(
       // Animation bindings are excluded from the structural template's const array.
       const securityContext = domSchema.securityContext(NG_TEMPLATE_TAG_NAME, output.name, false);
       unit.create.push(ir.createExtractedAttributeOp(
-          op.xref, ir.BindingKind.Property, output.name, null, null, null, securityContext));
+          op.xref, ir.BindingKind.Property, null, output.name, null, null, null, securityContext));
     }
   }
 
@@ -1019,7 +1047,7 @@ function createTemplateBinding(
       // the ng-template's consts (e.g. for the purposes of directive matching). However, we should
       // not generate an update instruction for it.
       return ir.createExtractedAttributeOp(
-          xref, ir.BindingKind.Property, name, null, null, i18nMessage, securityContext);
+          xref, ir.BindingKind.Property, null, name, null, null, i18nMessage, securityContext);
     }
 
     if (!isTextBinding && (type === e.BindingType.Attribute || type === e.BindingType.Animation)) {
