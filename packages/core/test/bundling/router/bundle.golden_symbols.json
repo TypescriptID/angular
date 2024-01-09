@@ -282,6 +282,9 @@
     "name": "Injector"
   },
   {
+    "name": "InputFlags"
+  },
+  {
     "name": "ItemComponent"
   },
   {
@@ -612,6 +615,9 @@
     "name": "SEGMENT_RE"
   },
   {
+    "name": "SIGNAL"
+  },
+  {
     "name": "SIMPLE_CHANGES_STORE"
   },
   {
@@ -810,7 +816,7 @@
     "name": "addLViewToLContainer"
   },
   {
-    "name": "addPropertyAlias"
+    "name": "addPropertyBinding"
   },
   {
     "name": "addToArray"
@@ -841,6 +847,9 @@
   },
   {
     "name": "applyToElementOrContainer"
+  },
+  {
+    "name": "applyValueToInputField"
   },
   {
     "name": "applyView"
@@ -877,6 +886,9 @@
   },
   {
     "name": "callHooks"
+  },
+  {
+    "name": "captureNodeBindings"
   },
   {
     "name": "catchError"
@@ -1059,6 +1071,9 @@
     "name": "detachView"
   },
   {
+    "name": "detachViewFromDOM"
+  },
+  {
     "name": "detectChangesInChildComponents"
   },
   {
@@ -1180,9 +1195,6 @@
   },
   {
     "name": "generateInitialInputs"
-  },
-  {
-    "name": "generatePropertyAliases"
   },
   {
     "name": "getAllRouteGuards"
@@ -1455,9 +1467,6 @@
     "name": "internalImportProvidersFrom"
   },
   {
-    "name": "invertObject"
-  },
-  {
     "name": "invokeDirectivesHostBindings"
   },
   {
@@ -1573,9 +1582,6 @@
   },
   {
     "name": "last"
-  },
-  {
-    "name": "last3"
   },
   {
     "name": "lastNodeWasCreated"
@@ -1738,6 +1744,9 @@
   },
   {
     "name": "paramCompareMap"
+  },
+  {
+    "name": "parseAndConvertBindingsForDefinition"
   },
   {
     "name": "pathCompareMap"
