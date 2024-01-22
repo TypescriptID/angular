@@ -8,7 +8,7 @@
 
 export const ngDebug = () => (window as any).ng;
 
-export const runOutsideAngular = (f: () => any): void => {
+export const runOutsideAngular = (f: () => void): void => {
   const w = window as any;
   if (!w.Zone || !w.Zone.current) {
     f();
@@ -59,8 +59,7 @@ export function ngDebugApiIsSupported(api: string): boolean {
   return typeof ng[api] === 'function';
 }
 
-
-export function isSignal(prop: unknown): prop is() => unknown {
+export function isSignal(prop: unknown): prop is () => unknown {
   if (!ngDebugApiIsSupported('isSignal')) {
     return false;
   }

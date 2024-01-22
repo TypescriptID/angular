@@ -7,8 +7,15 @@ export const format: FormatConfig = {
   'prettier': {
     'matchers': [
       '**/*.{yaml,yml}',
+      'devtools/**/*.{js,ts}',
       'tools/**/*.{js,ts}',
       'modules/**/*.{js,ts}',
+      'scripts/**/*.{js,ts}',
+      'packages/animations/**/*.{js,ts}',
+      'packages/bazel/**/*.{js,ts}',
+      'packages/benchpress/**/*.{js,ts}',
+      'packages/elements/**/*.{js,ts}',
+      'packages/misc/**/*.{js,ts}',
     ],
   },
   'clang-format': {
@@ -37,8 +44,15 @@ export const format: FormatConfig = {
       '!adev/**',
 
       // Migrated to prettier
+      '!devtools/**/*.{js,ts}',
       '!tools/**/*.{js,ts}',
       '!modules/**/*.{js,ts}',
+      '!scripts/**/*.{js,ts}',
+      '!packages/animations/**/*.{js,ts}',
+      '!packages/bazel/**/*.{js,ts}',
+      '!packages/benchpress/**/*.{js,ts}',
+      '!packages/elements/**/*.{js,ts}',
+      '!packages/misc/**/*.{js,ts}',
     ],
   },
   'buildifier': true,
