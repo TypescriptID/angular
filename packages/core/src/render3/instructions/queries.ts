@@ -28,11 +28,16 @@ import {isCreationMode} from '../util/view_utils';
  * @codeGenApi
  */
 export function ɵɵcontentQuery<T>(
-    directiveIndex: number, predicate: ProviderToken<unknown>|string[], flags: QueryFlags,
+    directiveIndex: number, predicate: ProviderToken<unknown>|string|string[], flags: QueryFlags,
     read?: any): void {
   ngDevMode && assertNumber(flags, 'Expecting flags');
   const tView = getTView();
   if (tView.firstCreatePass) {
+    // Compiler might not be able to pre-optimize and split multiple selectors.
+    if (typeof predicate === 'string') {
+      predicate = splitQueryMultiSelectors(predicate);
+    }
+
     const tNode = getCurrentTNode()!;
     createTQuery(tView, new TQueryMetadata_(predicate, flags, read), tNode.index);
     saveContentQueryAndDirectiveIndex(tView, directiveIndex);
@@ -54,10 +59,15 @@ export function ɵɵcontentQuery<T>(
  * @codeGenApi
  */
 export function ɵɵviewQuery<T>(
-    predicate: ProviderToken<unknown>|string[], flags: QueryFlags, read?: any): void {
+    predicate: ProviderToken<unknown>|string|string[], flags: QueryFlags, read?: any): void {
   ngDevMode && assertNumber(flags, 'Expecting flags');
   const tView = getTView();
   if (tView.firstCreatePass) {
+    // Compiler might not be able to pre-optimize and split multiple selectors.
+    if (typeof predicate === 'string') {
+      predicate = splitQueryMultiSelectors(predicate);
+    }
+
     createTQuery(tView, new TQueryMetadata_(predicate, flags, read), -1);
     if ((flags & QueryFlags.isStatic) === QueryFlags.isStatic) {
       tView.staticViewQueries = true;
@@ -101,6 +111,11 @@ export function ɵɵqueryRefresh(queryList: QueryList<any>): boolean {
   return false;
 }
 
+/** Splits multiple selectors in the locator. */
+function splitQueryMultiSelectors(locator: string): string[] {
+  return locator.split(',').map(s => s.trim());
+}
+
 /**
  * Loads a QueryList corresponding to the current view or content query.
  *
@@ -109,3 +124,7 @@ export function ɵɵqueryRefresh(queryList: QueryList<any>): boolean {
 export function ɵɵloadQuery<T>(): QueryList<T> {
   return loadQueryInternal<T>(getLView(), getCurrentQueryIndex());
 }
+
+export function ɵɵviewQuerySignal(): void {}
+export function ɵɵcontentQuerySignal(): void {}
+export function ɵɵqueryAdvance(): void {}

@@ -13,19 +13,18 @@ import {ErrorCode, FatalDiagnosticError, makeRelatedInformation} from '../../../
 import {assertSuccessfulReferenceEmit, ImportFlags, Reference, ReferenceEmitter} from '../../../imports';
 import {ClassPropertyMapping, DecoratorInputTransform, HostDirectiveMeta, InputMapping, isHostDirectiveMetaForGlobalMode} from '../../../metadata';
 import {DynamicValue, EnumValue, PartialEvaluator, ResolvedValue, traceDynamicValue} from '../../../partial_evaluator';
-import {AmbientImport, ClassDeclaration, ClassMember, ClassMemberKind, Decorator, filterToMembersWithDecorator, FunctionDefinition, isNamedClassDeclaration, ReflectionHost, reflectObjectLiteral} from '../../../reflection';
+import {AmbientImport, ClassDeclaration, ClassMember, ClassMemberKind, Decorator, filterToMembersWithDecorator, isNamedClassDeclaration, ReflectionHost, reflectObjectLiteral} from '../../../reflection';
 import {CompilationMode} from '../../../transform';
-import {createSourceSpan, createValueHasWrongTypeError, forwardRefResolver, getConstructorDependencies, isExpressionForwardReference, ReferencesRegistry, toR3Reference, tryUnwrapForwardRef, unwrapConstructorDependencies, unwrapExpression, validateConstructorDependencies, wrapFunctionExpressionsInParens, wrapTypeReference,} from '../../common';
+import {createSourceSpan, createValueHasWrongTypeError, forwardRefResolver, getAngularDecorators, getConstructorDependencies, isAngularDecorator, ReferencesRegistry, toR3Reference, tryUnwrapForwardRef, unwrapConstructorDependencies, unwrapExpression, validateConstructorDependencies, wrapFunctionExpressionsInParens, wrapTypeReference} from '../../common';
 
 import {tryParseSignalInputMapping} from './input_function';
+import {tryParseSignalQueryFromInitializer} from './query_functions';
 
 const EMPTY_OBJECT: {[key: string]: string} = {};
-const QUERY_TYPES = new Set([
-  'ContentChild',
-  'ContentChildren',
-  'ViewChild',
-  'ViewChildren',
-]);
+
+const queryDecoratorNames =
+    ['ViewChild', 'ViewChildren', 'ContentChild', 'ContentChildren'] as const;
+const QUERY_TYPES = new Set<string>(queryDecoratorNames);
 
 /**
  * Helper function to extract metadata from a `Directive` or `Component`. `Directive`s without a
@@ -81,7 +80,7 @@ export function extractDirectiveMetadata(
   const inputsFromMeta =
       parseInputsArray(clazz, directive, evaluator, reflector, refEmitter, compilationMode);
   const inputsFromFields = parseInputFields(
-      clazz, members, evaluator, reflector, refEmitter, coreModule, compilationMode, inputsFromMeta,
+      clazz, members, evaluator, reflector, refEmitter, isCore, compilationMode, inputsFromMeta,
       decorator);
   const inputs = ClassPropertyMapping.fromMappedObject({...inputsFromMeta, ...inputsFromFields});
 
@@ -91,29 +90,14 @@ export function extractDirectiveMetadata(
       filterToMembersWithDecorator(decoratedElements, 'Output', coreModule), evaluator);
   const outputs = ClassPropertyMapping.fromMappedObject({...outputsFromMeta, ...outputsFromFields});
 
-  // Construct the list of queries.
-  const contentChildFromFields = queriesFromFields(
-      filterToMembersWithDecorator(decoratedElements, 'ContentChild', coreModule), reflector,
-      evaluator);
-  const contentChildrenFromFields = queriesFromFields(
-      filterToMembersWithDecorator(decoratedElements, 'ContentChildren', coreModule), reflector,
-      evaluator);
-
-  const queries = [...contentChildFromFields, ...contentChildrenFromFields];
-
-  // Construct the list of view queries.
-  const viewChildFromFields = queriesFromFields(
-      filterToMembersWithDecorator(decoratedElements, 'ViewChild', coreModule), reflector,
-      evaluator);
-  const viewChildrenFromFields = queriesFromFields(
-      filterToMembersWithDecorator(decoratedElements, 'ViewChildren', coreModule), reflector,
-      evaluator);
-  const viewQueries = [...viewChildFromFields, ...viewChildrenFromFields];
+  // Parse queries of fields.
+  const {viewQueries, contentQueries} =
+      parseQueriesOfClassFields(members, reflector, evaluator, isCore);
 
   if (directive.has('queries')) {
     const queriesFromDecorator =
         extractQueriesFromDecorator(directive.get('queries')!, reflector, evaluator, isCore);
-    queries.push(...queriesFromDecorator.content);
+    contentQueries.push(...queriesFromDecorator.content);
     viewQueries.push(...queriesFromDecorator.view);
   }
 
@@ -226,7 +210,7 @@ export function extractDirectiveMetadata(
     },
     inputs: inputs.toJointMappedObject(toR3InputMetadata),
     outputs: outputs.toDirectMappedObject(),
-    queries,
+    queries: contentQueries,
     viewQueries,
     selector,
     fullInheritance: false,
@@ -253,7 +237,7 @@ export function extractDirectiveMetadata(
   };
 }
 
-export function extractQueryMetadata(
+export function extractDecoratorQueryMetadata(
     exprNode: ts.Node, name: string, args: ReadonlyArray<ts.Expression>, propertyName: string,
     reflector: ReflectionHost, evaluator: PartialEvaluator): R3QueryMetadata {
   if (args.length === 0) {
@@ -338,6 +322,7 @@ export function extractQueryMetadata(
   }
 
   return {
+    isSignal: false,
     propertyName,
     predicate,
     first,
@@ -462,7 +447,7 @@ function extractQueriesFromDecorator(
           'Decorator query metadata must be an instance of a query type');
     }
 
-    const query = extractQueryMetadata(
+    const query = extractDecoratorQueryMetadata(
         queryExpr, type.name, queryExpr.arguments || [], propertyName, reflector, evaluator);
     if (type.name.startsWith('Content')) {
       content.push(query);
@@ -547,31 +532,47 @@ function isStringArrayOrDie(value: any, name: string, node: ts.Expression): valu
   return true;
 }
 
-function queriesFromFields(
-    fields: {member: ClassMember, decorators: Decorator[]}[], reflector: ReflectionHost,
-    evaluator: PartialEvaluator): R3QueryMetadata[] {
-  return fields.map(({member, decorators}) => {
-    const decorator = decorators[0];
-    const node = member.node || decorator.node;
+function tryGetQueryFromFieldDecorator(
+    member: ClassMember, reflector: ReflectionHost, evaluator: PartialEvaluator,
+    isCore: boolean): {name: typeof queryDecoratorNames[number], metadata: R3QueryMetadata}|null {
+  const decorators = member.decorators;
+  if (decorators === null) {
+    return null;
+  }
 
-    // Throw in case of `@Input() @ContentChild('foo') foo: any`, which is not supported in Ivy
-    if (member.decorators!.some(v => v.name === 'Input')) {
-      throw new FatalDiagnosticError(
-          ErrorCode.DECORATOR_COLLISION, node,
-          'Cannot combine @Input decorators with query decorators');
-    }
-    if (decorators.length !== 1) {
-      throw new FatalDiagnosticError(
-          ErrorCode.DECORATOR_COLLISION, node,
-          'Cannot have multiple query decorators on the same class member');
-    } else if (!isPropertyTypeMember(member)) {
-      throw new FatalDiagnosticError(
-          ErrorCode.DECORATOR_UNEXPECTED, node,
-          'Query decorator must go on a property-type member');
-    }
-    return extractQueryMetadata(
-        node, decorator.name, decorator.args || [], member.name, reflector, evaluator);
-  });
+  const queryDecorators = getAngularDecorators(decorators, queryDecoratorNames, isCore);
+  if (queryDecorators.length === 0) {
+    return null;
+  }
+  if (queryDecorators.length !== 1) {
+    throw new FatalDiagnosticError(
+        ErrorCode.DECORATOR_COLLISION, member.node ?? queryDecorators[0].node,
+        'Cannot combine multiple query decorators.');
+  }
+
+  const decorator = queryDecorators[0];
+  const node = member.node || decorator.node;
+
+  // Throw in case of `@Input() @ContentChild('foo') foo: any`, which is not supported in Ivy
+  if (decorators.some(v => v.name === 'Input')) {
+    throw new FatalDiagnosticError(
+        ErrorCode.DECORATOR_COLLISION, node,
+        'Cannot combine @Input decorators with query decorators');
+  }
+  if (!isPropertyTypeMember(member)) {
+    throw new FatalDiagnosticError(
+        ErrorCode.DECORATOR_UNEXPECTED, node, 'Query decorator must go on a property-type member');
+  }
+
+  // Either the decorator was aliased, or is referenced directly with
+  // the proper query name.
+  const name = (decorator.import?.name ?? decorator.name) as typeof queryDecoratorNames[number];
+
+  return {
+    name,
+    metadata: extractDecoratorQueryMetadata(
+        node, name, decorator.args || [], member.name, reflector, evaluator),
+  };
 }
 
 function isPropertyTypeMember(member: ClassMember): boolean {
@@ -703,31 +704,27 @@ function parseInputsArray(
 
 /** Attempts to find a given Angular decorator on the class member. */
 function tryGetDecoratorOnMember(
-    member: ClassMember, decoratorName: string, coreModule: string|undefined): Decorator|null {
+    member: ClassMember, decoratorName: string, isCore: boolean): Decorator|null {
   if (member.decorators === null) {
     return null;
   }
 
   for (const decorator of member.decorators) {
-    if (decorator.import === null || decorator.import.name !== decoratorName) {
-      continue;
+    if (isAngularDecorator(decorator, decoratorName, isCore)) {
+      return decorator;
     }
-    if (coreModule !== undefined && decorator.import.from !== coreModule) {
-      continue;
-    }
-    return decorator;
   }
   return null;
 }
 
 function tryParseInputFieldMapping(
     clazz: ClassDeclaration, member: ClassMember, evaluator: PartialEvaluator,
-    reflector: ReflectionHost, coreModule: string|undefined, refEmitter: ReferenceEmitter,
+    reflector: ReflectionHost, isCore: boolean, refEmitter: ReferenceEmitter,
     compilationMode: CompilationMode): InputMapping|null {
   const classPropertyName = member.name;
 
-  const decorator = tryGetDecoratorOnMember(member, 'Input', coreModule);
-  const signalInputMapping = tryParseSignalInputMapping(member, reflector, coreModule);
+  const decorator = tryGetDecoratorOnMember(member, 'Input', isCore);
+  const signalInputMapping = tryParseSignalInputMapping(member, reflector, isCore);
 
   if (decorator !== null && signalInputMapping !== null) {
     throw new FatalDiagnosticError(
@@ -799,7 +796,7 @@ function tryParseInputFieldMapping(
 /** Parses the class members that declare inputs (via decorator or initializer). */
 function parseInputFields(
     clazz: ClassDeclaration, members: ClassMember[], evaluator: PartialEvaluator,
-    reflector: ReflectionHost, refEmitter: ReferenceEmitter, coreModule: string|undefined,
+    reflector: ReflectionHost, refEmitter: ReferenceEmitter, isCore: boolean,
     compilationMode: CompilationMode, inputsFromClassDecorator: Record<string, InputMapping>,
     classDecorator: Decorator): Record<string, InputMapping> {
   const inputs = {} as Record<string, InputMapping>;
@@ -811,7 +808,7 @@ function parseInputFields(
         member,
         evaluator,
         reflector,
-        coreModule,
+        isCore,
         refEmitter,
         compilationMode,
     );
@@ -979,6 +976,73 @@ function assertEmittableInputType(
 
     node.forEachChild(walk);
   })(type);
+}
+
+/**
+ * Iterates through all specified class members and attempts to detect
+ * view and content queries defined.
+ *
+ * Queries may be either defined via decorators, or through class member
+ * initializers for signal-based queries.
+ */
+function parseQueriesOfClassFields(
+    members: ClassMember[], reflector: ReflectionHost, evaluator: PartialEvaluator,
+    isCore: boolean): {
+  viewQueries: R3QueryMetadata[],
+  contentQueries: R3QueryMetadata[],
+} {
+  const viewQueries: R3QueryMetadata[] = [];
+  const contentQueries: R3QueryMetadata[] = [];
+
+  // For backwards compatibility, decorator-based queries are grouped and
+  // ordered in a specific way. The order needs to match with what we had in:
+  // https://github.com/angular/angular/blob/8737544d6963bf664f752de273e919575cca08ac/packages/compiler-cli/src/ngtsc/annotations/directive/src/shared.ts#L94-L111.
+  const decoratorViewChild: R3QueryMetadata[] = [];
+  const decoratorViewChildren: R3QueryMetadata[] = [];
+  const decoratorContentChild: R3QueryMetadata[] = [];
+  const decoratorContentChildren: R3QueryMetadata[] = [];
+
+  for (const member of members) {
+    if (member.isStatic) {
+      continue;
+    }
+
+    const decoratorQuery = tryGetQueryFromFieldDecorator(member, reflector, evaluator, isCore);
+    const signalQuery = tryParseSignalQueryFromInitializer(member, reflector, isCore);
+
+    if (decoratorQuery !== null) {
+      switch (decoratorQuery.name) {
+        case 'ViewChild':
+          decoratorViewChild.push(decoratorQuery.metadata);
+          break;
+        case 'ViewChildren':
+          decoratorViewChildren.push(decoratorQuery.metadata);
+          break;
+        case 'ContentChild':
+          decoratorContentChild.push(decoratorQuery.metadata);
+          break;
+        case 'ContentChildren':
+          decoratorContentChildren.push(decoratorQuery.metadata);
+          break;
+      }
+    } else if (signalQuery !== null) {
+      switch (signalQuery.name) {
+        case 'viewChild':
+        case 'viewChildren':
+          viewQueries.push(signalQuery.metadata);
+          break;
+        case 'contentChild':
+        case 'contentChildren':
+          contentQueries.push(signalQuery.metadata);
+          break;
+      }
+    }
+  }
+
+  return {
+    viewQueries: [...viewQueries, ...decoratorViewChild, ...decoratorViewChildren],
+    contentQueries: [...contentQueries, ...decoratorContentChild, ...decoratorContentChildren],
+  };
 }
 
 /** Parses the `outputs` array of a directive/component. */
