@@ -99,5 +99,10 @@ export function createInputSignal<ReadT, WriteT>(
   }
 
   (inputValueFn as any)[SIGNAL] = node;
+
+  if (ngDevMode) {
+    inputValueFn.toString = () => `[Input Signal: ${inputValueFn()}]`;
+  }
+
   return inputValueFn as InputSignal<ReadT, WriteT>;
 }

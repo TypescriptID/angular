@@ -966,6 +966,9 @@
     "name": "createContainerRef"
   },
   {
+    "name": "createContentQuery"
+  },
+  {
     "name": "createElementNode"
   },
   {
@@ -1584,6 +1587,9 @@
     "name": "last"
   },
   {
+    "name": "last3"
+  },
+  {
     "name": "lastNodeWasCreated"
   },
   {
@@ -2056,9 +2062,6 @@
   },
   {
     "name": "ɵɵattribute"
-  },
-  {
-    "name": "ɵɵcontentQuery"
   },
   {
     "name": "ɵɵdefineComponent"

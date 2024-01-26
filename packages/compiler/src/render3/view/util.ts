@@ -142,11 +142,12 @@ export function invokeInstruction(
  *
  * A variable declaration is added to the statements the first time the allocator is invoked.
  */
-export function temporaryAllocator(statements: o.Statement[], name: string): () => o.ReadVarExpr {
+export function temporaryAllocator(pushStatement: (st: o.Statement) => void, name: string): () =>
+    o.ReadVarExpr {
   let temp: o.ReadVarExpr|null = null;
   return () => {
     if (!temp) {
-      statements.push(new o.DeclareVarStmt(TEMPORARY_NAME, undefined, o.DYNAMIC_TYPE));
+      pushStatement(new o.DeclareVarStmt(TEMPORARY_NAME, undefined, o.DYNAMIC_TYPE));
       temp = o.variable(name);
     }
     return temp;
@@ -340,7 +341,7 @@ function getAttrsForDirectiveMatching(elOrTpl: t.Element|t.Template): {[name: st
     });
 
     elOrTpl.inputs.forEach(i => {
-      if (i.type === BindingType.Property) {
+      if (i.type === BindingType.Property || i.type === BindingType.TwoWay) {
         attributesMap[i.name] = '';
       }
     });

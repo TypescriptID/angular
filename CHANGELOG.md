@@ -1,3 +1,21 @@
+<a name="17.2.0-next.0"></a>
+# 17.2.0-next.0 (2024-01-24)
+### compiler
+| Commit | Type | Description |
+| -- | -- | -- |
+| [66e940aebf](https://github.com/angular/angular/commit/66e940aebfd5a93944860a4e0dbd14e1072f80f2) | feat | scope selectors in @starting-style ([#53943](https://github.com/angular/angular/pull/53943)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="17.1.1"></a>
+# 17.1.1 (2024-01-24)
+### router
+| Commit | Type | Description |
+| -- | -- | -- |
+| [f222bee8fa](https://github.com/angular/angular/commit/f222bee8fa037f437761e5f7f127f22f280e9154) | fix | revert commit that replaced `last` helper with native `Array.at(-1)` ([#54021](https://github.com/angular/angular/pull/54021)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
 <a name="17.1.0"></a>
 # 17.1.0 (2024-01-17)
 ### compiler

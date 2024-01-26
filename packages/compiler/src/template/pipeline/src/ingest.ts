@@ -39,10 +39,11 @@ const NG_TEMPLATE_TAG_NAME = 'ng-template';
 export function ingestComponent(
     componentName: string, template: t.Node[], constantPool: ConstantPool,
     relativeContextFilePath: string, i18nUseExternalIds: boolean,
-    deferBlocksMeta: Map<t.DeferredBlock, R3DeferBlockMetadata>): ComponentCompilationJob {
+    deferBlocksMeta: Map<t.DeferredBlock, R3DeferBlockMetadata>,
+    allDeferrableDepsFn: o.ReadVarExpr|null): ComponentCompilationJob {
   const job = new ComponentCompilationJob(
       componentName, constantPool, compatibilityMode, relativeContextFilePath, i18nUseExternalIds,
-      deferBlocksMeta);
+      deferBlocksMeta, allDeferrableDepsFn);
   ingestNodes(job.root, template);
   return job;
 }
@@ -124,8 +125,8 @@ export function ingestHostAttribute(
 }
 
 export function ingestHostEvent(job: HostBindingCompilationJob, event: e.ParsedEvent) {
-  const [phase, target] = event.type === e.ParsedEventType.Regular ? [null, event.targetOrPhase] :
-                                                                     [event.targetOrPhase, null];
+  const [phase, target] = event.type !== e.ParsedEventType.Animation ? [null, event.targetOrPhase] :
+                                                                       [event.targetOrPhase, null];
   const eventBinding = ir.createListenerOp(
       job.root.xref, new ir.SlotHandle(), event.name, null,
       makeListenerHandlerOps(job.root, event.handler, event.handlerSpan), phase, target, true,
@@ -462,8 +463,9 @@ function ingestDeferBlock(unit: ViewCompilationUnit, deferBlock: t.DeferredBlock
 
   // Create the main defer op, and ops for all secondary views.
   const deferXref = unit.job.allocateXrefId();
-  const deferOp =
-      ir.createDeferOp(deferXref, main.xref, main.handle, blockMeta, deferBlock.sourceSpan);
+  const deferOp = ir.createDeferOp(
+      deferXref, main.xref, main.handle, blockMeta, unit.job.allDeferrableDepsFn,
+      deferBlock.sourceSpan);
   deferOp.placeholderView = placeholder?.xref ?? null;
   deferOp.placeholderSlot = placeholder?.handle ?? null;
   deferOp.loadingSlot = loading?.handle ?? null;
@@ -844,6 +846,8 @@ function convertAstWithInterpolation(
 // TODO: Can we populate Template binding kinds in ingest?
 const BINDING_KINDS = new Map<e.BindingType, ir.BindingKind>([
   [e.BindingType.Property, ir.BindingKind.Property],
+  // TODO(crisbeto): we'll need a different BindingKind for two-way bindings.
+  [e.BindingType.TwoWay, ir.BindingKind.Property],
   [e.BindingType.Attribute, ir.BindingKind.Attribute],
   [e.BindingType.Class, ir.BindingKind.ClassName],
   [e.BindingType.Style, ir.BindingKind.StyleProperty],
@@ -1040,8 +1044,8 @@ function createTemplateBinding(
   // update instruction.
   if (templateKind === ir.TemplateKind.Structural) {
     if (!isStructuralTemplateAttribute &&
-        (type === e.BindingType.Property || type === e.BindingType.Class ||
-         type === e.BindingType.Style)) {
+        (type === e.BindingType.Property || type === e.BindingType.TwoWay ||
+         type === e.BindingType.Class || type === e.BindingType.Style)) {
       // Because this binding doesn't really target the ng-template, it must be a binding on an
       // inner node of a structural template. We can't skip it entirely, because we still need it on
       // the ng-template's consts (e.g. for the purposes of directive matching). However, we should
