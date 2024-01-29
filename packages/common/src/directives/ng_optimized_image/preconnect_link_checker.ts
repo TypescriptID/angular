@@ -37,7 +37,7 @@ const INTERNAL_PRECONNECT_CHECK_BLOCKLIST = new Set(['localhost', '127.0.0.1', '
  * @publicApi
  */
 export const PRECONNECT_CHECK_BLOCKLIST =
-    new InjectionToken<Array<string|string[]>>('PRECONNECT_CHECK_BLOCKLIST');
+    new InjectionToken<Array<string|string[]>>(ngDevMode ? 'PRECONNECT_CHECK_BLOCKLIST' : '');
 
 /**
  * Contains the logic to detect whether an image, marked with the "priority" attribute
@@ -103,13 +103,11 @@ export class PreconnectLinkChecker {
     // Register this origin as seen, so we don't check it again later.
     this.alreadySeen.add(imgUrl.origin);
 
-    if (!this.preconnectLinks) {
-      // Note: we query for preconnect links only *once* and cache the results
-      // for the entire lifespan of an application, since it's unlikely that the
-      // list would change frequently. This allows to make sure there are no
-      // performance implications of making extra DOM lookups for each image.
-      this.preconnectLinks = this.queryPreconnectLinks();
-    }
+    // Note: we query for preconnect links only *once* and cache the results
+    // for the entire lifespan of an application, since it's unlikely that the
+    // list would change frequently. This allows to make sure there are no
+    // performance implications of making extra DOM lookups for each image.
+    this.preconnectLinks ??= this.queryPreconnectLinks();
 
     if (!this.preconnectLinks.has(imgUrl.origin)) {
       console.warn(formatRuntimeError(
