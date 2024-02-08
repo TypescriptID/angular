@@ -120,7 +120,33 @@ export interface TrackByFunction<T> {
   <U extends T>(index: number, item: T&U): any;
 }
 
-export type Signal<T> = () => T;
+export const SIGNAL = /* @__PURE__ */ Symbol('SIGNAL');
+
+export type Signal<T> = (() => T)&{
+  [SIGNAL]: unknown;
+};
+
+/**
+ * Symbol used to tell distinguish `WritableSignal` from other non-writable signals and functions.
+ */
+const WRITABLE_SIGNAL = /* @__PURE__ */ Symbol('WRITABLE_SIGNAL');
+
+export interface WritableSignal<T> extends Signal<T> {
+  [WRITABLE_SIGNAL]: T;
+  set(value: T): void;
+  update(updateFn: (value: T) => T): void;
+  asReadonly(): Signal<T>;
+}
+
+// Note: needs to be kept in sync with the copies in `render3/reactivity/signal.ts` and
+// `ngtsc/typecheck/testing/index.ts` to ensure consistent tests.
+export function ɵunwrapWritableSignal<T>(value: T|{[WRITABLE_SIGNAL]: T}): T {
+  return null!;
+}
+
+export function signal<T>(initialValue: T): WritableSignal<T> {
+  return null!;
+}
 
 /**
  * -------
@@ -166,6 +192,24 @@ export type ɵUnwrapInputSignalWriteType<Field> =
 export type ɵUnwrapDirectiveSignalInputs<Dir, Fields extends keyof Dir> = {
   [P in Fields]: ɵUnwrapInputSignalWriteType<Dir[P]>
 };
+
+export interface ModelOptions {
+  alias?: string;
+}
+
+export interface ModelSignal<T> extends WritableSignal<T> {
+  [ɵINPUT_SIGNAL_BRAND_READ_TYPE]: T;
+  [ɵINPUT_SIGNAL_BRAND_WRITE_TYPE]: T;
+  subscribe(callback: (value: T) => void): {unsubscribe: () => void};
+}
+
+export interface ModelFunction {
+  <T>(): ModelSignal<T|undefined>;
+  <T>(initialValue: T, opts?: ModelOptions): ModelSignal<T>;
+  required<T>(opts?: ModelOptions): ModelSignal<T>;
+}
+
+export const model: ModelFunction = null!;
 
 /** Signal-based queries */
 export const viewChild: any = null!;
