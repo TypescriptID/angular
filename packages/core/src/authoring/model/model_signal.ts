@@ -12,8 +12,7 @@ import {RuntimeError, RuntimeErrorCode} from '../../errors';
 import {Signal} from '../../render3/reactivity/api';
 import {WritableSignal} from '../../render3/reactivity/signal';
 import {ɵINPUT_SIGNAL_BRAND_READ_TYPE, ɵINPUT_SIGNAL_BRAND_WRITE_TYPE} from '../input/input_signal';
-
-import {MODEL_SIGNAL_NODE, ModelSignalNode, REQUIRED_UNSET_VALUE} from './model_signal_node';
+import {INPUT_SIGNAL_NODE, InputSignalNode, REQUIRED_UNSET_VALUE} from '../input/input_signal_node';
 
 /**
  * @developerPreview
@@ -37,13 +36,13 @@ export interface ModelOptions {
  * @developerPreview
  */
 export interface ModelSignal<T> extends WritableSignal<T> {
-  [SIGNAL]: ModelSignalNode<T>;
+  [SIGNAL]: InputSignalNode<T, T>;
   [ɵINPUT_SIGNAL_BRAND_READ_TYPE]: T;
   [ɵINPUT_SIGNAL_BRAND_WRITE_TYPE]: T;
 
   // TODO(crisbeto): either make this a public API or mark as internal pending discussion.
   /** @deprecated Do not use, will be removed. */
-  subscribe(callback: (value: T) => void): {unsubscribe: () => void};
+  subscribe(callback: (value: T) => void): () => void;
 }
 
 /**
@@ -55,7 +54,7 @@ export interface ModelSignal<T> extends WritableSignal<T> {
  */
 export function createModelSignal<T>(initialValue: T): ModelSignal<T> {
   const subscriptions: ((value: T) => void)[] = [];
-  const node: ModelSignalNode<T> = Object.create(MODEL_SIGNAL_NODE);
+  const node: InputSignalNode<T, T> = Object.create(INPUT_SIGNAL_NODE);
 
   node.value = initialValue;
 
@@ -89,14 +88,11 @@ export function createModelSignal<T>(initialValue: T): ModelSignal<T> {
   getter.subscribe = (callback: (value: T) => void) => {
     subscriptions.push(callback);
 
-    // TODO(crisbeto): figure out if we can get rid of the object literal.
-    return {
-      unsubscribe: () => {
-        const index = subscriptions.indexOf(callback);
+    return () => {
+      const index = subscriptions.indexOf(callback);
 
-        if (index > -1) {
-          subscriptions.splice(index, 1);
-        }
+      if (index > -1) {
+        subscriptions.splice(index, 1);
       }
     };
   };
