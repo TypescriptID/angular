@@ -9,8 +9,10 @@ There are two categories of query: view queries and content queries.
 Signal queries supply query results as a reactive signal primitive. You can use query results in `computed` and `effect`, composing these results with other signals.
 
 <div class="alert is-helpful">
+
 Signal queries are in [developer preview](/guide/releases#developer-preview).
 APIs may change based on feedback without going through Angular's deprecation cycle.
+
 </div>
 
 If you're already familiar with Angular queries, you can jump straight to [Comparing signal-based queries to decorator-based queries](#comparing-signal-based-queries-to-decorator-based-queries)
@@ -123,7 +125,7 @@ Content queries accept the following options:
 
 ### Required child queries
 
-If a child query (`viewChild` or `contentChild`) does not find a result, its value is `undefined`. This may occur if the target element is hidden by a control flow statement like`@if` or `@for`.
+If a child query (`viewChild` or `contentChild`) does not find a result, its value is `undefined`. This may occur if the target element is hidden by a control flow statement like `@if` or `@for`.
 
 Because of this, the child queries return a signal that potentially have the `undefined` value. Most of the time, and especially for the view child queries, developers author their code such that:
 * there is at least one matching result;
@@ -145,7 +147,7 @@ export class App {
   
   ngAfterViewInit() {
     console.log(this.existingEl()); // OK :-)
-    console.log(this.missingEl());  // Runtime error: result marked as required by not available! 
+    console.log(this.missingEl());  // Runtime error: result marked as required but not available!
   }
 }
 ```

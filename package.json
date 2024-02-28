@@ -1,6 +1,6 @@
 {
   "name": "angular-srcs",
-  "version": "17.3.0-next.0",
+  "version": "17.3.0-next.1",
   "private": true,
   "description": "Angular - a web framework for modern web apps",
   "homepage": "https://github.com/angular/angular",
@@ -76,7 +76,7 @@
     "@types/babel__core": "7.20.5",
     "@types/babel__generator": "7.6.8",
     "@types/bluebird": "^3.5.27",
-    "@types/chrome": "^0.0.260",
+    "@types/chrome": "^0.0.261",
     "@types/convert-source-map": "^2.0.0",
     "@types/diff": "^5.0.0",
     "@types/dom-view-transitions": "^1.0.1",
@@ -130,7 +130,7 @@
     "rollup-plugin-sourcemaps": "^0.6.3",
     "rxjs": "^7.0.0",
     "selenium-webdriver": "3.5.0",
-    "selenium-webdriver4": "npm:selenium-webdriver@4.17.0",
+    "selenium-webdriver4": "npm:selenium-webdriver@4.18.1",
     "semver-dsl": "^1.0.1",
     "shelljs": "^0.8.5",
     "source-map": "0.7.4",
@@ -141,7 +141,7 @@
     "todomvc-common": "^1.0.5",
     "tslib": "^2.3.0",
     "tslint": "6.1.3",
-    "typescript": "5.3.2",
+    "typescript": "5.4.0-beta",
     "webtreemap": "^2.0.1",
     "ws": "^8.15.0",
     "xhr2": "0.2.1",
@@ -152,8 +152,8 @@
     "@actions/core": "^1.10.0",
     "@angular-devkit/architect-cli": "^0.1702.0-next",
     "@angular/animations": "^17.2.0-next",
-    "@angular/build-tooling": "https://github.com/angular/dev-infra-private-build-tooling-builds.git#eb4664128071362ed81482ee75fb3c82fc66a949",
-    "@angular/docs": "https://github.com/angular/dev-infra-private-docs-builds.git#0b7c3818a4b4761201d26bb076ed7418764b07e1",
+    "@angular/build-tooling": "https://github.com/angular/dev-infra-private-build-tooling-builds.git#1eb7a29ae52268cc06f4861103a748bdfa0d3b1c",
+    "@angular/docs": "https://github.com/angular/dev-infra-private-docs-builds.git#d59ee7d237c81850e20487b0049ecbd5d10b7b0e",
     "@angular/ng-dev": "https://github.com/angular/dev-infra-private-ng-dev-builds.git#c21f93acb618bcaeda52a8065e7b6c9242def182",
     "@babel/helper-remap-async-to-generator": "^7.18.9",
     "@babel/plugin-proposal-async-generator-functions": "^7.20.7",
@@ -196,7 +196,7 @@
     "gsap": "^3.12.3",
     "gulp": "^4.0.2",
     "gulp-conventional-changelog": "^4.0.0",
-    "husky": "9.0.10",
+    "husky": "9.0.11",
     "inquirer": "^9.2.7",
     "jsdom": "^24.0.0",
     "karma-coverage": "^2.2.1",
@@ -224,7 +224,7 @@
   "// 3": "Ensure that transitive dependencies on `https-proxy-agent` are at minimum v5 as older versions patch NodeJS directly, breaking tools like webdriver which is used by the karma-sauce-launcher as an example.",
   "// 4": "Ensure that a single instance of the `saucelabs` package is used. Protractor and the Karma sauce launcher pull this package as dependency. A single instance allows for e.g. easier patching in the Karma config.",
   "resolutions": {
-    "**/https-proxy-agent": "7.0.3",
+    "**/https-proxy-agent": "7.0.4",
     "**/saucelabs": "7.5.0"
   }
 }

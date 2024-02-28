@@ -15,7 +15,7 @@ import {COMPILER_ERRORS_WITH_GUIDES, ERROR_DETAILS_PAGE_BASE_URL, ErrorCode, isF
 import {DocEntry, DocsExtractor} from '../../docs';
 import {checkForPrivateExports, ReferenceGraph} from '../../entry_point';
 import {absoluteFromSourceFile, AbsoluteFsPath, LogicalFileSystem, resolve} from '../../file_system';
-import {AbsoluteModuleStrategy, AliasingHost, AliasStrategy, DefaultImportTracker, DeferredSymbolTracker, ImportRewriter, LocalCompilationExtraImportsTracker, LocalIdentifierStrategy, LogicalProjectStrategy, ModuleResolver, NoopImportRewriter, PrivateExportAliasingHost, R3SymbolsImportRewriter, Reference, ReferenceEmitStrategy, ReferenceEmitter, RelativePathStrategy, UnifiedModulesAliasingHost, UnifiedModulesStrategy} from '../../imports';
+import {AbsoluteModuleStrategy, AliasingHost, AliasStrategy, DefaultImportTracker, DeferredSymbolTracker, ImportedSymbolsTracker, ImportRewriter, LocalCompilationExtraImportsTracker, LocalIdentifierStrategy, LogicalProjectStrategy, ModuleResolver, NoopImportRewriter, PrivateExportAliasingHost, R3SymbolsImportRewriter, Reference, ReferenceEmitStrategy, ReferenceEmitter, RelativePathStrategy, UnifiedModulesAliasingHost, UnifiedModulesStrategy} from '../../imports';
 import {IncrementalBuildStrategy, IncrementalCompilation, IncrementalState} from '../../incremental';
 import {SemanticSymbol} from '../../incremental/semantic_graph';
 import {generateAnalysis, IndexedComponent, IndexingContext} from '../../indexer';
@@ -37,7 +37,9 @@ import {getSourceFileOrNull, isDtsPath, toUnredirectedSourceFile} from '../../ut
 import {Xi18nContext} from '../../xi18n';
 import {DiagnosticCategoryLabel, NgCompilerAdapter, NgCompilerOptions} from '../api';
 
-const SHOULD_USE_TEMPLATE_PIPELINE = false;
+import {coreVersionSupportsFeature} from './feature_detection';
+
+const SHOULD_USE_TEMPLATE_PIPELINE = true;
 
 /**
  * State information about a compilation which is only generated once some data is requested from
@@ -266,7 +268,7 @@ export class NgCompiler {
   readonly ignoreForEmit: Set<ts.SourceFile>;
   readonly enableTemplateTypeChecker: boolean;
   private readonly enableBlockSyntax: boolean;
-  private readonly angularCoreVersion: Version|null;
+  private readonly angularCoreVersion: string|null;
 
   /**
    * `NgCompiler` can be reused for multiple compilations (for resource-only changes), and each
@@ -331,10 +333,9 @@ export class NgCompiler {
   ) {
     this.enableTemplateTypeChecker =
         enableTemplateTypeChecker || (options['_enableTemplateTypeChecker'] ?? false);
-    // TODO(crisbeto): remove this flag and base `enableBlockSyntx` on the `angularCoreVersion`.
+    // TODO(crisbeto): remove this flag and base `enableBlockSyntax` on the `angularCoreVersion`.
     this.enableBlockSyntax = options['_enableBlockSyntax'] ?? true;
-    this.angularCoreVersion =
-        options['_angularCoreVersion'] == null ? null : new Version(options['_angularCoreVersion']);
+    this.angularCoreVersion = options['_angularCoreVersion'] ?? null;
     this.constructionDiagnostics.push(
         ...this.adapter.constructionDiagnostics, ...verifyCompatibleTypeCheckOptions(this.options));
 
@@ -798,10 +799,7 @@ export class NgCompiler {
     // Only Angular versions greater than 17.2 have the necessary symbols to type check signals in
     // two-way bindings. We also allow version 0.0.0 in case somebody is using Angular at head.
     const allowSignalsInTwoWayBindings = this.angularCoreVersion === null ||
-        this.angularCoreVersion.major > 17 ||
-        (this.angularCoreVersion.major === 17 && this.angularCoreVersion.minor >= 2) ||
-        (this.angularCoreVersion.major === 0 && this.angularCoreVersion.minor === 0 &&
-         this.angularCoreVersion.patch === 0);
+        coreVersionSupportsFeature(this.angularCoreVersion, '>= 17.2.0-0');
 
     // First select a type-checking configuration, based on whether full template type-checking is
     // requested.
@@ -1101,6 +1099,7 @@ export class NgCompiler {
     const injectableRegistry = new InjectableClassRegistry(reflector, isCore);
     const hostDirectivesResolver = new HostDirectivesResolver(metaReader);
     const exportedProviderStatusResolver = new ExportedProviderStatusResolver(metaReader);
+    const importTracker = new ImportedSymbolsTracker();
 
     const typeCheckScopeRegistry =
         new TypeCheckScopeRegistry(scopeReader, metaReader, hostDirectivesResolver);
@@ -1174,7 +1173,7 @@ export class NgCompiler {
           this.cycleAnalyzer, cycleHandlingStrategy, refEmitter, referencesRegistry,
           this.incrementalCompilation.depGraph, injectableRegistry, semanticDepGraphUpdater,
           this.closureCompilerEnabled, this.delegatingPerfRecorder, hostDirectivesResolver,
-          supportTestBed, compilationMode, deferredSymbolsTracker,
+          importTracker, supportTestBed, compilationMode, deferredSymbolsTracker,
           !!this.options.forbidOrphanComponents, this.enableBlockSyntax,
           this.options.useTemplatePipeline ?? SHOULD_USE_TEMPLATE_PIPELINE,
           localCompilationExtraImportsTracker),
@@ -1187,6 +1186,7 @@ export class NgCompiler {
             injectableRegistry, refEmitter, referencesRegistry, isCore, strictCtorDeps, semanticDepGraphUpdater,
           this.closureCompilerEnabled,
           this.delegatingPerfRecorder,
+          importTracker,
           supportTestBed, compilationMode,
           this.options.useTemplatePipeline ?? SHOULD_USE_TEMPLATE_PIPELINE,
           !!this.options.generateExtraImportsInLocalMode,
@@ -1454,18 +1454,4 @@ function versionMapFromProgram(
     versions.set(absoluteFromSourceFile(sf), driver.getSourceFileVersion(sf));
   }
   return versions;
-}
-
-/** Representation of a parsed persion string. */
-class Version {
-  readonly major: number;
-  readonly minor: number;
-  readonly patch: number;
-
-  constructor(public full: string) {
-    [this.major, this.minor, this.patch] = full.split('.').map(part => {
-      const parsed = parseInt(part);
-      return isNaN(parsed) ? -1 : parsed;
-    });
-  }
 }

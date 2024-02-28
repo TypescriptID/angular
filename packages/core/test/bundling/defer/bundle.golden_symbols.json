@@ -69,6 +69,9 @@
     "name": "CSP_NONCE"
   },
   {
+    "name": "CachedInjectorService"
+  },
+  {
     "name": "ChainedInjector"
   },
   {
@@ -681,6 +684,9 @@
     "name": "createElementRef"
   },
   {
+    "name": "createEnvironmentInjector"
+  },
+  {
     "name": "createErrorClass"
   },
   {
@@ -1074,6 +1080,9 @@
     "name": "init_bypass"
   },
   {
+    "name": "init_cached_injector_service"
+  },
+  {
     "name": "init_change_detection"
   },
   {
@@ -1359,6 +1368,9 @@
     "name": "init_hooks"
   },
   {
+    "name": "init_host_attribute_token"
+  },
+  {
     "name": "init_host_directives_feature"
   },
   {
@@ -1492,6 +1504,9 @@
   },
   {
     "name": "init_is_dev_mode"
+  },
+  {
+    "name": "init_is_internal"
   },
   {
     "name": "init_iterable"
@@ -1729,6 +1744,9 @@
   },
   {
     "name": "init_query_reactive"
+  },
+  {
+    "name": "init_queue_state_update"
   },
   {
     "name": "init_r3_injector"

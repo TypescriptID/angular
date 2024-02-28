@@ -1,3 +1,97 @@
+<a name="17.2.3"></a>
+# 17.2.3 (2024-02-27)
+### common
+| Commit | Type | Description |
+| -- | -- | -- |
+| [1a526f2881](https://github.com/angular/angular/commit/1a526f28814429c05b003edbe40500b7069e1404) | perf | `AsyncPipe` should not call `markForCheck` on subscription ([#54554](https://github.com/angular/angular/pull/54554)) |
+### compiler-cli
+| Commit | Type | Description |
+| -- | -- | -- |
+| [2aefed8763](https://github.com/angular/angular/commit/2aefed87632293c5570e17653a7d270162ea35c3) | fix | catch function instance properties in interpolated signal diagnostic ([#54325](https://github.com/angular/angular/pull/54325)) |
+| [48aec63ee4](https://github.com/angular/angular/commit/48aec63ee48fe9d20c1f1565b044ec359100736d) | fix | identify aliased initializer functions ([#54480](https://github.com/angular/angular/pull/54480)) |
+| [daf7c611b2](https://github.com/angular/angular/commit/daf7c611b23797ba2dba24e20e26c344902e7bc7) | fix | identify aliased initializer functions ([#54609](https://github.com/angular/angular/pull/54609)) |
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [57123524a2](https://github.com/angular/angular/commit/57123524a2e1481987eaf239d2ae7f1216291864) | fix | collect providers from NgModules while rendering `@defer` block ([#52881](https://github.com/angular/angular/pull/52881)) |
+| [79a32816dc](https://github.com/angular/angular/commit/79a32816dcb57e9b02ba6e18261c6dccd14b0b23) | fix | fix typo in injectors.svg file ([#54596](https://github.com/angular/angular/pull/54596)) |
+### migrations
+| Commit | Type | Description |
+| -- | -- | -- |
+| [dbe673b027](https://github.com/angular/angular/commit/dbe673b02751b8bf12f6f6f79b843dd268d965e1) | fix | resolve infinite loop for a single line element with a long tag name and angle bracket on a new line ([#54588](https://github.com/angular/angular/pull/54588)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="17.3.0-next.1"></a>
+# 17.3.0-next.1 (2024-02-27)
+### common
+| Commit | Type | Description |
+| -- | -- | -- |
+| [707bfc9b32](https://github.com/angular/angular/commit/707bfc9b326f321f302dccfdfebef7380c914eb5) | perf | `AsyncPipe` should not call `markForCheck` on subscription ([#54554](https://github.com/angular/angular/pull/54554)) |
+### compiler
+| Commit | Type | Description |
+| -- | -- | -- |
+| [1a6beae8a2](https://github.com/angular/angular/commit/1a6beae8a2bdcff27d4c1e402f98246a52247906) | feat | Enable template pipeline by default. ([#54571](https://github.com/angular/angular/pull/54571)) |
+### compiler-cli
+| Commit | Type | Description |
+| -- | -- | -- |
+| [12dc4d074e](https://github.com/angular/angular/commit/12dc4d074e63edaff626003ad6136a8d122b2ba6) | fix | account for as expression in docs extraction ([#54414](https://github.com/angular/angular/pull/54414)) |
+| [f578889ca2](https://github.com/angular/angular/commit/f578889ca2dbb22f2e050d4c4af6aa2d597bf70d) | fix | catch function instance properties in interpolated signal diagnostic ([#54325](https://github.com/angular/angular/pull/54325)) |
+| [f04ecc0cda](https://github.com/angular/angular/commit/f04ecc0cdaeb3a292a748b1ccc94ce70a573fc79) | fix | identify aliased initializer functions ([#54480](https://github.com/angular/angular/pull/54480)) |
+| [f5c566c079](https://github.com/angular/angular/commit/f5c566c0793eacf9ca146c8a6b8da15b0e8f4c4d) | fix | identify aliased initializer functions ([#54609](https://github.com/angular/angular/pull/54609)) |
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [331b16efd2](https://github.com/angular/angular/commit/331b16efd2f5af876e6dc0ad2474ee7a87b00de5) | feat | add API to inject attributes on the host node ([#54604](https://github.com/angular/angular/pull/54604)) |
+| [974958913c](https://github.com/angular/angular/commit/974958913ca632971f878a045537472f2c99c665) | feat | support TypeScript 5.4 ([#54414](https://github.com/angular/angular/pull/54414)) |
+| [dcb9deb363](https://github.com/angular/angular/commit/dcb9deb3631ff4e839f738f2fb97ca6b894256ef) | fix | collect providers from NgModules while rendering `@defer` block ([#52881](https://github.com/angular/angular/pull/52881)) |
+| [ff40c9f762](https://github.com/angular/angular/commit/ff40c9f762b2c14870ac2859201ece9660087e79) | fix | fix typo in injectors.svg file ([#54596](https://github.com/angular/angular/pull/54596)) |
+### migrations
+| Commit | Type | Description |
+| -- | -- | -- |
+| [71e0c7df69](https://github.com/angular/angular/commit/71e0c7df695f274a54d5ffb9dfc0587d06d3a953) | fix | resolve infinite loop for a single line element with a long tag name and angle bracket on a new line ([#54588](https://github.com/angular/angular/pull/54588)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="17.3.0-next.0"></a>
+# 17.3.0-next.0 (2024-02-21)
+### compiler-cli
+| Commit | Type | Description |
+| -- | -- | -- |
+| [da7fbb40f0](https://github.com/angular/angular/commit/da7fbb40f06e6e37504f69e7b335f8219f424de2) | fix | detect when the linker is working in unpublished angular and widen supported versions ([#54439](https://github.com/angular/angular/pull/54439)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="17.2.2"></a>
+# 17.2.2 (2024-02-21)
+### common
+| Commit | Type | Description |
+| -- | -- | -- |
+| [d34e3298db](https://github.com/angular/angular/commit/d34e3298db2da9d3aa8f8e2c49e1d1aed849e7d2) | fix | image placeholder not removed in OnPush component ([#54515](https://github.com/angular/angular/pull/54515)) |
+### compiler
+| Commit | Type | Description |
+| -- | -- | -- |
+| [6447c0eecc](https://github.com/angular/angular/commit/6447c0eecc15800417bb5bde2d273865c559b7d4) | fix | adding the inert property to the "SCHEMA" array ([#53148](https://github.com/angular/angular/pull/53148)) |
+### compiler-cli
+| Commit | Type | Description |
+| -- | -- | -- |
+| [0a3edfb543](https://github.com/angular/angular/commit/0a3edfb5433e1b67f37d7b3f69a5c77b48eedce6) | fix | correctly detect deferred dependencies across scoped nodes ([#54499](https://github.com/angular/angular/pull/54499)) |
+| [790f4f7c26](https://github.com/angular/angular/commit/790f4f7c26474af2b1d81a4f3c761047bf920edf) | fix | use correct symbol name for default imported symbols in defer blocks ([#54495](https://github.com/angular/angular/pull/54495)) |
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [3bd5860c74](https://github.com/angular/angular/commit/3bd5860c749517c4d35850703c53a768138b7bde) | fix | properly execute content queries for root components ([#54457](https://github.com/angular/angular/pull/54457)) |
+### migrations
+| Commit | Type | Description |
+| -- | -- | -- |
+| [bb57d34110](https://github.com/angular/angular/commit/bb57d34110ea8796f5c5f522b98dadf078e8ad8a) | fix | Fix cf migration regular expression to include underscores ([#54533](https://github.com/angular/angular/pull/54533)) |
+### router
+| Commit | Type | Description |
+| -- | -- | -- |
+| [3e31f1a34e](https://github.com/angular/angular/commit/3e31f1a34ee97a802a4032cd9e7816d683a51d5e) | fix | Clear internal transition when navigation finalizes ([#54261](https://github.com/angular/angular/pull/54261)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
 <a name="17.2.1"></a>
 # 17.2.1 (2024-02-14)
 ### compiler-cli

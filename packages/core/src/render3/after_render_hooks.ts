@@ -10,9 +10,7 @@ import {assertNotInReactiveContext} from '../core_reactivity_export_internal';
 import {assertInInjectionContext, Injector, ɵɵdefineInjectable} from '../di';
 import {inject} from '../di/injector_compatibility';
 import {ErrorHandler} from '../error_handler';
-import {RuntimeError, RuntimeErrorCode} from '../errors';
 import {DestroyRef} from '../linker/destroy_ref';
-import {assertGreaterThan} from '../util/assert';
 import {performanceMarkFeature} from '../util/performance';
 import {NgZone} from '../zone/ng_zone';
 
@@ -129,6 +127,12 @@ export interface InternalAfterNextRenderOptions {
    * If this is not provided, the current injection context will be used instead (via `inject`).
    */
   injector?: Injector;
+  /**
+   * When true, the hook will execute both on client and on the server.
+   * 
+   * When false or undefined, the hook only executes in the browser.
+   */
+  runOnServer?: boolean;
 }
 
 /** `AfterRenderRef` that does nothing. */
@@ -156,8 +160,8 @@ export function internalAfterNextRender(
   const injector = options?.injector ?? inject(Injector);
 
   // Similarly to the public `afterNextRender` function, an internal one
-  // is only invoked in a browser.
-  if (!isPlatformBrowser(injector)) return;
+  // is only invoked in a browser as long as the runOnServer option is not set.
+  if (!options?.runOnServer && !isPlatformBrowser(injector)) return;
 
   const afterRenderEventManager = injector.get(AfterRenderEventManager);
   afterRenderEventManager.internalCallbacks.push(callback);
@@ -432,9 +436,14 @@ export class AfterRenderEventManager {
   internalCallbacks: VoidFunction[] = [];
 
   /**
-   * Executes callbacks. Returns `true` if any callbacks executed.
+   * Executes internal and user-provided callbacks.
    */
   execute(): void {
+    this.executeInternalCallbacks();
+    this.handler?.execute();
+  }
+
+  executeInternalCallbacks() {
     // Note: internal callbacks power `internalAfterNextRender`. Since internal callbacks
     // are fairly trivial, they are kept separate so that `AfterRenderCallbackHandlerImpl`
     // can still be tree-shaken unless used by the application.
@@ -443,7 +452,6 @@ export class AfterRenderEventManager {
     for (const callback of callbacks) {
       callback();
     }
-    this.handler?.execute();
   }
 
   ngOnDestroy() {

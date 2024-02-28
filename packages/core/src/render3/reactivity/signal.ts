@@ -8,6 +8,8 @@
 
 import {createSignal, SIGNAL, SignalGetter, SignalNode, signalSetFn, signalUpdateFn} from '@angular/core/primitives/signals';
 
+import {performanceMarkFeature} from '../../util/performance';
+
 import {isSignal, Signal, ValueEqualityFn} from './api';
 
 /** Symbol used distinguish `WritableSignal` from other non-writable signals and functions. */
@@ -32,7 +34,7 @@ export interface WritableSignal<T> extends Signal<T> {
 
   /**
    * Returns a readonly version of this signal. Readonly signals can be accessed to read their value
-   * but can't be changed using set, update or mutate methods. The readonly signals do _not_ have
+   * but can't be changed using set or update methods. The readonly signals do _not_ have
    * any built-in mechanism that would prevent deep-mutation of their value.
    */
   asReadonly(): Signal<T>;
@@ -63,6 +65,7 @@ export interface CreateSignalOptions<T> {
  * Create a `Signal` that can be set or updated directly.
  */
 export function signal<T>(initialValue: T, options?: CreateSignalOptions<T>): WritableSignal<T> {
+  performanceMarkFeature('NgSignals');
   const signalFn = createSignal(initialValue) as SignalGetter<T>& WritableSignal<T>;
   const node = signalFn[SIGNAL];
   if (options?.equal) {

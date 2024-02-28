@@ -5,6 +5,7 @@ package(default_visibility = ["//adev:__subpackages__"])
 copy_to_directory(
     name = "content",
     srcs = [
+        "//adev/src/content",
         "//adev/src/content/best-practices",
         "//adev/src/content/best-practices/runtime-performance",
         "//adev/src/content/ecosystem",
@@ -45,11 +46,13 @@ copy_to_directory(
         "//packages/common/testing:common_testing_docs",
         "//packages/common/upgrade:common_upgrade_docs",
         "//packages/core:core_docs",
+        "//packages/core/global:core_global_docs",
         "//packages/core/rxjs-interop:core_rxjs-interop_docs",
         "//packages/core/testing:core_testing_docs",
         "//packages/elements:elements_docs",
         "//packages/forms:forms_docs",
         "//packages/localize:localize_docs",
+        "//packages/localize/init:localize_docs",
         "//packages/platform-browser:platform-browser_docs",
         "//packages/platform-browser-dynamic:platform-browser_dynamic_docs",
         "//packages/platform-browser-dynamic/testing:platform-browser_dynamic_testing_docs",
