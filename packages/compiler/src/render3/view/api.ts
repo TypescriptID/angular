@@ -14,7 +14,6 @@ import * as t from '../r3_ast';
 import {R3DependencyMetadata} from '../r3_factory';
 import {MaybeForwardRefExpression, R3Reference} from '../util';
 
-
 /**
  * Information needed to compile a directive for the render3 runtime.
  */
@@ -197,47 +196,6 @@ export const enum DeclarationListEmitMode {
 }
 
 /**
- * Describes a dependency used within a `@defer` block.
- */
-export interface R3DeferBlockTemplateDependency {
-  /**
-   * Reference to a dependency.
-   */
-  type: o.WrappedNodeExpr<unknown>;
-
-  /**
-   * Dependency class name.
-   */
-  symbolName: string;
-
-  /**
-   * Whether this dependency can be defer-loaded.
-   */
-  isDeferrable: boolean;
-
-  /**
-   * Import path where this dependency is located.
-   */
-  importPath: string|null;
-
-  /**
-   * Whether the symbol is the default export.
-   */
-  isDefaultImport: boolean;
-}
-
-/**
- * Information necessary to compile a `defer` block.
- */
-export interface R3DeferBlockMetadata {
-  /** Dependencies used within the block. */
-  deps: R3DeferBlockTemplateDependency[];
-
-  /** Mapping between triggers and the DOM nodes they refer to. */
-  triggerElements: Map<t.DeferredTrigger, t.Element|null>;
-}
-
-/**
  * Information needed to compile a component for the render3 runtime.
  */
 export interface R3ComponentMetadata<DeclarationT extends R3TemplateDependency> extends
@@ -265,29 +223,8 @@ export interface R3ComponentMetadata<DeclarationT extends R3TemplateDependency> 
 
   declarations: DeclarationT[];
 
-  /**
-   * Map of all types that can be defer loaded (ts.ClassDeclaration) ->
-   * corresponding import declaration (ts.ImportDeclaration) within
-   * the current source file.
-   */
-  deferrableDeclToImportDecl: Map<o.Expression, o.Expression>;
-
-  /**
-   * Map of `@defer` blocks -> their corresponding metadata.
-   */
-  deferBlocks: Map<t.DeferredBlock, R3DeferBlockMetadata>;
-
-  /**
-   * Defines how dynamic imports for deferred dependencies should be grouped:
-   *  - either in a function on per-component basis (in case of local compilation)
-   *  - or in a function on per-block basis (in full compilation mode)
-   */
-  deferBlockDepsEmitMode: DeferBlockDepsEmitMode;
-
-  /**
-   * Map of deferrable symbol names -> corresponding import paths.
-   */
-  deferrableTypes: Map<string, {importPath: string, isDefaultImport: boolean}>;
+  /** Metadata related to the deferred blocks in the component's template. */
+  defer: R3ComponentDeferMetadata;
 
   /**
    * Specifies how the 'directives' and/or `pipes` array, if generated, need to be emitted.
@@ -352,9 +289,18 @@ export interface R3ComponentMetadata<DeclarationT extends R3TemplateDependency> 
    * not be set. If component has empty array imports then this field is not set.
    */
   rawImports?: o.Expression;
-
-  useTemplatePipeline: boolean;
 }
+
+/**
+ * Information about the deferred blocks in a component's template.
+ */
+export type R3ComponentDeferMetadata = {
+  mode: DeferBlockDepsEmitMode.PerBlock,
+  blocks: Map<t.DeferredBlock, o.ArrowFunctionExpr|null>,
+}|{
+  mode: DeferBlockDepsEmitMode.PerComponent,
+  dependenciesFn: o.ArrowFunctionExpr | null,
+};
 
 /**
  * Metadata for an individual input on a directive.
@@ -526,8 +472,6 @@ export interface R3HostMetadata {
   properties: {[key: string]: string};
 
   specialAttributes: {styleAttr?: string; classAttr?: string;};
-
-  useTemplatePipeline: boolean;
 }
 
 /**
@@ -545,4 +489,65 @@ export interface R3HostDirectiveMetadata {
 
   /** Outputs from the host directive that will be exposed on the host. */
   outputs: {[publicName: string]: string}|null;
+}
+
+/**
+ * Information needed to compile the defer block resolver function.
+ */
+export type R3DeferResolverFunctionMetadata = {
+  mode: DeferBlockDepsEmitMode.PerBlock,
+  dependencies: R3DeferPerBlockDependency[],
+}|{
+  mode: DeferBlockDepsEmitMode.PerComponent,
+  dependencies: R3DeferPerComponentDependency[],
+};
+
+/**
+ * Information about a single dependency of a defer block in `PerBlock` mode.
+ */
+export interface R3DeferPerBlockDependency {
+  /**
+   * Reference to a dependency.
+   */
+  typeReference: o.Expression;
+
+  /**
+   * Dependency class name.
+   */
+  symbolName: string;
+
+  /**
+   * Whether this dependency can be defer-loaded.
+   */
+  isDeferrable: boolean;
+
+  /**
+   * Import path where this dependency is located.
+   */
+  importPath: string|null;
+
+  /**
+   * Whether the symbol is the default export.
+   */
+  isDefaultImport: boolean;
+}
+
+/**
+ * Information about a single dependency of a defer block in `PerComponent` mode.
+ */
+export interface R3DeferPerComponentDependency {
+  /**
+   * Dependency class name.
+   */
+  symbolName: string;
+
+  /**
+   * Import path where this dependency is located.
+   */
+  importPath: string;
+
+  /**
+   * Whether the symbol is the default export.
+   */
+  isDefaultImport: boolean;
 }

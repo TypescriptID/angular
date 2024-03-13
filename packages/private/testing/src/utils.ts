@@ -34,7 +34,10 @@ import {ɵresetJitOptions as resetJitOptions} from '@angular/core';
  * @param html HTML which should be inserted into the `body` of the `document`.
  * @param blockFn function to wrap. The function can return promise or be `async`.
  */
-export function withBody<T extends Function>(html: string, blockFn: T): T {
+export function withBody(
+  html: string,
+  blockFn: () => Promise<unknown> | void,
+): jasmine.ImplementationCallback {
   return wrapTestFn(() => document.body, html, blockFn);
 }
 
@@ -63,7 +66,10 @@ export function withBody<T extends Function>(html: string, blockFn: T): T {
  * @param html HTML which should be inserted into the `head` of the `document`.
  * @param blockFn function to wrap. The function can return promise or be `async`.
  */
-export function withHead<T extends Function>(html: string, blockFn: T): T {
+export function withHead(
+  html: string,
+  blockFn: () => Promise<unknown> | void,
+): jasmine.ImplementationCallback {
   return wrapTestFn(() => document.head, html, blockFn);
 }
 
@@ -71,22 +77,15 @@ export function withHead<T extends Function>(html: string, blockFn: T): T {
  * Wraps provided function (which typically contains the code of a test) into a new function that
  * performs the necessary setup of the environment.
  */
-function wrapTestFn<T extends Function>(
+function wrapTestFn(
   elementGetter: () => HTMLElement,
   html: string,
-  blockFn: T,
-): T {
-  return function (done: DoneFn) {
-    if (typeof blockFn === 'function') {
-      elementGetter().innerHTML = html;
-      const blockReturn = blockFn();
-      if (blockReturn instanceof Promise) {
-        blockReturn.then(done, done.fail);
-      } else {
-        done();
-      }
-    }
-  } as any;
+  blockFn: () => Promise<unknown> | void,
+): jasmine.ImplementationCallback {
+  return () => {
+    elementGetter().innerHTML = html;
+    return blockFn();
+  };
 }
 
 /**
@@ -153,10 +152,10 @@ export async function ensureDocument(): Promise<void> {
   savedDocument = (global as any).document;
   (global as any).window = window;
   (global as any).document = window.document;
-  (global as any).Event = domino.impl.Event;
   savedNode = (global as any).Node;
   // Domino types do not type `impl`, but it's a documented field.
   // See: https://www.npmjs.com/package/domino#usage.
+  (global as any).Event = (domino as typeof domino & {impl: any}).impl.Event;
   (global as any).Node = (domino as typeof domino & {impl: any}).impl.Node;
 
   savedRequestAnimationFrame = (global as any).requestAnimationFrame;

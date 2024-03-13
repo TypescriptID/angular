@@ -8,8 +8,16 @@ import { DestroyRef } from '@angular/core';
 import { Injector } from '@angular/core';
 import { MonoTypeOperatorFunction } from 'rxjs';
 import { Observable } from 'rxjs';
+import { OutputOptions } from '@angular/core';
+import { OutputRef } from '@angular/core';
 import { Signal } from '@angular/core';
 import { Subscribable } from 'rxjs';
+
+// @public
+export function outputFromObservable<T>(observable: Observable<T>, opts?: OutputOptions): OutputRef<T>;
+
+// @public
+export function outputToObservable<T>(ref: OutputRef<T>): Observable<T>;
 
 // @public
 export function takeUntilDestroyed<T>(destroyRef?: DestroyRef): MonoTypeOperatorFunction<T>;

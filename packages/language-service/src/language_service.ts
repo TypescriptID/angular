@@ -15,7 +15,7 @@ import {PerfPhase} from '@angular/compiler-cli/src/ngtsc/perf';
 import {FileUpdate, ProgramDriver} from '@angular/compiler-cli/src/ngtsc/program_driver';
 import {isNamedClassDeclaration} from '@angular/compiler-cli/src/ngtsc/reflection';
 import {OptimizeFor} from '@angular/compiler-cli/src/ngtsc/typecheck/api';
-import ts from 'typescript/lib/tsserverlibrary';
+import ts from 'typescript';
 
 import {GetComponentLocationsForTemplateResponse, GetTcbResponse, GetTemplateLocationForComponentResponse, PluginConfig} from '../api';
 
@@ -516,14 +516,14 @@ function parseNgCompilerOptions(
 
   // If `forceStrictTemplates` is true, always enable `strictTemplates`
   // regardless of its value in tsconfig.json.
-  if (config.forceStrictTemplates === true) {
+  if (config['forceStrictTemplates'] === true) {
     options.strictTemplates = true;
   }
-  if (config.enableBlockSyntax === false) {
+  if (config['enableBlockSyntax'] === false) {
     options['_enableBlockSyntax'] = false;
   }
 
-  options['_angularCoreVersion'] = config.angularCoreVersion;
+  options['_angularCoreVersion'] = config['angularCoreVersion'];
 
   return options;
 }

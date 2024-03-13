@@ -141,6 +141,9 @@
     "name": "DeferDependenciesLoadingState"
   },
   {
+    "name": "DestroyRef"
+  },
+  {
     "name": "DomAdapter"
   },
   {
@@ -349,6 +352,9 @@
   },
   {
     "name": "NodeInjector"
+  },
+  {
+    "name": "NodeInjectorDestroyRef"
   },
   {
     "name": "NodeInjectorFactory"
@@ -850,6 +856,9 @@
   },
   {
     "name": "getFirstNativeNode"
+  },
+  {
+    "name": "getInjectImplementation"
   },
   {
     "name": "getInjectableDef"
@@ -1509,9 +1518,6 @@
     "name": "init_is_dev_mode"
   },
   {
-    "name": "init_is_internal"
-  },
-  {
     "name": "init_iterable"
   },
   {
@@ -1669,6 +1675,9 @@
   },
   {
     "name": "init_output"
+  },
+  {
+    "name": "init_output_emitter_ref"
   },
   {
     "name": "init_partial"
@@ -1926,6 +1935,9 @@
     "name": "init_utils2"
   },
   {
+    "name": "init_utils3"
+  },
+  {
     "name": "init_version"
   },
   {
@@ -1984,6 +1996,9 @@
   },
   {
     "name": "injectArgs"
+  },
+  {
+    "name": "injectDestroyRef"
   },
   {
     "name": "injectElementRef"
@@ -2212,6 +2227,9 @@
   },
   {
     "name": "removeFromArray"
+  },
+  {
+    "name": "removeLViewOnDestroy"
   },
   {
     "name": "renderComponent"

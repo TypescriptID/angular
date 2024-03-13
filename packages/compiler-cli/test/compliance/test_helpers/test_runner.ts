@@ -5,7 +5,6 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-import {USE_TEMPLATE_PIPELINE} from '../../../../compiler/src/template/pipeline/switch';
 import {FileSystem} from '../../../src/ngtsc/file_system';
 
 import {checkErrors, checkNoUnexpectedErrors} from './check_errors';
@@ -14,18 +13,17 @@ import {CompileResult, initMockTestFileSystem} from './compile_test';
 import {CompilationMode, ComplianceTest, Expectation, getAllComplianceTests} from './get_compliance_tests';
 
 function transformExpectation(expectation: Expectation, isLocalCompilation: boolean): void {
-  expectation.files =
-      expectation.files.map(pair => ({
-                              expected: pair.templatePipelineExpected || pair.expected,
-                              generated: pair.generated,
-                            }));
+  expectation.files = expectation.files.map(pair => ({
+                                              expected: pair.expected,
+                                              generated: pair.generated,
+                                            }));
 
   if (isLocalCompilation) {
-    expectation.files = expectation.files.map(
-        pair => ({
-          expected: getFilenameForLocalCompilation(pair.templatePipelineExpected || pair.expected),
-          generated: pair.generated,
-        }));
+    expectation.files =
+        expectation.files.map(pair => ({
+                                expected: getFilenameForLocalCompilation(pair.expected),
+                                generated: pair.generated,
+                              }));
   }
 }
 
@@ -51,9 +49,6 @@ export function runTests(
         continue;
       }
       if (test.skipForTemplatePipeline) {
-        continue;
-      }
-      if (!USE_TEMPLATE_PIPELINE && test.onlyForTemplatePipeline) {
         continue;
       }
 

@@ -44,7 +44,7 @@ import {
   RouteConfigLoadStart,
   RoutesRecognized,
 } from './events';
-import {NavigationBehaviorOptions, QueryParamsHandling, Route, Routes} from './models';
+import {GuardResult, NavigationBehaviorOptions, QueryParamsHandling, Route, Routes} from './models';
 import {
   isNavigationCancelingError,
   isRedirectingNavigationCancelingError,
@@ -297,7 +297,7 @@ export interface NavigationTransition {
   currentRouterState: RouterState;
   targetRouterState: RouterState | null;
   guards: Checks;
-  guardsResult: boolean | UrlTree | null;
+  guardsResult: GuardResult | null;
 }
 
 /**
@@ -430,12 +430,28 @@ export class NavigationTransitions {
 
       // Using switchMap so we cancel executing navigations when a new one comes in
       switchMap((overallTransitionState) => {
-        this.currentTransition = overallTransitionState;
         let completed = false;
         let errored = false;
         return of(overallTransitionState).pipe(
-          // Store the Navigation object
-          tap((t) => {
+          switchMap((t) => {
+            // It is possible that `switchMap` fails to cancel previous navigations if a new one happens synchronously while the operator
+            // is processing the `next` notification of that previous navigation. This can happen when a new navigation (say 2) cancels a
+            // previous one (1) and yet another navigation (3) happens synchronously in response to the `NavigationCancel` event for (1).
+            // https://github.com/ReactiveX/rxjs/issues/7455
+            if (this.navigationId > overallTransitionState.id) {
+              const cancellationReason =
+                typeof ngDevMode === 'undefined' || ngDevMode
+                  ? `Navigation ID ${overallTransitionState.id} is not equal to the current navigation id ${this.navigationId}`
+                  : '';
+              this.cancelNavigationTransition(
+                overallTransitionState,
+                cancellationReason,
+                NavigationCancellationCode.SupersededByNewNavigation,
+              );
+              return EMPTY;
+            }
+            this.currentTransition = overallTransitionState;
+            // Store the Navigation object
             this.currentNavigation = {
               id: t.id,
               initialUrl: t.rawUrl,
@@ -449,8 +465,6 @@ export class NavigationTransitions {
                     previousNavigation: null,
                   },
             };
-          }),
-          switchMap((t) => {
             const urlTransition =
               !router.navigated || this.isUpdatingInternalState() || this.isUpdatedBrowserUrl();
 
@@ -594,7 +608,7 @@ export class NavigationTransitions {
           checkGuards(this.environmentInjector, (evt: Event) => this.events.next(evt)),
           tap((t) => {
             overallTransitionState.guardsResult = t.guardsResult;
-            if (isUrlTree(t.guardsResult)) {
+            if (t.guardsResult && typeof t.guardsResult !== 'boolean') {
               throw redirectingNavigationError(this.urlSerializer, t.guardsResult);
             }
 
@@ -810,7 +824,7 @@ export class NavigationTransitions {
               if (!isRedirectingNavigationCancelingError(e)) {
                 overallTransitionState.resolve(false);
               } else {
-                this.events.next(new RedirectRequest(e.url));
+                this.events.next(new RedirectRequest(e.url, e.navigationBehaviorOptions));
               }
 
               /* All other errors should reset to the router's internal URL reference

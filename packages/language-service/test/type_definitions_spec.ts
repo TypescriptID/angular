@@ -106,7 +106,45 @@ describe('type definitions', () => {
           project, {templateOverride: `<my-dir (name¦Changes)="doSmth()" />`});
       expect(definitions!.length).toEqual(1);
 
-      assertTextSpans(definitions, ['OutputEmitter']);
+      assertTextSpans(definitions, ['OutputEmitterRef']);
+      assertFileNames(definitions, ['index.d.ts']);
+    });
+  });
+
+  describe('initializer-based outputFromObservable() API', () => {
+    it('return the definition for an output', () => {
+      initMockFileSystem('Native');
+      const files = {
+        'app.ts': `
+          import {Component, Directive, EventEmitter} from '@angular/core';
+          import {outputFromObservable} from '@angular/core/rxjs-interop';
+
+          @Directive({
+            selector: 'my-dir',
+            standalone: true
+          })
+          export class MyDir {
+            nameChanges = outputFromObservable(new EventEmitter<number>());
+          }
+
+          @Component({
+            templateUrl: 'app.html',
+            standalone: true,
+            imports: [MyDir],
+          })
+          export class AppCmp {
+            doSmth() {}
+          }
+        `,
+        'app.html': `Will be overridden`,
+      };
+      env = LanguageServiceTestEnv.setup();
+      const project = env.addProject('test', files);
+      const definitions = getTypeDefinitionsAndAssertBoundSpan(
+          project, {templateOverride: `<my-dir (name¦Changes)="doSmth()" />`});
+      expect(definitions!.length).toEqual(1);
+
+      assertTextSpans(definitions, ['OutputRef']);
       assertFileNames(definitions, ['index.d.ts']);
     });
   });

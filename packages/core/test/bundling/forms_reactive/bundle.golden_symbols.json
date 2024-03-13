@@ -159,6 +159,9 @@
     "name": "DefaultValueAccessor"
   },
   {
+    "name": "DestroyRef"
+  },
+  {
     "name": "DomAdapter"
   },
   {
@@ -415,6 +418,9 @@
   },
   {
     "name": "NodeInjector"
+  },
+  {
+    "name": "NodeInjectorDestroyRef"
   },
   {
     "name": "NodeInjectorFactory"
@@ -1047,6 +1053,9 @@
     "name": "getFirstNativeNode"
   },
   {
+    "name": "getInjectImplementation"
+  },
+  {
     "name": "getInjectableDef"
   },
   {
@@ -1213,6 +1222,9 @@
   },
   {
     "name": "injectArgs"
+  },
+  {
+    "name": "injectDestroyRef"
   },
   {
     "name": "injectElementRef"
@@ -1675,6 +1687,9 @@
   },
   {
     "name": "shouldSearchParent"
+  },
+  {
+    "name": "storeLViewOnDestroy"
   },
   {
     "name": "stringify"

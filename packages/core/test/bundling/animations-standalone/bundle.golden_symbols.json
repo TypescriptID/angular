@@ -168,6 +168,9 @@
     "name": "DefaultDomRenderer2"
   },
   {
+    "name": "DestroyRef"
+  },
+  {
     "name": "DomAdapter"
   },
   {
@@ -370,6 +373,9 @@
   },
   {
     "name": "NodeInjector"
+  },
+  {
+    "name": "NodeInjectorDestroyRef"
   },
   {
     "name": "NodeInjectorFactory"
@@ -909,6 +915,9 @@
     "name": "getFirstLContainer"
   },
   {
+    "name": "getInjectImplementation"
+  },
+  {
     "name": "getInjectableDef"
   },
   {
@@ -1024,6 +1033,9 @@
   },
   {
     "name": "injectArgs"
+  },
+  {
+    "name": "injectDestroyRef"
   },
   {
     "name": "injectElementRef"
@@ -1366,6 +1378,9 @@
   },
   {
     "name": "shouldSearchParent"
+  },
+  {
+    "name": "storeLViewOnDestroy"
   },
   {
     "name": "stringify"

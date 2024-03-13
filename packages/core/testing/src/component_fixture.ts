@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ApplicationRef, ChangeDetectorRef, ComponentRef, DebugElement, ElementRef, getDebugNode, inject, NgZone, RendererFactory2, ViewRef, ɵDeferBlockDetails as DeferBlockDetails, ɵdetectChangesInViewIfRequired, ɵEffectScheduler as EffectScheduler, ɵgetDeferBlocks as getDeferBlocks, ɵisG3 as isG3, ɵNoopNgZone as NoopNgZone, ɵPendingTasks as PendingTasks,} from '@angular/core';
+import {ApplicationRef, ChangeDetectorRef, ComponentRef, DebugElement, ElementRef, getDebugNode, inject, NgZone, RendererFactory2, ViewRef, ɵDeferBlockDetails as DeferBlockDetails, ɵdetectChangesInViewIfRequired, ɵEffectScheduler as EffectScheduler, ɵgetDeferBlocks as getDeferBlocks, ɵNoopNgZone as NoopNgZone, ɵPendingTasks as PendingTasks,} from '@angular/core';
 import {Subject, Subscription} from 'rxjs';
 import {first} from 'rxjs/operators';
 
@@ -239,20 +239,6 @@ export class PseudoApplicationComponentFixture<T> extends ComponentFixture<T> {
             },
           }),
       );
-      // TODO(atscott): Remove and make this a breaking change externally in v18
-      if (!isG3) {
-        this._subscriptions.add(
-            this._ngZone.onMicrotaskEmpty.subscribe({
-              next: () => {
-                if (this._autoDetect) {
-                  // Do a change detection run with checkNoChanges set to true to check
-                  // there are no changes on the second run.
-                  this.detectChanges(true);
-                }
-              },
-            }),
-        );
-      }
       this._subscriptions.add(
           this._ngZone.onStable.subscribe({
             next: () => {
@@ -336,22 +322,25 @@ export class PseudoApplicationComponentFixture<T> extends ComponentFixture<T> {
   }
 
   private subscribeToAppRefEvents() {
-    // TODO(atscott): Remove and make this a breaking change externally in v18
-    if (!isG3) {
-      return;
-    }
-
     this._ngZone.runOutsideAngular(() => {
       this.afterTickSubscription = this._testAppRef.afterTick.subscribe(() => {
         this.checkNoChanges();
       });
       this.beforeRenderSubscription = this._testAppRef.beforeRender.subscribe((isFirstPass) => {
         try {
-          ɵdetectChangesInViewIfRequired(
-              (this.componentRef.hostView as any)._lView,
-              isFirstPass,
-              (this.componentRef.hostView as any).notifyErrorHandler,
-          );
+          if (isFirstPass) {
+            // TODO(atscott): This matches old behavior where change detection was forced on every
+            // microtask empty, ignoring OnPush. This is incorrect and should be fixed in a major
+            // version if possible.
+            this.changeDetectorRef.detectChanges();
+          } else {
+            ɵdetectChangesInViewIfRequired(
+                (this.componentRef.hostView as any)._lView,
+                isFirstPass,
+                (this.componentRef.hostView as any).notifyErrorHandler,
+            );
+          }
+
         } catch (e: unknown) {
           // If an error ocurred during change detection, remove the test view from the application
           // ref tracking. Note that this isn't exactly desirable but done this way because of how
@@ -368,11 +357,6 @@ export class PseudoApplicationComponentFixture<T> extends ComponentFixture<T> {
   }
 
   private unsubscribeFromAppRefEvents() {
-    // TODO(atscott): Remove and make this a breaking change externally in v18
-    if (!isG3) {
-      return;
-    }
-
     this.afterTickSubscription?.unsubscribe();
     this.beforeRenderSubscription?.unsubscribe();
     this.afterTickSubscription = undefined;

@@ -91,14 +91,19 @@ export function typescriptLibDts(): TestFile {
   };
 }
 
-export function angularCoreDts(): TestFile {
-  const directory =
-      resolveFromRunfiles('angular/packages/compiler-cli/src/ngtsc/testing/fake_core/npm_package');
+export function angularCoreDtsFiles(): TestFile[] {
+  const directory = resolveFromRunfiles('angular/packages/core/npm_package');
 
-  return {
-    name: absoluteFrom('/node_modules/@angular/core/index.d.ts'),
-    contents: readFileSync(path.join(directory, 'index.d.ts'), 'utf8'),
-  };
+  return [
+    {
+      name: absoluteFrom('/node_modules/@angular/core/index.d.ts'),
+      contents: readFileSync(path.join(directory, 'index.d.ts'), 'utf8'),
+    },
+    {
+      name: absoluteFrom('/node_modules/@angular/core/primitives/signals/index.d.ts'),
+      contents: readFileSync(path.join(directory, 'primitives/signals/index.d.ts'), 'utf8'),
+    },
+  ];
 }
 
 export function angularAnimationsDts(): TestFile {
@@ -399,7 +404,7 @@ export function setup(targets: TypeCheckingTarget[], overrides: {
 } {
   const files = [
     typescriptLibDts(),
-    angularCoreDts(),
+    ...angularCoreDtsFiles(),
     angularAnimationsDts(),
   ];
   const fakeMetadataRegistry = new Map();
@@ -432,7 +437,13 @@ export function setup(targets: TypeCheckingTarget[], overrides: {
   const config = overrides.config ?? {};
 
   const {program, host, options} = makeProgram(
-      files, {strictNullChecks: true, noImplicitAny: true, ...opts}, /* host */ undefined,
+      files, {
+        strictNullChecks: true,
+        skipLibCheck: true,
+        noImplicitAny: true,
+        ...opts,
+      },
+      /* host */ undefined,
       /* checkForErrors */ false);
   const checker = program.getTypeChecker();
   const logicalFs = new LogicalFileSystem(getRootDirs(host, options), host);
@@ -848,7 +859,6 @@ export class NoopOobRecorder implements OutOfBandDiagnosticRecorder {
   missingPipe(): void {}
   deferredPipeUsedEagerly(templateId: TemplateId, ast: BindingPipe): void {}
   deferredComponentUsedEagerly(templateId: TemplateId, element: TmplAstElement): void {}
-  illegalAssignmentToTemplateVar(): void {}
   duplicateTemplateVar(): void {}
   requiresInlineTcb(): void {}
   requiresInlineTypeConstructors(): void {}

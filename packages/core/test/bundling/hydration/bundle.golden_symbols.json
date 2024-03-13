@@ -114,6 +114,9 @@
     "name": "DefaultDomRenderer2"
   },
   {
+    "name": "DestroyRef"
+  },
+  {
     "name": "DomAdapter"
   },
   {
@@ -211,6 +214,9 @@
   },
   {
     "name": "IS_HYDRATION_DOM_REUSE_ENABLED"
+  },
+  {
+    "name": "IS_I18N_HYDRATION_ENABLED"
   },
   {
     "name": "InjectFlags"
@@ -334,6 +340,9 @@
   },
   {
     "name": "NodeInjector"
+  },
+  {
+    "name": "NodeInjectorDestroyRef"
   },
   {
     "name": "NodeInjectorFactory"
@@ -810,6 +819,9 @@
     "name": "getFirstLContainer"
   },
   {
+    "name": "getInjectImplementation"
+  },
+  {
     "name": "getInjectableDef"
   },
   {
@@ -933,6 +945,9 @@
     "name": "injectArgs"
   },
   {
+    "name": "injectDestroyRef"
+  },
+  {
     "name": "injectElementRef"
   },
   {
@@ -970,6 +985,9 @@
   },
   {
     "name": "isComponentHost"
+  },
+  {
+    "name": "isDetachedByI18n"
   },
   {
     "name": "isDisconnectedNode"
@@ -1267,6 +1285,9 @@
   },
   {
     "name": "siblingAfter"
+  },
+  {
+    "name": "storeLViewOnDestroy"
   },
   {
     "name": "stringify"
