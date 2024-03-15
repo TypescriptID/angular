@@ -1,25 +1,114 @@
-<a name="17.3.0-rc.0"></a>
-# 17.3.0-rc.0 (2024-03-06)
+<a name="18.0.0-next.0"></a>
+# 18.0.0-next.0 (2024-03-14)
+## Breaking Changes
+### core
+- `OnPush` views at the root of the application need to
+  be marked dirty for their host bindings to refresh. Previously, the host
+  bindings were refreshed for all root views without respecting the
+  `OnPush` change detection strategy.
+- The `ComponentFixture` `autoDetect` feature will no
+  longer refresh the component's host view when the component is `OnPush`
+  and not marked dirty. This exposes existing issues in components which
+  claim to be `OnPush` but do not correctly call `markForCheck` when they
+  need to be refreshed. If this change causes test failures, the easiest
+  fix is to change the component to `ChangeDetectionStrategy.Default`.
+- When Angular runs change detection, it will continue to
+  refresh any views attached to `ApplicationRef` that are still marked for
+  check after one round completes. In rare cases, this can result in infinite
+  loops when certain patterns continue to mark views for check using
+  `ChangeDetectorRef.detectChanges`. This will be surfaced as a runtime
+  error with the `NG0103` code.
+- The `ComponentFixture.autoDetect` feature now executes
+  change detection for the fixture within `ApplicationRef.tick`. This more
+  closely matches the behavior of how a component would refresh in
+  production. The order of component refresh in tests may be slightly
+  affected as a result, especially when dealing with additional components
+  attached to the application, such as dialogs. Tests sensitive to this
+  type of change (such as screenshot tests) may need to be updated.
+  Concretely, this change means that the component will refresh _before_
+  additional views attached to `ApplicationRef` (i.e. dialog components).
+  Prior to this change, the fixture component would refresh _after_ other
+  views attached to the application.
+- The exact timing of change detection execution when
+  using event or run coalescing with `NgZone` is now the first of either
+  `setTimeout` or `requestAnimationFrame`. Code which relies on this
+  timing (usually by accident) will need to be adjusted. If a callback
+  needs to execute after change detection, we recommend `afterNextRender`
+  instead of something like `setTimeout`.
+- Newly created and views marked for check and reattached
+  during change detection are now guaranteed to be refreshed in that same
+  change detection cycle. Previously, if they were attached at a location
+  in the view tree that was already checked, they would either throw
+  `ExpressionChangedAfterItHasBeenCheckedError` or not be refreshed until
+  some future round of change detection. In rare circumstances, this
+  correction can cause issues. We identified one instance that relied on
+  the previous behavior by reading a value on initialization which was
+  queued to be updated in a microtask instead of being available in the
+  current change detection round. The component only read this value during
+  initialization and did not read it again after the microtask updated it.
+### router
+- Guards can now return `RedirectCommand` for redirects
+  in addition to `UrlTree`. Code which expects only `boolean` or `UrlTree`
+  values in `Route` types will need to be adjusted.
 ### compiler-cli
 | Commit | Type | Description |
 | -- | -- | -- |
-| [5afa4f0ec1](https://github.com/angular/angular/commit/5afa4f0ec1b64b88ef875d48bd143e0f36e0a955) | fix | support `ModuleWithProviders` literal detection with `typeof` ([#54650](https://github.com/angular/angular/pull/54650)) |
-| [ae7dbe42de](https://github.com/angular/angular/commit/ae7dbe42de5779e578fb636938699b8ba85b33f6) | fix | unwrap expressions with type parameters in query read property ([#54647](https://github.com/angular/angular/pull/54647)) |
+| [9b424d7224](https://github.com/angular/angular/commit/9b424d7224db46edb16c81979c7e231d5e3db5e9) | fix | preserve original reference to non-deferrable dependency ([#54759](https://github.com/angular/angular/pull/54759)) |
 ### core
 | Commit | Type | Description |
 | -- | -- | -- |
+| [64f870c12b](https://github.com/angular/angular/commit/64f870c12bae1ad66509f0d65f8d3e051aae6eaa) | fix | `ApplicationRef.tick` should respect OnPush for host bindings ([#53718](https://github.com/angular/angular/pull/53718)) ([#53718](https://github.com/angular/angular/pull/53718)) |
+| [8cad4e8cbe](https://github.com/angular/angular/commit/8cad4e8cbe2baf20dae7b7ef1f4253a4940cbba0) | fix | `ComponentFixture` `autoDetect` respects `OnPush` flag of host view ([#54824](https://github.com/angular/angular/pull/54824)) |
+| [ba8e465974](https://github.com/angular/angular/commit/ba8e46597435a827670f10b971b2c58f7033b180) | fix | Change Detection will continue to refresh views while marked for check ([#54734](https://github.com/angular/angular/pull/54734)) |
+| [24bc0ed4f2](https://github.com/angular/angular/commit/24bc0ed4f2de47bd998338d73cba394fb45dd497) | fix | ComponentFixture autodetect should detect changes within ApplicationRef.tick ([#54733](https://github.com/angular/angular/pull/54733)) |
+| [10c5cdb49c](https://github.com/angular/angular/commit/10c5cdb49c51c95086febd37f4d88a9b944d7e1c) | fix | ensure change detection runs in a reasonable timeframe with zone coalescing ([#54578](https://github.com/angular/angular/pull/54578)) |
+| [ad045efd4b](https://github.com/angular/angular/commit/ad045efd4b1565e01c14399998143538ebfbfd99) | fix | Ensure views marked for check are refreshed during change detection ([#54735](https://github.com/angular/angular/pull/54735)) |
+| [700c0520bb](https://github.com/angular/angular/commit/700c0520bb638952ba41a8d8260cf12afb078c0e) | fix | Update ApplicationRef.tick loop to only throw in dev mode ([#54848](https://github.com/angular/angular/pull/54848)) |
+### router
+| Commit | Type | Description |
+| -- | -- | -- |
+| [8735af08b9](https://github.com/angular/angular/commit/8735af08b976b30cf236a83f9e8b64b5ff62e9f3) | feat | Add ability to return `UrlTree` with `NavigationBehaviorOptions` from guards ([#45023](https://github.com/angular/angular/pull/45023)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="17.3.0"></a>
+# 17.3.0 (2024-03-13)
+### compiler
+| Commit | Type | Description |
+| -- | -- | -- |
+| [1a6beae8a2](https://github.com/angular/angular/commit/1a6beae8a2bdcff27d4c1e402f98246a52247906) | feat | Enable template pipeline by default. ([#54571](https://github.com/angular/angular/pull/54571)) |
+| [f386a04c9d](https://github.com/angular/angular/commit/f386a04c9ddc2951c8105d5cafcce7b4bedea569) | fix | handle two-way bindings to signal-based template variables in instruction generation ([#54714](https://github.com/angular/angular/pull/54714)) |
+| [1f129f114e](https://github.com/angular/angular/commit/1f129f114edb21137d74471dd6b652848d2ffb68) | fix | not catching for loop empty tracking expressions ([#54772](https://github.com/angular/angular/pull/54772)) |
+### compiler-cli
+| Commit | Type | Description |
+| -- | -- | -- |
+| [12dc4d074e](https://github.com/angular/angular/commit/12dc4d074e63edaff626003ad6136a8d122b2ba6) | fix | account for as expression in docs extraction ([#54414](https://github.com/angular/angular/pull/54414)) |
+| [da7fbb40f0](https://github.com/angular/angular/commit/da7fbb40f06e6e37504f69e7b335f8219f424de2) | fix | detect when the linker is working in unpublished angular and widen supported versions ([#54439](https://github.com/angular/angular/pull/54439)) |
+| [492e03f699](https://github.com/angular/angular/commit/492e03f699ca95df4cf854885253f63a5a1fb5c1) | fix | flag two-way bindings to non-signal values in templates ([#54714](https://github.com/angular/angular/pull/54714)) |
+| [5afa4f0ec1](https://github.com/angular/angular/commit/5afa4f0ec1b64b88ef875d48bd143e0f36e0a955) | fix | support `ModuleWithProviders` literal detection with `typeof` ([#54650](https://github.com/angular/angular/pull/54650)) |
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [331b16efd2](https://github.com/angular/angular/commit/331b16efd2f5af876e6dc0ad2474ee7a87b00de5) | feat | add API to inject attributes on the host node ([#54604](https://github.com/angular/angular/pull/54604)) |
 | [fb540e169a](https://github.com/angular/angular/commit/fb540e169a78a61f38d611f538eea8fdb0971f1d) | feat | add migration for invalid two-way bindings ([#54630](https://github.com/angular/angular/pull/54630)) |
 | [c687b8f453](https://github.com/angular/angular/commit/c687b8f4531252cd1c3dfbb9a7bd42bdbe666a36) | feat | expose new `output()` API ([#54650](https://github.com/angular/angular/pull/54650)) |
 | [c809069f21](https://github.com/angular/angular/commit/c809069f213244afd0e2d803a6a43510b218e6f5) | feat | introduce `outputFromObservable()` interop function ([#54650](https://github.com/angular/angular/pull/54650)) |
 | [aff65fd1f4](https://github.com/angular/angular/commit/aff65fd1f4a61ed76a6f9b623852f197eb3500e4) | feat | introduce `outputToObservable` interop helper ([#54650](https://github.com/angular/angular/pull/54650)) |
-| [33a6fab094](https://github.com/angular/angular/commit/33a6fab094205cc74aceb916e45c8afa22293cf4) | fix | apply TestBed provider overrides to `@defer` dependencies ([#54667](https://github.com/angular/angular/pull/54667)) |
-| [78e69117f0](https://github.com/angular/angular/commit/78e69117f07e8ae11aab3abe0343df815b3649be) | fix | generic inference for signal inputs may break with `--strictFunctionTypes` ([#54652](https://github.com/angular/angular/pull/54652)) |
+| [974958913c](https://github.com/angular/angular/commit/974958913ca632971f878a045537472f2c99c665) | feat | support TypeScript 5.4 ([#54414](https://github.com/angular/angular/pull/54414)) |
+| [39a50f9a8d](https://github.com/angular/angular/commit/39a50f9a8df5afc4968d18924f3d9d7d6b649d3a) | fix | ensure all initializer functions run in an injection context ([#54761](https://github.com/angular/angular/pull/54761)) |
+| [243ccce624](https://github.com/angular/angular/commit/243ccce62475ae03a2e727d2b3cb2d51a595c4a7) | fix | exclude class attribute intended for projection matching from directive matching ([#54800](https://github.com/angular/angular/pull/54800)) |
+| [2909e9817d](https://github.com/angular/angular/commit/2909e9817daf69b6478d7d09229491a9a48cff16) | fix | prevent infinite loops in clobbered elements check ([#54425](https://github.com/angular/angular/pull/54425)) |
 | [7243c704cf](https://github.com/angular/angular/commit/7243c704cf8a4986fae419793027458e142658f0) | fix | return a readonly signal on `asReadonly`. ([#54706](https://github.com/angular/angular/pull/54706)) |
-| [ffad7b8ea9](https://github.com/angular/angular/commit/ffad7b8ea9d1286ddb3ee7a2dac7dd33fd76b3aa) | fix | untrack various core operations ([#54614](https://github.com/angular/angular/pull/54614)) |
+| [bb35414a38](https://github.com/angular/angular/commit/bb35414a38f8a8447d03c66dc5bf60b84409f9e3) | perf | speed up retrieval of `DestroyRef` in `EventEmitter` ([#54748](https://github.com/angular/angular/pull/54748)) |
+### http
+| Commit | Type | Description |
+| -- | -- | -- |
+| [8d37ed035c](https://github.com/angular/angular/commit/8d37ed035c9e9796ba9a7b1f055404ea220dbb3b) | fix | exclude caching for authenticated HTTP requests ([#54746](https://github.com/angular/angular/pull/54746)) |
 ### router
 | Commit | Type | Description |
 | -- | -- | -- |
 | [c1c7384e02](https://github.com/angular/angular/commit/c1c7384e02becc623c6a42985f7178ca98137264) | feat | Add reusable types for router guards ([#54580](https://github.com/angular/angular/pull/54580)) |
+| [7225485311](https://github.com/angular/angular/commit/722548531108e247660ebe6966b99b57d510b615) | fix | Navigations triggered by cancellation events should cancel previous navigation ([#54710](https://github.com/angular/angular/pull/54710)) |
 
 <!-- CHANGELOG SPLIT MARKER -->
 
@@ -60,46 +149,6 @@
 | Commit | Type | Description |
 | -- | -- | -- |
 | [dbe673b027](https://github.com/angular/angular/commit/dbe673b02751b8bf12f6f6f79b843dd268d965e1) | fix | resolve infinite loop for a single line element with a long tag name and angle bracket on a new line ([#54588](https://github.com/angular/angular/pull/54588)) |
-
-<!-- CHANGELOG SPLIT MARKER -->
-
-<a name="17.3.0-next.1"></a>
-# 17.3.0-next.1 (2024-02-27)
-### common
-| Commit | Type | Description |
-| -- | -- | -- |
-| [707bfc9b32](https://github.com/angular/angular/commit/707bfc9b326f321f302dccfdfebef7380c914eb5) | perf | `AsyncPipe` should not call `markForCheck` on subscription ([#54554](https://github.com/angular/angular/pull/54554)) |
-### compiler
-| Commit | Type | Description |
-| -- | -- | -- |
-| [1a6beae8a2](https://github.com/angular/angular/commit/1a6beae8a2bdcff27d4c1e402f98246a52247906) | feat | Enable template pipeline by default. ([#54571](https://github.com/angular/angular/pull/54571)) |
-### compiler-cli
-| Commit | Type | Description |
-| -- | -- | -- |
-| [12dc4d074e](https://github.com/angular/angular/commit/12dc4d074e63edaff626003ad6136a8d122b2ba6) | fix | account for as expression in docs extraction ([#54414](https://github.com/angular/angular/pull/54414)) |
-| [f578889ca2](https://github.com/angular/angular/commit/f578889ca2dbb22f2e050d4c4af6aa2d597bf70d) | fix | catch function instance properties in interpolated signal diagnostic ([#54325](https://github.com/angular/angular/pull/54325)) |
-| [f04ecc0cda](https://github.com/angular/angular/commit/f04ecc0cdaeb3a292a748b1ccc94ce70a573fc79) | fix | identify aliased initializer functions ([#54480](https://github.com/angular/angular/pull/54480)) |
-| [f5c566c079](https://github.com/angular/angular/commit/f5c566c0793eacf9ca146c8a6b8da15b0e8f4c4d) | fix | identify aliased initializer functions ([#54609](https://github.com/angular/angular/pull/54609)) |
-### core
-| Commit | Type | Description |
-| -- | -- | -- |
-| [331b16efd2](https://github.com/angular/angular/commit/331b16efd2f5af876e6dc0ad2474ee7a87b00de5) | feat | add API to inject attributes on the host node ([#54604](https://github.com/angular/angular/pull/54604)) |
-| [974958913c](https://github.com/angular/angular/commit/974958913ca632971f878a045537472f2c99c665) | feat | support TypeScript 5.4 ([#54414](https://github.com/angular/angular/pull/54414)) |
-| [dcb9deb363](https://github.com/angular/angular/commit/dcb9deb3631ff4e839f738f2fb97ca6b894256ef) | fix | collect providers from NgModules while rendering `@defer` block ([#52881](https://github.com/angular/angular/pull/52881)) |
-| [ff40c9f762](https://github.com/angular/angular/commit/ff40c9f762b2c14870ac2859201ece9660087e79) | fix | fix typo in injectors.svg file ([#54596](https://github.com/angular/angular/pull/54596)) |
-### migrations
-| Commit | Type | Description |
-| -- | -- | -- |
-| [71e0c7df69](https://github.com/angular/angular/commit/71e0c7df695f274a54d5ffb9dfc0587d06d3a953) | fix | resolve infinite loop for a single line element with a long tag name and angle bracket on a new line ([#54588](https://github.com/angular/angular/pull/54588)) |
-
-<!-- CHANGELOG SPLIT MARKER -->
-
-<a name="17.3.0-next.0"></a>
-# 17.3.0-next.0 (2024-02-21)
-### compiler-cli
-| Commit | Type | Description |
-| -- | -- | -- |
-| [da7fbb40f0](https://github.com/angular/angular/commit/da7fbb40f06e6e37504f69e7b335f8219f424de2) | fix | detect when the linker is working in unpublished angular and widen supported versions ([#54439](https://github.com/angular/angular/pull/54439)) |
 
 <!-- CHANGELOG SPLIT MARKER -->
 
