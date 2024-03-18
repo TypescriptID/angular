@@ -27,13 +27,17 @@ export type PropertyTransform =
  */
 export function createSyntheticAngularCoreDecoratorAccess(
     factory: ts.NodeFactory, importManager: ImportManager, ngClassDecorator: Decorator,
-    decoratorName: string): ts.PropertyAccessExpression {
+    sourceFile: ts.SourceFile, decoratorName: string): ts.PropertyAccessExpression {
   const classDecoratorIdentifier = ts.isIdentifier(ngClassDecorator.identifier) ?
       ngClassDecorator.identifier :
       ngClassDecorator.identifier.expression;
 
   return factory.createPropertyAccessExpression(
-      importManager.generateNamespaceImport('@angular/core'),
+      importManager.addImport({
+        exportModuleSpecifier: '@angular/core',
+        exportSymbolName: null,
+        requestedFile: sourceFile,
+      }),
       // The synthetic identifier may be checked later by the downlevel decorators
       // transform to resolve to an Angular import using `getSymbolAtLocation`. We trick
       // the transform to think it's not synthetic and comes from Angular core.
