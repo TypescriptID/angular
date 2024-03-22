@@ -305,12 +305,7 @@ export interface RepeaterCreateOp extends ElementOpBase, ConsumesVarsTrait {
 
 // TODO: add source spans?
 export interface RepeaterVarNames {
-  $index: string;
-  $count: string;
-  $first: string;
-  $last: string;
-  $even: string;
-  $odd: string;
+  $index: Set<string>;
   $implicit: string;
 }
 
@@ -841,7 +836,7 @@ export interface DeferOp extends Op<CreateOp>, ConsumesSlotOpTrait {
    * per deferred block or one for the entire template. This field contains the function that
    * belongs specifically to the current deferred block.
    */
-  ownResolverFn: o.ArrowFunctionExpr|null;
+  ownResolverFn: o.Expression|null;
 
   /**
    * After processing, the resolver function for the defer deps will be extracted to the constant
@@ -853,7 +848,7 @@ export interface DeferOp extends Op<CreateOp>, ConsumesSlotOpTrait {
 }
 
 export function createDeferOp(
-    xref: XrefId, main: XrefId, mainSlot: SlotHandle, ownResolverFn: o.ArrowFunctionExpr|null,
+    xref: XrefId, main: XrefId, mainSlot: SlotHandle, ownResolverFn: o.Expression|null,
     resolverFn: o.Expression|null, sourceSpan: ParseSourceSpan): DeferOp {
   return {
     kind: OpKind.Defer,

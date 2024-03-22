@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {AbsoluteSourceSpan, BindingPipe, PropertyRead, PropertyWrite, TmplAstBoundAttribute, TmplAstBoundEvent, TmplAstElement, TmplAstForLoopBlock, TmplAstForLoopBlockEmpty, TmplAstHoverDeferredTrigger, TmplAstIfBlockBranch, TmplAstInteractionDeferredTrigger, TmplAstReference, TmplAstTemplate, TmplAstVariable, TmplAstViewportDeferredTrigger} from '@angular/compiler';
+import {AbsoluteSourceSpan, BindingPipe, PropertyRead, TmplAstBoundAttribute, TmplAstBoundEvent, TmplAstElement, TmplAstForLoopBlock, TmplAstForLoopBlockEmpty, TmplAstHoverDeferredTrigger, TmplAstIfBlockBranch, TmplAstInteractionDeferredTrigger, TmplAstReference, TmplAstSwitchBlockCase, TmplAstTemplate, TmplAstVariable, TmplAstViewportDeferredTrigger} from '@angular/compiler';
 import ts from 'typescript';
 
 import {ErrorCode, makeDiagnostic, makeRelatedInformation, ngErrorCode} from '../../diagnostics';
@@ -124,7 +124,8 @@ export interface OutOfBandDiagnosticRecorder {
   controlFlowPreventingContentProjection(
       templateId: TemplateId, category: ts.DiagnosticCategory,
       projectionNode: TmplAstElement|TmplAstTemplate, componentName: string, slotSelector: string,
-      controlFlowNode: TmplAstIfBlockBranch|TmplAstForLoopBlock|TmplAstForLoopBlockEmpty,
+      controlFlowNode: TmplAstIfBlockBranch|TmplAstSwitchBlockCase|TmplAstForLoopBlock|
+      TmplAstForLoopBlockEmpty,
       preservesWhitespaces: boolean): void;
 }
 
@@ -353,11 +354,13 @@ export class OutOfBandDiagnosticRecorderImpl implements OutOfBandDiagnosticRecor
       throw new Error(`Assertion failure: no SourceLocation found for property read.`);
     }
 
+    const messageVars = [block.item, ...block.contextVariables.filter(v => v.value === '$index')]
+                            .map(v => `'${v.name}'`)
+                            .join(', ');
     const message =
         `Cannot access '${access.name}' inside of a track expression. ` +
-        `Only '${block.item.name}', '${
-            block.contextVariables.$index
-                .name}' and properties on the containing component are available to this expression.`;
+        `Only ${
+            messageVars} and properties on the containing component are available to this expression.`;
 
     this._diagnostics.push(makeTemplateDiagnostic(
         templateId, this.resolver.getSourceMapping(templateId), sourceSpan,
@@ -391,17 +394,10 @@ export class OutOfBandDiagnosticRecorderImpl implements OutOfBandDiagnosticRecor
   controlFlowPreventingContentProjection(
       templateId: TemplateId, category: ts.DiagnosticCategory,
       projectionNode: TmplAstElement|TmplAstTemplate, componentName: string, slotSelector: string,
-      controlFlowNode: TmplAstIfBlockBranch|TmplAstForLoopBlock|TmplAstForLoopBlockEmpty,
+      controlFlowNode: TmplAstIfBlockBranch|TmplAstSwitchBlockCase|TmplAstForLoopBlock|
+      TmplAstForLoopBlockEmpty,
       preservesWhitespaces: boolean): void {
-    let blockName: string;
-    if (controlFlowNode instanceof TmplAstForLoopBlockEmpty) {
-      blockName = '@empty';
-    } else if (controlFlowNode instanceof TmplAstForLoopBlock) {
-      blockName = '@for';
-    } else {
-      blockName = '@if';
-    }
-
+    const blockName = controlFlowNode.nameSpan.toString().trim();
     const lines = [
       `Node matches the "${slotSelector}" slot of the "${
           componentName}" component, but will not be projected into the specific slot because the surrounding ${

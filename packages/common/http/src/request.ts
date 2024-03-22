@@ -439,6 +439,7 @@ export class HttpRequest<T> {
     params?: HttpParams;
     responseType?: 'arraybuffer' | 'blob' | 'json' | 'text';
     withCredentials?: boolean;
+    transferCache?: {includeHeaders?: string[]} | boolean;
     body?: T | null;
     method?: string;
     url?: string;
@@ -452,6 +453,7 @@ export class HttpRequest<T> {
     params?: HttpParams;
     responseType?: 'arraybuffer' | 'blob' | 'json' | 'text';
     withCredentials?: boolean;
+    transferCache?: {includeHeaders?: string[]} | boolean;
     body?: V | null;
     method?: string;
     url?: string;
@@ -466,6 +468,7 @@ export class HttpRequest<T> {
       params?: HttpParams;
       responseType?: 'arraybuffer' | 'blob' | 'json' | 'text';
       withCredentials?: boolean;
+      transferCache?: {includeHeaders?: string[]} | boolean;
       body?: any | null;
       method?: string;
       url?: string;
@@ -479,6 +482,10 @@ export class HttpRequest<T> {
     const url = update.url || this.url;
     const responseType = update.responseType || this.responseType;
 
+    // Carefully handle the transferCache to differentiate between
+    // `false` and `undefined` in the update args.
+    const transferCache = update.transferCache ?? this.transferCache;
+
     // The body is somewhat special - a `null` value in update.body means
     // whatever current body is present is being overridden with an empty
     // body, whereas an `undefined` value in update.body implies no
@@ -487,10 +494,8 @@ export class HttpRequest<T> {
 
     // Carefully handle the boolean options to differentiate between
     // `false` and `undefined` in the update args.
-    const withCredentials =
-      update.withCredentials !== undefined ? update.withCredentials : this.withCredentials;
-    const reportProgress =
-      update.reportProgress !== undefined ? update.reportProgress : this.reportProgress;
+    const withCredentials = update.withCredentials ?? this.withCredentials;
+    const reportProgress = update.reportProgress ?? this.reportProgress;
 
     // Headers and params may be appended to if `setHeaders` or
     // `setParams` are used.
@@ -526,6 +531,7 @@ export class HttpRequest<T> {
       reportProgress,
       responseType,
       withCredentials,
+      transferCache,
     });
   }
 }

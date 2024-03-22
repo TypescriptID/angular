@@ -302,6 +302,21 @@
       ]
     },
     {
+      "description": "should generate a for block with references both to original and aliased template variables",
+      "inputFiles": ["for_both_aliased_and_original_variables.ts"],
+      "expectations": [
+        {
+          "files": [
+            {
+              "expected": "for_both_aliased_and_original_variables_template.js",
+              "generated": "for_both_aliased_and_original_variables.js"
+            }
+          ],
+          "failureMessage": "Incorrect template"
+        }
+      ]
+    },
+    {
       "description": "should be able to refer to aliased template variables in nested for blocks",
       "inputFiles": ["nested_for_template_variables.ts"],
       "expectations": [
@@ -520,6 +535,36 @@
             {
               "expected": "for_template_root_node_template.js",
               "generated": "for_template_root_node.js"
+            }
+          ],
+          "failureMessage": "Incorrect template"
+        }
+      ]
+    },
+    {
+      "description": "should generate a switch block with cases that have element root nodes",
+      "inputFiles": ["switch_element_root_node.ts"],
+      "expectations": [
+        {
+          "files": [
+            {
+              "expected": "switch_element_root_node_template.js",
+              "generated": "switch_element_root_node.js"
+            }
+          ],
+          "failureMessage": "Incorrect template"
+        }
+      ]
+    },
+    {
+      "description": "should generate a switch block with cases that have ng-template root nodes",
+      "inputFiles": ["switch_template_root_node.ts"],
+      "expectations": [
+        {
+          "files": [
+            {
+              "expected": "switch_template_root_node_template.js",
+              "generated": "switch_template_root_node.js"
             }
           ],
           "failureMessage": "Incorrect template"

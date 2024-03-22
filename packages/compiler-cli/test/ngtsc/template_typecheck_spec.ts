@@ -27,10 +27,10 @@ runInEachFileSystem(() => {
       env = NgtscTestEnvironment.setup(testFiles);
       env.tsconfig({fullTemplateTypeCheck: true});
       env.write('node_modules/@angular/animations/index.d.ts', `
-export declare class AnimationEvent {
-  element: any;
-}
-`);
+        export declare class AnimationEvent {
+          element: any;
+        }
+      `);
     });
 
     it('should check a simple component', () => {
@@ -4828,23 +4828,25 @@ suppress
         ]);
       });
 
-      it('should not expose variables under their implicit name if they are aliased', () => {
-        env.write('test.ts', `
-          import {Component} from '@angular/core';
+      it('should continue exposing implicit loop variables under their old names when they are aliased',
+         () => {
+           env.write('test.ts', `
+            import {Component} from '@angular/core';
 
-          @Component({
-            template: '@for (item of items; track item; let alias = $index) { {{$index}} {{$count}} }',
-          })
-          export class Main {
-            items = [];
-          }
-        `);
+            @Component({
+              template: '@for (item of items; track item; let alias = $index) { {{acceptsString($index)}} }',
+            })
+            export class Main {
+              items = [];
+              acceptsString(str: string) {}
+            }
+          `);
 
-        const diags = env.driveDiagnostics();
-        expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
-          `Property '$index' does not exist on type 'Main'.`,
-        ]);
-      });
+           const diags = env.driveDiagnostics();
+           expect(diags.map(d => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+             `Argument of type 'number' is not assignable to parameter of type 'string'.`,
+           ]);
+         });
 
       it('should not be able to write to loop template variables', () => {
         env.write('test.ts', `
@@ -5373,6 +5375,84 @@ suppress
             `not be projected into the specific slot because the surrounding @if has more than one node at its root.`);
       });
 
+      it('should report when an @else block prevents content projection', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            selector: 'comp',
+            template: '<ng-content select="[foo]"/> <ng-content select="[bar]"/>',
+            standalone: true,
+          })
+          class Comp {}
+
+          @Component({
+            standalone: true,
+            imports: [Comp],
+            template: \`
+              <comp>
+                @if (expr) {
+                  <div foo></div>
+                } @else {
+                  <div bar></div>
+                  breaks projection
+                }
+              </comp>
+            \`,
+          })
+          class TestCmp {
+            expr = 0;
+          }
+        `);
+
+        const diags =
+            env.driveDiagnostics().map(d => ts.flattenDiagnosticMessageText(d.messageText, ''));
+        expect(diags.length).toBe(1);
+        expect(diags[0]).toContain(
+            `Node matches the "[bar]" slot of the "Comp" component, but will ` +
+            `not be projected into the specific slot because the surrounding @else has more than one node at its root.`);
+      });
+
+      it('should report when an @else if block prevents content projection', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            selector: 'comp',
+            template: '<ng-content select="[foo]"/> <ng-content select="[bar]"/> <ng-content select="[baz]"/>',
+            standalone: true,
+          })
+          class Comp {}
+
+          @Component({
+            standalone: true,
+            imports: [Comp],
+            template: \`
+              <comp>
+                @if (expr === 1) {
+                  <div foo></div>
+                } @else if (expr === 2) {
+                  <div bar></div>
+                  breaks projection
+                } @else {
+                  <div baz></div>
+                }
+              </comp>
+            \`,
+          })
+          class TestCmp {
+            expr = 0;
+          }
+        `);
+
+        const diags =
+            env.driveDiagnostics().map(d => ts.flattenDiagnosticMessageText(d.messageText, ''));
+        expect(diags.length).toBe(1);
+        expect(diags[0]).toContain(
+            `Node matches the "[bar]" slot of the "Comp" component, but will ` +
+            `not be projected into the specific slot because the surrounding @else if has more than one node at its root.`);
+      });
+
       it('should report when an @for block prevents content from being projected', () => {
         env.write('test.ts', `
           import {Component} from '@angular/core';
@@ -5710,6 +5790,85 @@ suppress
            const diags = env.driveDiagnostics();
            expect(diags.length).toBe(0);
          });
+
+      it('should report when an @case block prevents an element from being projected', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            selector: 'comp',
+            template: '<ng-content/> <ng-content select="bar, [foo]"/>',
+            standalone: true,
+          })
+          class Comp {}
+
+          @Component({
+            standalone: true,
+            imports: [Comp],
+            template: \`
+              <comp>
+                @switch (expr) {
+                  @case (1) {
+                    <div foo></div>
+                    breaks projection
+                  }
+                }
+              </comp>
+            \`,
+          })
+          class TestCmp {
+            expr = 1;
+          }
+        `);
+
+        const diags =
+            env.driveDiagnostics().map(d => ts.flattenDiagnosticMessageText(d.messageText, ''));
+        expect(diags.length).toBe(1);
+        expect(diags[0]).toContain(
+            `Node matches the "bar, [foo]" slot of the "Comp" component, but will ` +
+            `not be projected into the specific slot because the surrounding @case has more than one node at its root.`);
+      });
+
+      it('should report when an @default block prevents an element from being projected', () => {
+        env.write('test.ts', `
+          import {Component} from '@angular/core';
+
+          @Component({
+            selector: 'comp',
+            template: '<ng-content select="[foo]"/> <ng-content select="[bar]"/>',
+            standalone: true,
+          })
+          class Comp {}
+
+          @Component({
+            standalone: true,
+            imports: [Comp],
+            template: \`
+              <comp>
+                @switch (expr) {
+                  @case (1) {
+                    <div foo></div>
+                  }
+                  @default {
+                    <div bar></div>
+                    breaks projection
+                  }
+                }
+              </comp>
+            \`,
+          })
+          class TestCmp {
+            expr = 2;
+          }
+        `);
+
+        const diags =
+            env.driveDiagnostics().map(d => ts.flattenDiagnosticMessageText(d.messageText, ''));
+        expect(diags.length).toBe(1);
+        expect(diags[0]).toContain(
+            `Node matches the "[bar]" slot of the "Comp" component, but will ` +
+            `not be projected into the specific slot because the surrounding @default has more than one node at its root.`);
+      });
     });
   });
 });
