@@ -18,6 +18,7 @@ import {DocEntry} from './entities';
 import {extractEnum} from './enum_extractor';
 import {isAngularPrivateName} from './filters';
 import {FunctionExtractor} from './function_extractor';
+import {extractInitializerApiFunction, isInitializerApiFunction} from './initializer_api_function_extractor';
 import {extractTypeAlias} from './type_alias_extractor';
 
 type DeclarationWithExportName = readonly[string, ts.Declaration];
@@ -41,10 +42,12 @@ export class DocsExtractor {
     const exportedDeclarations = this.getExportedDeclarations(sourceFile);
     for (const [exportName, node] of exportedDeclarations) {
       // Skip any symbols with an Angular-internal name.
-      if (isAngularPrivateName(exportName)) continue;
+      if (isAngularPrivateName(exportName)) {
+        continue;
+      }
 
       const entry = this.extractDeclaration(node);
-      if (entry) {
+      if (entry && !isIgnoredDocEntry(entry)) {
         // The exported name of an API may be different from its declaration name, so
         // use the declaration name.
         entries.push({...entry, name: exportName});
@@ -59,6 +62,10 @@ export class DocsExtractor {
     // Ignore anonymous classes.
     if (isNamedClassDeclaration(node)) {
       return extractClass(node, this.metadataReader, this.typeChecker);
+    }
+
+    if (isInitializerApiFunction(node, this.typeChecker)) {
+      return extractInitializerApiFunction(node, this.typeChecker);
     }
 
     if (ts.isInterfaceDeclaration(node) && !isIgnoredInterface(node)) {
@@ -130,4 +137,23 @@ function isIgnoredInterface(node: ts.InterfaceDeclaration) {
   // the framework's source code is unlikely to change. We also filter out the interfaces
   // that contain the decorator options.
   return node.name.getText().endsWith('Decorator') || isDecoratorOptionsInterface(node);
+}
+
+/**
+ * Whether the doc entry should be ignored.
+ *
+ * Note: We cannot check whether a node is marked as docs private
+ * before extraction because the extractor may find the attached
+ * JSDoc tags on different AST nodes. For example, a variable declaration
+ * never has JSDoc tags attached, but rather the parent variable statement.
+ */
+function isIgnoredDocEntry(entry: DocEntry): boolean {
+  const isDocsPrivate = entry.jsdocTags.find(e => e.name === 'docsPrivate');
+  if (isDocsPrivate !== undefined && isDocsPrivate.comment === '') {
+    throw new Error(
+        `Docs extraction: Entry "${entry.name}" is marked as ` +
+        `"@docsPrivate" but without reasoning.`);
+  }
+
+  return isDocsPrivate !== undefined;
 }

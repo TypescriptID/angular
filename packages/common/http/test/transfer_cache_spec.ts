@@ -30,7 +30,18 @@ interface RequestParams {
   observe?: 'body' | 'response';
   transferCache?: {includeHeaders: string[]} | boolean;
   headers?: {[key: string]: string};
+  body?: RequestBody;
 }
+
+type RequestBody =
+  | ArrayBuffer
+  | Blob
+  | boolean
+  | string
+  | number
+  | Object
+  | (boolean | string | number | Object | null)[]
+  | null;
 
 describe('TransferCache', () => {
   @Component({selector: 'test-app-http', template: 'hello'})
@@ -39,20 +50,22 @@ describe('TransferCache', () => {
   describe('withHttpTransferCache', () => {
     let isStable: BehaviorSubject<boolean>;
 
-    function makeRequestAndExpectOne(url: string, body: string, params?: RequestParams): string;
     function makeRequestAndExpectOne(
       url: string,
-      body: string,
+      body: RequestBody,
+      params?: RequestParams,
+    ): string;
+    function makeRequestAndExpectOne(
+      url: string,
+      body: RequestBody,
       params?: RequestParams & {observe: 'response'},
     ): HttpResponse<string>;
-    function makeRequestAndExpectOne(url: string, body: string, params?: RequestParams): any {
+    function makeRequestAndExpectOne(url: string, body: RequestBody, params?: RequestParams): any {
       let response!: any;
       TestBed.inject(HttpClient)
         .request(params?.method ?? 'GET', url, params)
         .subscribe((r) => (response = r));
-      TestBed.inject(HttpTestingController)
-        .expectOne(url)
-        .flush(body, {headers: params?.headers});
+      TestBed.inject(HttpTestingController).expectOne(url).flush(body, {headers: params?.headers});
       return response;
     }
 
@@ -248,20 +261,41 @@ describe('TransferCache', () => {
       makeRequestAndExpectNone('/test-2?foo=1', 'POST', {transferCache: true});
     });
 
-    it('should not cache request that requires authorization', async () => {
-      makeRequestAndExpectOne('/test-auth', 'foo', {
-        headers: {Authorization: 'Basic YWxhZGRpbjpvcGVuc2VzYW1l'},
-      });
-
-      makeRequestAndExpectOne('/test-auth', 'foo');
+    it('should cache POST with the differing body in string form', () => {
+      makeRequestAndExpectOne('/test-1', null, {method: 'POST', transferCache: true, body: 'foo'});
+      makeRequestAndExpectNone('/test-1', 'POST', {transferCache: true, body: 'foo'});
+      makeRequestAndExpectOne('/test-1', null, {method: 'POST', transferCache: true, body: 'bar'});
     });
 
-    it('should not cache request that requires proxy authorization', async () => {
-      makeRequestAndExpectOne('/test-auth', 'foo', {
-        headers: {'Proxy-Authorization': 'Basic YWxhZGRpbjpvcGVuc2VzYW1l'},
+    it('should cache POST with the differing body in object form', () => {
+      makeRequestAndExpectOne('/test-1', null, {
+        method: 'POST',
+        transferCache: true,
+        body: {foo: true},
       });
+      makeRequestAndExpectNone('/test-1', 'POST', {transferCache: true, body: {foo: true}});
+      makeRequestAndExpectOne('/test-1', null, {
+        method: 'POST',
+        transferCache: true,
+        body: {foo: false},
+      });
+    });
 
-      makeRequestAndExpectOne('/test-auth', 'foo');
+    it('should cache POST with the differing body in URLSearchParams form', () => {
+      makeRequestAndExpectOne('/test-1', null, {
+        method: 'POST',
+        transferCache: true,
+        body: new URLSearchParams('foo=1'),
+      });
+      makeRequestAndExpectNone('/test-1', 'POST', {
+        transferCache: true,
+        body: new URLSearchParams('foo=1'),
+      });
+      makeRequestAndExpectOne('/test-1', null, {
+        method: 'POST',
+        transferCache: true,
+        body: new URLSearchParams('foo=2'),
+      });
     });
 
     describe('caching with global setting', () => {

@@ -31,6 +31,7 @@ function viewChildRequiredFn<LocatorT, ReadT>(
  * property.
  *
  * @developerPreview
+ * @docsPrivate Ignored because `viewChild` is the canonical API entry.
  */
 export interface ViewChildFunction {
   /**
@@ -76,6 +77,7 @@ export interface ViewChildFunction {
  * ```
  *
  * @developerPreview
+ * @initializerApiFunction
  */
 export const viewChild: ViewChildFunction = (() => {
   // Note: This may be considered a side-effect, but nothing will depend on
@@ -107,6 +109,9 @@ export function viewChildren<LocatorT, ReadT>(
  *   divEls = viewChildren<ElementRef>('el');   // Signal<ReadonlyArray<ElementRef>>
  * }
  * ```
+ *
+ * @initializerApiFunction
+ * @developerPreview
  */
 export function viewChildren<LocatorT, ReadT>(
     locator: ProviderToken<LocatorT>|string,
@@ -136,6 +141,7 @@ function contentChildRequiredFn<LocatorT, ReadT>(
  * provides access to required query results via the `.required` property.
  *
  * @developerPreview
+ * @docsPrivate Ignored because `contentChild` is the canonical API entry.
  */
 export interface ContentChildFunction {
   /**
@@ -155,8 +161,6 @@ export interface ContentChildFunction {
 
   /**
    * Initializes a content child query that is always expected to match.
-   *
-   * @developerPreview
    */
   required: {
     <LocatorT>(locator: ProviderToken<LocatorT>|string, opts?: {
@@ -187,6 +191,9 @@ export interface ContentChildFunction {
  *   headerRequired = contentChild.required(MyHeader);            // Signal<MyHeader>
  * }
  * ```
+ *
+ * @initializerApiFunction
+ * @developerPreview
  */
 export const contentChild: ContentChildFunction = (() => {
   // Note: This may be considered a side-effect, but nothing will depend on
@@ -220,6 +227,9 @@ export function contentChildren<LocatorT, ReadT>(
  *   headerEl = contentChildren<ElementRef>('h');   // Signal<ReadonlyArray<ElementRef>>
  * }
  * ```
+ *
+ * @initializerApiFunction
+ * @developerPreview
  */
 export function contentChildren<LocatorT, ReadT>(
     locator: ProviderToken<LocatorT>|string,

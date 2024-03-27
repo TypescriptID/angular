@@ -5,15 +5,20 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
+import {findMatchingDehydratedView} from '../../hydration/views';
 import {newArray} from '../../util/array_utils';
+import {assertLContainer} from '../assert';
+import {ComponentTemplate} from '../interfaces/definition';
 import {TAttributes, TElementNode, TNode, TNodeFlags, TNodeType} from '../interfaces/node';
 import {ProjectionSlots} from '../interfaces/projection';
-import {DECLARATION_COMPONENT_VIEW, HEADER_OFFSET, HYDRATION, T_HOST} from '../interfaces/view';
+import {DECLARATION_COMPONENT_VIEW, HEADER_OFFSET, HYDRATION, LView, T_HOST, TView} from '../interfaces/view';
 import {applyProjection} from '../node_manipulation';
 import {getProjectAsAttrValue, isNodeMatchingSelectorList, isSelectorInSelectorList} from '../node_selector_matcher';
 import {getLView, getTView, isInSkipHydrationBlock, setCurrentTNodeAsNotParent} from '../state';
+import {addLViewToLContainer, createAndRenderEmbeddedLView, shouldAddViewToDom} from '../view_manipulation';
 
 import {getOrCreateTNode} from './shared';
+import {declareTemplate} from './template';
 
 
 
@@ -109,31 +114,65 @@ export function ɵɵprojectionDef(projectionSlots?: ProjectionSlots): void {
  * Inserts previously re-distributed projected nodes. This instruction must be preceded by a call
  * to the projectionDef instruction.
  *
- * @param nodeIndex
- * @param selectorIndex:
- *        - 0 when the selector is `*` (or unspecified as this is the default value),
- *        - 1 based index of the selector from the {@link projectionDef}
+ * @param nodeIndex Index of the projection node.
+ * @param selectorIndex Index of the slot selector.
+ *  - 0 when the selector is `*` (or unspecified as this is the default value),
+ *  - 1 based index of the selector from the {@link projectionDef}
+ * @param attrs Static attributes set on the `ng-content` node.
+ * @param fallbackTemplateFn Template function with fallback content.
+ *   Will be rendered if the slot is empty at runtime.
+ * @param fallbackDecls Number of declarations in the fallback template.
+ * @param fallbackVars Number of variables in the fallback template.
  *
  * @codeGenApi
  */
 export function ɵɵprojection(
-    nodeIndex: number, selectorIndex: number = 0, attrs?: TAttributes): void {
+    nodeIndex: number, selectorIndex: number = 0, attrs?: TAttributes,
+    fallbackTemplateFn?: ComponentTemplate<unknown>, fallbackDecls?: number,
+    fallbackVars?: number): void {
   const lView = getLView();
   const tView = getTView();
   const tProjectionNode =
       getOrCreateTNode(tView, HEADER_OFFSET + nodeIndex, TNodeType.Projection, null, attrs || null);
 
   // We can't use viewData[HOST_NODE] because projection nodes can be nested in embedded views.
-  if (tProjectionNode.projection === null) tProjectionNode.projection = selectorIndex;
+  if (tProjectionNode.projection === null) {
+    tProjectionNode.projection = selectorIndex;
+  }
 
-  // `<ng-content>` has no content
+  // `<ng-content>` has no content. Even if there's fallback
+  // content, the fallback is shown next to it.
   setCurrentTNodeAsNotParent();
 
   const hydrationInfo = lView[HYDRATION];
   const isNodeCreationMode = !hydrationInfo || isInSkipHydrationBlock();
-  if (isNodeCreationMode &&
+  const componentHostNode = lView[DECLARATION_COMPONENT_VIEW][T_HOST] as TElementNode;
+  const isEmpty = componentHostNode.projection![tProjectionNode.projection] === null;
+
+  if (isEmpty && fallbackTemplateFn) {
+    insertFallbackContent(
+        lView, tView, nodeIndex, fallbackTemplateFn, fallbackDecls!, fallbackVars!, attrs);
+  } else if (
+      isNodeCreationMode &&
       (tProjectionNode.flags & TNodeFlags.isDetached) !== TNodeFlags.isDetached) {
     // re-distribution of projectable nodes is stored on a component's view level
     applyProjection(tView, lView, tProjectionNode);
   }
+}
+
+/** Inserts the fallback content of a projection slot. Assumes there's no projected content. */
+function insertFallbackContent(
+    lView: LView, tView: TView, projectionIndex: number, templateFn: ComponentTemplate<unknown>,
+    decls: number, vars: number, attrs: TAttributes|undefined) {
+  const fallbackIndex = projectionIndex + 1;
+  const fallbackTNode =
+      declareTemplate(lView, tView, fallbackIndex, templateFn, decls, vars, null, attrs);
+  const fallbackLContainer = lView[HEADER_OFFSET + fallbackIndex];
+  ngDevMode && assertLContainer(fallbackLContainer);
+
+  const dehydratedView = findMatchingDehydratedView(fallbackLContainer, fallbackTNode.tView!.ssrId);
+  const fallbackLView =
+      createAndRenderEmbeddedLView(lView, fallbackTNode, undefined, {dehydratedView});
+  addLViewToLContainer(
+      fallbackLContainer, fallbackLView, 0, shouldAddViewToDom(fallbackTNode, dehydratedView));
 }
