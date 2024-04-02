@@ -72,6 +72,9 @@
     "name": "ChangeDetectionScheduler"
   },
   {
+    "name": "ChangeDetectionSchedulerImpl"
+  },
+  {
     "name": "ChangeDetectionStrategy"
   },
   {
@@ -354,6 +357,9 @@
     "name": "NoneEncapsulationDomRenderer"
   },
   {
+    "name": "NoopNgZone"
+  },
+  {
     "name": "NullInjector"
   },
   {
@@ -435,6 +441,9 @@
     "name": "Sanitizer"
   },
   {
+    "name": "SchedulingMode"
+  },
+  {
     "name": "ShadowDomRenderer"
   },
   {
@@ -484,6 +493,12 @@
   },
   {
     "name": "ViewRef"
+  },
+  {
+    "name": "ZONELESS_ENABLED"
+  },
+  {
+    "name": "ZONELESS_SCHEDULER_DISABLED"
   },
   {
     "name": "ZoneStablePendingTask"
@@ -619,6 +634,9 @@
   },
   {
     "name": "cleanUpView"
+  },
+  {
+    "name": "cleanupDehydratedIcuData"
   },
   {
     "name": "cleanupLContainer"
@@ -1245,6 +1263,9 @@
     "name": "scheduleAsyncIterable"
   },
   {
+    "name": "scheduleCallback"
+  },
+  {
     "name": "searchTokensOnInjector"
   },
   {
@@ -1285,9 +1306,6 @@
   },
   {
     "name": "shimStylesContent"
-  },
-  {
-    "name": "shouldRecheckView"
   },
   {
     "name": "shouldSearchParent"

@@ -105,6 +105,9 @@
     "name": "ChangeDetectionScheduler"
   },
   {
+    "name": "ChangeDetectionSchedulerImpl"
+  },
+  {
     "name": "ChangeDetectionStrategy"
   },
   {
@@ -345,6 +348,9 @@
     "name": "NAVIGATION_CANCELING_ERROR"
   },
   {
+    "name": "NAVIGATION_ERROR_HANDLER"
+  },
+  {
     "name": "NEW_LINE"
   },
   {
@@ -469,6 +475,9 @@
   },
   {
     "name": "NoneEncapsulationDomRenderer"
+  },
+  {
+    "name": "NoopNgZone"
   },
   {
     "name": "NullInjector"
@@ -642,6 +651,9 @@
     "name": "Sanitizer"
   },
   {
+    "name": "SchedulingMode"
+  },
+  {
     "name": "SecurityContext"
   },
   {
@@ -747,6 +759,12 @@
     "name": "XSS_SECURITY_URL"
   },
   {
+    "name": "ZONELESS_ENABLED"
+  },
+  {
+    "name": "ZONELESS_SCHEDULER_DISABLED"
+  },
+  {
     "name": "ZoneStablePendingTask"
   },
   {
@@ -772,9 +790,6 @@
   },
   {
     "name": "_currentInjector"
-  },
-  {
-    "name": "_ensureDirtyViewsAreAlwaysReachable"
   },
   {
     "name": "_getInsertInFrontOfRNodeWithI18n"
@@ -1896,6 +1911,9 @@
     "name": "scheduleAsyncIterable"
   },
   {
+    "name": "scheduleCallback"
+  },
+  {
     "name": "searchTokensOnInjector"
   },
   {
@@ -1966,9 +1984,6 @@
   },
   {
     "name": "shouldAddViewToDom"
-  },
-  {
-    "name": "shouldRecheckView"
   },
   {
     "name": "shouldSearchParent"

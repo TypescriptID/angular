@@ -72,6 +72,9 @@
     "name": "ChangeDetectionScheduler"
   },
   {
+    "name": "ChangeDetectionSchedulerImpl"
+  },
+  {
     "name": "ChangeDetectionStrategy"
   },
   {
@@ -411,6 +414,9 @@
     "name": "Sanitizer"
   },
   {
+    "name": "SchedulingMode"
+  },
+  {
     "name": "ShadowDomRenderer"
   },
   {
@@ -510,6 +516,12 @@
     "name": "ViewRef"
   },
   {
+    "name": "ZONELESS_ENABLED"
+  },
+  {
+    "name": "ZONELESS_SCHEDULER_DISABLED"
+  },
+  {
     "name": "ZoneStablePendingTask"
   },
   {
@@ -535,9 +547,6 @@
   },
   {
     "name": "_currentInjector"
-  },
-  {
-    "name": "_ensureDirtyViewsAreAlwaysReachable"
   },
   {
     "name": "_getInsertInFrontOfRNodeWithI18n"
@@ -1341,6 +1350,9 @@
     "name": "saveResolvedLocalsInData"
   },
   {
+    "name": "scheduleCallback"
+  },
+  {
     "name": "searchTokensOnInjector"
   },
   {
@@ -1405,9 +1417,6 @@
   },
   {
     "name": "shouldAddViewToDom"
-  },
-  {
-    "name": "shouldRecheckView"
   },
   {
     "name": "shouldSearchParent"

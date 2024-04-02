@@ -48,6 +48,9 @@
     "name": "ChangeDetectionScheduler"
   },
   {
+    "name": "ChangeDetectionSchedulerImpl"
+  },
+  {
     "name": "ComponentFactory"
   },
   {
@@ -294,6 +297,9 @@
     "name": "Sanitizer"
   },
   {
+    "name": "SchedulingMode"
+  },
+  {
     "name": "SimpleChange"
   },
   {
@@ -328,6 +334,12 @@
   },
   {
     "name": "ViewRef"
+  },
+  {
+    "name": "ZONELESS_ENABLED"
+  },
+  {
+    "name": "ZONELESS_SCHEDULER_DISABLED"
   },
   {
     "name": "ZoneStablePendingTask"
@@ -879,6 +891,9 @@
     "name": "saveNameToExportMap"
   },
   {
+    "name": "scheduleCallback"
+  },
+  {
     "name": "searchTokensOnInjector"
   },
   {
@@ -910,9 +925,6 @@
   },
   {
     "name": "setUpAttributes"
-  },
-  {
-    "name": "shouldRecheckView"
   },
   {
     "name": "shouldSearchParent"

@@ -120,6 +120,9 @@
     "name": "ChangeDetectionScheduler"
   },
   {
+    "name": "ChangeDetectionSchedulerImpl"
+  },
+  {
     "name": "ChangeDetectionStrategy"
   },
   {
@@ -390,6 +393,9 @@
     "name": "NoopAnimationPlayer"
   },
   {
+    "name": "NoopNgZone"
+  },
+  {
     "name": "NullInjector"
   },
   {
@@ -454,6 +460,9 @@
   },
   {
     "name": "Sanitizer"
+  },
+  {
+    "name": "SchedulingMode"
   },
   {
     "name": "ShadowDomRenderer"
@@ -532,6 +541,12 @@
   },
   {
     "name": "WebAnimationsStyleNormalizer"
+  },
+  {
+    "name": "ZONELESS_ENABLED"
+  },
+  {
+    "name": "ZONELESS_SCHEDULER_DISABLED"
   },
   {
     "name": "ZoneStablePendingTask"
@@ -1329,6 +1344,9 @@
     "name": "saveNameToExportMap"
   },
   {
+    "name": "scheduleCallback"
+  },
+  {
     "name": "searchTokensOnInjector"
   },
   {
@@ -1381,9 +1399,6 @@
   },
   {
     "name": "shimStylesContent"
-  },
-  {
-    "name": "shouldRecheckView"
   },
   {
     "name": "shouldSearchParent"
