@@ -651,9 +651,6 @@
     "name": "Sanitizer"
   },
   {
-    "name": "SchedulingMode"
-  },
-  {
     "name": "SecurityContext"
   },
   {
@@ -841,9 +838,6 @@
   },
   {
     "name": "addEmptyPathsToChildrenIfNeeded"
-  },
-  {
-    "name": "addLViewToLContainer"
   },
   {
     "name": "addPropertyBinding"
@@ -1617,6 +1611,9 @@
     "name": "isRefreshingViews"
   },
   {
+    "name": "isRootView"
+  },
+  {
     "name": "isSubscription"
   },
   {
@@ -1810,6 +1807,9 @@
   },
   {
     "name": "pathCompareMap"
+  },
+  {
+    "name": "performanceMarkFeature"
   },
   {
     "name": "pipeFromArray"
@@ -2050,6 +2050,9 @@
   },
   {
     "name": "toRefArray"
+  },
+  {
+    "name": "trackMovedView"
   },
   {
     "name": "tree"

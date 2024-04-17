@@ -73,6 +73,11 @@ export function create(info: ts.server.PluginCreateInfo): NgLanguageService {
     }
   }
 
+  function getDefinitionAtPosition(
+      fileName: string, position: number): readonly ts.DefinitionInfo[]|undefined {
+    return getDefinitionAndBoundSpan(fileName, position)?.definitions;
+  }
+
   function getReferencesAtPosition(fileName: string, position: number): ts.ReferenceEntry[]|
       undefined {
     return ngLS.getReferencesAtPosition(fileName, position);
@@ -226,6 +231,7 @@ export function create(info: ts.server.PluginCreateInfo): NgLanguageService {
     getSemanticDiagnostics,
     getTypeDefinitionAtPosition,
     getQuickInfoAtPosition,
+    getDefinitionAtPosition,
     getDefinitionAndBoundSpan,
     getReferencesAtPosition,
     findRenameLocations,
@@ -268,4 +274,12 @@ export function getExternalFiles(project: ts.server.Project): string[] {
     }
   }
   return [...typecheckFiles, ...resourceFiles];
+}
+
+/** Implementation of a ts.server.PluginModuleFactory */
+export function initialize(mod: {typescript: typeof ts}): ts.server.PluginModule {
+  return {
+    create,
+    getExternalFiles,
+  };
 }

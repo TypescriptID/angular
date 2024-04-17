@@ -5838,8 +5838,8 @@ function allTests(os: string) {
         "track-name": "track-name",
         inputTrackName: "inputTrackName",
         "src.xl": "src.xl",
-        trackType: [i0.ɵɵInputFlags.None, "track-type", "trackType"],
-        trackName: [i0.ɵɵInputFlags.None, "track-name", "trackName"]
+        trackType: [0, "track-type", "trackType"],
+        trackName: [0, "track-name", "trackName"]
       },
       outputs: {
         "output-track-type": "output-track-type",
@@ -8759,9 +8759,7 @@ function allTests(os: string) {
         const jsContents = env.getContents('test.js');
         const dtsContents = env.getContents('test.d.ts');
 
-        expect(jsContents)
-            .toContain(
-                'inputs: { value: [i0.ɵɵInputFlags.HasDecoratorInputTransform, "value", "value", toNumber] }');
+        expect(jsContents).toContain('inputs: { value: [2, "value", "value", toNumber] }');
         expect(jsContents).toContain('features: [i0.ɵɵInputTransformsFeature]');
         expect(dtsContents).toContain('static ngAcceptInputType_value: boolean | string;');
       });
@@ -8783,21 +8781,20 @@ function allTests(os: string) {
         const jsContents = env.getContents('test.js');
         const dtsContents = env.getContents('test.d.ts');
 
-        expect(jsContents)
-            .toContain(
-                'inputs: { value: [i0.ɵɵInputFlags.HasDecoratorInputTransform, "value", "value", toNumber] }');
+        expect(jsContents).toContain('inputs: { value: [2, "value", "value", toNumber] }');
         expect(jsContents)
             .toContain('features: [i0.ɵɵInputTransformsFeature, i0.ɵɵStandaloneFeature]');
         expect(dtsContents).toContain('static ngAcceptInputType_value: boolean | string;');
       });
 
-      it('should compile an input with a transform function that contains a generic parameter', () => {
-        env.write('/types.ts', `
+      it('should compile an input with a transform function that contains a generic parameter',
+         () => {
+           env.write('/types.ts', `
             export interface GenericWrapper<T> {
               value: T;
             }
           `);
-        env.write('/test.ts', `
+           env.write('/test.ts', `
             import {Directive, Input} from '@angular/core';
             import {GenericWrapper} from './types';
 
@@ -8809,20 +8806,18 @@ function allTests(os: string) {
             }
           `);
 
-        env.driveMain();
+           env.driveMain();
 
-        const jsContents = env.getContents('test.js');
-        const dtsContents = env.getContents('test.d.ts');
+           const jsContents = env.getContents('test.js');
+           const dtsContents = env.getContents('test.d.ts');
 
-        expect(jsContents)
-            .toContain(
-                'inputs: { value: [i0.ɵɵInputFlags.HasDecoratorInputTransform, "value", "value", toNumber] }');
-        expect(jsContents).toContain('features: [i0.ɵɵInputTransformsFeature]');
-        expect(dtsContents).toContain('import * as i1 from "./types"');
-        expect(dtsContents)
-            .toContain(
-                'static ngAcceptInputType_value: boolean | string | i1.GenericWrapper<string>;');
-      });
+           expect(jsContents).toContain('inputs: { value: [2, "value", "value", toNumber] }');
+           expect(jsContents).toContain('features: [i0.ɵɵInputTransformsFeature]');
+           expect(dtsContents).toContain('import * as i1 from "./types"');
+           expect(dtsContents)
+               .toContain(
+                   'static ngAcceptInputType_value: boolean | string | i1.GenericWrapper<string>;');
+         });
 
       it('should compile an input with a transform function that contains nested generic parameters',
          () => {
@@ -8855,9 +8850,7 @@ function allTests(os: string) {
            const jsContents = env.getContents('test.js');
            const dtsContents = env.getContents('test.d.ts');
 
-           expect(jsContents)
-               .toContain(
-                   'inputs: { value: [i0.ɵɵInputFlags.HasDecoratorInputTransform, "value", "value", toNumber] }');
+           expect(jsContents).toContain('inputs: { value: [2, "value", "value", toNumber] }');
            expect(jsContents).toContain('features: [i0.ɵɵInputTransformsFeature]');
            expect(dtsContents).toContain('import * as i1 from "./types"');
            expect(dtsContents).toContain('import * as i2 from "./other-types"');
@@ -8893,9 +8886,7 @@ function allTests(os: string) {
         const dtsContents = env.getContents('test.d.ts');
 
         expect(jsContents).toContain(`import { externalToNumber } from 'external';`);
-        expect(jsContents)
-            .toContain(
-                'inputs: { value: [i0.ɵɵInputFlags.HasDecoratorInputTransform, "value", "value", externalToNumber] }');
+        expect(jsContents).toContain('inputs: { value: [2, "value", "value", externalToNumber] }');
         expect(jsContents).toContain('features: [i0.ɵɵInputTransformsFeature]');
         expect(dtsContents).toContain('import * as i1 from "external";');
         expect(dtsContents).toContain('static ngAcceptInputType_value: i1.ExternalToNumberType;');
@@ -8926,8 +8917,7 @@ function allTests(os: string) {
         const dtsContents = env.getContents('test.d.ts');
 
         expect(jsContents)
-            .toContain(
-                'inputs: { value: [i0.ɵɵInputFlags.HasDecoratorInputTransform, "value", "value", (value) => value ? 1 : 0] }');
+            .toContain('inputs: { value: [2, "value", "value", (value) => value ? 1 : 0] }');
         expect(jsContents).toContain('features: [i0.ɵɵInputTransformsFeature]');
         expect(dtsContents).toContain('import * as i1 from "external";');
         expect(dtsContents).toContain('static ngAcceptInputType_value: i1.ExternalToNumberType;');
@@ -8954,9 +8944,7 @@ function allTests(os: string) {
         const jsContents = env.getContents('test.js');
         const dtsContents = env.getContents('test.d.ts');
 
-        expect(jsContents)
-            .toContain(
-                'inputs: { value: [i0.ɵɵInputFlags.HasDecoratorInputTransform, "value", "value", toBoolean] }');
+        expect(jsContents).toContain('inputs: { value: [2, "value", "value", toBoolean] }');
         expect(jsContents).toContain('features: [i0.ɵɵInputTransformsFeature]');
         expect(dtsContents)
             .toContain(`static ngAcceptInputType_value: boolean | "" | "true" | "false";`);
@@ -8979,9 +8967,7 @@ function allTests(os: string) {
         const jsContents = env.getContents('test.js');
         const dtsContents = env.getContents('test.d.ts');
 
-        expect(jsContents)
-            .toContain(
-                'inputs: { value: [i0.ɵɵInputFlags.HasDecoratorInputTransform, "value", "value", toNumber] }');
+        expect(jsContents).toContain('inputs: { value: [2, "value", "value", toNumber] }');
         expect(jsContents).toContain('features: [i0.ɵɵInputTransformsFeature]');
         expect(dtsContents).toContain('static ngAcceptInputType_value: boolean | string;');
       });
@@ -9003,9 +8989,7 @@ function allTests(os: string) {
         const jsContents = env.getContents('test.js');
         const dtsContents = env.getContents('test.d.ts');
 
-        expect(jsContents)
-            .toContain(
-                'inputs: { value: [i0.ɵɵInputFlags.HasDecoratorInputTransform, "value", "value", toNumber] }');
+        expect(jsContents).toContain('inputs: { value: [2, "value", "value", toNumber] }');
         expect(jsContents).toContain('features: [i0.ɵɵInputTransformsFeature]');
         expect(dtsContents).toContain('static ngAcceptInputType_value: unknown;');
       });
@@ -9030,9 +9014,7 @@ function allTests(os: string) {
         const jsContents = env.getContents('test.js');
         const dtsContents = env.getContents('test.d.ts');
 
-        expect(jsContents)
-            .toContain(
-                'inputs: { value: [i0.ɵɵInputFlags.HasDecoratorInputTransform, "value", "value", toNumber] }');
+        expect(jsContents).toContain('inputs: { value: [2, "value", "value", toNumber] }');
         expect(jsContents)
             .toContain('features: [i0.ɵɵInputTransformsFeature, i0.ɵɵInheritDefinitionFeature]');
         expect(dtsContents).toContain('static ngAcceptInputType_value: boolean | string;');
@@ -9061,8 +9043,7 @@ function allTests(os: string) {
         const dtsContents = env.getContents('test.d.ts');
 
         expect(jsContents)
-            .toContain(
-                'inputs: { element: [i0.ɵɵInputFlags.HasDecoratorInputTransform, "element", "element", coerceElement] }');
+            .toContain('inputs: { element: [2, "element", "element", coerceElement] }');
         expect(jsContents).toContain('features: [i0.ɵɵInputTransformsFeature]');
         expect(dtsContents)
             .toContain(
@@ -9136,220 +9117,56 @@ function allTests(os: string) {
          });
     });
 
-    describe('two-way binding backwards compatibility', () => {
-      it('should allow an && expression in a two-way binding', () => {
-        env.write(`test.ts`, `
-          import {Component, Directive, Input, Output, EventEmitter} from '@angular/core';
+    describe('tsickle compatibility', () => {
+      it('should preserve fileoverview comments', () => {
+        env.write('test.ts', `
+          // type-only import that will be elided.
+          import {SimpleChanges} from '@angular/core';
 
-          @Directive({standalone: true, selector: '[dir]'})
-          class Dir {
-            @Input() value: any;
-            @Output() valueChange = new EventEmitter<any>();
-          }
-
-          @Component({
-            standalone: true,
-            imports: [Dir],
-            template: \`<div dir [(value)]="a && !b && c"></div>\`
-          })
-          class App {
-            a = true;
-            b = false;
-            c = 'hello';
+          export class X {
+            p: SimpleChanges = null!;
           }
         `);
 
-        env.driveMain();
-        const jsContents = env.getContents('test.js');
+        const options: CompilerOptions = {
+          strict: true,
+          strictTemplates: true,
+          target: ts.ScriptTarget.Latest,
+          module: ts.ModuleKind.ESNext,
+          annotateForClosureCompiler: true,
+        };
 
-        expect(jsContents).toContain('ɵɵtwoWayProperty("value", ctx.a && !ctx.b && ctx.c);');
-        expect(jsContents)
-            .toContain(
-                '{ ctx.a && !ctx.b && (i0.ɵɵtwoWayBindingSet(ctx.c, $event) || (ctx.c = $event)); return $event; }');
-      });
+        const program = new NgtscProgram(['/test.ts'], options, createCompilerHost({options}));
+        const transformers = program.compiler.prepareEmit().transformers;
 
-      it('should allow an || expression in a two-way binding', () => {
-        env.write(`test.ts`, `
-          import {Component, Directive, Input, Output, EventEmitter} from '@angular/core';
-
-          @Directive({standalone: true, selector: '[dir]'})
-          class Dir {
-            @Input() value: any;
-            @Output() valueChange = new EventEmitter<any>();
-          }
-
-          @Component({
-            standalone: true,
-            imports: [Dir],
-            template: \`<div dir [(value)]="a || !b || c"></div>\`
-          })
-          class App {
-            a = true;
-            b = false;
-            c = 'hello';
-          }
-        `);
-
-        env.driveMain();
-        const jsContents = env.getContents('test.js');
-
-        expect(jsContents).toContain('ɵɵtwoWayProperty("value", ctx.a || !ctx.b || ctx.c);');
-        expect(jsContents)
-            .toContain(
-                '{ ctx.a || !ctx.b || (i0.ɵɵtwoWayBindingSet(ctx.c, $event) || (ctx.c = $event)); return $event; }');
-      });
-
-      it('should allow an ?? expression in a two-way binding', () => {
-        env.write(`test.ts`, `
-          import {Component, Directive, Input, Output, EventEmitter} from '@angular/core';
-
-          @Directive({standalone: true, selector: '[dir]'})
-          class Dir {
-            @Input() value: any;
-            @Output() valueChange = new EventEmitter<any>();
-          }
-
-          @Component({
-            standalone: true,
-            imports: [Dir],
-            template: \`<div dir [(value)]="a ?? !b ?? c"></div>\`
-          })
-          class App {
-            a = true;
-            b = false;
-            c = 'hello';
-          }
-        `);
-
-        env.driveMain();
-        const jsContents = env.getContents('test.js');
-
-        expect(jsContents).toContain('let tmp_0_0;');
-        expect(jsContents)
-            .toContain(
-                'ɵɵtwoWayProperty("value", (tmp_0_0 = (tmp_0_0 = ctx.a) !== null && ' +
-                'tmp_0_0 !== undefined ? tmp_0_0 : !ctx.b) !== null && tmp_0_0 !== undefined ? tmp_0_0 : ctx.c);');
-
-        expect(jsContents).toContain('let tmp_0_0;');
-        expect(jsContents)
-            .toContain(
-                '(tmp_0_0 = (tmp_0_0 = ctx.a) !== null && tmp_0_0 !== undefined ? ' +
-                'tmp_0_0 : !ctx.b) !== null && tmp_0_0 !== undefined ? tmp_0_0 : ' +
-                'i0.ɵɵtwoWayBindingSet(ctx.c, $event) || (ctx.c = $event); return $event;');
-      });
-
-      it('should allow a ternary expression in a two-way binding', () => {
-        env.write(`test.ts`, `
-          import {Component, Directive, Input, Output, EventEmitter} from '@angular/core';
-
-          @Directive({standalone: true, selector: '[dir]'})
-          class Dir {
-            @Input() value: any;
-            @Output() valueChange = new EventEmitter<any>();
-          }
-
-          @Component({
-            standalone: true,
-            imports: [Dir],
-            template: \`<div dir [(value)]="a ? b : c"></div>\`
-          })
-          class App {
-            a = true;
-            b = false;
-            c = 'hello';
-          }
-        `);
-
-        env.driveMain();
-        const jsContents = env.getContents('test.js');
-
-        expect(jsContents).toContain('ɵɵtwoWayProperty("value", ctx.a ? ctx.b : ctx.c);');
-        expect(jsContents)
-            .toContain(
-                '{ ctx.a ? ctx.b : i0.ɵɵtwoWayBindingSet(ctx.c, $event) || (ctx.c = $event); return $event; }');
-      });
-
-      it('should allow a prefixed unary expression in a two-way binding', () => {
-        env.write(`test.ts`, `
-          import {Component, Directive, Input, Output, EventEmitter} from '@angular/core';
-
-          @Directive({standalone: true, selector: '[dir]'})
-          class Dir {
-            @Input() value: any;
-            @Output() valueChange = new EventEmitter<any>();
-          }
-
-          @Component({
-            standalone: true,
-            imports: [Dir],
-            template: \`<div dir [(value)]="!!!a"></div>\`
-          })
-          class App {
-            a = true;
-          }
-        `);
-
-        env.driveMain();
-        const jsContents = env.getContents('test.js');
-
-        expect(jsContents).toContain('ɵɵtwoWayProperty("value", !!!ctx.a);');
-        expect(jsContents)
-            .toContain(
-                '{ i0.ɵɵtwoWayBindingSet(ctx.a, $event) || (ctx.a = $event); return $event; }');
-      });
-
-      describe('tsickle compatibility', () => {
-        it('should preserve fileoverview comments', () => {
-          env.write('test.ts', `
-            // type-only import that will be elided.
-            import {SimpleChanges} from '@angular/core';
-
-            export class X {
-              p: SimpleChanges = null!;
-            }
-          `);
-
-          const options: CompilerOptions = {
-            strict: true,
-            strictTemplates: true,
-            target: ts.ScriptTarget.Latest,
-            module: ts.ModuleKind.ESNext,
-            annotateForClosureCompiler: true,
-          };
-
-          const program = new NgtscProgram(['/test.ts'], options, createCompilerHost({options}));
-          const transformers = program.compiler.prepareEmit().transformers;
-
-          // Add a "fake tsickle" transform before Angular's transform.
-          transformers.before!.unshift(ctx => (sf: ts.SourceFile) => {
-            const tsickleFileOverview = ctx.factory.createNotEmittedStatement(sf);
-            ts.setSyntheticLeadingComments(tsickleFileOverview, [
-              {
-                kind: ts.SyntaxKind.MultiLineCommentTrivia,
-                text: `*
-                    * @fileoverview Closure comment
-                    * @suppress bla1
-                    * @suppress bla2
-                  `,
-                pos: -1,
-                end: -1,
-                hasTrailingNewLine: true,
-              },
-            ]);
-            return ctx.factory.updateSourceFile(
-                sf, [tsickleFileOverview, ...sf.statements], sf.isDeclarationFile,
-                sf.referencedFiles, sf.typeReferenceDirectives, sf.hasNoDefaultLib,
-                sf.libReferenceDirectives);
-          });
-
-          const {diagnostics, emitSkipped} =
-              program.getTsProgram().emit(undefined, undefined, undefined, undefined, transformers);
-
-          expect(diagnostics.length).toBe(0);
-          expect(emitSkipped).toBe(false);
-
-          expect(env.getContents('/test.js')).toContain(`* @fileoverview Closure comment`);
+        // Add a "fake tsickle" transform before Angular's transform.
+        transformers.before!.unshift(ctx => (sf: ts.SourceFile) => {
+          const tsickleFileOverview = ctx.factory.createNotEmittedStatement(sf);
+          ts.setSyntheticLeadingComments(tsickleFileOverview, [
+            {
+              kind: ts.SyntaxKind.MultiLineCommentTrivia,
+              text: `*
+                  * @fileoverview Closure comment
+                  * @suppress bla1
+                  * @suppress bla2
+                `,
+              pos: -1,
+              end: -1,
+              hasTrailingNewLine: true,
+            },
+          ]);
+          return ctx.factory.updateSourceFile(
+              sf, [tsickleFileOverview, ...sf.statements], sf.isDeclarationFile, sf.referencedFiles,
+              sf.typeReferenceDirectives, sf.hasNoDefaultLib, sf.libReferenceDirectives);
         });
+
+        const {diagnostics, emitSkipped} =
+            program.getTsProgram().emit(undefined, undefined, undefined, undefined, transformers);
+
+        expect(diagnostics.length).toBe(0);
+        expect(emitSkipped).toBe(false);
+
+        expect(env.getContents('/test.js')).toContain(`* @fileoverview Closure comment`);
       });
     });
   });

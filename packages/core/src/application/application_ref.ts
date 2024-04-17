@@ -143,6 +143,20 @@ export interface BootstrapOptions {
    *
    */
   ngZoneRunCoalescing?: boolean;
+
+  /**
+   * When false, change detection is scheduled when Angular receives
+   * a clear indication that templates need to be refreshed. This includes:
+   *
+   * - calling `ChangeDetectorRef.markForCheck`
+   * - calling `ComponentRef.setInput`
+   * - updating a signal that is read in a template
+   * - when bound host or template listeners are triggered
+   * - attaching a view that is marked dirty
+   * - removing a view
+   * - registering a render hook (templates are only refreshed if render hooks do one of the above)
+   */
+  ignoreChangesOutsideZone?: boolean;
 }
 
 /** Maximum number of times ApplicationRef will refresh all attached views in a single tick. */
@@ -271,7 +285,8 @@ export function optionsReducer<T extends Object>(dst: T, objs: T|T[]): T {
 export class ApplicationRef {
   /** @internal */
   private _bootstrapListeners: ((compRef: ComponentRef<any>) => void)[] = [];
-  private _runningTick: boolean = false;
+  /** @internal */
+  _runningTick: boolean = false;
   private _destroyed = false;
   private _destroyListeners: Array<() => void> = [];
   /** @internal */
@@ -284,7 +299,8 @@ export class ApplicationRef {
   // Eventually the hostView of the fixture should just attach to ApplicationRef.
   private externalTestViews: Set<InternalViewRef<unknown>> = new Set();
   private beforeRender = new Subject<boolean>();
-  private afterTick = new Subject<void>();
+  /** @internal */
+  afterTick = new Subject<void>();
 
   /**
    * Indicates whether this instance was destroyed.
@@ -523,9 +539,9 @@ export class ApplicationRef {
       // Attention: Don't rethrow as it could cancel subscriptions to Observables!
       this.internalErrorHandler(e);
     } finally {
-      this.afterTick.next();
       this._runningTick = false;
       setActiveConsumer(prevConsumer);
+      this.afterTick.next();
     }
   }
 

@@ -32,7 +32,7 @@ export interface DirectiveDecorator {
    * runtime.
    *
    * Directive classes, like component classes, can implement
-   * [life-cycle hooks](guide/lifecycle-hooks) to influence their configuration and behavior.
+   * [life-cycle hooks](guide/components/lifecycle) to influence their configuration and behavior.
    *
    *
    * @usageNotes
@@ -53,13 +53,13 @@ export interface DirectiveDecorator {
    *
    * In order to make a directive available to other components in your application, you should do
    * one of the following:
-   *  - either mark the directive as [standalone](guide/standalone-components),
+   *  - either mark the directive as [standalone](guide/components/importing),
    *  - or declare it in an NgModule by adding it to the `declarations` and `exports` fields.
    *
    * ** Marking a directive as standalone **
    *
    * You can add the `standalone: true` flag to the Directive decorator metadata to declare it as
-   * [standalone](guide/standalone-components):
+   * [standalone](guide/components/importing):
    *
    * ```ts
    * @Directive({
@@ -338,7 +338,7 @@ export interface Directive {
    * providers).
    *
    * More information about standalone components, directives, and pipes can be found in [this
-   * guide](guide/standalone-components).
+   * guide](guide/components/importing).
    */
   standalone?: boolean;
 
@@ -400,7 +400,7 @@ export interface ComponentDecorator {
    * Note that, in addition to these options for configuring a directive,
    * you can control a component's runtime behavior by implementing
    * life-cycle hooks. For more information, see the
-   * [Lifecycle Hooks](guide/lifecycle-hooks) guide.
+   * [Lifecycle Hooks](guide/components/lifecycle) guide.
    *
    * @usageNotes
    *
@@ -593,7 +593,7 @@ export interface Component extends Directive {
   /**
    * One or more animation `trigger()` calls, containing
    * [`state()`](api/animations/state) and `transition()` definitions.
-   * See the [Animations guide](/guide/animations) and animations API documentation.
+   * See the [Animations guide](guide/animations) and animations API documentation.
    *
    */
   animations?: any[];
@@ -634,7 +634,7 @@ export interface Component extends Directive {
    * used in a template) via the imports property.
    *
    * More information about standalone components, directives, and pipes can be found in [this
-   * guide](guide/standalone-components).
+   * guide](guide/components/importing).
    */
   standalone?: boolean;
 
@@ -647,7 +647,7 @@ export interface Component extends Directive {
    * declared in an NgModule generates a compilation error.
    *
    * More information about standalone components, directives, and pipes can be found in [this
-   * guide](guide/standalone-components).
+   * guide](guide/components/importing).
    */
   imports?: (Type<any>|ReadonlyArray<any>)[];
 
@@ -670,7 +670,7 @@ export interface Component extends Directive {
    * declared in an NgModule generates a compilation error.
    *
    * More information about standalone components, directives, and pipes can be found in [this
-   * guide](guide/standalone-components).
+   * guide](guide/components/importing).
    */
   schemas?: SchemaMetadata[];
 }
@@ -709,7 +709,7 @@ export interface PipeDecorator {
    * to a template. To make it a member of an NgModule,
    * list it in the `declarations` field of the `NgModule` metadata.
    *
-   * @see [Style Guide: Pipe Names](guide/styleguide#02-09)
+   * @see [Style Guide: Pipe Names](style-guide#02-09)
    *
    */
   (obj: Pipe): TypeDecorator;
@@ -750,7 +750,7 @@ export interface Pipe {
    * pipes don't depend on any "intermediate context" of an NgModule (ex. configured providers).
    *
    * More information about standalone components, directives, and pipes can be found in [this
-   * guide](guide/standalone-components).
+   * guide](guide/components/importing).
    */
   standalone?: boolean;
 }
@@ -817,7 +817,8 @@ export interface InputDecorator {
    * class App {}
    * ```
    *
-   * @see [Input and Output properties](guide/inputs-outputs)
+   * @see [Input properties](guide/components/inputs)
+   * @see [Output properties](guide/components/outputs)
    */
   (arg?: string|Input): any;
   new(arg?: string|Input): any;
@@ -890,7 +891,8 @@ export interface OutputDecorator {
    *
    * See `Input` decorator for an example of providing a binding name.
    *
-   * @see [Input and Output properties](guide/inputs-outputs)
+   * @see [Input properties](guide/components/inputs)
+   * @see [Output properties](guide/components/outputs)
    *
    */
   (alias?: string): any;
@@ -1006,6 +1008,60 @@ export interface HostListenerDecorator {
    * and updates the bound element with the result.
    *
    * If the handler method returns false, applies `preventDefault` on the bound element.
+   *
+   * @usageNotes
+   *
+   * The following example declares a directive
+   * that attaches a click listener to a button and counts clicks.
+   *
+   * ```ts
+   * @Directive({selector: 'button[counting]'})
+   * class CountClicks {
+   *   numberOfClicks = 0;
+   *
+   *   @HostListener('click', ['$event.target'])
+   *   onClick(btn) {
+   *     console.log('button', btn, 'number of clicks:', this.numberOfClicks++);
+   *   }
+   * }
+   *
+   * @Component({
+   *   selector: 'app',
+   *   template: '<button counting>Increment</button>',
+   * })
+   * class App {}
+   * ```
+   *
+   * The following example registers another DOM event handler that listens for `Enter` key-press
+   * events on the global `window`.
+   * ```ts
+   * import { HostListener, Component } from "@angular/core";
+   *
+   * @Component({
+   *   selector: 'app',
+   *   template: `<h1>Hello, you have pressed enter {{counter}} number of times!</h1> Press enter
+   * key to increment the counter. <button (click)="resetCounter()">Reset Counter</button>`
+   * })
+   * class AppComponent {
+   *   counter = 0;
+   *   @HostListener('window:keydown.enter', ['$event'])
+   *   handleKeyDown(event: KeyboardEvent) {
+   *     this.counter++;
+   *   }
+   *   resetCounter() {
+   *     this.counter = 0;
+   *   }
+   * }
+   * ```
+   * The list of valid key names for `keydown` and `keyup` events
+   * can be found here:
+   * https://www.w3.org/TR/DOM-Level-3-Events-key/#named-key-attribute-values
+   *
+   * Note that keys can also be combined, e.g. `@HostListener('keydown.shift.a')`.
+   *
+   * The global target names that can be used to prefix an event name are
+   * `document:`, `window:` and `body:`.
+   *
    */
   (eventName: string, args?: string[]): any;
   new(eventName: string, args?: string[]): any;
@@ -1028,67 +1084,6 @@ export interface HostListener {
 }
 
 /**
- * Decorator that binds a DOM event to a host listener and supplies configuration metadata.
- * Angular invokes the supplied handler method when the host element emits the specified event,
- * and updates the bound element with the result.
- *
- * If the handler method returns false, applies `preventDefault` on the bound element.
- *
- * @usageNotes
- *
- * The following example declares a directive
- * that attaches a click listener to a button and counts clicks.
- *
- * ```ts
- * @Directive({selector: 'button[counting]'})
- * class CountClicks {
- *   numberOfClicks = 0;
- *
- *   @HostListener('click', ['$event.target'])
- *   onClick(btn) {
- *     console.log('button', btn, 'number of clicks:', this.numberOfClicks++);
- *   }
- * }
- *
- * @Component({
- *   selector: 'app',
- *   template: '<button counting>Increment</button>',
- * })
- * class App {}
- *
- * ```
- *
- * The following example registers another DOM event handler that listens for `Enter` key-press
- * events on the global `window`.
- * ``` ts
- * import { HostListener, Component } from "@angular/core";
- *
- * @Component({
- *   selector: 'app',
- *   template: `<h1>Hello, you have pressed enter {{counter}} number of times!</h1> Press enter key
- * to increment the counter.
- *   <button (click)="resetCounter()">Reset Counter</button>`
- * })
- * class AppComponent {
- *   counter = 0;
- *   @HostListener('window:keydown.enter', ['$event'])
- *   handleKeyDown(event: KeyboardEvent) {
- *     this.counter++;
- *   }
- *   resetCounter() {
- *     this.counter = 0;
- *   }
- * }
- * ```
- * The list of valid key names for `keydown` and `keyup` events
- * can be found here:
- * https://www.w3.org/TR/DOM-Level-3-Events-key/#named-key-attribute-values
- *
- * Note that keys can also be combined, e.g. `@HostListener('keydown.shift.a')`.
- *
- * The global target names that can be used to prefix an event name are
- * `document:`, `window:` and `body:`.
- *
  * @Annotation
  * @publicApi
  */

@@ -734,7 +734,10 @@ export class NgCompiler {
       throw new Error(`Entry point "${entryPoint}" not found in program sources.`);
     }
 
-    return docsExtractor.extractAll(entryPointSourceFile);
+    // TODO: Technically the current directory is not the root dir.
+    //  Should probably be derived from the config.
+    const rootDir = this.inputProgram.getCurrentDirectory();
+    return docsExtractor.extractAll(entryPointSourceFile, rootDir);
   }
 
   /**
@@ -1341,7 +1344,7 @@ One of the following actions is required:
 2. Remove "strictTemplates" or set it to 'false'.
 
 More information about the template type checking compiler options can be found in the documentation:
-https://angular.io/guide/template-typecheck
+https://angular.dev/tools/cli/template-typecheck
       `.trim(),
     });
   }

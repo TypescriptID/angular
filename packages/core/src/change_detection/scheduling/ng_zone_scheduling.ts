@@ -13,9 +13,11 @@ import {ENVIRONMENT_INITIALIZER, EnvironmentProviders, inject, Injectable, Injec
 import {ErrorHandler, INTERNAL_APPLICATION_ERROR_HANDLER} from '../../error_handler';
 import {RuntimeError, RuntimeErrorCode} from '../../errors';
 import {PendingTasks} from '../../pending_tasks';
+import {performanceMarkFeature} from '../../util/performance';
 import {NgZone} from '../../zone';
 import {InternalNgZoneOptions} from '../../zone/ng_zone';
 
+import {alwaysProvideZonelessScheduler} from './flags';
 import {ChangeDetectionScheduler, ZONELESS_SCHEDULER_DISABLED} from './zoneless_scheduling';
 import {ChangeDetectionSchedulerImpl} from './zoneless_scheduling_impl';
 
@@ -34,12 +36,14 @@ export class NgZoneChangeDetectionScheduler {
 
     this._onMicrotaskEmptySubscription = this.zone.onMicrotaskEmpty.subscribe({
       next: () => {
+        // `onMicroTaskEmpty` can happen _during_ the zoneless scheduler change detection because
+        // zone.run(() => {}) will result in `checkStable` at the end of the `zone.run` closure
+        // and emit `onMicrotaskEmpty` synchronously if run coalsecing is false.
+        if (this.changeDetectionScheduler?.runningTick) {
+          return;
+        }
         this.zone.run(() => {
-          if (this.changeDetectionScheduler) {
-            this.changeDetectionScheduler.tick(true /* shouldRefreshViews */);
-          } else {
-            this.applicationRef.tick();
-          }
+          this.applicationRef.tick();
         });
       }
     });
@@ -58,26 +62,9 @@ export class NgZoneChangeDetectionScheduler {
 export const PROVIDED_NG_ZONE = new InjectionToken<boolean>(
     (typeof ngDevMode === 'undefined' || ngDevMode) ? 'provideZoneChangeDetection token' : '');
 
-/**
- * Configures change detection scheduling when using ZoneJS.
- */
-export enum SchedulingMode {
-  /**
-   * Change detection will run when the `NgZone.onMicrotaskEmpty` observable emits.
-   * Change detection will also be scheduled to run whenever Angular is notified
-   * of a change. This includes calling `ChangeDetectorRef.markForCheck`,
-   * setting a `signal` value, and attaching a view.
-   */
-  Hybrid,
-  /**
-   * Change detection will only run when the `NgZone.onMicrotaskEmpty` observable emits.
-   */
-  NgZoneOnly,
-}
-
 export function internalProvideZoneChangeDetection(
-    {ngZoneFactory, schedulingMode}:
-        {ngZoneFactory: () => NgZone, schedulingMode?: SchedulingMode}): StaticProvider[] {
+    {ngZoneFactory, ignoreChangesOutsideZone}:
+        {ngZoneFactory: () => NgZone, ignoreChangesOutsideZone?: boolean}): StaticProvider[] {
   return [
     {provide: NgZone, useFactory: ngZoneFactory},
     {
@@ -107,12 +94,12 @@ export function internalProvideZoneChangeDetection(
       }
     },
     {provide: INTERNAL_APPLICATION_ERROR_HANDLER, useFactory: ngZoneApplicationErrorHandlerFactory},
-    // Always disable scheduler whenever explicitly disabled, even if Hybrid was specified elsewhere
-    schedulingMode === SchedulingMode.NgZoneOnly ?
-        {provide: ZONELESS_SCHEDULER_DISABLED, useValue: true} :
-        [],
-    // Only provide scheduler when explicitly enabled
-    schedulingMode === SchedulingMode.Hybrid ?
+    // Always disable scheduler whenever explicitly disabled, even if another place called
+    // `provideZoneChangeDetection` without the 'ignore' option.
+    ignoreChangesOutsideZone === true ? {provide: ZONELESS_SCHEDULER_DISABLED, useValue: true} : [],
+    // TODO(atscott): This should move to the same places that zone change detection is provided by
+    // default instead of being in the zone scheduling providers.
+    alwaysProvideZonelessScheduler || ignoreChangesOutsideZone === false ?
         {provide: ChangeDetectionScheduler, useExisting: ChangeDetectionSchedulerImpl} :
         [],
   ];
@@ -145,9 +132,17 @@ export function ngZoneApplicationErrorHandlerFactory() {
  * @see {@link NgZoneOptions}
  */
 export function provideZoneChangeDetection(options?: NgZoneOptions): EnvironmentProviders {
-  const schedulingMode = (options as any)?.schedulingMode;
-  const zoneProviders = internalProvideZoneChangeDetection(
-      {ngZoneFactory: () => new NgZone(getNgZoneOptions(options)), schedulingMode});
+  const ignoreChangesOutsideZone = options?.ignoreChangesOutsideZone;
+  const zoneProviders = internalProvideZoneChangeDetection({
+    ngZoneFactory: () => {
+      const ngZoneOptions = getNgZoneOptions(options);
+      if (ngZoneOptions.shouldCoalesceEventChangeDetection) {
+        performanceMarkFeature('NgZone_CoalesceEvent');
+      }
+      return new NgZone(ngZoneOptions);
+    },
+    ignoreChangesOutsideZone
+  });
   return makeEnvironmentProviders([
     (typeof ngDevMode === 'undefined' || ngDevMode) ? {provide: PROVIDED_NG_ZONE, useValue: true} :
                                                       [],
@@ -205,6 +200,20 @@ export interface NgZoneOptions {
    *
    */
   runCoalescing?: boolean;
+
+  /**
+   * When false, change detection is scheduled when Angular receives
+   * a clear indication that templates need to be refreshed. This includes:
+   *
+   * - calling `ChangeDetectorRef.markForCheck`
+   * - calling `ComponentRef.setInput`
+   * - updating a signal that is read in a template
+   * - when bound host or template listeners are triggered
+   * - attaching a view that is marked dirty
+   * - removing a view
+   * - registering a render hook (templates are only refreshed if render hooks do one of the above)
+   */
+  ignoreChangesOutsideZone?: boolean;
 }
 
 // Transforms a set of `BootstrapOptions` (supported by the NgModule-based bootstrap APIs) ->
