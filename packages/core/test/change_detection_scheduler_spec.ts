@@ -16,6 +16,9 @@ import {withBody} from '@angular/private/testing';
 import {BehaviorSubject, firstValueFrom} from 'rxjs';
 import {filter, take, tap} from 'rxjs/operators';
 
+import {RuntimeError, RuntimeErrorCode} from '../src/errors';
+import {handleError} from '../src/render3/instructions/shared';
+import {scheduleCallbackWithRafRace} from '../src/util/callback_scheduler';
 import {global} from '../src/util/global';
 
 function isStable(injector = TestBed.inject(EnvironmentInjector)): boolean {
@@ -566,12 +569,69 @@ describe('Angular with zoneless enabled', () => {
        // scheduled run
        expect(changeDetectionRuns).toEqual(2);
      });
+
+  it('coalesces microtasks that happen during change detection into a single paint', async () => {
+    if (!isBrowser) {
+      return;
+    }
+    @Component({
+      template: '{{thing}}',
+      standalone: true,
+    })
+    class App {
+      thing = 'initial';
+      cdr = inject(ChangeDetectorRef);
+      ngAfterViewInit() {
+        queueMicrotask(() => {
+          this.thing = 'new';
+          this.cdr.markForCheck();
+        });
+      }
+    }
+    const fixture = TestBed.createComponent(App);
+    await new Promise<void>(resolve => scheduleCallbackWithRafRace(resolve));
+    expect(fixture.nativeElement.innerText).toContain('new');
+  });
+
+  it('throws a nice error when notifications prevent exiting the event loop (infinite CD)',
+     async () => {
+       let caughtError: unknown;
+       let previousHandle = (Zone.root as any)._zoneDelegate.handleError;
+       (Zone.root as any)._zoneDelegate.handleError = (zone: ZoneSpec, e: unknown) => {
+         caughtError = e;
+       };
+       @Component({
+         template: '',
+         standalone: true,
+       })
+       class App {
+         cdr = inject(ChangeDetectorRef);
+         ngDoCheck() {
+           queueMicrotask(() => {
+             this.cdr.markForCheck();
+           });
+         }
+       }
+       const fixture = TestBed.createComponent(App);
+       await fixture.whenStable();
+       expect(caughtError).toBeInstanceOf(RuntimeError);
+       const runtimeError = caughtError as RuntimeError;
+       expect(runtimeError.code).toEqual(RuntimeErrorCode.INFINITE_CHANGE_DETECTION);
+       expect(runtimeError.message).toContain('markForCheck');
+       expect(runtimeError.message).toContain('notify');
+
+       (Zone.root as any)._zoneDelegate.handleError = previousHandle;
+     });
 });
 
 describe('Angular with scheduler and ZoneJS', () => {
   beforeEach(() => {
-    TestBed.configureTestingModule(
-        {providers: [{provide: ComponentFixtureAutoDetect, useValue: true}]});
+    TestBed.configureTestingModule({
+      providers: [
+        {provide: ComponentFixtureAutoDetect, useValue: true},
+        {provide: PLATFORM_ID, useValue: PLATFORM_BROWSER_ID},
+      ]
+    });
   });
 
   it('requires updates inside Angular zone when using ngZoneOnly', async () => {
@@ -644,5 +704,32 @@ describe('Angular with scheduler and ZoneJS', () => {
     // ensure we only ran render hook 1 more time rather than once for tick and once for the
     // scheduled run
     expect(changeDetectionRuns).toEqual(2);
+  });
+
+  it('does not cause double change detection with run coalescing', async () => {
+    if (isNode) {
+      return;
+    }
+
+    TestBed.configureTestingModule({
+      providers:
+          [provideZoneChangeDetection({runCoalescing: true, ignoreChangesOutsideZone: false})]
+    });
+    @Component({template: '{{thing()}}', standalone: true})
+    class App {
+      thing = signal('initial');
+    }
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+
+    let ticks = 0;
+    TestBed.runInInjectionContext(() => {
+      afterRender(() => {
+        ticks++;
+      });
+    });
+    fixture.componentInstance.thing.set('new');
+    await fixture.whenStable();
+    expect(ticks).toBe(1);
   });
 });

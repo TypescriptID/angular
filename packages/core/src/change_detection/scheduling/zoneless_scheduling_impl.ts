@@ -11,12 +11,35 @@ import {Injectable} from '../../di/injectable';
 import {inject} from '../../di/injector_compatibility';
 import {EnvironmentProviders} from '../../di/interface/provider';
 import {makeEnvironmentProviders} from '../../di/provider_collection';
+import {RuntimeError, RuntimeErrorCode} from '../../errors';
 import {PendingTasks} from '../../pending_tasks';
-import {scheduleCallback} from '../../util/callback_scheduler';
+import {scheduleCallbackWithMicrotask, scheduleCallbackWithRafRace} from '../../util/callback_scheduler';
 import {performanceMarkFeature} from '../../util/performance';
 import {NgZone, NoopNgZone} from '../../zone/ng_zone';
 
 import {ChangeDetectionScheduler, NotificationType, ZONELESS_ENABLED, ZONELESS_SCHEDULER_DISABLED} from './zoneless_scheduling';
+
+const CONSECUTIVE_MICROTASK_NOTIFICATION_LIMIT = 100;
+let consecutiveMicrotaskNotifications = 0;
+let stackFromLastFewNotifications: string[] = [];
+
+function trackMicrotaskNotificationForDebugging() {
+  consecutiveMicrotaskNotifications++;
+  if (CONSECUTIVE_MICROTASK_NOTIFICATION_LIMIT - consecutiveMicrotaskNotifications < 5) {
+    const stack = new Error().stack;
+    if (stack) {
+      stackFromLastFewNotifications.push(stack);
+    }
+  }
+
+  if (consecutiveMicrotaskNotifications === CONSECUTIVE_MICROTASK_NOTIFICATION_LIMIT) {
+    throw new RuntimeError(
+        RuntimeErrorCode.INFINITE_CHANGE_DETECTION,
+        'Angular could not stabilize because there were endless change notifications within the browser event loop. ' +
+            'The stack from the last several notifications: \n' +
+            stackFromLastFewNotifications.join('\n'));
+  }
+}
 
 @Injectable({providedIn: 'root'})
 export class ChangeDetectionSchedulerImpl implements ChangeDetectionScheduler {
@@ -31,6 +54,7 @@ export class ChangeDetectionSchedulerImpl implements ChangeDetectionScheduler {
   private readonly disableScheduling =
       inject(ZONELESS_SCHEDULER_DISABLED, {optional: true}) ?? false;
   private readonly zoneIsDefined = typeof Zone !== 'undefined' && !!Zone.root.run;
+  private readonly schedulerTickApplyArgs = [{data: {'__scheduler_tick__': true}}];
   private readonly afterTickSubscription = this.appRef.afterTick.subscribe(() => {
     // If the scheduler isn't running a tick but the application ticked, that means
     // someone called ApplicationRef.tick manually. In this case, we should cancel
@@ -39,6 +63,7 @@ export class ChangeDetectionSchedulerImpl implements ChangeDetectionScheduler {
       this.cleanup();
     }
   });
+  private useMicrotaskScheduler = false;
 
   constructor() {
     // TODO(atscott): These conditions will need to change when zoneless is the default
@@ -59,6 +84,17 @@ export class ChangeDetectionSchedulerImpl implements ChangeDetectionScheduler {
       return;
     }
 
+    if ((typeof ngDevMode === 'undefined' || ngDevMode)) {
+      if (this.useMicrotaskScheduler) {
+        trackMicrotaskNotificationForDebugging();
+      } else {
+        consecutiveMicrotaskNotifications = 0;
+        stackFromLastFewNotifications.length = 0;
+      }
+    }
+
+    const scheduleCallback =
+        this.useMicrotaskScheduler ? scheduleCallbackWithMicrotask : scheduleCallbackWithRafRace;
     this.pendingRenderTaskId = this.taskService.add();
     if (this.zoneIsDefined) {
       Zone.root.run(() => {
@@ -107,14 +143,28 @@ export class ChangeDetectionSchedulerImpl implements ChangeDetectionScheduler {
       return;
     }
 
+    const task = this.taskService.add();
     try {
       this.ngZone.run(() => {
         this.runningTick = true;
         this.appRef._tick(shouldRefreshViews);
-      });
+      }, undefined, this.schedulerTickApplyArgs);
+    } catch (e: unknown) {
+      this.taskService.remove(task);
+      throw e;
     } finally {
       this.cleanup();
     }
+    // If we're notified of a change within 1 microtask of running change
+    // detection, run another round in the same event loop. This allows code
+    // which uses Promise.resolve (see NgModel) to avoid
+    // ExpressionChanged...Error to still be reflected in a single browser
+    // paint, even if that spans multiple rounds of change detection.
+    this.useMicrotaskScheduler = true;
+    scheduleCallbackWithMicrotask(() => {
+      this.useMicrotaskScheduler = false;
+      this.taskService.remove(task);
+    });
   }
 
   ngOnDestroy() {
