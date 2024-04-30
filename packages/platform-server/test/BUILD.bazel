@@ -26,6 +26,7 @@ ts_library(
         "//packages/common/testing",
         "//packages/compiler",
         "//packages/core",
+        "//packages/core/primitives/event-dispatch",
         "//packages/core/testing",
         "//packages/localize",
         "//packages/localize/init",
@@ -40,6 +41,7 @@ ts_library(
 jasmine_node_test(
     name = "test",
     bootstrap = ["//tools/testing:node"],
+    data = ["//packages/core/primitives/event-dispatch:contract_bundle_min"],
     deps = [
         ":test_lib",
     ],

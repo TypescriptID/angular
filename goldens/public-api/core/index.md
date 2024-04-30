@@ -674,6 +674,15 @@ export interface ExistingSansProvider {
 }
 
 // @public
+export class ExperimentalPendingTasks {
+    add(): () => void;
+    // (undocumented)
+    static ɵfac: i0.ɵɵFactoryDeclaration<ExperimentalPendingTasks, never>;
+    // (undocumented)
+    static ɵprov: i0.ɵɵInjectableDeclaration<ExperimentalPendingTasks>;
+}
+
+// @public
 export interface FactoryProvider extends FactorySansProvider {
     multi?: boolean;
     provide: any;
@@ -1196,7 +1205,7 @@ export class NgProbeToken {
 
 // @public
 export class NgZone {
-    constructor({ enableLongStackTrace, shouldCoalesceEventChangeDetection, shouldCoalesceRunChangeDetection }: {
+    constructor({ enableLongStackTrace, shouldCoalesceEventChangeDetection, shouldCoalesceRunChangeDetection, }: {
         enableLongStackTrace?: boolean | undefined;
         shouldCoalesceEventChangeDetection?: boolean | undefined;
         shouldCoalesceRunChangeDetection?: boolean | undefined;

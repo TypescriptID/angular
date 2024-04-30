@@ -6,11 +6,11 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {ApplicationRef, ExperimentalPendingTasks} from '@angular/core';
 import {TestBed} from '@angular/core/testing';
 import {EMPTY, of} from 'rxjs';
 import {map, take, withLatestFrom} from 'rxjs/operators';
 
-import {ApplicationRef} from '../../src/application/application_ref';
 import {PendingTasks} from '../../src/pending_tasks';
 
 describe('PendingTasks', () => {
@@ -67,15 +67,27 @@ describe('PendingTasks', () => {
   });
 });
 
+describe('public ExperimentalPendingTasks', () => {
+  it('should allow adding and removing tasks influencing stability', async () => {
+    const appRef = TestBed.inject(ApplicationRef);
+    const pendingTasks = TestBed.inject(ExperimentalPendingTasks);
+
+    const taskA = pendingTasks.add();
+    await expectAsync(applicationRefIsStable(appRef)).toBeResolvedTo(false);
+    taskA();
+    await expectAsync(applicationRefIsStable(appRef)).toBeResolvedTo(true);
+  });
+});
+
 function applicationRefIsStable(applicationRef: ApplicationRef) {
   return applicationRef.isStable.pipe(take(1)).toPromise();
 }
 
 function hasPendingTasks(pendingTasks: PendingTasks): Promise<boolean> {
   return of(EMPTY)
-             .pipe(
-                 withLatestFrom(pendingTasks.hasPendingTasks),
-                 map(([_, hasPendingTasks]) => hasPendingTasks),
-                 )
-             .toPromise() as Promise<boolean>;
+    .pipe(
+      withLatestFrom(pendingTasks.hasPendingTasks),
+      map(([_, hasPendingTasks]) => hasPendingTasks),
+    )
+    .toPromise() as Promise<boolean>;
 }

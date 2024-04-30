@@ -126,12 +126,12 @@ export const enum RuntimeErrorCode {
 
   // Repeater errors
   LOOP_TRACK_DUPLICATE_KEYS = 955,
+  LOOP_TRACK_RECREATE = 956,
 
   // Runtime dependency tracker errors
   RUNTIME_DEPS_INVALID_IMPORTED_TYPE = 1000,
   RUNTIME_DEPS_ORPHAN_COMPONENT = 1001,
 }
-
 
 /**
  * Class that represents a runtime error.
@@ -150,7 +150,10 @@ export const enum RuntimeErrorCode {
  * logic.
  */
 export class RuntimeError<T extends number = RuntimeErrorCode> extends Error {
-  constructor(public code: T, message: null|false|string) {
+  constructor(
+    public code: T,
+    message: null | false | string,
+  ) {
     super(formatRuntimeError<T>(code, message));
   }
 }
@@ -160,7 +163,9 @@ export class RuntimeError<T extends number = RuntimeErrorCode> extends Error {
  * See additional info on the `message` argument type in the `RuntimeError` class description.
  */
 export function formatRuntimeError<T extends number = RuntimeErrorCode>(
-    code: T, message: null|false|string): string {
+  code: T,
+  message: null | false | string,
+): string {
   // Error code might be a negative number, which is a special marker that instructs the logic to
   // generate a link to the error details page on angular.io.
   // We also prepend `0` to non-compile-time errors.
@@ -171,8 +176,7 @@ export function formatRuntimeError<T extends number = RuntimeErrorCode>(
   if (ngDevMode && code < 0) {
     const addPeriodSeparator = !errorMessage.match(/[.,;!?\n]$/);
     const separator = addPeriodSeparator ? '.' : '';
-    errorMessage =
-        `${errorMessage}${separator} Find more at ${ERROR_DETAILS_PAGE_BASE_URL}/${fullCode}`;
+    errorMessage = `${errorMessage}${separator} Find more at ${ERROR_DETAILS_PAGE_BASE_URL}/${fullCode}`;
   }
   return errorMessage;
 }

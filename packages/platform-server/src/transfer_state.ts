@@ -21,9 +21,17 @@ export const TRANSFER_STATE_SERIALIZATION_PROVIDERS: Provider[] = [
 ];
 
 /** TODO: Move this to a utils folder and convert to use SafeValues. */
-export function createScript(doc: Document, textContent: string) {
+export function createScript(
+  doc: Document,
+  textContent: string,
+  nonce: string | null,
+): HTMLScriptElement {
   const script = doc.createElement('script');
   script.textContent = textContent;
+  if (nonce) {
+    script.setAttribute('nonce', nonce);
+  }
+
   return script;
 }
 
@@ -39,7 +47,15 @@ function serializeTransferStateFactory(doc: Document, appId: string, transferSto
       return;
     }
 
-    const script = createScript(doc, content);
+    const script = createScript(
+      doc,
+      content,
+      /**
+       * `nonce` is not required for 'application/json'
+       * See: https://html.spec.whatwg.org/multipage/scripting.html#attr-script-type
+       */
+      null,
+    );
     script.id = appId + '-state';
     script.setAttribute('type', 'application/json');
 

@@ -22,7 +22,7 @@ Start developing with the latest Angular features from our roadmap. This list re
 | [Explore Angular Signals](guide/signals)                                      | [Migrate your Angular Material to MDC](https://material.angular.io/guide/mdc-migration) |
 | [Learn about Hydration](guide/hydration)                                      | [Migrate to Standalone APIs](reference/migrations/standalone)                           |
 | [Deferrable views](https://github.com/angular/angular/discussions/50716)      | [Improve image performance with NgOptimizedImage](guide/image-optimization)             |
-| [Built-in control flow](https://github.com/angular/angular/discussions/50719) | [Try out Inject](tutorials/learn-angular/inject-based-di)                               |
+| [Built-in control flow](https://github.com/angular/angular/discussions/50719) | [Try out Inject](/tutorials/learn-angular/20-inject-based-di)                               |
 |                                                                               | [New CDK directives](https://material.angular.io/cdk/categories)                        |
 
 ## Improving the Angular developer experience
@@ -222,7 +222,7 @@ This section represents explorations and prototyping of potential future project
   <docs-card title="Transition the Angular language service to Ivy" link="Completed Q2 2021" href="tools/language-service">
   The goal of this project is to improve the experience and remove legacy dependency by transitioning the language service to Ivy. Today the language service still uses the View Engine compiler and type checking, even for Ivy apps. We want to use the Ivy template parser and improved type checking for the Angular Language service to match app behavior. This migration is also a step towards unblocking the removal of View Engine, which will simplify Angular, reduce the npm package size, and improve the maintainability of the framework.
   </docs-card>
-  <docs-card title="Increased security with native Trusted Types in Angular" link="Completed Q2 2021" href="guide/security">
+  <docs-card title="Increased security with native Trusted Types in Angular" link="Completed Q2 2021" href="best-practices/security">
   In collaboration with the Google security team, we are adding support for the new Trusted Types API. This web platform API helps developers build more secure web apps.
   </docs-card>
   <docs-card title="Optimized build speed and bundle sizes with Angular CLI webpack 5" link="Completed Q2 2021" href="tools/cli/build">

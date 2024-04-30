@@ -9,6 +9,7 @@
 import {
   APP_ID,
   ApplicationRef,
+  CSP_NONCE,
   InjectionToken,
   PlatformRef,
   Provider,
@@ -25,6 +26,16 @@ import {PlatformState} from './platform_state';
 import {platformServer} from './server';
 import {BEFORE_APP_SERIALIZED, INITIAL_CONFIG} from './tokens';
 import {createScript} from './transfer_state';
+
+/**
+ * Event dispatch (JSAction) script is inlined into the HTML by the build
+ * process to avoid extra blocking request on a page. The script looks like this:
+ * ```
+ * <script type="text/javascript" id="ng-event-dispatch-contract">...</script>
+ * ```
+ * This const represents the "id" attribute value.
+ */
+export const EVENT_DISPATCH_SCRIPT_ID = 'ng-event-dispatch-contract';
 
 interface PlatformOptions {
   document?: string | Document;
@@ -45,13 +56,29 @@ function createServerPlatform(options: PlatformOptions): PlatformRef {
 }
 
 /**
+ * Finds and returns inlined event dispatch script if it exists.
+ * See the `EVENT_DISPATCH_SCRIPT_ID` const docs for additional info.
+ */
+function findEventDispatchScript(doc: Document) {
+  return doc.getElementById(EVENT_DISPATCH_SCRIPT_ID);
+}
+
+/**
+ * Removes inlined event dispatch script if it exists.
+ * See the `EVENT_DISPATCH_SCRIPT_ID` const docs for additional info.
+ */
+function removeEventDispatchScript(doc: Document) {
+  findEventDispatchScript(doc)?.remove();
+}
+
+/**
  * Creates a marker comment node and append it into the `<body>`.
  * Some CDNs have mechanisms to remove all comment node from HTML.
  * This behaviour breaks hydration, so we'll detect on the client side if this
  * marker comment is still available or else throw an error
  */
 function appendSsrContentIntegrityMarker(doc: Document) {
-  // Adding a ng hydration marken comment
+  // Adding a ng hydration marker comment
   const comment = doc.createComment(SSR_CONTENT_INTEGRITY_MARKER);
   doc.body.firstChild
     ? doc.body.insertBefore(comment, doc.body.firstChild)
@@ -78,14 +105,22 @@ function insertEventRecordScript(
   appId: string,
   doc: Document,
   eventTypesToBeReplayed: Set<string>,
-) {
-  const events = Array.from(eventTypesToBeReplayed);
-  // This is defined in packages/core/primitives/event-dispatch/contract_binary.ts
-  const replayScript = `window.__jsaction_bootstrap('ngContracts', document.body, ${JSON.stringify(
-    appId,
-  )}, ${JSON.stringify(events)});`;
-  const script = createScript(doc, replayScript);
-  doc.body.insertBefore(script, doc.body.firstChild);
+  nonce: string | null,
+): void {
+  const eventDispatchScript = findEventDispatchScript(doc);
+  if (eventDispatchScript) {
+    const events = Array.from(eventTypesToBeReplayed);
+    // This is defined in packages/core/primitives/event-dispatch/contract_binary.ts
+    const replayScriptContents = `window.__jsaction_bootstrap('ngContracts', document.body, ${JSON.stringify(
+      appId,
+    )}, ${JSON.stringify(events)});`;
+
+    const replayScript = createScript(doc, replayScriptContents, nonce);
+
+    // Insert replay script right after inlined event dispatch script, since it
+    // relies on `__jsaction_bootstrap` to be defined in the global scope.
+    eventDispatchScript.after(replayScript);
+  }
 }
 
 async function _render(platformRef: PlatformRef, applicationRef: ApplicationRef): Promise<string> {
@@ -95,12 +130,21 @@ async function _render(platformRef: PlatformRef, applicationRef: ApplicationRef)
   await whenStable(applicationRef);
 
   const platformState = platformRef.injector.get(PlatformState);
-  if (applicationRef.injector.get(IS_HYDRATION_DOM_REUSE_ENABLED, false)) {
+  if (environmentInjector.get(IS_HYDRATION_DOM_REUSE_ENABLED, false)) {
     const doc = platformState.getDocument();
     appendSsrContentIntegrityMarker(doc);
     const eventTypesToBeReplayed = annotateForHydration(applicationRef, doc);
     if (eventTypesToBeReplayed) {
-      insertEventRecordScript(environmentInjector.get(APP_ID), doc, eventTypesToBeReplayed);
+      insertEventRecordScript(
+        environmentInjector.get(APP_ID),
+        doc,
+        eventTypesToBeReplayed,
+        environmentInjector.get(CSP_NONCE, null),
+      );
+    } else {
+      // No events to replay, we should remove inlined event dispatch script
+      // (which was injected by the build process) from the HTML.
+      removeEventDispatchScript(doc);
     }
   }
 
