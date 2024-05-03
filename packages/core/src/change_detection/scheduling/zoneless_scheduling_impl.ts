@@ -120,7 +120,6 @@ export class ChangeDetectionSchedulerImpl implements ChangeDetectionScheduler {
       case NotificationSource.MarkAncestorsForTraversal:
       case NotificationSource.MarkForCheck:
       case NotificationSource.Listener:
-      case NotificationSource.AnimationQueuedNodeRemoval:
       case NotificationSource.SetInput: {
         this.shouldRefreshViews = true;
         break;
@@ -157,12 +156,12 @@ export class ChangeDetectionSchedulerImpl implements ChangeDetectionScheduler {
       Zone.root.run(() => {
         this.cancelScheduledCallback = scheduleCallback(() => {
           this.tick(this.shouldRefreshViews);
-        }, false /** useNativeTimers */);
+        });
       });
     } else {
       this.cancelScheduledCallback = scheduleCallback(() => {
         this.tick(this.shouldRefreshViews);
-      }, false /** useNativeTimers */);
+      });
     }
   }
 
