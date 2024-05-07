@@ -32,13 +32,12 @@
 
 import * as a11yClickLib from './a11y_click';
 import {ActionResolver} from './action_resolver';
-import {EarlyJsactionData} from './earlyeventcontract';
+import {EarlyJsactionData, EarlyJsactionDataContainer} from './earlyeventcontract';
 import * as eventLib from './event';
 import {EventContractContainerManager} from './event_contract_container';
 import {
   A11Y_CLICK_SUPPORT,
   CUSTOM_EVENT_SUPPORT,
-  JSNAMESPACE_SUPPORT,
   MOUSE_SPECIAL_SUPPORT,
 } from './event_contract_defines';
 import * as eventInfoLib from './event_info';
@@ -91,13 +90,11 @@ export class EventContract implements UnrenamedEventContract {
   static CUSTOM_EVENT_SUPPORT = CUSTOM_EVENT_SUPPORT;
   static A11Y_CLICK_SUPPORT = A11Y_CLICK_SUPPORT;
   static MOUSE_SPECIAL_SUPPORT = MOUSE_SPECIAL_SUPPORT;
-  static JSNAMESPACE_SUPPORT = JSNAMESPACE_SUPPORT;
 
   private containerManager: EventContractContainerManager | null;
 
   private readonly actionResolver = new ActionResolver({
     customEventSupport: EventContract.CUSTOM_EVENT_SUPPORT,
-    jsnamespaceSupport: EventContract.JSNAMESPACE_SUPPORT,
     syntheticMouseEventSupport: EventContract.MOUSE_SPECIAL_SUPPORT,
   });
 
@@ -255,10 +252,12 @@ export class EventContract implements UnrenamedEventContract {
    * in the provided event contract. Once all the events are replayed, it cleans
    * up the early contract.
    */
-  replayEarlyEvents() {
+  replayEarlyEvents(
+    earlyJsactionContainer: EarlyJsactionDataContainer = window as EarlyJsactionDataContainer,
+  ) {
     // Check if the early contract is present and prevent calling this function
     // more than once.
-    const earlyJsactionData: EarlyJsactionData | undefined = window._ejsa;
+    const earlyJsactionData: EarlyJsactionData | undefined = earlyJsactionContainer._ejsa;
     if (!earlyJsactionData) {
       return;
     }
@@ -278,13 +277,10 @@ export class EventContract implements UnrenamedEventContract {
     }
 
     // Clean up the early contract.
-    const earlyEventTypes: string[] = earlyJsactionData.et;
     const earlyEventHandler: (event: Event) => void = earlyJsactionData.h;
-    for (let idx = 0; idx < earlyEventTypes.length; idx++) {
-      const eventType: string = earlyEventTypes[idx];
-      window.document.documentElement.removeEventListener(eventType, earlyEventHandler);
-    }
-    delete window._ejsa;
+    removeEventListeners(earlyJsactionData.c, earlyJsactionData.et, earlyEventHandler);
+    removeEventListeners(earlyJsactionData.c, earlyJsactionData.etc, earlyEventHandler, true);
+    delete earlyJsactionContainer._ejsa;
   }
 
   /**
@@ -387,6 +383,17 @@ export class EventContract implements UnrenamedEventContract {
       preventDefaultForA11yClick,
       populateClickOnlyAction,
     );
+  }
+}
+
+function removeEventListeners(
+  container: HTMLElement,
+  eventTypes: string[],
+  earlyEventHandler: (e: Event) => void,
+  capture?: boolean,
+) {
+  for (let idx = 0; idx < eventTypes.length; idx++) {
+    container.removeEventListener(eventTypes[idx], earlyEventHandler, /* useCapture */ capture);
   }
 }
 
