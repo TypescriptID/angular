@@ -103,13 +103,32 @@ export class ValueChangeEvent<T> extends ControlEvent<T> {
 }
 
 /**
+ * @deprecated use `PristineChangeEvent` symbol instead.
+ */
+
+export class PristineEvent extends ControlEvent {
+  constructor(
+    public readonly pristine: boolean,
+    public readonly source: AbstractControl,
+  ) {
+    super();
+  }
+}
+
+/**
  * Event fired when the control's pristine state changes (pristine <=> dirty).
  *
  * @publicApi
  */
-export class PristineChangeEvent extends ControlEvent {
+
+export class PristineChangeEvent extends PristineEvent {}
+
+/**
+ * @deprecated use `TouchedChangeEvent` symbol instead.
+ */
+export class TouchedEvent extends ControlEvent {
   constructor(
-    public readonly pristine: boolean,
+    public readonly touched: boolean,
     public readonly source: AbstractControl,
   ) {
     super();
@@ -121,9 +140,14 @@ export class PristineChangeEvent extends ControlEvent {
  *
  * @publicApi
  */
-export class TouchedChangeEvent extends ControlEvent {
+export class TouchedChangeEvent extends TouchedEvent {}
+
+/**
+ * @deprecated use `StatusChangeEvent` symbol instead.
+ */
+export class StatusEvent extends ControlEvent {
   constructor(
-    public readonly touched: boolean,
+    public readonly status: FormControlStatus,
     public readonly source: AbstractControl,
   ) {
     super();
@@ -135,14 +159,7 @@ export class TouchedChangeEvent extends ControlEvent {
  *
  * @publicApi
  */
-export class StatusChangeEvent extends ControlEvent {
-  constructor(
-    public readonly status: FormControlStatus,
-    public readonly source: AbstractControl,
-  ) {
-    super();
-  }
-}
+export class StatusChangeEvent extends StatusEvent {}
 
 /**
  * Event fired when a form is submitted
@@ -373,9 +390,6 @@ export type ɵRawValue<T extends AbstractControl | undefined> =
       : never
     : never;
 
-// Disable clang-format to produce clearer formatting for these multiline types.
-// clang-format off
-
 /**
  * Tokenize splits a string literal S by a delimiter D.
  */
@@ -441,8 +455,6 @@ export type ɵGetProperty<T, K> =
       ? ɵNavigate<T, ɵWriteable<K>>
       : // Fall through permissively if we can't calculate the type of K.
         any;
-
-// clang-format on
 
 /**
  * This is the base class for `FormControl`, `FormGroup`, and `FormArray`.
