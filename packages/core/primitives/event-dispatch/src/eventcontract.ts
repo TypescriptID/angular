@@ -88,9 +88,7 @@ export class EventContract implements UnrenamedEventContract {
 
   private containerManager: EventContractContainerManager | null;
 
-  private readonly actionResolver = new ActionResolver({
-    syntheticMouseEventSupport: EventContract.MOUSE_SPECIAL_SUPPORT,
-  });
+  private readonly actionResolver?: ActionResolver;
 
   /**
    * The DOM events which this contract covers. Used to prevent double
@@ -127,8 +125,16 @@ export class EventContract implements UnrenamedEventContract {
     populateClickOnlyAction: typeof a11yClickLib.populateClickOnlyAction,
   ) => void;
 
-  constructor(containerManager: EventContractContainerManager) {
+  constructor(
+    containerManager: EventContractContainerManager,
+    private readonly useActionResolver = true,
+  ) {
     this.containerManager = containerManager;
+    if (this.useActionResolver) {
+      this.actionResolver = new ActionResolver({
+        syntheticMouseEventSupport: EventContract.MOUSE_SPECIAL_SUPPORT,
+      });
+    }
     if (EventContract.A11Y_CLICK_SUPPORT) {
       // Add a11y click support to the `EventContract`.
       this.addA11yClickSupport();
@@ -156,14 +162,9 @@ export class EventContract implements UnrenamedEventContract {
       this.queuedEventInfos?.push(eventInfo);
       return;
     }
-    this.actionResolver.resolve(eventInfo);
-    const action = eventInfoLib.getAction(eventInfo);
-    if (action) {
-      if (shouldPreventDefaultBeforeDispatching(eventInfoLib.getActionElement(action), eventInfo)) {
-        eventLib.preventDefault(eventInfoLib.getEvent(eventInfo));
-      }
+    if (this.useActionResolver) {
+      this.actionResolver!.resolve(eventInfo);
     }
-
     this.dispatcher(eventInfo);
   }
 
@@ -354,11 +355,13 @@ export class EventContract implements UnrenamedEventContract {
     populateClickOnlyAction: typeof a11yClickLib.populateClickOnlyAction,
   ) {
     this.addA11yClickListener = true;
-    this.actionResolver.addA11yClickSupport(
-      updateEventInfoForA11yClick,
-      preventDefaultForA11yClick,
-      populateClickOnlyAction,
-    );
+    if (this.useActionResolver) {
+      this.actionResolver!.addA11yClickSupport(
+        updateEventInfoForA11yClick,
+        preventDefaultForA11yClick,
+        populateClickOnlyAction,
+      );
+    }
   }
 }
 
@@ -384,24 +387,5 @@ export function addDeferredA11yClickSupport(eventContract: EventContract) {
     a11yClickLib.updateEventInfoForA11yClick,
     a11yClickLib.preventDefaultForA11yClick,
     a11yClickLib.populateClickOnlyAction,
-  );
-}
-
-/**
- * Returns true if the default action of this event should be prevented before
- * this event is dispatched.
- */
-function shouldPreventDefaultBeforeDispatching(
-  actionElement: Element,
-  eventInfo: eventInfoLib.EventInfo,
-): boolean {
-  // Prevent browser from following <a> node links if a jsaction is present
-  // and we are dispatching the action now. Note that the targetElement may be
-  // a child of an anchor that has a jsaction attached. For that reason, we
-  // need to check the actionElement rather than the targetElement.
-  return (
-    actionElement.tagName === 'A' &&
-    (eventInfoLib.getEventType(eventInfo) === EventType.CLICK ||
-      eventInfoLib.getEventType(eventInfo) === EventType.CLICKMOD)
   );
 }

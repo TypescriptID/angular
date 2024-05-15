@@ -11,6 +11,7 @@ import {EventType} from './event_type';
 import {Restriction} from './restriction';
 import {UnrenamedEventContract} from './eventcontract';
 import * as eventLib from './event';
+import {ActionResolver} from './action_resolver';
 
 /**
  * A replayer is a function that is called when there are queued events,
@@ -35,12 +36,17 @@ export type GlobalHandler = (event: Event) => boolean | void;
  * jsaction.
  */
 export class Dispatcher {
-  /** The queue of events. */
-  private readonly replayEventInfoWrappers: EventInfoWrapper[] = [];
+  // The ActionResolver to use to resolve actions.
+  private actionResolver?: ActionResolver;
+
   /** The replayer function to be called when there are queued events. */
   private eventReplayer?: Replayer;
+
   /** Whether the event replay is scheduled. */
   private eventReplayScheduled = false;
+
+  /** The queue of events. */
+  private readonly replayEventInfoWrappers: EventInfoWrapper[] = [];
 
   /**
    * Options are:
@@ -51,8 +57,12 @@ export class Dispatcher {
    */
   constructor(
     private readonly dispatchDelegate: (eventInfoWrapper: EventInfoWrapper) => void,
-    {eventReplayer = undefined}: {eventReplayer?: Replayer} = {},
+    {
+      actionResolver = undefined,
+      eventReplayer = undefined,
+    }: {actionResolver?: ActionResolver; eventReplayer?: Replayer} = {},
   ) {
+    this.actionResolver = actionResolver;
     this.eventReplayer = eventReplayer;
   }
 
@@ -78,6 +88,11 @@ export class Dispatcher {
    */
   dispatch(eventInfo: EventInfo): void {
     const eventInfoWrapper = new EventInfoWrapper(eventInfo);
+    this.actionResolver?.resolve(eventInfo);
+    const action = eventInfoWrapper.getAction();
+    if (action && shouldPreventDefaultBeforeDispatching(action.element, eventInfoWrapper)) {
+      eventLib.preventDefault(eventInfoWrapper.getEvent());
+    }
     if (eventInfoWrapper.getIsReplay()) {
       if (!this.eventReplayer) {
         return;
@@ -129,6 +144,24 @@ export function stopPropagation(eventInfoWrapper: EventInfoWrapper) {
     return;
   }
   event.stopPropagation();
+}
+
+/**
+ * Returns true if the default action of this event should be prevented before
+ * this event is dispatched.
+ */
+function shouldPreventDefaultBeforeDispatching(
+  actionElement: Element,
+  eventInfoWrapper: EventInfoWrapper,
+): boolean {
+  // Prevent browser from following <a> node links if a jsaction is present
+  // and we are dispatching the action now. Note that the targetElement may be
+  // a child of an anchor that has a jsaction attached. For that reason, we
+  // need to check the actionElement rather than the targetElement.
+  return (
+    (actionElement.tagName === 'A' && eventInfoWrapper.getEventType() === EventType.CLICK) ||
+    eventInfoWrapper.getEventType() === EventType.CLICKMOD
+  );
 }
 
 /**
