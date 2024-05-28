@@ -130,7 +130,7 @@ export interface HydrationContext {
   corruptedTextNodes: Map<HTMLElement, TextNodeMarker>;
   isI18nHydrationEnabled: boolean;
   i18nChildren: Map<TView, Set<number> | null>;
-  eventTypesToReplay: Set<string>;
+  eventTypesToReplay: {regular: Set<string>; capture: Set<string>};
   shouldReplayEvents: boolean;
 }
 
@@ -219,7 +219,10 @@ export function annotateForHydration(appRef: ApplicationRef, doc: Document) {
   const corruptedTextNodes = new Map<HTMLElement, TextNodeMarker>();
   const viewRefs = appRef._views;
   const shouldReplayEvents = injector.get(IS_EVENT_REPLAY_ENABLED, EVENT_REPLAY_ENABLED_DEFAULT);
-  const eventTypesToReplay = new Set<string>();
+  const eventTypesToReplay = {
+    regular: new Set<string>(),
+    capture: new Set<string>(),
+  };
   for (const viewRef of viewRefs) {
     const lNode = getLNodeForHydration(viewRef);
 
@@ -251,7 +254,7 @@ export function annotateForHydration(appRef: ApplicationRef, doc: Document) {
   const serializedViews = serializedViewCollection.getAll();
   const transferState = injector.get(TransferState);
   transferState.set(NGH_DATA_KEY, serializedViews);
-  return eventTypesToReplay.size > 0 ? eventTypesToReplay : undefined;
+  return eventTypesToReplay;
 }
 
 /**
@@ -390,9 +393,6 @@ function serializeLView(lView: LView, context: HydrationContext): SerializedView
   for (let i = HEADER_OFFSET; i < tView.bindingStartIndex; i++) {
     const tNode = tView.data[i] as TNode;
     const noOffsetIndex = i - HEADER_OFFSET;
-    if (nativeElementsToEventTypes) {
-      setJSActionAttribute(tNode, lView[i], nativeElementsToEventTypes);
-    }
 
     // Attempt to serialize any i18n data for the given slot. We do this first, as i18n
     // has its own process for serialization.
@@ -431,6 +431,13 @@ function serializeLView(lView: LView, context: HydrationContext): SerializedView
       appendDisconnectedNodeIndex(ngh, tNode);
       continue;
     }
+
+    if (nativeElementsToEventTypes) {
+      // Attach `jsaction` attribute to elements that have registered listeners,
+      // thus potentially having a need to do an event replay.
+      setJSActionAttribute(tNode, lView[i], nativeElementsToEventTypes);
+    }
+
     if (Array.isArray(tNode.projection)) {
       for (const projectionHeadTNode of tNode.projection) {
         // We may have `null`s in slots with no projected content.
