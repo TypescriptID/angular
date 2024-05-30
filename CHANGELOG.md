@@ -1,3 +1,36 @@
+<a name="18.1.0-next.0"></a>
+# 18.1.0-next.0 (2024-05-29)
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [e5a6f91722](https://github.com/angular/angular/commit/e5a6f917225aafa7c5c860f280d2aafe3615727e) | feat | support TypeScript 5.5 ([#56096](https://github.com/angular/angular/pull/56096)) |
+| [b2445a0953](https://github.com/angular/angular/commit/b2445a095314aa66da038d3093e6a1b18fe5768b) | fix | link errors to ADEV ([#55554](https://github.com/angular/angular/pull/55554)) ([#56038](https://github.com/angular/angular/pull/56038)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="18.0.1"></a>
+# 18.0.1 (2024-05-29)
+### compiler
+| Commit | Type | Description |
+| -- | -- | -- |
+| [419ffa2026](https://github.com/angular/angular/commit/419ffa20265e4b9b5b1d92045ec40f59f5c4de2e) | fix | optimize track function that only passes $index ([#55872](https://github.com/angular/angular/pull/55872)) |
+### compiler-cli
+| Commit | Type | Description |
+| -- | -- | -- |
+| [4c7efc005a](https://github.com/angular/angular/commit/4c7efc005a8d0d343f437007740254b1d35c718b) | fix | interpolatedSignalNotInvoked diagnostic for class, style, attribute and animation bindings ([#55969](https://github.com/angular/angular/pull/55969)) |
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [4e6ea0e19c](https://github.com/angular/angular/commit/4e6ea0e19c52c9aceb635accb379572c78a457da) | fix | handle elements with local refs in event replay serialization logic ([#56076](https://github.com/angular/angular/pull/56076)) |
+| [d73a0175cb](https://github.com/angular/angular/commit/d73a0175cb2d8c74e6bb877dc30eec07fd484fff) | fix | link errors to ADEV ([#55554](https://github.com/angular/angular/pull/55554)) |
+| [985a215b10](https://github.com/angular/angular/commit/985a215b102be2a58dd4d13e1c05399f58f3078e) | fix | typo in zoneless warning ([#55974](https://github.com/angular/angular/pull/55974)) |
+### migrations
+| Commit | Type | Description |
+| -- | -- | -- |
+| [ba85d08158](https://github.com/angular/angular/commit/ba85d081583277a5b7a04bc349a3a8d528467c52) | fix | handle empty ngSwitchCase ([#56105](https://github.com/angular/angular/pull/56105)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
 <a name="17.3.10"></a>
 # 17.3.10 (2024-05-22)
 
