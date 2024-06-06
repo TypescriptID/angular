@@ -13,10 +13,13 @@ import {
   ParseSourceSpan,
   parseTemplate,
   ParseTemplateOptions,
+  PropertyRead,
+  PropertyWrite,
   R3TargetBinder,
   SchemaMetadata,
   SelectorMatcher,
   TmplAstElement,
+  TmplAstLetDeclaration,
 } from '@angular/compiler';
 import {readFileSync} from 'fs';
 import path from 'path';
@@ -490,6 +493,7 @@ export function setup(
     config?: Partial<TypeCheckingConfig>;
     options?: ts.CompilerOptions;
     inlining?: boolean;
+    parseOptions?: ParseTemplateOptions;
   } = {},
 ): {
   templateTypeChecker: TemplateTypeChecker;
@@ -591,7 +595,7 @@ export function setup(
         const template = target.templates[className];
         const templateUrl = `${className}.html`;
         const templateFile = new ParseSourceFile(template, templateUrl);
-        const {nodes, errors} = parseTemplate(template, templateUrl);
+        const {nodes, errors} = parseTemplate(template, templateUrl, overrides.parseOptions);
         if (errors !== null) {
           throw new Error('Template parse errors: \n' + errors.join('\n'));
         }
@@ -1025,4 +1029,15 @@ export class NoopOobRecorder implements OutOfBandDiagnosticRecorder {
   illegalForLoopTrackAccess(): void {}
   inaccessibleDeferredTriggerElement(): void {}
   controlFlowPreventingContentProjection(): void {}
+  illegalWriteToLetDeclaration(
+    templateId: TemplateId,
+    node: PropertyWrite,
+    target: TmplAstLetDeclaration,
+  ): void {}
+  letUsedBeforeDefinition(
+    templateId: TemplateId,
+    node: PropertyRead,
+    target: TmplAstLetDeclaration,
+  ): void {}
+  duplicateLetDeclaration(templateId: TemplateId, current: TmplAstLetDeclaration): void {}
 }
