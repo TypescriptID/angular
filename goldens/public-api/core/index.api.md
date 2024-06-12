@@ -28,7 +28,23 @@ export interface AfterContentInit {
 }
 
 // @public
+export function afterNextRender<E = never, W = never, M = never>(spec: {
+    earlyRead?: () => E;
+    write?: (...args: ɵFirstAvailable<[E]>) => W;
+    mixedReadWrite?: (...args: ɵFirstAvailable<[W, E]>) => M;
+    read?: (...args: ɵFirstAvailable<[M, W, E]>) => void;
+}, opts?: Omit<AfterRenderOptions, 'phase'>): AfterRenderRef;
+
+// @public
 export function afterNextRender(callback: VoidFunction, options?: AfterRenderOptions): AfterRenderRef;
+
+// @public
+export function afterRender<E = never, W = never, M = never>(spec: {
+    earlyRead?: () => E;
+    write?: (...args: ɵFirstAvailable<[E]>) => W;
+    mixedReadWrite?: (...args: ɵFirstAvailable<[W, E]>) => M;
+    read?: (...args: ɵFirstAvailable<[M, W, E]>) => void;
+}, opts?: Omit<AfterRenderOptions, 'phase'>): AfterRenderRef;
 
 // @public
 export function afterRender(callback: VoidFunction, options?: AfterRenderOptions): AfterRenderRef;
@@ -36,10 +52,11 @@ export function afterRender(callback: VoidFunction, options?: AfterRenderOptions
 // @public
 export interface AfterRenderOptions {
     injector?: Injector;
+    // @deprecated
     phase?: AfterRenderPhase;
 }
 
-// @public
+// @public @deprecated
 export enum AfterRenderPhase {
     EarlyRead = 0,
     MixedReadWrite = 2,
@@ -679,9 +696,7 @@ export interface ExistingSansProvider {
 export class ExperimentalPendingTasks {
     add(): () => void;
     // (undocumented)
-    static ɵfac: i0.ɵɵFactoryDeclaration<ExperimentalPendingTasks, never>;
-    // (undocumented)
-    static ɵprov: i0.ɵɵInjectableDeclaration<ExperimentalPendingTasks>;
+    static ɵprov: unknown;
 }
 
 // @public
