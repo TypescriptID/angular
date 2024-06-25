@@ -1137,6 +1137,9 @@
     "name": "init_callback_scheduler"
   },
   {
+    "name": "init_chained_injector"
+  },
+  {
     "name": "init_change_detection"
   },
   {
@@ -1624,6 +1627,9 @@
   },
   {
     "name": "init_lang"
+  },
+  {
+    "name": "init_let_declaration"
   },
   {
     "name": "init_lift"
