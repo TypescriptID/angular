@@ -195,6 +195,9 @@
     "name": "ErrorHandler"
   },
   {
+    "name": "EventDelegationPlugin"
+  },
+  {
     "name": "EventEmitter"
   },
   {
@@ -202,6 +205,9 @@
   },
   {
     "name": "EventManagerPlugin"
+  },
+  {
+    "name": "GLOBAL_EVENT_DELEGATION"
   },
   {
     "name": "GenericBrowserDomAdapter"
@@ -1038,9 +1044,6 @@
     "name": "init_UnsubscriptionError"
   },
   {
-    "name": "init_a11y_click"
-  },
-  {
     "name": "init_action_resolver"
   },
   {
@@ -1341,9 +1344,6 @@
     "name": "init_dom"
   },
   {
-    "name": "init_dom2"
-  },
-  {
     "name": "init_dom_triggers"
   },
   {
@@ -1414,6 +1414,9 @@
   },
   {
     "name": "init_event_contract_defines"
+  },
+  {
+    "name": "init_event_delegation"
   },
   {
     "name": "init_event_delegation_utils"
@@ -2451,9 +2454,6 @@
     "name": "stringifyCSSSelector"
   },
   {
-    "name": "throwError"
-  },
-  {
     "name": "throwProviderNotFoundError"
   },
   {
@@ -2503,9 +2503,6 @@
   },
   {
     "name": "ɵɵdefer"
-  },
-  {
-    "name": "ɵɵdeferWhen"
   },
   {
     "name": "ɵɵdefineComponent"

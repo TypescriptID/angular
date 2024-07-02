@@ -6,12 +6,7 @@
 
 // @public (undocumented)
 export const Attribute: {
-    JSACTION: string;
-    OI: string;
-    VED: string;
-    VET: string;
-    JSINSTANCE: string;
-    JSTRACK: string;
+    JSACTION: "jsaction";
 };
 
 // @public
@@ -25,14 +20,12 @@ export interface EarlyJsactionDataContainer {
 
 // @public
 export class EventContract implements UnrenamedEventContract {
-    constructor(containerManager: EventContractContainerManager, useActionResolver?: boolean);
+    constructor(containerManager: EventContractContainerManager, useActionResolver?: false | undefined);
     // (undocumented)
     static A11Y_CLICK_SUPPORT: boolean;
     addA11yClickSupport(): void;
     addEvent(eventType: string, prefixedEventType?: string): void;
     cleanUp(): void;
-    // (undocumented)
-    ecaacs?: (updateEventInfoForA11yClick: typeof a11yClickLib.updateEventInfoForA11yClick, preventDefaultForA11yClick: typeof a11yClickLib.preventDefaultForA11yClick, populateClickOnlyAction: typeof a11yClickLib.populateClickOnlyAction) => void;
     ecrd(dispatcher: Dispatcher, restriction: Restriction): void;
     exportAddA11yClickSupport(): void;
     handler(eventType: string): EventHandler | undefined;
@@ -120,25 +113,13 @@ export const isCaptureEvent: (eventType: string) => boolean;
 export const isSupportedEvent: (eventType: string) => boolean;
 
 // @public
-export const JSACTION = "jsaction";
-
-// @public
-export const JSINSTANCE = "jsinstance";
-
-// @public
-export const JSTRACK = "jstrack";
-
-// @public
-export const OI = "oi";
-
-// @public
 export function registerDispatcher(eventContract: UnrenamedEventContract, dispatcher: EventDispatcher): void;
 
-// @public
-export const VED = "ved";
+// @public (undocumented)
+export function registerEventType(element: Element, eventType: string, action: string): void;
 
-// @public
-export const VET = "vet";
+// @public (undocumented)
+export function unregisterEventType(element: Element, eventType: string): void;
 
 // (No @packageDocumentation comment for this package)
 

@@ -11,12 +11,16 @@ import {
   EventContract,
   EventContractContainer,
   EventDispatcher,
+  isSupportedEvent,
   registerDispatcher,
+  registerEventType,
+  unregisterEventType,
 } from '@angular/core/primitives/event-dispatch';
-import * as Attributes from '@angular/core/primitives/event-dispatch';
-import {Injectable, Injector} from './di';
+import {Attribute} from '@angular/core/primitives/event-dispatch';
+import {Injectable, InjectionToken, Injector, inject} from './di';
 import {RElement} from './render3/interfaces/renderer_dom';
 import {EVENT_REPLAY_ENABLED_DEFAULT, IS_EVENT_REPLAY_ENABLED} from './hydration/tokens';
+import {OnDestroy} from './interface/lifecycle_hooks';
 
 declare global {
   interface Element {
@@ -34,14 +38,13 @@ export function invokeRegisteredListeners(event: Event) {
   }
 }
 
-export function setJSActionAttribute(nativeElement: Element, eventTypes: string[]) {
+export function setJSActionAttributes(nativeElement: Element, eventTypes: string[]) {
   if (!eventTypes.length) {
     return;
   }
   const parts = eventTypes.reduce((prev, curr) => prev + curr + ':;', '');
-  const existingAttr = nativeElement.getAttribute(Attributes.JSACTION);
-  //  This is required to be a module accessor to appease security tests on setAttribute.
-  nativeElement.setAttribute(Attributes.JSACTION, `${existingAttr ?? ''}${parts}`);
+  const existingAttr = nativeElement.getAttribute(Attribute.JSACTION);
+  nativeElement.setAttribute(Attribute.JSACTION, `${existingAttr ?? ''}${parts}`);
 }
 
 export const sharedStashFunction = (rEl: RElement, eventType: string, listenerFn: () => void) => {
@@ -54,31 +57,65 @@ export const sharedStashFunction = (rEl: RElement, eventType: string, listenerFn
 };
 
 export const removeListeners = (el: Element) => {
-  el.removeAttribute(Attributes.JSACTION);
+  el.removeAttribute(Attribute.JSACTION);
   el.__jsaction_fns = undefined;
 };
 
-@Injectable({providedIn: 'root'})
-export class GlobalEventDelegation {
-  eventContract!: EventContract;
-  addEvent(el: Element, eventName: string) {
-    if (this.eventContract) {
-      this.eventContract.addEvent(eventName);
-      setJSActionAttribute(el, [eventName]);
-      return true;
-    }
-    return false;
+export interface EventContractDetails {
+  instance?: EventContract;
+}
+
+export const JSACTION_EVENT_CONTRACT = new InjectionToken<EventContractDetails>(
+  ngDevMode ? 'EVENT_CONTRACT_DETAILS' : '',
+  {
+    providedIn: 'root',
+    factory: () => ({}),
+  },
+);
+
+export const GLOBAL_EVENT_DELEGATION = new InjectionToken<GlobalEventDelegation>(
+  ngDevMode ? 'GLOBAL_EVENT_DELEGATION' : '',
+);
+
+/**
+ * This class is the delegate for `EventDelegationPlugin`. It represents the
+ * noop version of this class, with the enabled version set when
+ * `provideGlobalEventDelegation` is called.
+ */
+@Injectable()
+export class GlobalEventDelegation implements OnDestroy {
+  private eventContractDetails = inject(JSACTION_EVENT_CONTRACT);
+
+  ngOnDestroy() {
+    this.eventContractDetails.instance?.cleanUp();
+  }
+
+  supports(eventName: string): boolean {
+    return isSupportedEvent(eventName);
+  }
+
+  addEventListener(element: HTMLElement, eventName: string, handler: Function): Function {
+    this.eventContractDetails.instance!.addEvent(eventName);
+    registerEventType(element, eventName, '');
+    return () => this.removeEventListener(element, eventName, handler);
+  }
+
+  removeEventListener(element: HTMLElement, eventName: string, callback: Function): void {
+    unregisterEventType(element, eventName);
   }
 }
 
 export const initGlobalEventDelegation = (
-  eventDelegation: GlobalEventDelegation,
+  eventContractDetails: EventContractDetails,
   injector: Injector,
 ) => {
   if (injector.get(IS_EVENT_REPLAY_ENABLED, EVENT_REPLAY_ENABLED_DEFAULT)) {
     return;
   }
-  eventDelegation.eventContract = new EventContract(new EventContractContainer(document.body));
+  const eventContract = (eventContractDetails.instance = new EventContract(
+    new EventContractContainer(document.body),
+    /* useActionResolver= */ false,
+  ));
   const dispatcher = new EventDispatcher(invokeRegisteredListeners);
-  registerDispatcher(eventDelegation.eventContract, dispatcher);
+  registerDispatcher(eventContract, dispatcher);
 };

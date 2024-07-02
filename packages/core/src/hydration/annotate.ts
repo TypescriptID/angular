@@ -40,7 +40,7 @@ import {TransferState} from '../transfer_state';
 
 import {unsupportedProjectionOfDomNodes} from './error_handling';
 import {collectDomEventsInfo} from './event_replay';
-import {setJSActionAttribute} from '../event_delegation_utils';
+import {setJSActionAttributes} from '../event_delegation_utils';
 import {
   getOrComputeI18nChildren,
   isI18nHydrationEnabled,
@@ -458,7 +458,7 @@ function serializeLView(lView: LView, context: HydrationContext): SerializedView
     if (nativeElementsToEventTypes && tNode.type & TNodeType.Element) {
       const nativeElement = unwrapRNode(lView[i]) as Element;
       if (nativeElementsToEventTypes.has(nativeElement)) {
-        setJSActionAttribute(nativeElement, nativeElementsToEventTypes.get(nativeElement)!);
+        setJSActionAttributes(nativeElement, nativeElementsToEventTypes.get(nativeElement)!);
       }
     }
 
@@ -541,24 +541,25 @@ function serializeLView(lView: LView, context: HydrationContext): SerializedView
         // those nodes to reach a corresponding anchor node (comment node).
         ngh[ELEMENT_CONTAINERS] ??= {};
         ngh[ELEMENT_CONTAINERS][noOffsetIndex] = calcNumRootNodes(tView, lView, tNode.child);
-      } else if (tNode.type & TNodeType.Projection) {
-        // Current TNode represents an `<ng-content>` slot, thus it has no
-        // DOM elements associated with it, so the **next sibling** node would
-        // not be able to find an anchor. In this case, use full path instead.
+      } else if (tNode.type & (TNodeType.Projection | TNodeType.LetDeclaration)) {
+        // Current TNode represents an `<ng-content>` slot or `@let` declaration,
+        // thus it has no DOM elements associated with it, so the **next sibling**
+        // node would not be able to find an anchor. In this case, use full path instead.
         let nextTNode = tNode.next;
-        // Skip over all `<ng-content>` slots in a row.
-        while (nextTNode !== null && nextTNode.type & TNodeType.Projection) {
+        // Skip over all `<ng-content>` slots and `@let` declarations in a row.
+        while (
+          nextTNode !== null &&
+          nextTNode.type & (TNodeType.Projection | TNodeType.LetDeclaration)
+        ) {
           nextTNode = nextTNode.next;
         }
         if (nextTNode && !isInSkipHydrationBlock(nextTNode)) {
           // Handle a tNode after the `<ng-content>` slot.
           appendSerializedNodePath(ngh, nextTNode, lView, i18nChildren);
         }
-      } else {
-        if (tNode.type & TNodeType.Text) {
-          const rNode = unwrapRNode(lView[i]);
-          processTextNodeBeforeSerialization(context, rNode);
-        }
+      } else if (tNode.type & TNodeType.Text) {
+        const rNode = unwrapRNode(lView[i]);
+        processTextNodeBeforeSerialization(context, rNode);
       }
     }
   }
