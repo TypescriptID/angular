@@ -6,13 +6,13 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {reflectClassMember} from '@angular/compiler-cli/src/ngtsc/reflection/src/typescript';
 import ts from 'typescript';
 
-import {isAngularDecorator} from '../../../ngtsc/annotations';
-import {ImportedSymbolsTracker} from '../../../ngtsc/imports';
-import {ReflectionHost} from '../../../ngtsc/reflection';
-import {ImportManager} from '../../../ngtsc/translator';
+import {isAngularDecorator} from '../../../../annotations';
+import {ImportedSymbolsTracker} from '../../../../imports';
+import {ReflectionHost} from '../../../../reflection';
+import {reflectClassMember} from '../../../../reflection/src/typescript';
+import {ImportManager} from '../../../../translator';
 
 import {signalInputsTransform} from './input_function';
 import {signalModelTransform} from './model_function';
@@ -40,11 +40,17 @@ const propertyTransforms: PropertyTransform[] = [
  *
  * For example, an `input()` member may be transformed to add an `@Input`
  * decorator for JIT.
+ *
+ * @param host Reflection host
+ * @param importTracker Import tracker for efficient import checking.
+ * @param isCore Whether this transforms runs against `@angular/core`.
+ * @param shouldTransformClass Optional function to check if a given class should be transformed.
  */
 export function getInitializerApiJitTransform(
   host: ReflectionHost,
   importTracker: ImportedSymbolsTracker,
   isCore: boolean,
+  shouldTransformClass?: (node: ts.ClassDeclaration) => boolean,
 ): ts.TransformerFactory<ts.SourceFile> {
   return (ctx) => {
     return (sourceFile) => {
@@ -52,7 +58,14 @@ export function getInitializerApiJitTransform(
 
       sourceFile = ts.visitNode(
         sourceFile,
-        createTransformVisitor(ctx, host, importManager, importTracker, isCore),
+        createTransformVisitor(
+          ctx,
+          host,
+          importManager,
+          importTracker,
+          isCore,
+          shouldTransformClass,
+        ),
         ts.isSourceFile,
       );
 
@@ -67,6 +80,7 @@ function createTransformVisitor(
   importManager: ImportManager,
   importTracker: ImportedSymbolsTracker,
   isCore: boolean,
+  shouldTransformClass?: (node: ts.ClassDeclaration) => boolean,
 ): ts.Visitor<ts.Node, ts.Node> {
   const visitor: ts.Visitor<ts.Node, ts.Node> = (node: ts.Node): ts.Node => {
     if (ts.isClassDeclaration(node) && node.name !== undefined) {
@@ -78,7 +92,10 @@ function createTransformVisitor(
         .getDecoratorsOfDeclaration(originalNode)
         ?.find((d) => decoratorsWithInputs.some((name) => isAngularDecorator(d, name, isCore)));
 
-      if (angularDecorator !== undefined) {
+      if (
+        angularDecorator !== undefined &&
+        (shouldTransformClass === undefined || shouldTransformClass(node))
+      ) {
         let hasChanged = false;
 
         const members = node.members.map((memberNode) => {

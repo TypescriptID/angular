@@ -229,6 +229,11 @@ const DOCS_SUB_NAVIGATION_DATA: NavigationItem[] = [
             contentPath: 'guide/templates/control-flow',
           },
           {
+            label: 'Local template variables with @let',
+            path: 'guide/templates/let-template-variables',
+            contentPath: 'guide/templates/let-template-variables',
+          },
+          {
             label: 'Pipes',
             children: [
               {
@@ -473,6 +478,11 @@ const DOCS_SUB_NAVIGATION_DATA: NavigationItem[] = [
       {
         label: 'Performance',
         children: [
+          {
+            label: 'Overview',
+            path: 'guide/performance',
+            contentPath: 'guide/performance/overview',
+          },
           {
             label: 'Deferrable views',
             path: 'guide/defer',

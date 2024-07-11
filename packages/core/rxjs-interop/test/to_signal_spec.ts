@@ -251,7 +251,7 @@ describe('toSignal()', () => {
         const counter$ = new Subject<{value: number}>();
         const counter = toSignal(counter$, {
           initialValue: {value: 0},
-          equals: (a, b) => a.value === b.value,
+          equal: (a, b) => a.value === b.value,
         });
 
         let updates = 0;
@@ -272,6 +272,30 @@ describe('toSignal()', () => {
         counter$.next({value: 2});
         expect(tracker()).toEqual({value: 2});
         expect(updates).toBe(3);
+      }),
+    );
+
+    it(
+      'should update when values are reference equal but equality function says otherwise',
+      test(() => {
+        const numsSet = new Set<number>();
+        const nums$ = new BehaviorSubject<Set<number>>(numsSet);
+        const nums = toSignal(nums$, {
+          requireSync: true,
+          equal: () => false,
+        });
+
+        let updates = 0;
+        const tracker = computed(() => {
+          updates++;
+          return Array.from(nums()!.values());
+        });
+
+        expect(tracker()).toEqual([]);
+        numsSet.add(1);
+        nums$.next(numsSet); // same value as before
+        expect(tracker()).toEqual([1]);
+        expect(updates).toBe(2);
       }),
     );
   });

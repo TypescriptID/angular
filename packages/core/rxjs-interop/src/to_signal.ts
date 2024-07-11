@@ -77,7 +77,7 @@ export interface ToSignalOptions<T> {
    *
    * Equality comparisons are executed against the initial value if one is provided.
    */
-  equals?: ValueEqualityFn<T>;
+  equal?: ValueEqualityFn<T>;
 }
 
 // Base case: no options -> `undefined` in the result type.
@@ -147,7 +147,7 @@ export function toSignal<T, U = undefined>(
     ? options?.injector?.get(DestroyRef) ?? inject(DestroyRef)
     : null;
 
-  const equal = makeToSignalEquals(options?.equals);
+  const equal = makeToSignalEqual(options?.equal);
 
   // Note: T is the Observable value type, and U is the initial value type. They don't have to be
   // the same - the returned signal gives values of type `T`.
@@ -195,25 +195,28 @@ export function toSignal<T, U = undefined>(
 
   // The actual returned signal is a `computed` of the `State` signal, which maps the various states
   // to either values or errors.
-  return computed(() => {
-    const current = state();
-    switch (current.kind) {
-      case StateKind.Value:
-        return current.value;
-      case StateKind.Error:
-        throw current.error;
-      case StateKind.NoValue:
-        // This shouldn't really happen because the error is thrown on creation.
-        // TODO(alxhub): use a RuntimeError when we finalize the error semantics
-        throw new ɵRuntimeError(
-          ɵRuntimeErrorCode.REQUIRE_SYNC_WITHOUT_SYNC_EMIT,
-          '`toSignal()` called with `requireSync` but `Observable` did not emit synchronously.',
-        );
-    }
-  });
+  return computed(
+    () => {
+      const current = state();
+      switch (current.kind) {
+        case StateKind.Value:
+          return current.value;
+        case StateKind.Error:
+          throw current.error;
+        case StateKind.NoValue:
+          // This shouldn't really happen because the error is thrown on creation.
+          // TODO(alxhub): use a RuntimeError when we finalize the error semantics
+          throw new ɵRuntimeError(
+            ɵRuntimeErrorCode.REQUIRE_SYNC_WITHOUT_SYNC_EMIT,
+            '`toSignal()` called with `requireSync` but `Observable` did not emit synchronously.',
+          );
+      }
+    },
+    {equal: options?.equal},
+  );
 }
 
-function makeToSignalEquals<T>(
+function makeToSignalEqual<T>(
   userEquality: ValueEqualityFn<T> = Object.is,
 ): ValueEqualityFn<State<T>> {
   return (a, b) =>
