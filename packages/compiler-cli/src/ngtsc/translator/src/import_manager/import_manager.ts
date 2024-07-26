@@ -84,16 +84,15 @@ export class ImportManager
     namespaceImportReuseCache: new Map(),
   };
 
-  constructor(private _config: Partial<ImportManagerConfig> = {}) {
+  constructor(config: Partial<ImportManagerConfig> = {}) {
     this.config = {
-      shouldUseSingleQuotes: () => false,
-      rewriter: null,
-      disableOriginalSourceFileReuse: false,
-      forceGenerateNamespacesForNewImports: false,
-      namespaceImportPrefix: 'i',
+      shouldUseSingleQuotes: config.shouldUseSingleQuotes ?? (() => false),
+      rewriter: config.rewriter ?? null,
+      disableOriginalSourceFileReuse: config.disableOriginalSourceFileReuse ?? false,
+      forceGenerateNamespacesForNewImports: config.forceGenerateNamespacesForNewImports ?? false,
+      namespaceImportPrefix: config.namespaceImportPrefix ?? 'i',
       generateUniqueIdentifier:
-        this._config.generateUniqueIdentifier ?? createGenerateUniqueIdentifierHelper(),
-      ...this._config,
+        config.generateUniqueIdentifier ?? createGenerateUniqueIdentifierHelper(),
     };
     this.reuseSourceFileImportsTracker = {
       generateUniqueIdentifier: this.config.generateUniqueIdentifier,
@@ -212,12 +211,23 @@ export class ImportManager
     }
 
     const exportSymbolName = ts.factory.createIdentifier(request.exportSymbolName);
-    const fileUniqueName = this.config.generateUniqueIdentifier(
-      sourceFile,
-      request.exportSymbolName,
-    );
-    const needsAlias = fileUniqueName !== null;
-    const specifierName = needsAlias ? fileUniqueName : exportSymbolName;
+    const fileUniqueName = request.unsafeAliasOverride
+      ? null
+      : this.config.generateUniqueIdentifier(sourceFile, request.exportSymbolName);
+
+    let needsAlias: boolean;
+    let specifierName: ts.Identifier;
+
+    if (request.unsafeAliasOverride) {
+      needsAlias = true;
+      specifierName = ts.factory.createIdentifier(request.unsafeAliasOverride);
+    } else if (fileUniqueName !== null) {
+      needsAlias = true;
+      specifierName = fileUniqueName;
+    } else {
+      needsAlias = false;
+      specifierName = exportSymbolName;
+    }
 
     namedImports
       .get(request.exportModuleSpecifier as ModuleName)!
