@@ -9,15 +9,17 @@
 import ts from 'typescript';
 import {PendingChange, ChangeTracker} from '../../utils/change_tracker';
 import {
-  detectClassesUsingDI,
+  analyzeFile,
   getNodeIndentation,
   getSuperParameters,
   getConstructorUnusedParameters,
   hasGenerics,
   isNullableType,
   parameterDeclaresProperty,
+  DI_PARAM_SYMBOLS,
 } from './analysis';
 import {getAngularDecorators} from '../../utils/ng_decorators';
+import {getImportOfIdentifier} from '../../utils/typescript/imports';
 
 /**
  * Placeholder used to represent expressions inside the AST.
@@ -49,10 +51,16 @@ export function migrateFile(sourceFile: ts.SourceFile, options: MigrationOptions
   // 2. All the necessary information for this migration is local so using a file-specific type
   //    checker should speed up the lookups.
   const localTypeChecker = getLocalTypeChecker(sourceFile);
+  const analysis = analyzeFile(sourceFile, localTypeChecker);
+
+  if (analysis === null || analysis.classes.length === 0) {
+    return [];
+  }
+
   const printer = ts.createPrinter();
   const tracker = new ChangeTracker(printer);
 
-  detectClassesUsingDI(sourceFile, localTypeChecker).forEach((result) => {
+  analysis.classes.forEach((result) => {
     migrateClass(
       result.node,
       result.constructor,
@@ -62,6 +70,13 @@ export function migrateFile(sourceFile: ts.SourceFile, options: MigrationOptions
       printer,
       tracker,
     );
+  });
+
+  DI_PARAM_SYMBOLS.forEach((name) => {
+    // Both zero and undefined are fine here.
+    if (!analysis.nonDecoratorReferences[name]) {
+      tracker.removeImport(sourceFile, name, '@angular/core');
+    }
   });
 
   return tracker.recordChanges().get(sourceFile) || [];
@@ -309,9 +324,22 @@ function createInjectReplacementCall(
   const sourceFile = param.getSourceFile();
   const decorators = getAngularDecorators(localTypeChecker, ts.getDecorators(param) || []);
   const literalProps: ts.ObjectLiteralElementLike[] = [];
-  let injectedType = param.type?.getText() || '';
-  let typeArguments = param.type && hasGenerics(param.type) ? [param.type] : undefined;
+  const type = param.type;
+  let injectedType = '';
+  let typeArguments = type && hasGenerics(type) ? [type] : undefined;
   let hasOptionalDecorator = false;
+
+  if (type) {
+    // Remove the type arguments from generic type references, because
+    // they'll be specified as type arguments to `inject()`.
+    if (ts.isTypeReferenceNode(type) && type.typeArguments && type.typeArguments.length > 0) {
+      injectedType = type.typeName.getText();
+    } else if (ts.isUnionTypeNode(type)) {
+      injectedType = (type.types.find((t) => !ts.isLiteralTypeNode(t)) || type.types[0]).getText();
+    } else {
+      injectedType = type.getText();
+    }
+  }
 
   for (const decorator of decorators) {
     if (decorator.moduleName !== moduleName) {
@@ -323,15 +351,10 @@ function createInjectReplacementCall(
     switch (decorator.name) {
       case 'Inject':
         if (firstArg) {
-          injectedType = firstArg.getText();
-
-          // `inject` no longer officially supports string injection so we need
-          // to cast to any. We maintain the type by passing it as a generic.
-          if (ts.isStringLiteralLike(firstArg)) {
-            typeArguments = [
-              param.type || ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword),
-            ];
-            injectedType += ' as any';
+          const injectResult = migrateInjectDecorator(firstArg, type, localTypeChecker);
+          injectedType = injectResult.injectedType;
+          if (injectResult.typeArguments) {
+            typeArguments = injectResult.typeArguments;
           }
         }
         break;
@@ -388,6 +411,56 @@ function createInjectReplacementCall(
   }
 
   return replaceNodePlaceholder(param.getSourceFile(), expression, injectedType, printer);
+}
+
+/**
+ * Migrates a parameter based on its `@Inject()` decorator.
+ * @param firstArg First argument to `@Inject()`.
+ * @param type Type of the parameter.
+ * @param localTypeChecker Type checker set up for the specific file.
+ */
+function migrateInjectDecorator(
+  firstArg: ts.Expression,
+  type: ts.TypeNode | undefined,
+  localTypeChecker: ts.TypeChecker,
+) {
+  let injectedType = firstArg.getText();
+  let typeArguments: ts.TypeNode[] | null = null;
+
+  // `inject` no longer officially supports string injection so we need
+  // to cast to any. We maintain the type by passing it as a generic.
+  if (ts.isStringLiteralLike(firstArg)) {
+    typeArguments = [type || ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)];
+    injectedType += ' as any';
+  } else if (
+    ts.isCallExpression(firstArg) &&
+    ts.isIdentifier(firstArg.expression) &&
+    firstArg.arguments.length === 1
+  ) {
+    const callImport = getImportOfIdentifier(localTypeChecker, firstArg.expression);
+    const arrowFn = firstArg.arguments[0];
+
+    // If the first parameter is a `forwardRef`, unwrap it for a more
+    // accurate type and because it's no longer necessary.
+    if (
+      callImport !== null &&
+      callImport.name === 'forwardRef' &&
+      callImport.importModule === '@angular/core' &&
+      ts.isArrowFunction(arrowFn)
+    ) {
+      if (ts.isBlock(arrowFn.body)) {
+        const returnStatement = arrowFn.body.statements.find((stmt) => ts.isReturnStatement(stmt));
+
+        if (returnStatement && returnStatement.expression) {
+          injectedType = returnStatement.expression.getText();
+        }
+      } else {
+        injectedType = arrowFn.body.getText();
+      }
+    }
+  }
+
+  return {injectedType, typeArguments};
 }
 
 /**
