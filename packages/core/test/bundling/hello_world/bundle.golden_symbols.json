@@ -372,9 +372,6 @@
     "name": "_currentInjector"
   },
   {
-    "name": "_global"
-  },
-  {
     "name": "_icuContainerIterate"
   },
   {
@@ -433,6 +430,9 @@
   },
   {
     "name": "bloomHasToken"
+  },
+  {
+    "name": "bootstrap"
   },
   {
     "name": "callHook"
@@ -748,6 +748,9 @@
   },
   {
     "name": "invokeHostBindingsInCreationMode"
+  },
+  {
+    "name": "isApplicationBootstrapConfig"
   },
   {
     "name": "isComponentDef"

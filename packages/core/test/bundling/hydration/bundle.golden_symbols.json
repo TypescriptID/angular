@@ -549,9 +549,6 @@
     "name": "_getInsertInFrontOfRNodeWithI18n"
   },
   {
-    "name": "_global"
-  },
-  {
     "name": "_icuContainerIterate"
   },
   {
@@ -628,6 +625,9 @@
   },
   {
     "name": "bloomHasToken"
+  },
+  {
+    "name": "bootstrap"
   },
   {
     "name": "calcSerializedContainerSize"
@@ -1021,6 +1021,9 @@
   },
   {
     "name": "invokeHostBindingsInCreationMode"
+  },
+  {
+    "name": "isApplicationBootstrapConfig"
   },
   {
     "name": "isArrayLike"
