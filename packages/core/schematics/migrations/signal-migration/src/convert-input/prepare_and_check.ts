@@ -13,6 +13,8 @@ import {
   InputMemberIncompatibility,
 } from '../input_detection/incompatibility';
 import {InputNode} from '../input_detection/input_node';
+import {Decorator} from '../../../../../../compiler-cli/src/ngtsc/reflection';
+import assert from 'assert';
 
 /**
  * Interface describing analysis performed when the input
@@ -20,8 +22,10 @@ import {InputNode} from '../input_detection/input_node';
  */
 export interface ConvertInputPreparation {
   resolvedType: ts.TypeNode | undefined;
-  isResolvedTypeCheckable: boolean;
+  preferShorthandIfPossible: {originalType: ts.TypeNode} | null;
+  isUndefinedInitialValue: boolean;
   resolvedMetadata: ExtractedInput;
+  originalInputDecorator: Decorator;
 }
 
 /**
@@ -45,6 +49,12 @@ export function prepareAndCheckForConversion(
       reason: InputIncompatibilityReason.Accessor,
     };
   }
+
+  assert(
+    metadata.inputDecorator !== null,
+    'Expected an input decorator for inputs that are being migrated.',
+  );
+
   const initialValue = node.initializer;
 
   // If an input can be required, due to the non-null assertion on the property,
@@ -53,18 +63,27 @@ export function prepareAndCheckForConversion(
     metadata.required = true;
   }
 
+  const isUndefinedInitialValue =
+    node.initializer === undefined ||
+    (ts.isIdentifier(node.initializer) && node.initializer.text === 'undefined');
   let typeToAdd: ts.TypeNode | undefined = node.type;
-  let isResolvedTypeCheckable = true;
+  let preferShorthandIfPossible: {originalType: ts.TypeNode} | null = null;
 
-  // If the input was using `@Input() bla?: string;`, then we try to explicitly
-  // add `undefined` as type, if it's not part of the type already.
+  // If there is no initial value, or it's `undefined`, we can prefer the `input()`
+  // shorthand which automatically uses `undefined` as initial value, and includes it
+  // in the input type.
+  if (!metadata.required && node.type !== undefined && isUndefinedInitialValue) {
+    preferShorthandIfPossible = {originalType: node.type};
+  }
+
+  // If the input is using `@Input() bla?: string;` with the "optional question mark",
+  // then we try to explicitly add `undefined` as type, if it's not part of the type already.
+  // This is ensuring correctness, as `bla?` automatically includes `undefined` currently.
   if (
     node.type !== undefined &&
     node.questionToken !== undefined &&
     !checker.isTypeAssignableTo(checker.getUndefinedType(), checker.getTypeFromTypeNode(node.type))
   ) {
-    // Synthetic types are never checkable.
-    isResolvedTypeCheckable = false;
     typeToAdd = ts.factory.createUnionTypeNode([
       node.type,
       ts.factory.createKeywordTypeNode(ts.SyntaxKind.UndefinedKeyword),
@@ -74,9 +93,6 @@ export function prepareAndCheckForConversion(
   // Attempt to extract type from input initial value. No explicit type, but input is required.
   // Hence we need an explicit type, or fall back to `typeof`.
   if (typeToAdd === undefined && initialValue !== undefined && metadata.required) {
-    // Synthetic types are never checkable.
-    isResolvedTypeCheckable = false;
-
     const propertyType = checker.getTypeAtLocation(node);
     if (propertyType.flags & ts.TypeFlags.Boolean) {
       typeToAdd = ts.factory.createKeywordTypeNode(ts.SyntaxKind.BooleanKeyword);
@@ -108,7 +124,9 @@ export function prepareAndCheckForConversion(
 
   return {
     resolvedMetadata: metadata,
-    isResolvedTypeCheckable,
     resolvedType: typeToAdd,
+    preferShorthandIfPossible,
+    isUndefinedInitialValue,
+    originalInputDecorator: metadata.inputDecorator,
   };
 }

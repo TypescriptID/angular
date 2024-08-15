@@ -188,6 +188,35 @@ describe('event dispatch', () => {
       bottomEl.click();
       expect(onClickSpy).toHaveBeenCalledTimes(1);
     });
+    it('should call the original stopPropagation method', async () => {
+      @Component({
+        standalone: true,
+        selector: 'app',
+        template: `
+            <div id="top" (click)="onClick($event)">
+                <div id="bottom" (click)="onClick($event)"></div>
+            </div>
+          `,
+      })
+      class SimpleComponent {
+        onClick(e: Event) {
+          e.stopPropagation();
+          e.preventDefault();
+        }
+      }
+      configureTestingModule([SimpleComponent]);
+      fixture = TestBed.createComponent(SimpleComponent);
+      const nativeElement = fixture.debugElement.nativeElement;
+      const bottomEl = nativeElement.querySelector('#bottom')!;
+      const event = new MouseEvent('click', {bubbles: true});
+      spyOn(event, 'stopPropagation');
+      const stopPropagation = event.stopPropagation;
+      spyOn(event, 'preventDefault');
+      const preventDefault = event.preventDefault;
+      bottomEl.dispatchEvent(event);
+      expect(stopPropagation).toHaveBeenCalled();
+      expect(preventDefault).toHaveBeenCalled();
+    });
   });
 
   describe('manual listening', () => {
@@ -221,6 +250,32 @@ describe('event dispatch', () => {
       (fixture.componentInstance as SimpleComponent).destroy();
       bottomEl.click();
       expect(onClickSpy).toHaveBeenCalledTimes(2);
+    });
+    it('should allow host listening on the window', async () => {
+      const onClickSpy = jasmine.createSpy();
+      @Component({
+        standalone: true,
+        selector: 'app',
+        template: `
+            <div id="top">
+                <div id="bottom"></div>
+            </div>
+          `,
+      })
+      class SimpleComponent {
+        renderer = inject(Renderer2);
+        destroy!: Function;
+        @HostListener('window:click', ['$event.target'])
+        listen(el: Element) {
+          onClickSpy();
+        }
+      }
+      configureTestingModule([SimpleComponent]);
+      fixture = TestBed.createComponent(SimpleComponent);
+      const nativeElement = fixture.debugElement.nativeElement;
+      const bottomEl = nativeElement.querySelector('#bottom')!;
+      bottomEl.click();
+      expect(onClickSpy).toHaveBeenCalledTimes(1);
     });
     it('should allow host listening on the window', async () => {
       const onClickSpy = jasmine.createSpy();

@@ -9,11 +9,15 @@
 import assert from 'assert';
 import ts from 'typescript';
 
-import {MigrationHost} from '../migration_host';
 import {ConvertInputPreparation} from './prepare_and_check';
 import {DecoratorInputTransform} from '../../../../../../compiler-cli/src/ngtsc/metadata';
+import {ImportManager} from '../../../../../../compiler-cli/src/ngtsc/translator';
+import {removeFromUnionIfPossible} from '../utils/remove_from_union';
 
 const printer = ts.createPrinter({newLine: ts.NewLineKind.LineFeed});
+
+// TODO: Consider initializations inside the constructor. Those are not migrated right now
+// though, as they are writes.
 
 /**
  *
@@ -22,10 +26,16 @@ const printer = ts.createPrinter({newLine: ts.NewLineKind.LineFeed});
  * @returns The transformed property declaration, printed as a string.
  */
 export function convertToSignalInput(
-  host: MigrationHost,
   node: ts.PropertyDeclaration,
-  {resolvedMetadata: metadata, resolvedType, isResolvedTypeCheckable}: ConvertInputPreparation,
+  {
+    resolvedMetadata: metadata,
+    resolvedType,
+    preferShorthandIfPossible,
+    isUndefinedInitialValue,
+    originalInputDecorator,
+  }: ConvertInputPreparation,
   checker: ts.TypeChecker,
+  importManager: ImportManager,
 ): string {
   let initialValue = node.initializer;
   let optionsLiteral: ts.ObjectLiteralExpression | null = null;
@@ -44,16 +54,33 @@ export function convertToSignalInput(
       );
     }
     if (metadata.transform !== null) {
-      properties.push(
-        extractTransformOfInput(metadata.transform, resolvedType, isResolvedTypeCheckable, checker),
-      );
+      properties.push(extractTransformOfInput(metadata.transform, resolvedType, checker));
     }
 
     optionsLiteral = ts.factory.createObjectLiteralExpression(properties);
   }
 
-  const strictPropertyInitialization =
-    !!host.tsOptions.strict || !!host.tsOptions.strictPropertyInitialization;
+  // The initial value is `undefined` or none is present:
+  //    - We may be able to use the `input()` shorthand
+  //    - or we use an explicit `undefined` initial value.
+  if (isUndefinedInitialValue) {
+    // Shorthand not possible, so explicitly add `undefined`.
+    if (preferShorthandIfPossible === null) {
+      initialValue = ts.factory.createIdentifier('undefined');
+    } else {
+      resolvedType = preferShorthandIfPossible.originalType;
+
+      // When using the `input()` shorthand, try cutting of `undefined` from potential
+      // union types. `undefined` will be automatically included in the type.
+      if (ts.isUnionTypeNode(resolvedType)) {
+        resolvedType = removeFromUnionIfPossible(
+          resolvedType,
+          (t) => t.kind !== ts.SyntaxKind.UndefinedKeyword,
+        );
+      }
+    }
+  }
+
   const inputArgs: ts.Expression[] = [];
   const typeArguments: ts.TypeNode[] = [];
 
@@ -63,19 +90,6 @@ export function convertToSignalInput(
     if (metadata.transform !== null) {
       typeArguments.push(metadata.transform.type.node);
     }
-  }
-
-  // If we have no initial value but strict property initialization is enabled, we
-  // need to add an explicit value. Alternatively, if we have an explicit type, we
-  // need to add an explicit initial value as per the API signature of `input()`.
-  if (initialValue === undefined && (strictPropertyInitialization || resolvedType !== undefined)) {
-    // TODO: Consider initializations inside the constructor. Those are not migrated right now
-    // though, as they are writes.
-
-    // TODO: We can use the `input()` shorthand if there is a question mark?
-    // We can assume `undefined` is part of the type already, either already was included, or
-    // we added synthetically as part of the preparation.
-    initialValue = ts.factory.createIdentifier('undefined');
   }
 
   // Always add an initial value when the input is optional, and we have one, or we need one
@@ -89,11 +103,11 @@ export function convertToSignalInput(
     inputArgs.push(optionsLiteral);
   }
 
-  const inputFnRef =
-    metadata.inputDecoratorRef !== null && ts.isPropertyAccessExpression(metadata.inputDecoratorRef)
-      ? ts.factory.createPropertyAccessExpression(metadata.inputDecoratorRef.expression, 'input')
-      : ts.factory.createIdentifier('input');
-
+  const inputFnRef = importManager.addImport({
+    exportModuleSpecifier: '@angular/core',
+    exportSymbolName: 'input',
+    requestedFile: node.getSourceFile(),
+  });
   const inputInitializerFn = metadata.required
     ? ts.factory.createPropertyAccessExpression(inputFnRef, 'required')
     : inputFnRef;
@@ -104,12 +118,16 @@ export function convertToSignalInput(
     inputArgs,
   );
 
-  // TODO:
-  //   - modifiers (but private does not work)
-  //   - preserve custom decorators etc.
+  let modifiersWithoutInputDecorator =
+    node.modifiers?.filter((m) => m !== originalInputDecorator.node) ?? [];
+
+  // Add `readonly` to all new signal input declarations.
+  if (!modifiersWithoutInputDecorator?.some((s) => s.kind === ts.SyntaxKind.ReadonlyKeyword)) {
+    modifiersWithoutInputDecorator.push(ts.factory.createModifier(ts.SyntaxKind.ReadonlyKeyword));
+  }
 
   const result = ts.factory.createPropertyDeclaration(
-    undefined,
+    modifiersWithoutInputDecorator,
     node.name,
     undefined,
     undefined,
@@ -126,7 +144,6 @@ export function convertToSignalInput(
 function extractTransformOfInput(
   transform: DecoratorInputTransform,
   resolvedType: ts.TypeNode | undefined,
-  isResolvedTypeCheckable: boolean,
   checker: ts.TypeChecker,
 ): ts.PropertyAssignment {
   assert(ts.isExpression(transform.node), `Expected transform to be an expression.`);
@@ -136,7 +153,10 @@ function extractTransformOfInput(
   // In some cases, the transform function is not compatible because with decorator inputs,
   // those were not checked. We cast the transform to `any` and add a TODO.
   // TODO: Insert a TODO and capture this in the design doc.
-  if (resolvedType !== undefined && isResolvedTypeCheckable) {
+  if (resolvedType !== undefined && !ts.isSyntheticExpression(resolvedType)) {
+    // Note: If the type is synthetic, we cannot check, and we accept that in the worst case
+    // we will create code that is not necessarily compiling. This is unlikely, but notably
+    // the errors would be correct and valuable.
     const transformType = checker.getTypeAtLocation(transform.node);
     const transformSignature = transformType.getCallSignatures()[0];
     assert(transformSignature !== undefined, 'Expected transform to be an invoke-able.');
