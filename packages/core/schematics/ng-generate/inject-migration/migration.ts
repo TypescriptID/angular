@@ -95,7 +95,7 @@ export function migrateFile(sourceFile: ts.SourceFile, options: MigrationOptions
 
           const newProperty = ts.factory.createPropertyDeclaration(
             cloneModifiers(property.modifiers),
-            property.name,
+            cloneName(property.name),
             property.questionToken,
             property.type,
             initializer,
@@ -526,6 +526,18 @@ function migrateInjectDecorator(
         injectedType = arrowFn.body.getText();
       }
     }
+  } else if (
+    // Pass the type for cases like `@Inject(FOO_TOKEN) foo: Foo`, because:
+    // 1. It guarantees that the type stays the same as before.
+    // 2. Avoids leaving unused imports behind.
+    // We only do this for type references since the `@Inject` pattern above is fairly common and
+    // apps don't necessarily type their injection tokens correctly, whereas doing it for literal
+    // types will add a lot of noise to the generated code.
+    type &&
+    (ts.isTypeReferenceNode(type) ||
+      (ts.isUnionTypeNode(type) && type.types.some(ts.isTypeReferenceNode)))
+  ) {
+    typeArguments = [type];
   }
 
   return {injectedType, typeArguments};
@@ -625,4 +637,27 @@ function cloneModifiers(modifiers: ts.ModifierLike[] | ts.NodeArray<ts.ModifierL
       ? ts.factory.createDecorator(modifier.expression)
       : ts.factory.createModifier(modifier.kind);
   });
+}
+
+/**
+ * Clones the name of a property. Can be useful to strip away
+ * the comments of a property without modifiers.
+ */
+function cloneName(node: ts.PropertyName): ts.PropertyName {
+  switch (node.kind) {
+    case ts.SyntaxKind.Identifier:
+      return ts.factory.createIdentifier(node.text);
+    case ts.SyntaxKind.StringLiteral:
+      return ts.factory.createStringLiteral(node.text, node.getText()[0] === `'`);
+    case ts.SyntaxKind.NoSubstitutionTemplateLiteral:
+      return ts.factory.createNoSubstitutionTemplateLiteral(node.text, node.rawText);
+    case ts.SyntaxKind.NumericLiteral:
+      return ts.factory.createNumericLiteral(node.text);
+    case ts.SyntaxKind.ComputedPropertyName:
+      return ts.factory.createComputedPropertyName(node.expression);
+    case ts.SyntaxKind.PrivateIdentifier:
+      return ts.factory.createPrivateIdentifier(node.text);
+    default:
+      return node;
+  }
 }
