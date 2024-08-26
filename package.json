@@ -1,6 +1,6 @@
 {
   "name": "angular-srcs",
-  "version": "19.0.0-next.0",
+  "version": "19.0.0-next.1",
   "private": true,
   "description": "Angular - a web framework for modern web apps",
   "homepage": "https://github.com/angular/angular",
@@ -213,7 +213,7 @@
     "live-server": "^1.2.2",
     "madge": "^8.0.0",
     "marked": "^14.0.0",
-    "mermaid": "^10.9.1",
+    "mermaid": "^11.0.0",
     "ogl": "^1.0.3",
     "patch-package": "^7.0.0",
     "playwright-core": "^1.41.2",

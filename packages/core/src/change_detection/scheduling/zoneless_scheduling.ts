@@ -26,10 +26,14 @@ export const enum NotificationSource {
   // above.
   Listener,
 
+  // Custom elements do sometimes require checking directly.
+  CustomElement,
+
   // The following notifications do not require views to be refreshed
   // but we should execute render hooks:
   // Render hooks are guaranteed to execute with the schedulers timing.
-  NewRenderHook,
+  RenderHook,
+  DeferredRenderHook,
   // Views might be created outside and manipulated in ways that
   // we cannot be aware of. When a view is attached, Angular now "knows"
   // about it and we now know that DOM might have changed (and we should
