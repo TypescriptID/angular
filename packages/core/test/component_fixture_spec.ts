@@ -563,4 +563,38 @@ describe('ComponentFixture with zoneless', () => {
     const fixture = TestBed.createComponent(App);
     await expectAsync(fixture.whenStable()).toBeRejected();
   });
+
+  it('can disable checkNoChanges', () => {
+    @Component({
+      template: '{{thing}}',
+      standalone: true,
+    })
+    class App {
+      thing = 1;
+      ngAfterViewChecked() {
+        ++this.thing;
+      }
+    }
+
+    const fixture = TestBed.createComponent(App);
+    expect(() => fixture.detectChanges(false /*checkNoChanges*/)).not.toThrow();
+    // still throws if checkNoChanges is not disabled
+    expect(() => fixture.detectChanges()).toThrowError(/ExpressionChanged/);
+  });
+
+  it('runs change detection when autoDetect is false', () => {
+    @Component({
+      template: '{{thing()}}',
+      standalone: true,
+    })
+    class App {
+      thing = signal(1);
+    }
+
+    const fixture = TestBed.createComponent(App);
+    fixture.autoDetectChanges(false);
+    fixture.componentInstance.thing.set(2);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.innerText).toBe('2');
+  });
 });

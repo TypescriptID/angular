@@ -23,20 +23,26 @@ import {
   ɵEffectScheduler as EffectScheduler,
   ɵgetDeferBlocks as getDeferBlocks,
   ɵNoopNgZone as NoopNgZone,
+  ɵZONELESS_ENABLED as ZONELESS_ENABLED,
   ɵPendingTasks as PendingTasks,
 } from '@angular/core';
-import {Subject, Subscription} from 'rxjs';
+import {Subscription} from 'rxjs';
 
 import {DeferBlockFixture} from './defer';
 import {ComponentFixtureAutoDetect, ComponentFixtureNoNgZone} from './test_bed_common';
 import {TestBedApplicationErrorHandler} from './application_error_handler';
+
+interface TestAppRef {
+  externalTestViews: Set<ViewRef>;
+  skipCheckNoChangesForExternalTestViews: Set<ViewRef>;
+}
 
 /**
  * Fixture for debugging and testing a component.
  *
  * @publicApi
  */
-export abstract class ComponentFixture<T> {
+export class ComponentFixture<T> {
   /**
    * The DebugElement associated with the root element of this component.
    */
@@ -78,13 +84,16 @@ export abstract class ComponentFixture<T> {
   // behavior.
   /** @internal */
   protected readonly _appRef = inject(ApplicationRef);
-  /** @internal */
-  protected readonly _testAppRef = this._appRef as unknown as TestAppRef;
+  private readonly _testAppRef = this._appRef as unknown as TestAppRef;
   private readonly pendingTasks = inject(PendingTasks);
   private readonly appErrorHandler = inject(TestBedApplicationErrorHandler);
-  /** @internal */
-  protected abstract _autoDetect: boolean;
-  private readonly scheduler = inject(ɵChangeDetectionScheduler, {optional: true});
+  private readonly zonelessEnabled = inject(ZONELESS_ENABLED);
+  private readonly scheduler = inject(ɵChangeDetectionScheduler);
+  private readonly autoDetectDefault = this.zonelessEnabled ? true : false;
+  private autoDetect =
+    inject(ComponentFixtureAutoDetect, {optional: true}) ?? this.autoDetectDefault;
+
+  private subscriptions = new Subscription();
 
   // TODO(atscott): Remove this from public API
   ngZone = this._noZoneOptionIsSet ? null : this._ngZone;
@@ -97,23 +106,63 @@ export abstract class ComponentFixture<T> {
     this.componentInstance = componentRef.instance;
     this.nativeElement = this.elementRef.nativeElement;
     this.componentRef = componentRef;
-  }
 
-  /** @internal */
-  initialize(): void {
-    if (this._autoDetect) {
+    if (this.autoDetect) {
       this._testAppRef.externalTestViews.add(this.componentRef.hostView);
       this.scheduler?.notify(ɵNotificationSource.ViewAttached);
+      this.scheduler?.notify(ɵNotificationSource.MarkAncestorsForTraversal);
     }
     this.componentRef.hostView.onDestroy(() => {
       this._testAppRef.externalTestViews.delete(this.componentRef.hostView);
+    });
+    // Create subscriptions outside the NgZone so that the callbacks run outside
+    // of NgZone.
+    this._ngZone.runOutsideAngular(() => {
+      this.subscriptions.add(
+        this._ngZone.onError.subscribe({
+          next: (error: any) => {
+            throw error;
+          },
+        }),
+      );
     });
   }
 
   /**
    * Trigger a change detection cycle for the component.
    */
-  abstract detectChanges(checkNoChanges?: boolean): void;
+  detectChanges(checkNoChanges = true): void {
+    this._effectRunner.flush();
+    const originalCheckNoChanges = this.componentRef.changeDetectorRef.checkNoChanges;
+    try {
+      if (!checkNoChanges) {
+        this.componentRef.changeDetectorRef.checkNoChanges = () => {};
+      }
+
+      if (this.zonelessEnabled) {
+        try {
+          this._testAppRef.externalTestViews.add(this.componentRef.hostView);
+          this._appRef.tick();
+        } finally {
+          if (!this.autoDetect) {
+            this._testAppRef.externalTestViews.delete(this.componentRef.hostView);
+          }
+        }
+      } else {
+        // Run the change detection inside the NgZone so that any async tasks as part of the change
+        // detection are captured by the zone and can be waited for in isStable.
+        // Run any effects that were created/dirtied during change detection. Such effects might become
+        // dirty in response to input signals changing.
+        this._ngZone.run(() => {
+          this.changeDetectorRef.detectChanges();
+          this.checkNoChanges();
+        });
+      }
+    } finally {
+      this.componentRef.changeDetectorRef.checkNoChanges = originalCheckNoChanges;
+    }
+    this._effectRunner.flush();
+  }
 
   /**
    * Do a change detection run to make sure there were no changes.
@@ -127,7 +176,22 @@ export abstract class ComponentFixture<T> {
    *
    * Also runs detectChanges once so that any existing change is detected.
    */
-  abstract autoDetectChanges(autoDetect?: boolean): void;
+  autoDetectChanges(autoDetect = true): void {
+    if (this._noZoneOptionIsSet && !this.zonelessEnabled) {
+      throw new Error('Cannot call autoDetectChanges when ComponentFixtureNoNgZone is set.');
+    }
+
+    if (autoDetect !== this.autoDetect) {
+      if (autoDetect) {
+        this._testAppRef.externalTestViews.add(this.componentRef.hostView);
+      } else {
+        this._testAppRef.externalTestViews.delete(this.componentRef.hostView);
+      }
+    }
+
+    this.autoDetect = autoDetect;
+    this.detectChanges();
+  }
 
   /**
    * Return whether the fixture is currently stable or has async tasks that have not been completed
@@ -195,124 +259,11 @@ export abstract class ComponentFixture<T> {
    * Trigger component destruction.
    */
   destroy(): void {
+    this.subscriptions.unsubscribe();
     this._testAppRef.externalTestViews.delete(this.componentRef.hostView);
     if (!this._isDestroyed) {
       this.componentRef.destroy();
       this._isDestroyed = true;
     }
-  }
-}
-
-/**
- * ComponentFixture behavior that actually attaches the component to the application to ensure
- * behaviors between fixture and application do not diverge. `detectChanges` is disabled by default
- * (instead, tests should wait for the scheduler to detect changes), `whenStable` is directly the
- * `ApplicationRef.isStable`, and `autoDetectChanges` cannot be disabled.
- */
-export class ScheduledComponentFixture<T> extends ComponentFixture<T> {
-  /** @internal */
-  protected override _autoDetect = inject(ComponentFixtureAutoDetect, {optional: true}) ?? true;
-
-  override initialize(): void {
-    super.initialize();
-    if (this._autoDetect) {
-      this._appRef.attachView(this.componentRef.hostView);
-    }
-  }
-
-  override detectChanges(checkNoChanges = true): void {
-    if (!checkNoChanges) {
-      throw new Error(
-        'Cannot disable `checkNoChanges` in this configuration. ' +
-          'Use `fixture.componentRef.hostView.changeDetectorRef.detectChanges()` instead.',
-      );
-    }
-    this._effectRunner.flush();
-    this._appRef.tick();
-    this._effectRunner.flush();
-  }
-
-  override autoDetectChanges(autoDetect = true): void {
-    if (!autoDetect) {
-      throw new Error(
-        'Cannot disable autoDetect after it has been enabled when using the zoneless scheduler. ' +
-          'To disable autoDetect, add `{provide: ComponentFixtureAutoDetect, useValue: false}` to the TestBed providers.',
-      );
-    } else if (!this._autoDetect) {
-      this._autoDetect = autoDetect;
-      this._appRef.attachView(this.componentRef.hostView);
-    }
-    this.detectChanges();
-  }
-}
-
-interface TestAppRef {
-  externalTestViews: Set<ViewRef>;
-}
-
-/**
- * ComponentFixture behavior that attempts to act as a "mini application".
- */
-export class PseudoApplicationComponentFixture<T> extends ComponentFixture<T> {
-  private _subscriptions = new Subscription();
-  /** @internal */
-  override _autoDetect = inject(ComponentFixtureAutoDetect, {optional: true}) ?? false;
-
-  override initialize(): void {
-    if (this._autoDetect) {
-      this._testAppRef.externalTestViews.add(this.componentRef.hostView);
-    }
-    this.componentRef.hostView.onDestroy(() => {
-      this._testAppRef.externalTestViews.delete(this.componentRef.hostView);
-    });
-
-    // Create subscriptions outside the NgZone so that the callbacks run outside
-    // of NgZone.
-    this._ngZone.runOutsideAngular(() => {
-      this._subscriptions.add(
-        this._ngZone.onError.subscribe({
-          next: (error: any) => {
-            throw error;
-          },
-        }),
-      );
-    });
-  }
-
-  override detectChanges(checkNoChanges = true): void {
-    this._effectRunner.flush();
-    // Run the change detection inside the NgZone so that any async tasks as part of the change
-    // detection are captured by the zone and can be waited for in isStable.
-    this._ngZone.run(() => {
-      this.changeDetectorRef.detectChanges();
-      if (checkNoChanges) {
-        this.checkNoChanges();
-      }
-    });
-    // Run any effects that were created/dirtied during change detection. Such effects might become
-    // dirty in response to input signals changing.
-    this._effectRunner.flush();
-  }
-
-  override autoDetectChanges(autoDetect = true): void {
-    if (this._noZoneOptionIsSet) {
-      throw new Error('Cannot call autoDetectChanges when ComponentFixtureNoNgZone is set.');
-    }
-
-    if (autoDetect !== this._autoDetect) {
-      if (autoDetect) {
-        this._testAppRef.externalTestViews.add(this.componentRef.hostView);
-      } else {
-        this._testAppRef.externalTestViews.delete(this.componentRef.hostView);
-      }
-    }
-
-    this._autoDetect = autoDetect;
-    this.detectChanges();
-  }
-
-  override destroy(): void {
-    this._subscriptions.unsubscribe();
-    super.destroy();
   }
 }
