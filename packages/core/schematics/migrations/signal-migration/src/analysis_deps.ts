@@ -8,24 +8,24 @@
 
 import ts from 'typescript';
 
-import {DtsMetadataReader, MetadataReader} from '../../../../../compiler-cli/src/ngtsc/metadata';
-import {PartialEvaluator} from '../../../../../compiler-cli/src/ngtsc/partial_evaluator';
-import {NgtscProgram} from '../../../../../compiler-cli/src/ngtsc/program';
-import {TypeScriptReflectionHost} from '../../../../../compiler-cli/src/ngtsc/reflection';
+import {DtsMetadataReader, MetadataReader} from '@angular/compiler-cli/src/ngtsc/metadata';
+import {PartialEvaluator} from '@angular/compiler-cli/src/ngtsc/partial_evaluator';
+import {NgtscProgram} from '@angular/compiler-cli/src/ngtsc/program';
+import {TypeScriptReflectionHost} from '@angular/compiler-cli/src/ngtsc/reflection';
 
 import assert from 'assert';
 import {ProgramInfo} from '../../../utils/tsurge/program_info';
-import {ResourceLoader} from '../../../../../compiler-cli/src/ngtsc/annotations';
-import {NgCompiler} from '../../../../../compiler-cli/src/ngtsc/core';
-import {ReferenceEmitter} from '../../../../../compiler-cli/src/ngtsc/imports';
-import {isShim} from '../../../../../compiler-cli/src/ngtsc/shims';
-import {TemplateTypeChecker} from '../../../../../compiler-cli/src/ngtsc/typecheck/api';
+import {ResourceLoader} from '@angular/compiler-cli/src/ngtsc/annotations';
+import {NgCompiler} from '@angular/compiler-cli/src/ngtsc/core';
+import {ReferenceEmitter} from '@angular/compiler-cli/src/ngtsc/imports';
+import {isShim} from '@angular/compiler-cli/src/ngtsc/shims';
+import {TemplateTypeChecker} from '@angular/compiler-cli/src/ngtsc/typecheck/api';
 
 /**
  * Interface containing the analysis information
  * for an Angular program to be migrated.
  */
-export interface AnalysisProgramInfo extends ProgramInfo<NgtscProgram> {
+export interface AnalysisProgramInfo extends ProgramInfo {
   // List of source files in the program.
   sourceFiles: ts.SourceFile[];
   // List of all files in the program, including external `d.ts`.

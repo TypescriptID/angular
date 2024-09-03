@@ -13,7 +13,7 @@ import {
   InputMemberIncompatibility,
 } from '../input_detection/incompatibility';
 import {InputNode} from '../input_detection/input_node';
-import {Decorator} from '../../../../../../compiler-cli/src/ngtsc/reflection';
+import {Decorator} from '@angular/compiler-cli/src/ngtsc/reflection';
 import assert from 'assert';
 
 /**
@@ -23,9 +23,9 @@ import assert from 'assert';
 export interface ConvertInputPreparation {
   resolvedType: ts.TypeNode | undefined;
   preferShorthandIfPossible: {originalType: ts.TypeNode} | null;
-  isUndefinedInitialValue: boolean;
   resolvedMetadata: ExtractedInput;
   originalInputDecorator: Decorator;
+  initialValue: ts.Expression | undefined;
 }
 
 /**
@@ -126,7 +126,7 @@ export function prepareAndCheckForConversion(
     resolvedMetadata: metadata,
     resolvedType: typeToAdd,
     preferShorthandIfPossible,
-    isUndefinedInitialValue,
     originalInputDecorator: metadata.inputDecorator,
+    initialValue: isUndefinedInitialValue ? undefined : initialValue,
   };
 }

@@ -5,6 +5,7 @@ ts_library(
     srcs = glob(["**/*.ts"]),
     visibility = [
         "//packages/core/schematics:__subpackages__",
+        "//packages/language-service/src/refactorings:__pkg__",
     ],
     deps = [
         "//packages/compiler-cli",
@@ -13,7 +14,11 @@ ts_library(
         "//packages/compiler-cli/src/ngtsc/file_system",
         "//packages/compiler-cli/src/ngtsc/file_system/testing",
         "//packages/compiler-cli/src/ngtsc/shims",
+        "//packages/compiler-cli/src/ngtsc/translator",
+        "@npm//@types/diff",
         "@npm//@types/node",
+        "@npm//chalk",
+        "@npm//diff",
         "@npm//magic-string",
         "@npm//typescript",
     ],

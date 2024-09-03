@@ -27,6 +27,7 @@ import {
   isInitializerApiFunction,
 } from './initializer_api_function_extractor';
 import {extractTypeAlias} from './type_alias_extractor';
+import {getImportedSymbols} from './import_extractor';
 
 type DeclarationWithExportName = readonly [string, ts.Declaration];
 
@@ -46,8 +47,12 @@ export class DocsExtractor {
    *
    * @param sourceFile The file from which to extract documentable entries.
    */
-  extractAll(sourceFile: ts.SourceFile, rootDir: string): DocEntry[] {
+  extractAll(
+    sourceFile: ts.SourceFile,
+    rootDir: string,
+  ): {entries: DocEntry[]; symbols: Map<string, string>} {
     const entries: DocEntry[] = [];
+    const symbols = new Map<string, string>();
 
     const exportedDeclarations = this.getExportedDeclarations(sourceFile);
     for (const [exportName, node] of exportedDeclarations) {
@@ -61,6 +66,31 @@ export class DocsExtractor {
         // The source file parameter is the package entry: the index.ts
         // We want the real source file of the declaration.
         const realSourceFile = node.getSourceFile();
+
+        /**
+         * The `sourceFile` from `extractAll` is the main entry-point file of a package.
+         * Usually following a format like `export * from './public_api';`, simply re-exporting.
+         * It is necessary to pick-up every import from the actual source files
+         * where declarations are living, so that we can determine what symbols
+         * are actually referenced in the context of that particular declaration
+         * By doing this, the generation remains independent from other packages
+         */
+        const importedSymbols = getImportedSymbols(realSourceFile);
+        importedSymbols.forEach((moduleName, symbolName) => {
+          // TODO: we probably want to filter out symbols from private modules (like core/primitives)
+          if (symbolName.startsWith('ɵ')) {
+            return;
+          }
+
+          if (symbols.has(symbolName) && symbols.get(symbolName) !== moduleName) {
+            // If this ever throws, we need to improve the symbol extraction strategy
+            throw new Error(
+              `Ambigous symbol \`${symbolName}\` exported by both ${symbols.get(symbolName)} & ${moduleName}`,
+            );
+          }
+
+          symbols.set(symbolName, moduleName);
+        });
 
         // Set the source code references for the extracted entry.
         (entry as DocEntryWithSourceInfo).source = {
@@ -77,7 +107,7 @@ export class DocsExtractor {
       }
     }
 
-    return entries;
+    return {entries, symbols};
   }
 
   /** Extract the doc entry for a single declaration. */

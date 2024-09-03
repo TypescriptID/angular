@@ -901,8 +901,10 @@ export class NgCompiler {
    *
    * @param entryPoint Path to the entry point for the package for which API
    *     docs should be extracted.
+   *
+   * @returns A map of symbols with their associated module, eg: ApplicationRef => @angular/core
    */
-  getApiDocumentation(entryPoint: string): DocEntry[] {
+  getApiDocumentation(entryPoint: string): {entries: DocEntry[]; symbols: Map<string, string>} {
     const compilation = this.ensureAnalyzed();
     const checker = this.inputProgram.getTypeChecker();
     const docsExtractor = new DocsExtractor(checker, compilation.metaReader);
@@ -918,7 +920,7 @@ export class NgCompiler {
     }
 
     // TODO: Technically the current directory is not the root dir.
-    //  Should probably be derived from the config.
+    // Should probably be derived from the config.
     const rootDir = this.inputProgram.getCurrentDirectory();
     return docsExtractor.extractAll(entryPointSourceFile, rootDir);
   }

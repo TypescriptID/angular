@@ -31,8 +31,10 @@ import {
 import {CodeLineRenderable} from '../entities/renderables';
 import {HasModuleName, HasRenderableToc} from '../entities/traits';
 import {codeToHtml} from '../shiki/shiki';
+import {getModuleName} from '../symbol-context';
 
 import {filterLifecycleMethods, mergeGettersAndSetters} from './member-transforms';
+import {getLinkToModule} from './url-transforms';
 
 // Allows to generate links for code lines.
 interface CodeTableOfContentsData {
@@ -78,7 +80,12 @@ export function addRenderableCodeToc<T extends DocEntry & HasModuleName>(
   const insideCode = match[2];
   const afterCode = match[3];
 
-  const lines = splitLines(insideCode);
+  // Note: Don't expect enum value in signatures to be linked correctly
+  // as skihi already splits them into separate span blocks.
+  // Only the enum itself will recieve a link
+  const codeWithLinks = addApiLinksToHtml(insideCode);
+
+  const lines = splitLines(codeWithLinks);
   const groups = groupCodeLines(lines, metadata, entry);
 
   return {
@@ -111,30 +118,31 @@ function groupCodeLines(lines: string[], metadata: CodeTableOfContentsData, entr
 }
 
 export function mapDocEntryToCode(entry: DocEntry): CodeTableOfContentsData {
+  const isDeprecated = isDeprecatedEntry(entry);
+  const deprecatedLineNumbers = isDeprecated ? [0] : [];
+
   if (isClassEntry(entry)) {
     const members = filterLifecycleMethods(mergeGettersAndSetters(entry.members));
-    return getCodeTocData(members, true);
+    return getCodeTocData(members, true, isDeprecated);
   }
 
   if (isConstantEntry(entry)) {
-    const isDeprecated = isDeprecatedEntry(entry);
     return {
       contents: `const ${entry.name}: ${entry.type};`,
       codeLineNumbersWithIdentifiers: new Map(),
-      deprecatedLineNumbers: isDeprecated ? [0] : [],
+      deprecatedLineNumbers,
     };
   }
 
   if (isEnumEntry(entry)) {
-    return getCodeTocData(entry.members, true);
+    return getCodeTocData(entry.members, true, isDeprecated);
   }
 
   if (isInterfaceEntry(entry)) {
-    return getCodeTocData(mergeGettersAndSetters(entry.members), true);
+    return getCodeTocData(mergeGettersAndSetters(entry.members), true, isDeprecated);
   }
 
   if (isFunctionEntry(entry)) {
-    const isDeprecated = isDeprecatedEntry(entry);
     const codeLineNumbersWithIdentifiers = new Map<number, string>();
     const hasSingleSignature = entry.signatures.length === 1;
 
@@ -142,7 +150,7 @@ export function mapDocEntryToCode(entry: DocEntry): CodeTableOfContentsData {
       const initialMetadata: CodeTableOfContentsData = {
         contents: '',
         codeLineNumbersWithIdentifiers: new Map<number, string>(),
-        deprecatedLineNumbers: [],
+        deprecatedLineNumbers,
       };
 
       return entry.signatures.reduce(
@@ -169,7 +177,7 @@ export function mapDocEntryToCode(entry: DocEntry): CodeTableOfContentsData {
       // It is important to add the function keyword as shiki will only highlight valid ts
       contents: `function ${getMethodCodeLine(entry.implementation, [], true)}`,
       codeLineNumbersWithIdentifiers,
-      deprecatedLineNumbers: isDeprecated ? [0] : [],
+      deprecatedLineNumbers,
     };
   }
 
@@ -214,15 +222,12 @@ export function mapDocEntryToCode(entry: DocEntry): CodeTableOfContentsData {
     return {
       contents: lines.join('\n'),
       codeLineNumbersWithIdentifiers,
-      deprecatedLineNumbers: [],
+      deprecatedLineNumbers,
     };
   }
 
   if (isTypeAliasEntry(entry)) {
-    const isDeprecated = isDeprecatedEntry(entry);
     const contents = `type ${entry.name} = ${entry.type}`;
-
-    let deprecatedLineNumbers = [];
 
     if (isDeprecated) {
       const numberOfLinesOfCode = getNumberOfLinesOfCode(contents);
@@ -242,16 +247,20 @@ export function mapDocEntryToCode(entry: DocEntry): CodeTableOfContentsData {
   return {
     contents: '',
     codeLineNumbersWithIdentifiers: new Map(),
-    deprecatedLineNumbers: [],
+    deprecatedLineNumbers,
   };
 }
 
 /** Generate code ToC data for list of members. */
-function getCodeTocData(members: MemberEntry[], hasPrefixLine: boolean): CodeTableOfContentsData {
+function getCodeTocData(
+  members: MemberEntry[],
+  hasPrefixLine: boolean,
+  isDeprecated: boolean,
+): CodeTableOfContentsData {
   const initialMetadata: CodeTableOfContentsData = {
     contents: '',
     codeLineNumbersWithIdentifiers: new Map<number, string>(),
-    deprecatedLineNumbers: [],
+    deprecatedLineNumbers: isDeprecated ? [0] : [],
   };
   // In case when hasPrefixLine is true we should take it into account when we're generating
   // `codeLineNumbersWithIdentifiers` below.
@@ -265,6 +274,7 @@ function getCodeTocData(members: MemberEntry[], hasPrefixLine: boolean): CodeTab
       if (isDeprecatedEntry(entry)) {
         acc.deprecatedLineNumbers.push(lineNumber);
       }
+
       lineNumber++;
     };
 
@@ -307,6 +317,7 @@ function getMethodCodeLine(
   displayParamsInNewLines: boolean = false,
   isFunction: boolean = false,
 ): string {
+  displayParamsInNewLines &&= member.params.length > 0;
   return `${isFunction ? 'function' : ''}${memberTags.join(' ')} ${member.name}(${displayParamsInNewLines ? '\n  ' : ''}${member.params
     .map((param) => mapParamEntry(param))
     .join(`,${displayParamsInNewLines ? '\n  ' : ' '}`)}${
@@ -427,4 +438,32 @@ function appendPrefixAndSuffix(entry: DocEntry, codeTocData: CodeTableOfContents
   if (isInterfaceEntry(entry)) {
     appendFirstAndLastLines(codeTocData, `interface ${entry.name} {`, `}`);
   }
+}
+
+/**
+ * Replaces any code block that isn't already wrapped by an anchor element
+ * by a link if the symbol is known
+ */
+export function addApiLinksToHtml(htmlString: string): string {
+  const result = htmlString.replace(
+    // This regex looks for span/code blocks not wrapped by an anchor block.
+    // Their content are then replaced with a link if the symbol is known
+    //                   The captured content ==>  vvvvvvvv
+    /(?<!<a[^>]*>)(<(?:(?:span)|(?:code))[^>]*>\s*)([^<]*?)(\s*<\/(?:span|code)>)/g,
+    (type: string, span1: string, potentialSymbolName: string, span2: string) => {
+      let [symbol, subSymbol] = potentialSymbolName.split(/(?:#|\.)/) as [string, string?];
+
+      // mySymbol() => mySymbol
+      const symbolWithoutInvocation = symbol.replace(/\([^)]*\);?/g, '');
+      const moduleName = getModuleName(symbolWithoutInvocation)!;
+
+      if (moduleName) {
+        return `${span1}<a href="${getLinkToModule(moduleName, symbol, subSymbol)}">${potentialSymbolName}</a>${span2}`;
+      }
+
+      return type;
+    },
+  );
+
+  return result;
 }

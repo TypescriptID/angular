@@ -17,13 +17,16 @@ import {PARAM_KEYWORD_CLASS_NAME, REFERENCE_MEMBER_CARD_ITEM} from '../styling/c
 import {DeprecatedLabel} from './deprecated-label';
 import {Parameter} from './parameter';
 import {RawHtml} from './raw-html';
+import {CodeSymbol} from './code-symbols';
 
 /**
  * Component to render the method-specific parts of a class's API reference.
  */
 export function ClassMethodInfo(props: {
   entry: FunctionSignatureMetadataRenderable;
-  isOverloaded?: boolean;
+  options?: {
+    showUsageNotes?: boolean;
+  };
 }) {
   const entry = props.entry;
 
@@ -45,9 +48,9 @@ export function ClassMethodInfo(props: {
       ))}
       <div className={'docs-return-type'}>
         <span className={PARAM_KEYWORD_CLASS_NAME}>@returns</span>
-        <code>{entry.returnType}</code>
+        <CodeSymbol code={entry.returnType} />
       </div>
-      {entry.htmlUsageNotes ? (
+      {entry.htmlUsageNotes && props.options?.showUsageNotes ? (
         <div className={'docs-usage-notes'}>
           <span className={PARAM_KEYWORD_CLASS_NAME}>Usage notes</span>
           <RawHtml value={entry.htmlUsageNotes} />

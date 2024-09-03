@@ -16,7 +16,7 @@ import {pass8__migrateHostBindings} from './passes/8_migrate_host_bindings';
 import {pass9__migrateTypeScriptTypeReferences} from './passes/9_migrate_ts_type_references';
 import {MigrationResult} from './result';
 import {pass10_applyImportManager} from './passes/10_apply_import_manager';
-import {ImportManager} from '../../../../../compiler-cli/src/ngtsc/translator';
+import {ImportManager} from '@angular/compiler-cli/src/ngtsc/translator';
 
 /**
  * Executes the migration phase.
@@ -31,7 +31,7 @@ export function executeMigrationPhase(
   host: MigrationHost,
   knownInputs: KnownInputs,
   result: MigrationResult,
-  {typeChecker, sourceFiles}: AnalysisProgramInfo,
+  {typeChecker, sourceFiles, projectDirAbsPath}: AnalysisProgramInfo,
 ) {
   const importManager = new ImportManager({
     // For the purpose of this migration, we always use `input` and don't alias
@@ -40,10 +40,16 @@ export function executeMigrationPhase(
   });
 
   // Migrate passes.
-  pass5__migrateTypeScriptReferences(result, typeChecker, knownInputs);
-  pass6__migrateInputDeclarations(typeChecker, result, knownInputs, importManager);
-  pass7__migrateTemplateReferences(host, result, knownInputs);
-  pass8__migrateHostBindings(result, knownInputs);
-  pass9__migrateTypeScriptTypeReferences(result, knownInputs, importManager);
-  pass10_applyImportManager(importManager, result, sourceFiles);
+  pass5__migrateTypeScriptReferences(result, typeChecker, knownInputs, projectDirAbsPath);
+  pass6__migrateInputDeclarations(
+    typeChecker,
+    result,
+    knownInputs,
+    importManager,
+    projectDirAbsPath,
+  );
+  pass7__migrateTemplateReferences(host, result, knownInputs, projectDirAbsPath);
+  pass8__migrateHostBindings(result, knownInputs, projectDirAbsPath);
+  pass9__migrateTypeScriptTypeReferences(result, knownInputs, importManager, projectDirAbsPath);
+  pass10_applyImportManager(importManager, result, sourceFiles, projectDirAbsPath);
 }

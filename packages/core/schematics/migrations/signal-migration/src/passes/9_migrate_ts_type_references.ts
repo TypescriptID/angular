@@ -10,10 +10,10 @@ import ts from 'typescript';
 import {KnownInputs} from '../input_detection/known_inputs';
 import {MigrationResult} from '../result';
 import {isTsInputClassTypeReference} from '../utils/input_reference';
-import {absoluteFromSourceFile} from '../../../../../../compiler-cli/src/ngtsc/file_system';
-import {Replacement, TextUpdate} from '../../../../utils/tsurge/replacement';
+import {AbsoluteFsPath} from '@angular/compiler-cli/src/ngtsc/file_system';
+import {projectRelativePath, Replacement, TextUpdate} from '../../../../utils/tsurge/replacement';
 import assert from 'assert';
-import {ImportManager} from '../../../../../../compiler-cli/src/ngtsc/translator';
+import {ImportManager} from '@angular/compiler-cli/src/ngtsc/translator';
 
 /**
  * Migrates TypeScript "ts.Type" references. E.g.
@@ -25,6 +25,7 @@ export function pass9__migrateTypeScriptTypeReferences(
   result: MigrationResult,
   knownInputs: KnownInputs,
   importManager: ImportManager,
+  projectDirAbsPath: AbsoluteFsPath,
 ) {
   const seenTypeNodes = new WeakSet<ts.TypeReferenceNode>();
 
@@ -58,7 +59,7 @@ export function pass9__migrateTypeScriptTypeReferences(
 
       result.replacements.push(
         new Replacement(
-          absoluteFromSourceFile(sf),
+          projectRelativePath(sf, projectDirAbsPath),
           new TextUpdate({
             position: firstArg.getStart(),
             end: firstArg.getStart(),
@@ -68,7 +69,7 @@ export function pass9__migrateTypeScriptTypeReferences(
       );
       result.replacements.push(
         new Replacement(
-          absoluteFromSourceFile(sf),
+          projectRelativePath(sf, projectDirAbsPath),
           new TextUpdate({position: firstArg.getEnd(), end: firstArg.getEnd(), toInsert: '>'}),
         ),
       );

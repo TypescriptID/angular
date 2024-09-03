@@ -6,8 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {NgtscProgram} from '../../../../../compiler-cli/src/ngtsc/program';
-import {FileSystem} from '../../../../../compiler-cli/src/ngtsc/file_system';
+import {AbsoluteFsPath, FileSystem} from '@angular/compiler-cli/src/ngtsc/file_system';
 import {confirmAsSerializable, Serializable} from '../../../utils/tsurge/helpers/serializable';
 import {BaseProgramInfo, ProgramInfo} from '../../../utils/tsurge/program_info';
 import {TsurgeComplexMigration} from '../../../utils/tsurge/migration';
@@ -26,6 +25,7 @@ import {InheritanceGraph} from './utils/inheritance_graph';
 import {executeMigrationPhase} from './phase_migrate';
 import {filterIncompatibilitiesForBestEffortMode} from './best_effort_mode';
 import {createNgtscProgram} from '../../../utils/tsurge/helpers/ngtsc_program';
+import assert from 'assert';
 
 /**
  * Tsurge migration for migrating Angular `@Input()` declarations to
@@ -33,17 +33,24 @@ import {createNgtscProgram} from '../../../utils/tsurge/helpers/ngtsc_program';
  */
 export class SignalInputMigration extends TsurgeComplexMigration<
   CompilationUnitData,
-  CompilationUnitData,
-  NgtscProgram,
-  AnalysisProgramInfo
+  CompilationUnitData
 > {
   upgradeAnalysisPhaseToAvoidBatch = false;
-  upgradedAnalysisPhaseResults: Replacement[] | null = null;
+  upgradedAnalysisPhaseResults: {
+    replacements: Replacement[];
+    projectAbsDirPath: AbsoluteFsPath;
+  } | null = null;
+
+  // Necessary for language service configuration.
+  reportProgressFn: ((percentage: number, updateMessage: string) => void) | null = null;
+  beforeMigrateHook:
+    | ((host: MigrationHost, knownInputs: KnownInputs, result: MigrationResult) => void)
+    | null = null;
 
   bestEffortMode = false;
 
   // Override the default ngtsc program creation, to add extra flags.
-  override createProgram(tsconfigAbsPath: string, fs?: FileSystem): BaseProgramInfo<NgtscProgram> {
+  override createProgram(tsconfigAbsPath: string, fs?: FileSystem): BaseProgramInfo {
     return createNgtscProgram(tsconfigAbsPath, fs, {
       _enableTemplateTypeChecker: true,
       _compilePoisonedComponents: true,
@@ -57,25 +64,25 @@ export class SignalInputMigration extends TsurgeComplexMigration<
   }
 
   // Extend the program info with the analysis information we need in every phase.
-  override prepareProgram(baseInfo: BaseProgramInfo<NgtscProgram>): AnalysisProgramInfo {
-    const info = super.prepareProgram(baseInfo);
+  prepareAnalysisDeps(info: ProgramInfo): AnalysisProgramInfo {
+    assert(info.ngCompiler !== null, 'Expected `NgCompiler` to be configured.');
     return {
       ...info,
-      ...prepareAnalysisInfo(
-        info.program.getTsProgram(),
-        info.program.compiler,
-        info.programAbsoluteRootPaths,
-      ),
+      ...prepareAnalysisInfo(info.program, info.ngCompiler, info.programAbsoluteRootPaths),
     };
   }
 
-  override async analyze(analysisDeps: AnalysisProgramInfo) {
+  override async analyze(info: ProgramInfo) {
+    const analysisDeps = this.prepareAnalysisDeps(info);
     const {metaRegistry} = analysisDeps;
     const knownInputs = new KnownInputs();
     const result = new MigrationResult();
-    const host = createMigrationHost(analysisDeps);
+    const host = createMigrationHost(info);
 
+    this.reportProgressFn?.(10, 'Analyzing project (input usages)..');
     const {inheritanceGraph} = executeAnalysisPhase(host, knownInputs, result, analysisDeps);
+
+    this.reportProgressFn?.(40, 'Checking inheritance..');
     pass4__checkInheritanceOfInputs(host, inheritanceGraph, metaRegistry, knownInputs);
     if (this.bestEffortMode) {
       filterIncompatibilitiesForBestEffortMode(knownInputs);
@@ -86,15 +93,19 @@ export class SignalInputMigration extends TsurgeComplexMigration<
     // Non-batch mode!
     if (this.upgradeAnalysisPhaseToAvoidBatch) {
       const merged = await this.merge([unitData]);
-      const replacements = await this.migrate(merged, analysisDeps, {
+
+      this.reportProgressFn?.(60, 'Collecting migration changes..');
+      const replacements = await this.migrate(merged, info, {
         knownInputs,
         result,
         host,
         inheritanceGraph,
+        analysisDeps,
       });
+      this.reportProgressFn?.(100, 'Completed migration.');
 
       // Expose the upgraded analysis stage results.
-      this.upgradedAnalysisPhaseResults = replacements;
+      this.upgradedAnalysisPhaseResults = {replacements, projectAbsDirPath: info.projectDirAbsPath};
     }
 
     return confirmAsSerializable(unitData);
@@ -106,18 +117,19 @@ export class SignalInputMigration extends TsurgeComplexMigration<
 
   override async migrate(
     globalMetadata: CompilationUnitData,
-    analysisDeps: AnalysisProgramInfo,
+    info: ProgramInfo,
     nonBatchData?: {
       knownInputs: KnownInputs;
       result: MigrationResult;
       host: MigrationHost;
       inheritanceGraph: InheritanceGraph;
+      analysisDeps: AnalysisProgramInfo;
     },
   ): Promise<Replacement[]> {
     const knownInputs = nonBatchData?.knownInputs ?? new KnownInputs();
     const result = nonBatchData?.result ?? new MigrationResult();
-    const host = nonBatchData?.host ?? createMigrationHost(analysisDeps);
-    const {metaRegistry} = analysisDeps;
+    const host = nonBatchData?.host ?? createMigrationHost(info);
+    const analysisDeps = nonBatchData?.analysisDeps ?? this.prepareAnalysisDeps(info);
     let inheritanceGraph: InheritanceGraph;
 
     // Can't re-use analysis structures, so re-build them.
@@ -125,14 +137,20 @@ export class SignalInputMigration extends TsurgeComplexMigration<
       const analysisRes = executeAnalysisPhase(host, knownInputs, result, analysisDeps);
       inheritanceGraph = analysisRes.inheritanceGraph;
       populateKnownInputsFromGlobalData(knownInputs, globalMetadata);
-    } else {
-      inheritanceGraph = nonBatchData.inheritanceGraph;
+
+      pass4__checkInheritanceOfInputs(
+        host,
+        inheritanceGraph,
+        analysisDeps.metaRegistry,
+        knownInputs,
+      );
+      if (this.bestEffortMode) {
+        filterIncompatibilitiesForBestEffortMode(knownInputs);
+      }
     }
 
-    pass4__checkInheritanceOfInputs(host, inheritanceGraph, metaRegistry, knownInputs);
-    if (this.bestEffortMode) {
-      filterIncompatibilitiesForBestEffortMode(knownInputs);
-    }
+    // Optional before migrate hook. Used by the language service.
+    this.beforeMigrateHook?.(host, knownInputs, result);
 
     executeMigrationPhase(host, knownInputs, result, analysisDeps);
 
@@ -140,7 +158,7 @@ export class SignalInputMigration extends TsurgeComplexMigration<
   }
 }
 
-function createMigrationHost(info: ProgramInfo<NgtscProgram>): MigrationHost {
+function createMigrationHost(info: ProgramInfo): MigrationHost {
   return new MigrationHost(
     /* projectDir */ info.projectDirAbsPath,
     /* isMigratingCore */ false,
