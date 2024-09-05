@@ -8,43 +8,34 @@
 
 import {CompilerOptions} from '@angular/compiler-cli';
 import {NgCompiler} from '@angular/compiler-cli/src/ngtsc/core';
+import {getFileSystem} from '@angular/compiler-cli/src/ngtsc/file_system';
 import {MetaKind} from '@angular/compiler-cli/src/ngtsc/metadata';
-import {
-  ClassIncompatibilityReason,
-  InputIncompatibilityReason,
-} from '@angular/core/schematics/migrations/signal-migration/src/input_detection/incompatibility';
 import {ApplyRefactoringProgressFn} from '@angular/language-service/api';
 import ts from 'typescript';
 import {
-  InputNode,
   isInputContainerNode,
-} from '../../../core/schematics/migrations/signal-migration/src/input_detection/input_node';
-import {KnownInputInfo} from '../../../core/schematics/migrations/signal-migration/src/input_detection/known_inputs';
-import {SignalInputMigration} from '../../../core/schematics/migrations/signal-migration/src/migration';
-import {
-  getInputDescriptor,
-  isInputDescriptor,
-} from '../../../core/schematics/migrations/signal-migration/src/utils/input_id';
-import {groupReplacementsByFile} from '../../../core/schematics/utils/tsurge/helpers/group_replacements';
-import {findTightestNode, getParentClassDeclaration} from '../utils/ts_utils';
+  SignalInputMigration,
+  MigrationConfig,
+  getMessageForClassIncompatibility,
+  getMessageForInputIncompatibility,
+} from '@angular/core/schematics/migrations/signal-migration/src';
+import {groupReplacementsByFile} from '@angular/core/schematics/utils/tsurge/helpers/group_replacements';
 import {isTypeScriptFile} from '../utils';
-import type {Refactoring} from './refactoring';
+import {findTightestNode, getParentClassDeclaration} from '../utils/ts_utils';
+import type {ActiveRefactoring} from './refactoring';
 
 /**
- * Language service refactoring action that can convert `@Input()`
+ * Base language service refactoring action that can convert `@Input()`
  * declarations to signal inputs.
  *
  * The user can click on an `@Input` property declaration in e.g. the VSCode
  * extension and ask for the input to be migrated. All references, imports and
  * the declaration are updated automatically.
  */
-export class ConvertToSignalInputRefactoring implements Refactoring {
-  id = 'convert-to-signal-input';
-  description = '(experimental fixer): Convert @Input() to a signal input';
+abstract class BaseConvertToSignalInputRefactoring implements ActiveRefactoring {
+  abstract config: MigrationConfig;
 
-  migration: SignalInputMigration | null = null;
-
-  isApplicable(
+  static isApplicable(
     compiler: NgCompiler,
     fileName: string,
     positionOrRange: number | ts.TextRange,
@@ -113,59 +104,78 @@ export class ConvertToSignalInputRefactoring implements Refactoring {
     }
     reportProgress(0, 'Starting input migration. Analyzing..');
 
-    // TS incorrectly narrows to `null` if we don't explicitly widen the type.
-    // See: https://github.com/microsoft/TypeScript/issues/11498.
-    let targetInput: KnownInputInfo | null = null as KnownInputInfo | null;
+    const fs = getFileSystem();
+    const migration = new SignalInputMigration({
+      ...this.config,
+      upgradeAnalysisPhaseToAvoidBatch: true,
+      reportProgressFn: reportProgress,
+      shouldMigrateInput: (input) => input.descriptor.node === containingProp,
+    });
 
-    this.migration ??= new SignalInputMigration();
-    this.migration.upgradeAnalysisPhaseToAvoidBatch = true;
-    this.migration.reportProgressFn = reportProgress;
-    this.migration.beforeMigrateHook = getBeforeMigrateHookToFilterAllUnrelatedInputs(
-      containingProp,
-      (i) => (targetInput = i),
-    );
-
-    await this.migration.analyze(
-      this.migration.prepareProgram({
+    await migration.analyze(
+      migration.prepareProgram({
         ngCompiler: compiler,
         program: compiler.getCurrentProgram(),
         userOptions: compilerOptions,
         programAbsoluteRootPaths: [],
-        tsconfigAbsolutePath: '',
+        tsconfigAbsolutePath: '/',
       }),
     );
 
-    if (this.migration.upgradedAnalysisPhaseResults === null || targetInput === null) {
+    if (migration.upgradedAnalysisPhaseResults === null) {
       return {
         edits: [],
-        notApplicableReason: 'Unexpected error. No edits could be computed.',
+        notApplicableReason: 'Unexpected error. No analysis result is available.',
       };
     }
 
-    // Check for incompatibility, and report if it prevented migration.
+    const {knownInputs, replacements, projectAbsDirPath} = migration.upgradedAnalysisPhaseResults;
+    const targetInput = Array.from(knownInputs.knownInputIds.values()).find(
+      (i) => i.descriptor.node === containingProp,
+    );
+
+    if (targetInput === undefined) {
+      return {
+        edits: [],
+        notApplicableReason: 'Unexpected error. Could not find target input in registry.',
+      };
+    }
+
+    // Check for incompatibility, and report when it prevented migration.
     if (targetInput.isIncompatible()) {
       const {container, descriptor} = targetInput;
       const memberIncompatibility = container.memberIncompatibility.get(descriptor.key);
       const classIncompatibility = container.incompatible;
+      const aggressiveModeRecommendation = !this.config.bestEffortMode
+        ? `\n—— Consider using the "(forcibly, ignoring errors)" action to forcibly convert.`
+        : '';
 
+      if (memberIncompatibility !== undefined) {
+        const {short, extra} = getMessageForInputIncompatibility(memberIncompatibility.reason);
+        return {
+          edits: [],
+          notApplicableReason: `${short}\n${extra}${aggressiveModeRecommendation}`,
+        };
+      }
+      if (classIncompatibility !== null) {
+        const {short, extra} = getMessageForClassIncompatibility(classIncompatibility);
+        return {
+          edits: [],
+          notApplicableReason: `${short}\n${extra}${aggressiveModeRecommendation}`,
+        };
+      }
       return {
         edits: [],
-        // TODO: Output a better human-readable message here. For now this is better than a noop.
-        notApplicableReason: `Input cannot be migrated: ${
-          memberIncompatibility !== undefined
-            ? InputIncompatibilityReason[memberIncompatibility.reason]
-            : classIncompatibility !== null
-              ? ClassIncompatibilityReason[classIncompatibility]
-              : 'unknown'
-        }`,
+        notApplicableReason:
+          'Input cannot be migrated, but no reason was found. ' +
+          'Consider reporting a bug to the Angular team.',
       };
     }
 
-    const edits: ts.FileTextChanges[] = Array.from(
-      groupReplacementsByFile(this.migration.upgradedAnalysisPhaseResults.replacements).entries(),
-    ).map(([fileName, changes]) => {
+    const fileUpdates = Array.from(groupReplacementsByFile(replacements).entries());
+    const edits: ts.FileTextChanges[] = fileUpdates.map(([relativePath, changes]) => {
       return {
-        fileName,
+        fileName: fs.join(projectAbsDirPath, relativePath),
         textChanges: changes.map((c) => ({
           newText: c.data.toInsert,
           span: {
@@ -187,6 +197,17 @@ export class ConvertToSignalInputRefactoring implements Refactoring {
   }
 }
 
+export class ConvertToSignalInputRefactoring extends BaseConvertToSignalInputRefactoring {
+  static id = 'convert-to-signal-input-safe-mode';
+  static description = 'Convert this @Input() to a signal input (safe)';
+  override config: MigrationConfig = {};
+}
+export class ConvertToSignalInputBestEffortRefactoring extends BaseConvertToSignalInputRefactoring {
+  static id = 'convert-to-signal-input-best-effort-mode';
+  static description = 'Convert @Input() to a signal input (forcibly, ignoring errors)';
+  override config: MigrationConfig = {bestEffortMode: true};
+}
+
 function findParentPropertyDeclaration(node: ts.Node): ts.PropertyDeclaration | null {
   while (!ts.isPropertyDeclaration(node) && !ts.isSourceFile(node)) {
     node = node.parent;
@@ -195,38 +216,4 @@ function findParentPropertyDeclaration(node: ts.Node): ts.PropertyDeclaration | 
     return null;
   }
   return node;
-}
-
-function getBeforeMigrateHookToFilterAllUnrelatedInputs(
-  containingProp: InputNode,
-  setTargetInput: (i: KnownInputInfo) => void,
-): SignalInputMigration['beforeMigrateHook'] {
-  return (host, knownInputs, result) => {
-    const {key} = getInputDescriptor(host, containingProp);
-    const targetInput = knownInputs.get({key});
-
-    if (targetInput === undefined) {
-      return;
-    }
-
-    setTargetInput(targetInput);
-
-    // Mark all other inputs as incompatible.
-    // Note that we still analyzed the whole application for potential references.
-    // Only migrate references to the target input.
-    for (const input of result.sourceInputs.keys()) {
-      if (input.key !== key) {
-        knownInputs.markInputAsIncompatible(input, {
-          context: null,
-          reason: InputIncompatibilityReason.IgnoredBecauseOfLanguageServiceRefactoringRange,
-        });
-      }
-    }
-
-    result.references = result.references.filter(
-      // Note: References to the whole class are not migrated as we are not migrating all inputs.
-      // We can revisit this at a later time.
-      (r) => isInputDescriptor(r.target) && r.target.key === key,
-    );
-  };
 }

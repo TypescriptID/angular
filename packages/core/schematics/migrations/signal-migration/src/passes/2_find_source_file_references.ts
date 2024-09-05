@@ -53,7 +53,23 @@ export function pass2_IdentifySourceFileReferences(
     knownInputs,
   );
 
+  // List of input field names that will be migrated.
+  const migratedInputFieldNames = new Set<string>(
+    Array.from(knownInputs.knownInputIds.values())
+      .filter((v) => host.config.shouldMigrateInput?.(v) ?? true)
+      .map((v) => v.descriptor.node.name.text),
+  );
+
+  const perfCounters = {
+    template: 0,
+    hostBindings: 0,
+    tsReferences: 0,
+    tsTypes: 0,
+  };
+
   const visitor = (node: ts.Node) => {
+    let lastTime = performance.now();
+
     if (ts.isClassDeclaration(node)) {
       identifyTemplateReferences(
         node,
@@ -63,28 +79,41 @@ export function pass2_IdentifySourceFileReferences(
         evaluator,
         templateTypeChecker,
         resourceLoader,
-        host.options,
+        host.compilerOptions,
         result,
         knownInputs,
       );
+      perfCounters.template += (performance.now() - lastTime) / 1000;
+      lastTime = performance.now();
+
       identifyHostBindingReferences(node, host, checker, reflector, result, knownInputs);
+
+      perfCounters.hostBindings += (performance.now() - lastTime) / 1000;
+      lastTime = performance.now();
     }
 
-    // find references, but do not capture:
-    //    (1) input declarations.
-    //    (2) binding element declarations.
+    lastTime = performance.now();
+
+    // find references, but do not capture input declarations itself.
     if (
       ts.isIdentifier(node) &&
-      !(
-        (isInputContainerNode(node.parent) && node.parent.name === node) ||
-        ts.isBindingElement(node.parent)
-      )
+      !(isInputContainerNode(node.parent) && node.parent.name === node)
     ) {
-      identifyPotentialTypeScriptReference(node, host, checker, knownInputs, result, {
-        debugElComponentInstanceTracker,
-      });
+      identifyPotentialTypeScriptReference(
+        node,
+        host,
+        checker,
+        knownInputs,
+        result,
+        migratedInputFieldNames,
+        {
+          debugElComponentInstanceTracker,
+        },
+      );
     }
 
+    perfCounters.tsReferences += (performance.now() - lastTime) / 1000;
+    lastTime = performance.now();
     // Detect `Partial<T>` references.
     // Those are relevant to be tracked as they may be updated in Catalyst to
     // unwrap signal inputs. Commonly people use `Partial` in Catalyst to type
@@ -102,7 +131,13 @@ export function pass2_IdentifySourceFileReferences(
         target: partialDirectiveInCatalyst.targetClass,
       });
     }
+
+    perfCounters.tsTypes += (performance.now() - lastTime) / 1000;
   };
 
-  groupedTsAstVisitor.register(visitor);
+  groupedTsAstVisitor.register(visitor, () => {
+    if (process.env['DEBUG'] === '1') {
+      console.info('Source file analysis performance', perfCounters);
+    }
+  });
 }
