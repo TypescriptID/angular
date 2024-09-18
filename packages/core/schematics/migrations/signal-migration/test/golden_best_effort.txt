@@ -2,7 +2,7 @@
 
 // tslint:disable
 
-import { input } from '@angular/core';
+import {input} from '@angular/core';
 import {TestBed} from '@angular/core/testing';
 import {By} from '@angular/platform-browser';
 
@@ -27,7 +27,7 @@ it('should work', () => {
 
 // tslint:disable
 
-import { Directive, input } from '@angular/core';
+import {Directive, input} from '@angular/core';
 
 class BaseNonAngular {
   disabled: string = '';
@@ -61,7 +61,7 @@ class Sub3 implements BaseNonAngularInterface {
 
 // tslint:disable
 
-import { input } from '@angular/core';
+import {input} from '@angular/core';
 
 class BothInputImported {
   readonly decoratorInput = input(true);
@@ -73,14 +73,37 @@ class BothInputImported {
     this.decoratorInput = false;
   }
 }
-@@@@@@ catalyst_test.ts @@@@@@
+@@@@@@ catalyst_async_test.ts @@@@@@
 
-import { UnwrapSignalInputs } from "google3/javascript/angular2/testing/catalyst";
+import { UnwrapSignalInputs } from "google3/javascript/angular2/testing/catalyst/async";
 // tslint:disable
 
-import { input } from '@angular/core';
+import {input} from '@angular/core';
 
-// angular2/testing/catalyst
+// google3/javascript/angular2/testing/catalyst/async
+// ^^ this allows the advisor to even consider this file.
+
+function it(msg: string, fn: () => void) {}
+function bootstrapTemplate(tmpl: string, inputs: unknown) {}
+
+class MyComp {
+  readonly hello = input('');
+}
+
+it('should work', () => {
+  const inputs = {
+    hello: 'test',
+  } as Partial<UnwrapSignalInputs<MyComp>>;
+  bootstrapTemplate('<my-comp [hello]="hello">', inputs);
+});
+@@@@@@ catalyst_test.ts @@@@@@
+
+import { UnwrapSignalInputs } from "google3/javascript/angular2/testing/catalyst/fake_async";
+// tslint:disable
+
+import {input} from '@angular/core';
+
+// google3/javascript/angular2/testing/catalyst/fake_async
 // ^^ this allows the advisor to even consider this file.
 
 function it(msg: string, fn: () => void) {}
@@ -100,7 +123,7 @@ it('should work', () => {
 
 // tslint:disable
 
-import { Directive, input } from '@angular/core';
+import {Directive, input} from '@angular/core';
 
 @Directive()
 export class MyComp {
@@ -116,7 +139,7 @@ export class MyComp {
 
 // tslint:disable
 
-import { Component, input } from '@angular/core';
+import {Component, input} from '@angular/core';
 
 @Component({
   template: `
@@ -143,7 +166,7 @@ class Option {
 
 // tslint:disable
 
-import { Directive, input } from '@angular/core';
+import {Directive, input} from '@angular/core';
 
 @Directive()
 class Base {
@@ -163,7 +186,7 @@ export class Base2 {
 
 // tslint:disable
 
-import { Directive, input } from '@angular/core';
+import {Directive, input} from '@angular/core';
 
 @Directive()
 class Base {
@@ -188,7 +211,7 @@ class DerivedExternal extends Base2 {
 
 // tslint:disable
 
-import { Directive, Component, input } from '@angular/core';
+import {Directive, Component, input} from '@angular/core';
 
 // Material form field test case
 
@@ -237,11 +260,27 @@ export class MatFormFieldTest {
 
 // tslint:disable
 
-import { input } from '@angular/core';
+import {input} from '@angular/core';
 
 class ExistingSignalImport {
   signalInput = input<boolean>();
   readonly thisCanBeMigrated = input(true);
+}
+@@@@@@ external_templates.html @@@@@@
+
+<span>{{test()}}</span>
+@@@@@@ external_templates.ts @@@@@@
+
+// tslint:disable
+
+import {Component, input} from '@angular/core';
+
+@Component({
+  templateUrl: './external_templates.html',
+  selector: 'with-template',
+})
+export class WithTemplate {
+  readonly test = input(true);
 }
 @@@@@@ getters.ts @@@@@@
 
@@ -269,7 +308,7 @@ export class WithGetters {
 
 // tslint:disable
 
-import { Component, input } from '@angular/core';
+import {Component, input} from '@angular/core';
 
 @Component({
   template: '',
@@ -322,7 +361,7 @@ class HostBindingsShared2 {
 
 // tslint:disable
 
-import { Component, input } from '@angular/core';
+import {Component, input} from '@angular/core';
 
 const complex = 'some global variable';
 
@@ -367,11 +406,25 @@ class MyComp {
     }
   }
 }
+@@@@@@ imports.ts @@@@@@
+
+// tslint:disable
+// prettier-ignore
+
+import {
+  Directive,
+  input
+} from '@angular/core';
+
+@Directive()
+export class TestCmp {
+  readonly disabled = input(false);
+}
 @@@@@@ index.ts @@@@@@
 
 // tslint:disable
 
-import { Component, Input, input } from '@angular/core';
+import {Component, Input, input} from '@angular/core';
 
 interface Vehicle {}
 interface Car extends Vehicle {
@@ -507,7 +560,7 @@ x.incompatible = null;
 
 // tslint:disable
 
-import { Component, input } from '@angular/core';
+import {Component, input} from '@angular/core';
 
 @Component({template: ''})
 class IndexAccessInput {
@@ -565,7 +618,7 @@ describe('bla', () => {
 
 // tslint:disable
 
-import { Component, input } from '@angular/core';
+import {Component, input} from '@angular/core';
 
 @Component({
   template: `
@@ -591,7 +644,7 @@ export class InlineTmpl {
 
 // tslint:disable
 
-import { Component, input } from '@angular/core';
+import {Component, input} from '@angular/core';
 
 @Component({
   jit: true,
@@ -612,7 +665,7 @@ class JitTrueComponentExternalTmpl {
 
 // tslint:disable
 
-import { input } from '@angular/core';
+import {input} from '@angular/core';
 
 class MyTestCmp {
   readonly someInput = input.required<boolean | string>();
@@ -648,7 +701,7 @@ new ManualInstantiation();
 
 // tslint:disable
 
-import { Component, input } from '@angular/core';
+import {Component, input} from '@angular/core';
 
 @Component({})
 export class ManualInstantiation {
@@ -658,7 +711,7 @@ export class ManualInstantiation {
 
 // tslint:disable
 
-import { Component, input } from '@angular/core';
+import {Component, input} from '@angular/core';
 
 function CustomDecorator() {
   return (a: any, b: any) => {};
@@ -676,7 +729,7 @@ protected readonly usingCustomDecorator = input(true);
 
 // tslint:disable
 
-import { input } from '@angular/core';
+import {input} from '@angular/core';
 
 export class TestCmp {
   readonly shared = input<{
@@ -698,7 +751,7 @@ export class TestCmp {
 
 // tslint:disable
 
-import { Directive, input } from '@angular/core';
+import {Directive, input} from '@angular/core';
 
 @Directive()
 export class Narrowing {
@@ -742,7 +795,7 @@ export class Narrowing {
 
 // tslint:disable
 
-import { Component, input } from '@angular/core';
+import {Component, input} from '@angular/core';
 
 interface Config {
   bla?: string;
@@ -762,7 +815,7 @@ export class NestedTemplatePropAccess {
 
 // tslint:disable
 
-import { Directive, input } from '@angular/core';
+import {Directive, input} from '@angular/core';
 
 @Directive()
 export class NonNullAssertions {
@@ -779,7 +832,7 @@ export class NonNullAssertions {
 
 // tslint:disable
 
-import { Component, input } from '@angular/core';
+import {Component, input} from '@angular/core';
 
 @Component({})
 export class ObjectExpansion {
@@ -825,7 +878,7 @@ function assertValidLoadingInput(dir: AppComponent) {
 
 // tslint:disable
 
-import { Directive, input } from '@angular/core';
+import {Directive, input} from '@angular/core';
 
 @Directive()
 class OptionalInput {
@@ -835,7 +888,7 @@ class OptionalInput {
 
 // tslint:disable
 
-import { Component, Directive, QueryList, input } from '@angular/core';
+import {Component, Directive, QueryList, input} from '@angular/core';
 
 @Component({
   template: `
@@ -870,7 +923,7 @@ export const COMPLEX_VAR = {
 
 // tslint:disable
 
-import { input } from '@angular/core';
+import {input} from '@angular/core';
 import {COMPLEX_VAR} from './required-no-explicit-type-extra';
 
 export const CONST = {field: true};
@@ -887,7 +940,7 @@ export class RequiredNoExplicitType {
 
 // tslint:disable
 
-import { input } from '@angular/core';
+import {input} from '@angular/core';
 
 class Required {
   readonly simpleInput = input.required<string>();
@@ -904,7 +957,7 @@ class Required {
 
 // tslint:disable
 
-import { Component, input } from '@angular/core';
+import {Component, input} from '@angular/core';
 
 @Component({
   template: `
@@ -920,7 +973,7 @@ class WithSafePropertyReads {
 
 // tslint:disable
 
-import { input } from '@angular/core';
+import {input} from '@angular/core';
 
 export class TestCmp {
   readonly shared = input(false);
@@ -942,7 +995,7 @@ export class TestCmp {
 
 // tslint:disable
 
-import { Directive, Component, input } from '@angular/core';
+import {Directive, Component, input} from '@angular/core';
 
 @Directive()
 class SomeDir {
@@ -993,7 +1046,7 @@ export class ScopeMismatchTest {
 
 // tslint:disable
 
-import { input } from '@angular/core';
+import {input} from '@angular/core';
 
 class MyComp {
   readonly myInput = input(() => { });
@@ -1007,11 +1060,23 @@ spyOn<MyComp>(new MyComp(), 'myInput').and.returnValue();
 </span>
 
 <ng-content select="mat-option, ng-container"></ng-content>
+@@@@@@ template_concat_string.ts @@@@@@
+
+// tslint:disable
+
+import {Component, input} from '@angular/core';
+
+@Component({
+  template: '<h3>' + '{{bla}}' + '</h3>',
+})
+export class WithConcatTemplate {
+  readonly bla = input(true);
+}
 @@@@@@ template_ng_if.ts @@@@@@
 
 // tslint:disable
 
-import { Component, input } from '@angular/core';
+import {Component, input} from '@angular/core';
 
 @Component({
   template: `
@@ -1047,7 +1112,7 @@ export class MyComp {
 
 // tslint:disable
 
-import { Component, input } from '@angular/core';
+import {Component, input} from '@angular/core';
 
 @Component({
   template: `
@@ -1065,7 +1130,7 @@ export class TemplateObjectShorthand {
 
 // tslint:disable
 
-import { Component, input } from '@angular/core';
+import {Component, input} from '@angular/core';
 
 @Component({
   template: `
@@ -1087,7 +1152,7 @@ class TwoWayBinding {
 
 // tslint:disable
 
-import { Input, input } from '@angular/core';
+import {Input, input} from '@angular/core';
 import {COMPLEX_VAR} from './required-no-explicit-type-extra';
 
 function x(v: string | undefined): string | undefined {
@@ -1111,7 +1176,7 @@ export class TransformFunctions {
 
 // tslint:disable
 
-import { Directive, input } from '@angular/core';
+import {Directive, input} from '@angular/core';
 
 // see: button-base Material.
 
@@ -1124,7 +1189,7 @@ class TransformIncompatibleTypes {
 
 // tslint:disable
 
-import { Input, input } from '@angular/core';
+import {Input, input} from '@angular/core';
 
 export class WithSettersAndGetters {
   @Input()
@@ -1166,7 +1231,7 @@ class WithGettersExternalRef {
 
 // tslint:disable
 
-import { input } from '@angular/core';
+import {input} from '@angular/core';
 
 class WithJsdoc {
   /**

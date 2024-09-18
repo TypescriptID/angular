@@ -8,12 +8,10 @@
 
 import ts from 'typescript';
 import {ImportManager} from '@angular/compiler-cli/src/ngtsc/translator';
-import {
-  absoluteFrom,
-  absoluteFromSourceFile,
-  AbsoluteFsPath,
-} from '@angular/compiler-cli/src/ngtsc/file_system';
-import {projectRelativePath, Replacement, TextUpdate} from '../replacement';
+import {absoluteFrom} from '@angular/compiler-cli/src/ngtsc/file_system';
+import {Replacement, TextUpdate} from '../replacement';
+import {projectFile} from '../project_paths';
+import {ProgramInfo} from '../program_info';
 
 /**
  * Applies import manager changes, and writes them as replacements the
@@ -23,7 +21,7 @@ export function applyImportManagerChanges(
   importManager: ImportManager,
   replacements: Replacement[],
   sourceFiles: readonly ts.SourceFile[],
-  projectAbsPath: AbsoluteFsPath,
+  info: Pick<ProgramInfo, 'sortedRootDirs' | 'projectRoot'>,
 ) {
   const {newImports, updatedImports, deletedImports} = importManager.finalize();
   const printer = ts.createPrinter({});
@@ -39,7 +37,7 @@ export function applyImportManagerChanges(
       );
       replacements.push(
         new Replacement(
-          projectRelativePath(fileName, projectAbsPath),
+          projectFile(absoluteFrom(fileName), info),
           new TextUpdate({position: 0, end: 0, toInsert: `${printedImport}\n`}),
         ),
       );
@@ -48,18 +46,41 @@ export function applyImportManagerChanges(
 
   // Capture updated imports
   for (const [oldBindings, newBindings] of updatedImports.entries()) {
-    const printedBindings = printer.printNode(
-      ts.EmitHint.Unspecified,
-      newBindings,
+    // The import will be generated as multi-line if it already is multi-line,
+    // or if the number of elements significantly increased and it previously
+    // consisted of very few specifiers.
+    const isMultiline =
+      oldBindings.getText().includes('\n') ||
+      (newBindings.elements.length >= 6 && oldBindings.elements.length <= 3);
+    const hasSpaceBetweenBraces = oldBindings.getText().startsWith('{ ');
+
+    let formatFlags =
+      ts.ListFormat.NamedImportsOrExportsElements |
+      ts.ListFormat.Indented |
+      ts.ListFormat.Braces |
+      ts.ListFormat.PreserveLines |
+      (isMultiline ? ts.ListFormat.MultiLine : ts.ListFormat.SingleLine);
+
+    if (hasSpaceBetweenBraces) {
+      formatFlags |= ts.ListFormat.SpaceBetweenBraces;
+    } else {
+      formatFlags &= ~ts.ListFormat.SpaceBetweenBraces;
+    }
+
+    const printedBindings = printer.printList(
+      formatFlags,
+      newBindings.elements,
       oldBindings.getSourceFile(),
     );
     replacements.push(
       new Replacement(
-        projectRelativePath(oldBindings.getSourceFile(), projectAbsPath),
+        projectFile(oldBindings.getSourceFile(), info),
         new TextUpdate({
           position: oldBindings.getStart(),
           end: oldBindings.getEnd(),
-          toInsert: printedBindings,
+          // TS uses four spaces as indent. We migrate to two spaces as we
+          // assume this to be more common.
+          toInsert: printedBindings.replace(/^ {4}/gm, '  '),
         }),
       ),
     );
@@ -69,7 +90,7 @@ export function applyImportManagerChanges(
   for (const removedImport of deletedImports) {
     replacements.push(
       new Replacement(
-        projectRelativePath(removedImport.getSourceFile(), projectAbsPath),
+        projectFile(removedImport.getSourceFile(), info),
         new TextUpdate({
           position: removedImport.getStart(),
           end: removedImport.getEnd(),

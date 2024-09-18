@@ -6,8 +6,13 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {
+  Reference,
+  ReferenceKind,
+  TsReference,
+} from '../passes/reference_resolution/reference_kinds';
+import {InputDescriptor} from '../utils/input_id';
 import {CompilationUnitData, SerializableForBatching} from './unit_data';
-import {InputReference, InputReferenceKind} from '../utils/input_reference';
 
 /** Merges a list of compilation units into a combined unit. */
 export function mergeCompilationUnitData(
@@ -46,17 +51,19 @@ export function mergeCompilationUnitData(
 }
 
 /** Computes a unique ID for the given reference. */
-function computeReferenceId(reference: SerializableForBatching<InputReference>): string {
-  if (reference.kind === InputReferenceKind.InTemplate) {
-    return `${reference.from.templateFileId}@@${reference.from.read.positionEndInFile}`;
-  } else if (reference.kind === InputReferenceKind.InHostBinding) {
+function computeReferenceId(
+  reference: SerializableForBatching<Reference<InputDescriptor>>,
+): string {
+  if (reference.kind === ReferenceKind.InTemplate) {
+    return `${reference.from.templateFile.id}@@${reference.from.read.positionEndInFile}`;
+  } else if (reference.kind === ReferenceKind.InHostBinding) {
     // `read` position is commonly relative to the host property node position— so we need
     // to make it absolute by incorporating the host node position.
     return (
-      `${reference.from.fileId}@@${reference.from.hostPropertyNode.positionEndInFile}` +
+      `${reference.from.file.id}@@${reference.from.hostPropertyNode.positionEndInFile}` +
       `@@${reference.from.read.positionEndInFile}`
     );
   } else {
-    return `${reference.from.fileId}@@${reference.from.node.positionEndInFile}`;
+    return `${reference.from.file.id}@@${reference.from.node.positionEndInFile}`;
   }
 }

@@ -156,6 +156,9 @@
     "name": "EVENT_MANAGER_PLUGINS"
   },
   {
+    "name": "EffectScheduler"
+  },
+  {
     "name": "ElementRef"
   },
   {
@@ -537,6 +540,9 @@
     "name": "ZONELESS_SCHEDULER_DISABLED"
   },
   {
+    "name": "ZoneAwareEffectScheduler"
+  },
+  {
     "name": "ZoneStablePendingTask"
   },
   {
@@ -667,6 +673,9 @@
   },
   {
     "name": "assertConsumerNode"
+  },
+  {
+    "name": "assertNotDestroyed"
   },
   {
     "name": "assertTemplate"
@@ -1390,6 +1399,9 @@
   },
   {
     "name": "retrieveHydrationInfo"
+  },
+  {
+    "name": "runEffectsInView"
   },
   {
     "name": "saveNameToExportMap"

@@ -7,7 +7,7 @@
  */
 
 import {KnownInputs} from '../input_detection/known_inputs';
-import {InputUniqueKey} from '../utils/input_id';
+import {ClassFieldUniqueKey} from '../passes/reference_resolution/known_fields';
 import {CompilationUnitData, IncompatibilityType} from './unit_data';
 
 export function populateKnownInputsFromGlobalData(
@@ -16,7 +16,7 @@ export function populateKnownInputsFromGlobalData(
 ) {
   // Populate from batch metadata.
   for (const [_key, info] of Object.entries(globalData.knownInputs)) {
-    const key = _key as unknown as InputUniqueKey;
+    const key = _key as unknown as ClassFieldUniqueKey;
 
     // irrelevant for this compilation unit.
     if (!knownInputs.has({key})) {
@@ -26,12 +26,12 @@ export function populateKnownInputsFromGlobalData(
     const inputMetadata = knownInputs.get({key})!;
     if (!inputMetadata.isIncompatible() && info.isIncompatible) {
       if (info.isIncompatible.kind === IncompatibilityType.VIA_CLASS) {
-        knownInputs.markDirectiveAsIncompatible(
+        knownInputs.markClassIncompatible(
           inputMetadata.container.clazz,
           info.isIncompatible.reason,
         );
       } else {
-        knownInputs.markInputAsIncompatible(inputMetadata.descriptor, {
+        knownInputs.markFieldIncompatible(inputMetadata.descriptor, {
           context: null, // No context serializable.
           reason: info.isIncompatible.reason,
         });

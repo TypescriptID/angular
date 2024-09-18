@@ -45,8 +45,6 @@ export function createNgtscProgram(
     tsconfig.rootNames,
     {
       ...tsconfig.options,
-      // Migrations commonly make use of TCB information.
-      _enableTemplateTypeChecker: true,
       // Avoid checking libraries to speed up migrations.
       skipLibCheck: true,
       skipDefaultLibCheck: true,
@@ -60,7 +58,7 @@ export function createNgtscProgram(
     ngCompiler: ngtscProgram.compiler,
     program: ngtscProgram.getTsProgram(),
     userOptions: tsconfig.options,
-    programAbsoluteRootPaths: tsconfig.rootNames,
-    tsconfigAbsolutePath: absoluteTsconfigPath,
+    programAbsoluteRootFileNames: tsconfig.rootNames,
+    host: tsHost,
   };
 }

@@ -7,6 +7,8 @@ import {
   createCompilerHost,
   DocEntry,
   EntryCollection,
+  InterfaceEntry,
+  ClassEntry,
 } from '@angular/compiler-cli';
 import ts from 'typescript';
 
@@ -17,12 +19,15 @@ function main() {
   const [
     moduleName,
     moduleLabel,
+    serializedPrivateModules,
     entryPointExecRootRelativePath,
     srcs,
     outputFilenameExecRootRelativePath,
     serializedPathMapWithExecRootRelativePaths,
     extraEntriesSrcs,
   ] = rawParamLines;
+
+  const privateModules = new Set(serializedPrivateModules.split(','));
 
   // The path map is a serialized JSON map of import path to index.ts file.
   // For example, {'@angular/core': 'path/to/some/index.ts'}
@@ -61,7 +66,7 @@ function main() {
       return result.concat(JSON.parse(readFileSync(path, {encoding: 'utf8'})) as DocEntry[]);
     }, []);
 
-  const apiDoc = program.getApiDocumentation(entryPointExecRootRelativePath);
+  const apiDoc = program.getApiDocumentation(entryPointExecRootRelativePath, privateModules);
   const extractedEntries = apiDoc.entries;
   const combinedEntries = extractedEntries.concat(extraEntries);
 
@@ -78,10 +83,28 @@ function main() {
 
       // Exported symbols from the current package
       ...apiDoc.entries.map((entry) => [entry.name, moduleName]),
+
+      // Also doing it for every member of classes/interfaces
+      ...apiDoc.entries.flatMap((entry) => [
+        [entry.name, moduleName],
+        ...getEntriesFromMembers(entry).map((member) => [member, moduleName]),
+      ]),
     ],
   } as EntryCollection);
 
   writeFileSync(outputFilenameExecRootRelativePath, output, {encoding: 'utf8'});
+}
+
+function getEntriesFromMembers(entry: DocEntry): string[] {
+  if (!hasMembers(entry)) {
+    return [];
+  }
+
+  return entry.members.map((member) => `${entry.name}.${member.name}`);
+}
+
+function hasMembers(entry: DocEntry): entry is InterfaceEntry | ClassEntry {
+  return 'members' in entry;
 }
 
 main();

@@ -7,7 +7,6 @@
  */
 
 import ts from 'typescript';
-import * as path from 'path';
 import {
   ReflectionHost,
   ClassDeclaration,
@@ -17,7 +16,7 @@ import {DtsMetadataReader} from '../../../../compiler-cli/src/ngtsc/metadata';
 import {Reference} from '../../../../compiler-cli/src/ngtsc/imports';
 import {getAngularDecorators} from '../../../../compiler-cli/src/ngtsc/annotations';
 
-import {UniqueID} from '../../utils/tsurge';
+import {ProgramInfo, projectFile, UniqueID} from '../../utils/tsurge';
 
 /** Branded type for unique IDs of Angular `@Output`s. */
 export type OutputID = UniqueID<'output-node'>;
@@ -28,8 +27,6 @@ export interface ExtractedOutput {
   aliasParam?: ts.Expression;
 }
 
-const PROBLEMATIC_OUTPUT_USAGES = new Set(['complete', 'pipe']);
-
 /**
  * Determines if the given node refers to a decorator-based output, and
  * returns its resolved metadata if possible.
@@ -37,13 +34,13 @@ const PROBLEMATIC_OUTPUT_USAGES = new Set(['complete', 'pipe']);
 export function extractSourceOutputDefinition(
   node: ts.PropertyDeclaration,
   reflector: ReflectionHost,
-  projectDirAbsPath: string,
+  info: ProgramInfo,
 ): ExtractedOutput | null {
   const outputDecorator = getOutputDecorator(node, reflector);
 
   if (outputDecorator !== null && isOutputDeclarationEligibleForMigration(node)) {
     return {
-      id: getUniqueIdForProperty(projectDirAbsPath, node),
+      id: getUniqueIdForProperty(info, node),
       aliasParam: outputDecorator.args?.at(0),
     };
   }
@@ -60,29 +57,28 @@ function isOutputDeclarationEligibleForMigration(node: ts.PropertyDeclaration) {
   );
 }
 
-export function isPotentialProblematicEventEmitterUsage(
-  node: ts.Node,
-): node is ts.PropertyAccessExpression {
-  return (
-    ts.isPropertyAccessExpression(node) &&
-    ts.isIdentifier(node.name) &&
-    PROBLEMATIC_OUTPUT_USAGES.has(node.name.text)
-  );
-}
-
-export function isPotentialNextCallUsage(node: ts.Node): node is ts.CallExpression {
+function isPotentialOutputCallUsage(node: ts.Node, name: string): node is ts.CallExpression {
   if (
     ts.isCallExpression(node) &&
     ts.isPropertyAccessExpression(node.expression) &&
     ts.isIdentifier(node.expression.name)
   ) {
-    const methodName = node.expression.name.text;
-    if (methodName === 'next') {
-      return true;
-    }
+    return node.expression?.name.text === name;
+  } else {
+    return false;
   }
+}
 
-  return false;
+export function isPotentialPipeCallUsage(node: ts.Node): node is ts.CallExpression {
+  return isPotentialOutputCallUsage(node, 'pipe');
+}
+
+export function isPotentialNextCallUsage(node: ts.Node): node is ts.CallExpression {
+  return isPotentialOutputCallUsage(node, 'next');
+}
+
+export function isPotentialCompleteCallUsage(node: ts.Node): node is ts.CallExpression {
+  return isPotentialOutputCallUsage(node, 'complete');
 }
 
 export function isTargetOutputDeclaration(
@@ -153,10 +149,16 @@ function getOutputDecorator(
 
 // THINK: this utility + type is not specific to @Output, really, maybe move it to tsurge?
 /** Computes an unique ID for a given Angular `@Output` property. */
-export function getUniqueIdForProperty(
-  projectDirAbsPath: string,
-  prop: ts.PropertyDeclaration,
-): OutputID {
-  const fileId = path.relative(projectDirAbsPath, prop.getSourceFile().fileName);
-  return `${fileId}@@${prop.parent.name ?? 'unknown-class'}@@${prop.name.getText()}` as OutputID;
+export function getUniqueIdForProperty(info: ProgramInfo, prop: ts.PropertyDeclaration): OutputID {
+  const {id} = projectFile(prop.getSourceFile(), info);
+  id.replace(/\.d\.ts$/, '.ts');
+  return `${id}@@${prop.parent.name ?? 'unknown-class'}@@${prop.name.getText()}` as OutputID;
+}
+
+export function isTestRunnerImport(node: ts.Node) {
+  if (ts.isImportDeclaration(node)) {
+    const moduleSpecifier = node.moduleSpecifier.getText();
+    return moduleSpecifier.includes('jasmine') || moduleSpecifier.includes('catalyst');
+  }
+  return false;
 }

@@ -7,27 +7,27 @@
  */
 
 import {KnownInputs} from '../input_detection/known_inputs';
-import {MigrationResult} from '../result';
-import {InputUniqueKey} from '../utils/input_id';
+import {ClassFieldUniqueKey} from '../passes/reference_resolution/known_fields';
 import {
-  isHostBindingInputReference,
-  isTsInputClassTypeReference,
-  isTsInputReference,
-} from '../utils/input_reference';
+  isHostBindingReference,
+  isTsClassTypeReference,
+  isTsReference,
+} from '../passes/reference_resolution/reference_kinds';
+import {MigrationResult} from '../result';
 import {CompilationUnitData, IncompatibilityType} from './unit_data';
 
 export function getCompilationUnitMetadata(knownInputs: KnownInputs, result: MigrationResult) {
   const struct: CompilationUnitData = {
     knownInputs: Array.from(knownInputs.knownInputIds.entries()).reduce(
-      (res, [inputIdStr, info]) => {
+      (res, [inputClassFieldIdStr, info]) => {
         const classIncompatibility =
           info.container.incompatible !== null
             ? ({kind: IncompatibilityType.VIA_CLASS, reason: info.container.incompatible!} as const)
             : null;
-        const memberIncompatibility = info.container.memberIncompatibility.has(inputIdStr)
+        const memberIncompatibility = info.container.memberIncompatibility.has(inputClassFieldIdStr)
           ? ({
               kind: IncompatibilityType.VIA_INPUT,
-              reason: info.container.memberIncompatibility.get(inputIdStr)!.reason,
+              reason: info.container.memberIncompatibility.get(inputClassFieldIdStr)!.reason,
             } as const)
           : null;
         const incompatibility = classIncompatibility ?? memberIncompatibility ?? null;
@@ -35,7 +35,7 @@ export function getCompilationUnitMetadata(knownInputs: KnownInputs, result: Mig
         // Note: Trim off the `context` as it cannot be serialized with e.g. TS nodes.
         return {
           ...res,
-          [inputIdStr as string & InputUniqueKey]: {
+          [inputClassFieldIdStr as string & ClassFieldUniqueKey]: {
             isIncompatible: incompatibility,
           },
         };
@@ -43,34 +43,35 @@ export function getCompilationUnitMetadata(knownInputs: KnownInputs, result: Mig
       {} as CompilationUnitData['knownInputs'],
     ),
     references: result.references.map((r) => {
-      if (isTsInputReference(r)) {
+      if (isTsReference(r)) {
         return {
           kind: r.kind,
           target: r.target.key,
           from: {
-            fileId: r.from.fileId,
+            file: r.from.file,
             node: {positionEndInFile: r.from.node.getEnd()},
             isWrite: r.from.isWrite,
             isPartOfElementBinding: r.from.isPartOfElementBinding,
           },
         };
-      } else if (isHostBindingInputReference(r)) {
+      } else if (isHostBindingReference(r)) {
         return {
           kind: r.kind,
           target: r.target.key,
           from: {
-            fileId: r.from.fileId,
+            file: r.from.file,
             hostPropertyNode: {positionEndInFile: r.from.hostPropertyNode.getEnd()},
             isObjectShorthandExpression: r.from.isObjectShorthandExpression,
+            isWrite: r.from.isWrite,
             read: {positionEndInFile: r.from.read.sourceSpan.end},
           },
         };
-      } else if (isTsInputClassTypeReference(r)) {
+      } else if (isTsClassTypeReference(r)) {
         return {
           kind: r.kind,
           target: {positionEndInFile: r.target.getEnd()},
           from: {
-            fileId: r.from.fileId,
+            file: r.from.file,
             node: {positionEndInFile: r.from.node.getEnd()},
           },
           isPartOfCatalystFile: r.isPartOfCatalystFile,
@@ -81,9 +82,11 @@ export function getCompilationUnitMetadata(knownInputs: KnownInputs, result: Mig
         kind: r.kind,
         target: r.target.key,
         from: {
-          originatingTsFileId: r.from.originatingTsFileId,
-          templateFileId: r.from.templateFileId,
+          originatingTsFile: r.from.originatingTsFile,
+          templateFile: r.from.templateFile,
           isObjectShorthandExpression: r.from.isObjectShorthandExpression,
+          isLikelyPartOfNarrowing: r.from.isLikelyPartOfNarrowing,
+          isWrite: r.from.isWrite,
           node: {positionEndInFile: r.from.node.sourceSpan.end.offset},
           read: {positionEndInFile: r.from.read.sourceSpan.end},
         },

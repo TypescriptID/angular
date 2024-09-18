@@ -8,11 +8,9 @@
 
 import {DOCUMENT, isPlatformBrowser} from '@angular/common';
 import {
-  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   inject,
-  Injector,
   OnInit,
   PLATFORM_ID,
   signal,
@@ -44,7 +42,6 @@ import {HeaderService} from './core/services/header.service';
     Footer,
     SecondaryNavigation,
     RouterOutlet,
-    RouterLink,
     SearchDialog,
     ProgressBarComponent,
     TopLevelBannerComponent,
@@ -81,8 +78,6 @@ export class AppComponent implements OnInit {
 
         this.updateCanonicalLink(url);
       });
-
-    this.focusFirstHeadingOnRouteChange();
   }
 
   focusFirstHeading(): void {
@@ -103,18 +98,6 @@ export class AppComponent implements OnInit {
 
     this.displaySecondaryNav.set(activatedRoute.data['displaySecondaryNav']);
     this.displayFooter.set(!activatedRoute.data['hideFooter']);
-  }
-
-  private focusFirstHeadingOnRouteChange(): void {
-    this.router.events
-      .pipe(
-        filter((e): e is NavigationEnd => e instanceof NavigationEnd),
-        // Skip first emission, cause on the initial load we would like to `Skip to main content` popup when it's focused
-        skip(1),
-      )
-      .subscribe(() => {
-        this.focusFirstHeading();
-      });
   }
 
   private setSearchDialogVisibilityOnKeyPress(event: KeyboardEvent): void {

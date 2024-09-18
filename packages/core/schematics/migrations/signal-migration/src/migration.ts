@@ -11,7 +11,7 @@ import {confirmAsSerializable, Serializable} from '../../../utils/tsurge/helpers
 import {BaseProgramInfo, ProgramInfo} from '../../../utils/tsurge/program_info';
 import {TsurgeComplexMigration} from '../../../utils/tsurge/migration';
 import {CompilationUnitData} from './batch/unit_data';
-import {KnownInputInfo, KnownInputs} from './input_detection/known_inputs';
+import {KnownInputs} from './input_detection/known_inputs';
 import {AnalysisProgramInfo, prepareAnalysisInfo} from './analysis_deps';
 import {MigrationResult} from './result';
 import {MigrationHost} from './migration_host';
@@ -27,8 +27,9 @@ import {filterIncompatibilitiesForBestEffortMode} from './best_effort_mode';
 import {createNgtscProgram} from '../../../utils/tsurge/helpers/ngtsc_program';
 import assert from 'assert';
 import {InputIncompatibilityReason} from './input_detection/incompatibility';
-import {InputUniqueKey, isInputDescriptor} from './utils/input_id';
+import {isInputDescriptor} from './utils/input_id';
 import {MigrationConfig} from './migration_config';
+import {ClassFieldUniqueKey} from './passes/reference_resolution/known_fields';
 
 /**
  * Tsurge migration for migrating Angular `@Input()` declarations to
@@ -40,7 +41,7 @@ export class SignalInputMigration extends TsurgeComplexMigration<
 > {
   upgradedAnalysisPhaseResults: {
     replacements: Replacement[];
-    projectAbsDirPath: AbsoluteFsPath;
+    projectRoot: AbsoluteFsPath;
     knownInputs: KnownInputs;
   } | null = null;
 
@@ -51,7 +52,6 @@ export class SignalInputMigration extends TsurgeComplexMigration<
   // Override the default ngtsc program creation, to add extra flags.
   override createProgram(tsconfigAbsPath: string, fs?: FileSystem): BaseProgramInfo {
     return createNgtscProgram(tsconfigAbsPath, fs, {
-      _enableTemplateTypeChecker: true,
       _compilePoisonedComponents: true,
       // We want to migrate non-exported classes too.
       compileNonExportedClasses: true,
@@ -65,24 +65,40 @@ export class SignalInputMigration extends TsurgeComplexMigration<
   // Extend the program info with the analysis information we need in every phase.
   prepareAnalysisDeps(info: ProgramInfo): AnalysisProgramInfo {
     assert(info.ngCompiler !== null, 'Expected `NgCompiler` to be configured.');
-    return {
+    const analysisInfo = {
       ...info,
-      ...prepareAnalysisInfo(info.program, info.ngCompiler, info.programAbsoluteRootPaths),
+      ...prepareAnalysisInfo(info.program, info.ngCompiler, info.programAbsoluteRootFileNames),
     };
+
+    // Optional filter for testing. Allows for simulation of parallel execution
+    // even if some tsconfig's have overlap due to sharing of TS sources.
+    // (this is commonly not the case in g3 where deps are `.d.ts` files).
+    const limitToRootNamesOnly = process.env['LIMIT_TO_ROOT_NAMES_ONLY'] === '1';
+    analysisInfo.sourceFiles = analysisInfo.sourceFiles.filter(
+      (f) =>
+        // Optional replacement filter. Allows parallel execution in case
+        // some tsconfig's have overlap due to sharing of TS sources.
+        // (this is commonly not the case in g3 where deps are `.d.ts` files).
+        !limitToRootNamesOnly || info.programAbsoluteRootFileNames!.includes(f.fileName),
+    );
+
+    return analysisInfo;
   }
 
   override async analyze(info: ProgramInfo) {
     const analysisDeps = this.prepareAnalysisDeps(info);
     const {metaRegistry} = analysisDeps;
-    const knownInputs = new KnownInputs();
+    const knownInputs = new KnownInputs(info, this.config);
     const result = new MigrationResult();
     const host = createMigrationHost(info, this.config);
 
     this.config.reportProgressFn?.(10, 'Analyzing project (input usages)..');
     const {inheritanceGraph} = executeAnalysisPhase(host, knownInputs, result, analysisDeps);
 
+    filterInputsViaConfig(result, knownInputs, this.config);
+
     this.config.reportProgressFn?.(40, 'Checking inheritance..');
-    pass4__checkInheritanceOfInputs(host, inheritanceGraph, metaRegistry, knownInputs);
+    pass4__checkInheritanceOfInputs(inheritanceGraph, metaRegistry, knownInputs);
     if (this.config.bestEffortMode) {
       filterIncompatibilitiesForBestEffortMode(knownInputs);
     }
@@ -106,7 +122,7 @@ export class SignalInputMigration extends TsurgeComplexMigration<
       // Expose the upgraded analysis stage results.
       this.upgradedAnalysisPhaseResults = {
         replacements,
-        projectAbsDirPath: info.projectDirAbsPath,
+        projectRoot: info.projectRoot,
         knownInputs,
       };
     }
@@ -129,7 +145,7 @@ export class SignalInputMigration extends TsurgeComplexMigration<
       analysisDeps: AnalysisProgramInfo;
     },
   ): Promise<Replacement[]> {
-    const knownInputs = nonBatchData?.knownInputs ?? new KnownInputs();
+    const knownInputs = nonBatchData?.knownInputs ?? new KnownInputs(info, this.config);
     const result = nonBatchData?.result ?? new MigrationResult();
     const host = nonBatchData?.host ?? createMigrationHost(info, this.config);
     const analysisDeps = nonBatchData?.analysisDeps ?? this.prepareAnalysisDeps(info);
@@ -141,18 +157,13 @@ export class SignalInputMigration extends TsurgeComplexMigration<
       inheritanceGraph = analysisRes.inheritanceGraph;
       populateKnownInputsFromGlobalData(knownInputs, globalMetadata);
 
-      pass4__checkInheritanceOfInputs(
-        host,
-        inheritanceGraph,
-        analysisDeps.metaRegistry,
-        knownInputs,
-      );
+      filterInputsViaConfig(result, knownInputs, this.config);
+      pass4__checkInheritanceOfInputs(inheritanceGraph, analysisDeps.metaRegistry, knownInputs);
       if (this.config.bestEffortMode) {
         filterIncompatibilitiesForBestEffortMode(knownInputs);
       }
     }
 
-    filterInputsViaConfig(result, knownInputs, this.config);
     executeMigrationPhase(host, knownInputs, result, analysisDeps);
 
     return result.replacements;
@@ -172,13 +183,13 @@ function filterInputsViaConfig(
     return;
   }
 
-  const skippedInputs = new Set<InputUniqueKey>();
+  const skippedInputs = new Set<ClassFieldUniqueKey>();
 
   // Mark all skipped inputs as incompatible for migration.
   for (const input of knownInputs.knownInputIds.values()) {
     if (!config.shouldMigrateInput(input)) {
       skippedInputs.add(input.descriptor.key);
-      knownInputs.markInputAsIncompatible(input.descriptor, {
+      knownInputs.markFieldIncompatible(input.descriptor, {
         context: null,
         reason: InputIncompatibilityReason.SkippedViaConfigFilter,
       });
@@ -197,11 +208,5 @@ function filterInputsViaConfig(
 }
 
 function createMigrationHost(info: ProgramInfo, config: MigrationConfig): MigrationHost {
-  return new MigrationHost(
-    /* projectDir */ info.projectDirAbsPath,
-    /* isMigratingCore */ false,
-    info.userOptions,
-    config,
-    info.sourceFiles,
-  );
+  return new MigrationHost(/* isMigratingCore */ false, info, config, info.sourceFiles);
 }

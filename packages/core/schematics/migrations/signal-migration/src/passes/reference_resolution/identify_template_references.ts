@@ -6,38 +6,38 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import ts from 'typescript';
-import {ResourceLoader} from '@angular/compiler-cli/src/ngtsc/annotations';
-import {TemplateTypeChecker} from '@angular/compiler-cli/src/ngtsc/typecheck/api';
-import {InputIncompatibilityReason} from '../../input_detection/incompatibility';
-import {KnownInputs} from '../../input_detection/known_inputs';
-import {TemplateReferenceVisitor} from '../../input_detection/template_reference_visitor';
-import {MigrationHost} from '../../migration_host';
-import {MigrationResult} from '../../result';
-import {InputReferenceKind} from '../../utils/input_reference';
-import {ClassDeclaration, ReflectionHost} from '@angular/compiler-cli/src/ngtsc/reflection';
-import {PartialEvaluator} from '@angular/compiler-cli/src/ngtsc/partial_evaluator';
-import {extractTemplate} from '@angular/compiler-cli/src/ngtsc/annotations/component/src/resources';
-import {attemptExtractTemplateDefinition} from '../../utils/extract_template';
-import {NgCompilerOptions} from '@angular/compiler-cli/src/ngtsc/core/api';
-import {CompilationMode} from '@angular/compiler-cli/src/ngtsc/transform';
 import {TmplAstNode} from '@angular/compiler';
+import {ResourceLoader} from '@angular/compiler-cli/src/ngtsc/annotations';
+import {extractTemplate} from '@angular/compiler-cli/src/ngtsc/annotations/component/src/resources';
+import {NgCompilerOptions} from '@angular/compiler-cli/src/ngtsc/core/api';
+import {absoluteFrom} from '@angular/compiler-cli/src/ngtsc/file_system';
+import {PartialEvaluator} from '@angular/compiler-cli/src/ngtsc/partial_evaluator';
+import {ClassDeclaration, ReflectionHost} from '@angular/compiler-cli/src/ngtsc/reflection';
+import {CompilationMode} from '@angular/compiler-cli/src/ngtsc/transform';
+import {TemplateTypeChecker} from '@angular/compiler-cli/src/ngtsc/typecheck/api';
+import ts from 'typescript';
+import {ProgramInfo, projectFile} from '../../../../../utils/tsurge';
+import {TemplateReferenceVisitor} from './template_reference_visitor';
+import {attemptExtractTemplateDefinition} from '../../utils/extract_template';
+import {ReferenceResult} from './reference_result';
+import {ClassFieldDescriptor, KnownFields} from './known_fields';
+import {ReferenceKind} from './reference_kinds';
 
 /**
  * Checks whether the given class has an Angular template, and resolves
  * all of the references to inputs.
  */
-export function identifyTemplateReferences(
+export function identifyTemplateReferences<D extends ClassFieldDescriptor>(
+  programInfo: ProgramInfo,
   node: ts.ClassDeclaration,
-  host: MigrationHost,
   reflector: ReflectionHost,
   checker: ts.TypeChecker,
   evaluator: PartialEvaluator,
   templateTypeChecker: TemplateTypeChecker,
   resourceLoader: ResourceLoader,
   options: NgCompilerOptions,
-  result: MigrationResult,
-  knownInputs: KnownInputs,
+  result: ReferenceResult<D>,
+  knownFields: KnownFields<D>,
 ) {
   const template =
     templateTypeChecker.getTemplate(node) ??
@@ -51,42 +51,42 @@ export function identifyTemplateReferences(
       resourceLoader,
       evaluator,
       options,
-      host,
     );
 
   if (template !== null) {
-    const visitor = new TemplateReferenceVisitor(
-      host,
-      checker,
-      templateTypeChecker,
-      node,
-      knownInputs,
-    );
+    const visitor = new TemplateReferenceVisitor(checker, templateTypeChecker, node, knownFields);
     template.forEach((node) => node.visit(visitor));
 
     for (const res of visitor.result) {
       const templateFilePath = res.context.sourceSpan.start.file.url;
 
+      // Templates without an URL are non-mappable artifacts of e.g.
+      // string concatenated templates. See the `indirect` template
+      // source mapping concept in the compiler. We skip such references
+      // as those cannot be migrated, but print an error for now.
+      if (templateFilePath === '') {
+        // TODO: Incorporate a TODO potentially.
+        console.error(
+          `Found reference to input ${res.targetField.key} that cannot be ` +
+            `migrated because the template cannot be parsed with source map information ` +
+            `(in file: ${node.getSourceFile().fileName}).`,
+        );
+        continue;
+      }
+
       result.references.push({
-        kind: InputReferenceKind.InTemplate,
+        kind: ReferenceKind.InTemplate,
         from: {
           read: res.read,
           node: res.context,
           isObjectShorthandExpression: res.isObjectShorthandExpression,
-          originatingTsFileId: host.fileToId(node.getSourceFile()),
-          templateFileId: host.fileToId(templateFilePath),
+          originatingTsFile: projectFile(node.getSourceFile(), programInfo),
+          templateFile: projectFile(absoluteFrom(templateFilePath), programInfo),
+          isLikelyPartOfNarrowing: res.isLikelyNarrowed,
+          isWrite: res.isWrite,
         },
-        target: res.targetInput,
+        target: res.targetField,
       });
-
-      // TODO: Remove this when we support signal narrowing in templates.
-      // https://github.com/angular/angular/pull/55456.
-      if (process.env['MIGRATE_NARROWED_NARROWED_IN_TEMPLATES'] !== '1' && res.isLikelyNarrowed) {
-        knownInputs.markInputAsIncompatible(res.targetInput, {
-          reason: InputIncompatibilityReason.PotentiallyNarrowedInTemplateButNoSupportYet,
-          context: null,
-        });
-      }
     }
   }
 }
@@ -107,12 +107,11 @@ function extractTemplateWithoutCompilerAnalysis(
   resourceLoader: ResourceLoader,
   evaluator: PartialEvaluator,
   options: NgCompilerOptions,
-  host: MigrationHost,
 ): TmplAstNode[] | null {
   if (node.name === undefined) {
     return null;
   }
-  const tmplDef = attemptExtractTemplateDefinition(node, checker, reflector, host);
+  const tmplDef = attemptExtractTemplateDefinition(node, checker, reflector, resourceLoader);
   if (tmplDef === null) {
     return null;
   }

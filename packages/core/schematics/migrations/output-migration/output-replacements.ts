@@ -8,22 +8,17 @@
 
 import ts from 'typescript';
 
-import {AbsoluteFsPath, ImportManager} from '../../../../compiler-cli/private/migrations';
-import {
-  ProjectRelativePath,
-  projectRelativePath,
-  Replacement,
-  TextUpdate,
-} from '../../utils/tsurge';
+import {ImportManager} from '../../../../compiler-cli/private/migrations';
+import {ProgramInfo, projectFile, ProjectFileID, Replacement, TextUpdate} from '../../utils/tsurge';
 import {applyImportManagerChanges} from '../../utils/tsurge/helpers/apply_import_manager';
 
 const printer = ts.createPrinter();
 
-export function calculateDeclarationReplacements(
-  projectDirAbsPath: AbsoluteFsPath,
+export function calculateDeclarationReplacement(
+  info: ProgramInfo,
   node: ts.PropertyDeclaration,
   aliasParam?: ts.Expression,
-): Replacement[] {
+): Replacement {
   const sf = node.getSourceFile();
   const payloadTypes =
     node.initializer !== undefined && ts.isNewExpression(node.initializer)
@@ -40,8 +35,7 @@ export function calculateDeclarationReplacements(
     (modifier) => !ts.isDecorator(modifier) && modifier.kind !== ts.SyntaxKind.ReadonlyKeyword,
   );
 
-  const updatedOutputDeclaration = ts.factory.updatePropertyDeclaration(
-    node,
+  const updatedOutputDeclaration = ts.factory.createPropertyDeclaration(
     // Think: this logic of dealing with modifiers is applicable to all signal-based migrations
     ts.factory.createNodeArray([
       ...existingModifiers,
@@ -53,24 +47,16 @@ export function calculateDeclarationReplacements(
     outputCall,
   );
 
-  return [
-    new Replacement(
-      projectRelativePath(sf, projectDirAbsPath),
-      new TextUpdate({
-        position: node.getStart(),
-        end: node.getEnd(),
-        toInsert: printer.printNode(ts.EmitHint.Unspecified, updatedOutputDeclaration, sf),
-      }),
-    ),
-  ];
+  return prepareTextReplacement(
+    info,
+    node,
+    printer.printNode(ts.EmitHint.Unspecified, updatedOutputDeclaration, sf),
+  );
 }
 
-export function calculateImportReplacements(
-  projectDirAbsPath: AbsoluteFsPath,
-  sourceFiles: ts.SourceFile[],
-) {
+export function calculateImportReplacements(info: ProgramInfo, sourceFiles: Set<ts.SourceFile>) {
   const importReplacements: Record<
-    ProjectRelativePath,
+    ProjectFileID,
     {add: Replacement[]; addAndRemove: Replacement[]}
   > = {};
 
@@ -79,19 +65,20 @@ export function calculateImportReplacements(
   for (const sf of sourceFiles) {
     const addOnly: Replacement[] = [];
     const addRemove: Replacement[] = [];
+    const file = projectFile(sf, info);
 
     importManager.addImport({
       requestedFile: sf,
       exportModuleSpecifier: '@angular/core',
       exportSymbolName: 'output',
     });
-    applyImportManagerChanges(importManager, addOnly, [sf], projectDirAbsPath);
+    applyImportManagerChanges(importManager, addOnly, [sf], info);
 
     importManager.removeImport(sf, 'Output', '@angular/core');
     importManager.removeImport(sf, 'EventEmitter', '@angular/core');
-    applyImportManagerChanges(importManager, addRemove, [sf], projectDirAbsPath);
+    applyImportManagerChanges(importManager, addRemove, [sf], info);
 
-    importReplacements[projectRelativePath(sf, projectDirAbsPath)] = {
+    importReplacements[file.id] = {
       add: addOnly,
       addAndRemove: addRemove,
     };
@@ -100,17 +87,77 @@ export function calculateImportReplacements(
   return importReplacements;
 }
 
-export function calculateNextFnReplacement(
-  projectDirAbsPath: AbsoluteFsPath,
-  node: ts.MemberName,
+export function calculateNextFnReplacement(info: ProgramInfo, node: ts.MemberName): Replacement {
+  return prepareTextReplacement(info, node, 'emit');
+}
+
+export function calculateCompleteCallReplacement(
+  info: ProgramInfo,
+  node: ts.ExpressionStatement,
+): Replacement {
+  return prepareTextReplacement(info, node, '', node.getFullStart());
+}
+
+export function calculatePipeCallReplacement(
+  info: ProgramInfo,
+  node: ts.CallExpression,
+): Replacement[] {
+  if (ts.isPropertyAccessExpression(node.expression)) {
+    const sf = node.getSourceFile();
+    const importManager = new ImportManager();
+
+    const outputToObservableIdent = importManager.addImport({
+      requestedFile: sf,
+      exportModuleSpecifier: '@angular/core/rxjs-interop',
+      exportSymbolName: 'outputToObservable',
+    });
+    const toObsCallExp = ts.factory.createCallExpression(outputToObservableIdent, undefined, [
+      node.expression.expression,
+    ]);
+    const pipePropAccessExp = ts.factory.updatePropertyAccessExpression(
+      node.expression,
+      toObsCallExp,
+      node.expression.name,
+    );
+    const pipeCallExp = ts.factory.updateCallExpression(
+      node,
+      pipePropAccessExp,
+      [],
+      node.arguments,
+    );
+
+    const replacements = [
+      prepareTextReplacement(
+        info,
+        node,
+        printer.printNode(ts.EmitHint.Unspecified, pipeCallExp, sf),
+      ),
+    ];
+
+    applyImportManagerChanges(importManager, replacements, [sf], info);
+
+    return replacements;
+  } else {
+    // TODO: assert instead?
+    throw new Error(
+      `Unexpected call expression for .pipe - expected a property access but got "${node.getText()}"`,
+    );
+  }
+}
+
+function prepareTextReplacement(
+  info: ProgramInfo,
+  node: ts.Node,
+  replacement: string,
+  start?: number,
 ): Replacement {
   const sf = node.getSourceFile();
   return new Replacement(
-    projectRelativePath(sf, projectDirAbsPath),
+    projectFile(sf, info),
     new TextUpdate({
-      position: node.getStart(),
+      position: start ?? node.getStart(),
       end: node.getEnd(),
-      toInsert: 'emit',
+      toInsert: replacement,
     }),
   );
 }
