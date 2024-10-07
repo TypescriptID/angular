@@ -3,14 +3,13 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
 import {ChangeDetectionStrategy, Component, computed, inject, input} from '@angular/core';
 import {ComponentType} from 'protocol';
 
 import {ElementPropertyResolver} from '../property-resolver/element-property-resolver';
-import {MatButton} from '@angular/material/button';
 
 @Component({
   selector: 'ng-component-metadata',
@@ -18,7 +17,6 @@ import {MatButton} from '@angular/material/button';
   styleUrls: ['./component-metadata.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: true,
-  imports: [MatButton],
 })
 export class ComponentMetadataComponent {
   readonly currentSelectedComponent = input.required<ComponentType>();

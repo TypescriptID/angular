@@ -3,7 +3,7 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
 import {
@@ -334,6 +334,9 @@ export function afterRenderEffect<E = never, W = never, M = never>(
   options?: Omit<AfterRenderOptions, 'phase'>,
 ): AfterRenderRef;
 
+/**
+ * @experimental
+ */
 export function afterRenderEffect<E = never, W = never, M = never>(
   callbackOrSpec:
     | ((onCleanup: EffectCleanupRegisterFn) => void)

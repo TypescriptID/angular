@@ -3,7 +3,7 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
 import {Optional, SkipSelf, StaticProvider, ɵɵdefineInjectable} from '../../di';
@@ -129,10 +129,7 @@ export class KeyValueDiffers {
     factory: defaultKeyValueDiffersFactory,
   });
 
-  /**
-   * @deprecated v4.0.0 - Should be private.
-   */
-  factories: KeyValueDifferFactory[];
+  private readonly factories: KeyValueDifferFactory[];
 
   constructor(factories: KeyValueDifferFactory[]) {
     this.factories = factories;

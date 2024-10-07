@@ -201,9 +201,6 @@
     "name": "ErrorHandler"
   },
   {
-    "name": "EventDelegationPlugin"
-  },
-  {
     "name": "EventEmitter"
   },
   {
@@ -211,9 +208,6 @@
   },
   {
     "name": "EventManagerPlugin"
-  },
-  {
-    "name": "GLOBAL_EVENT_DELEGATION"
   },
   {
     "name": "GenericBrowserDomAdapter"
@@ -411,7 +405,7 @@
     "name": "PRESERVE_HOST_CONTENT_DEFAULT"
   },
   {
-    "name": "PendingTasks"
+    "name": "PendingTasksInternal"
   },
   {
     "name": "R3Injector"
@@ -609,7 +603,7 @@
     "name": "addPropertyBinding"
   },
   {
-    "name": "addToViewTree"
+    "name": "addToEndOfViewTree"
   },
   {
     "name": "allocExpando"
@@ -756,10 +750,16 @@
     "name": "createLView"
   },
   {
+    "name": "createLinkElement"
+  },
+  {
     "name": "createNodeInjector"
   },
   {
     "name": "createNotification"
+  },
+  {
+    "name": "createStyleElement"
   },
   {
     "name": "createTView"
@@ -913,6 +913,9 @@
   },
   {
     "name": "getFirstNativeNode"
+  },
+  {
+    "name": "getInitialLViewFlagsFromDef"
   },
   {
     "name": "getInjectImplementation"
@@ -1455,9 +1458,6 @@
     "name": "init_event_contract_defines"
   },
   {
-    "name": "init_event_delegation"
-  },
-  {
     "name": "init_event_delegation_utils"
   },
   {
@@ -1485,6 +1485,9 @@
     "name": "init_exhaustive_check_no_changes"
   },
   {
+    "name": "init_external_styles_feature"
+  },
+  {
     "name": "init_fields"
   },
   {
@@ -1507,6 +1510,9 @@
   },
   {
     "name": "init_graph"
+  },
+  {
+    "name": "init_hmr"
   },
   {
     "name": "init_hooks"
@@ -1867,6 +1873,9 @@
   },
   {
     "name": "init_profiler"
+  },
+  {
+    "name": "init_profiler2"
   },
   {
     "name": "init_projection"
@@ -2404,6 +2413,9 @@
   },
   {
     "name": "remove"
+  },
+  {
+    "name": "removeElements"
   },
   {
     "name": "removeFromArray"

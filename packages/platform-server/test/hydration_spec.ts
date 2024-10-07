@@ -3,7 +3,7 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
 import '@angular/localize/init';
@@ -41,6 +41,7 @@ import {
   Pipe,
   PipeTransform,
   PLATFORM_ID,
+  provideExperimentalZonelessChangeDetection,
   Provider,
   QueryList,
   TemplateRef,
@@ -71,7 +72,14 @@ import {provideRouter, RouterOutlet, Routes} from '@angular/router';
 import {provideServerRendering} from '../public_api';
 import {renderApplication} from '../src/utils';
 
-import {getAppContents, renderAndHydrate, resetTViewsFor, stripUtilAttributes} from './dom_utils';
+import {
+  clearDocument,
+  getAppContents,
+  renderAndHydrate,
+  resetTViewsFor,
+  stripUtilAttributes,
+} from './dom_utils';
+import {CLIENT_RENDER_MODE_FLAG} from '@angular/core/src/hydration/api';
 
 /**
  * The name of the attribute that contains a slot index
@@ -213,6 +221,17 @@ function verifyHasNoLog(appRef: ApplicationRef, message: string) {
     .toBe(false);
 }
 
+/**
+ * Verifies that there are no messages in a console.
+ */
+function verifyEmptyConsole(appRef: ApplicationRef) {
+  const console = appRef.injector.get(Console) as DebugConsole;
+  const logs = console.logs.filter(
+    (msg) => !msg.startsWith('Angular is running in development mode'),
+  );
+  expect(logs).toEqual([]);
+}
+
 function getHydrationInfoFromTransferState(input: string): string | undefined {
   return input.match(/<script[^>]+>(.*?)<\/script>/)?.[1];
 }
@@ -270,9 +289,7 @@ describe('platform-server hydration integration', () => {
       doc = TestBed.inject(DOCUMENT);
     });
 
-    afterEach(() => {
-      doc.body.textContent = '';
-    });
+    afterEach(() => clearDocument(doc));
 
     /**
      * This renders the application with server side rendering logic.
@@ -7078,7 +7095,7 @@ describe('platform-server hydration integration', () => {
         }
       });
 
-      it('should log an warning when there was no hydration info in the TransferState', async () => {
+      it('should log a warning when there was no hydration info in the TransferState', async () => {
         @Component({
           standalone: true,
           selector: 'app',
@@ -7116,6 +7133,34 @@ describe('platform-server hydration integration', () => {
         verifyNoNodesWereClaimedForHydration(clientRootNode);
         verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
       });
+
+      it(
+        'should not log a warning when there was no hydration info in the TransferState, ' +
+          'but a client mode marker is present',
+        async () => {
+          @Component({
+            standalone: true,
+            selector: 'app',
+            template: `Hi!`,
+          })
+          class SimpleComponent {}
+
+          const html = `<html><head></head><body ${CLIENT_RENDER_MODE_FLAG}><app></app></body></html>`;
+
+          resetTViewsFor(SimpleComponent);
+
+          const appRef = await renderAndHydrate(doc, html, SimpleComponent, {
+            envProviders: [withDebugConsole()],
+          });
+          const compRef = getComponentRef<SimpleComponent>(appRef);
+          appRef.tick();
+
+          verifyEmptyConsole(appRef);
+
+          const clientRootNode = compRef.location.nativeElement;
+          expect(clientRootNode.textContent).toContain('Hi!');
+        },
+      );
     });
 
     describe('@if', () => {
@@ -7947,6 +7992,47 @@ describe('platform-server hydration integration', () => {
         verifyAllNodesClaimedForHydration(clientRootNode);
         verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
         expect(clientRootNode.textContent).toContain('foo');
+      });
+    });
+
+    describe('zoneless', () => {
+      it('should not produce "unsupported configuration" warnings for zoneless mode', async () => {
+        @Component({
+          standalone: true,
+          selector: 'app',
+          template: `
+            <header>Header</header>
+            <footer>Footer</footer>
+          `,
+        })
+        class SimpleComponent {}
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        expect(ssrContents).toContain(`<app ${NGH_ATTR_NAME}`);
+
+        resetTViewsFor(SimpleComponent);
+
+        const appRef = await renderAndHydrate(doc, html, SimpleComponent, {
+          envProviders: [
+            withDebugConsole(),
+            provideExperimentalZonelessChangeDetection() as unknown as Provider[],
+          ],
+        });
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        // Make sure there are no extra logs in case zoneless mode is enabled.
+        verifyHasNoLog(
+          appRef,
+          'NG05000: Angular detected that hydration was enabled for an application ' +
+            'that uses a custom or a noop Zone.js implementation.',
+        );
+
+        const clientRootNode = compRef.location.nativeElement;
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
       });
     });
 

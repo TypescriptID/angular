@@ -119,6 +119,26 @@ it('should work', () => {
   } as Partial<UnwrapSignalInputs<MyComp>>;
   bootstrapTemplate('<my-comp [hello]="hello">', inputs);
 });
+@@@@@@ catalyst_test_partial.ts @@@@@@
+
+// tslint:disable
+
+import {Component, input} from '@angular/core';
+
+// @ts-ignore
+import {UnwrapSignalInputs} from 'google3/javascript/angular2/testing/catalyst/fake_async';
+
+function renderComponent(inputs: Partial<UnwrapSignalInputs<TestableSecondaryRangePicker>> = {}) {}
+
+@Component({
+  standalone: false,
+  jit: true,
+  template: '<bla [(ngModel)]="incompatible()">',
+})
+class TestableSecondaryRangePicker {
+  readonly bla = input(true);
+  readonly incompatible = input(true);
+}
 @@@@@@ constructor_initializations.ts @@@@@@
 
 // tslint:disable
@@ -182,6 +202,16 @@ class Derived extends Base {
 export class Base2 {
   readonly bla = input(true);
 }
+
+// overridden in separate file
+@Directive()
+export class Base3 {
+  readonly bla = input(true);
+
+  click() {
+    this.bla = false;
+  }
+}
 @@@@@@ derived_class_meta_input_alias.ts @@@@@@
 
 // tslint:disable
@@ -198,14 +228,32 @@ class Base {
   inputs: [{name: 'bla', alias: 'matDerivedBla'}],
 })
 class Derived extends Base {}
+@@@@@@ derived_class_second_separate.ts @@@@@@
+
+// tslint:disable
+
+import {input} from '@angular/core';
+import {DerivedExternalWithInput} from './derived_class_separate_file';
+
+class Derived extends DerivedExternalWithInput {
+  // this should be incompatible, because the final superclass
+  // within its own batch unit, detected a write that should
+  // propagate to this input.
+  override readonly bla = input(false);
+}
 @@@@@@ derived_class_separate_file.ts @@@@@@
 
 // tslint:disable
 
-import {Base2} from './derived_class';
+import {input} from '@angular/core';
+import {Base2, Base3} from './derived_class';
 
 class DerivedExternal extends Base2 {
   override bla = false;
+}
+
+export class DerivedExternalWithInput extends Base3 {
+  override readonly bla = input(true);
 }
 @@@@@@ different_instantiations_of_reference.ts @@@@@@
 
@@ -290,6 +338,8 @@ import {Directive, Input} from '@angular/core';
 
 @Directive({})
 export class WithGetters {
+  // TODO: Skipped for migration because:
+  //  Accessor inputs cannot be migrated as they are too complex.
   @Input()
   get disabled() {
     return this._disabled;
@@ -356,7 +406,7 @@ class HostBindingsShared2 {
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
 // tslint:disable
@@ -446,6 +496,8 @@ export class AppComponent {
   readonly incompatible = input<string | null>(null);
 
   private _bla: any;
+  // TODO: Skipped for migration because:
+  //  Accessor inputs cannot be migrated as they are too complex.
   @Input()
   set ngSwitch(newValue: any) {
     this._bla = newValue;
@@ -639,7 +691,7 @@ export class InlineTmpl {
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
 // tslint:disable
@@ -883,6 +935,7 @@ import {Directive, input} from '@angular/core';
 @Directive()
 class OptionalInput {
   readonly bla = input<string>();
+  readonly isLegacyHttpOnly = input<boolean | undefined>(false);
 }
 @@@@@@ problematic_type_reference.ts @@@@@@
 
@@ -952,7 +1005,7 @@ class Required {
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
 // tslint:disable
@@ -1161,6 +1214,9 @@ function x(v: string | undefined): string | undefined {
 
 export class TransformFunctions {
   // We can check this, and expect `as any` due to transform incompatibility.
+  // TODO: Notes from signal input migration:
+  //  Input type is incompatible with transform. The migration added an `any`
+  //  cast. This worked previously because Angular was unable to check transforms.
   readonly withExplicitTypeWorks = input.required<{
     ok: true;
 }, string | undefined>({ transform: ((v: string | undefined) => '') as any });
@@ -1168,6 +1224,9 @@ export class TransformFunctions {
   // This will be a synthetic type because we add `undefined` to `boolean`.
   readonly synthetic1 = input.required<boolean | undefined, string | undefined>({ transform: x });
   // Synthetic as we infer a full type from the initial value. Cannot be checked.
+  // TODO: Skipped for migration because:
+  //  Input is required, but the migration cannot determine a good type for the
+  //  input.
   @Input({required: true, transform: (v: string | undefined) => ''}) synthetic2 = {
     infer: COMPLEX_VAR,
   };
@@ -1183,6 +1242,9 @@ import {Directive, input} from '@angular/core';
 @Directive()
 class TransformIncompatibleTypes {
   // @ts-ignore Simulate `--strictPropertyInitialization=false`.
+  // TODO: Notes from signal input migration:
+  //  Input type is incompatible with transform. The migration added an `any`
+  //  cast. This worked previously because Angular was unable to check transforms.
   readonly disabled = input<boolean, unknown>(undefined, { transform: ((v: unknown) => (v === null ? undefined : !!v)) as any });
 }
 @@@@@@ with_getters.ts @@@@@@
@@ -1192,6 +1254,8 @@ class TransformIncompatibleTypes {
 import {Input, input} from '@angular/core';
 
 export class WithSettersAndGetters {
+  // TODO: Skipped for migration because:
+  //  Accessor inputs cannot be migrated as they are too complex.
   @Input()
   set onlySetter(newValue: any) {
     this._bla = newValue;
@@ -1201,6 +1265,8 @@ export class WithSettersAndGetters {
   }
   private _bla: any;
 
+  // TODO: Skipped for migration because:
+  //  Accessor inputs cannot be migrated as they are too complex.
   @Input()
   get accessor(): string {
     return '';
@@ -1240,4 +1306,24 @@ class WithJsdoc {
   readonly simpleInput = input.required<string>();
 
   readonly withCommentInside = input</* intended */ boolean>();
+}
+@@@@@@ writing_to_inputs.ts @@@@@@
+
+// tslint:disable
+
+import {input} from '@angular/core';
+
+export class TestCmp {
+  readonly testParenthesisInput = input(false);
+  readonly notMutated = input(true);
+
+  testParenthesis() {
+    // prettier-ignore
+    ((this.testParenthesisInput)) = true;
+  }
+
+  testNotMutated() {
+    let fixture: boolean;
+    fixture = this.notMutated();
+  }
 }

@@ -3,7 +3,7 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
 export {
@@ -20,3 +20,5 @@ export {type ClassFieldDescriptor} from './passes/reference_resolution/known_fie
 export {type InputDescriptor, getInputDescriptor, isInputDescriptor} from './utils/input_id';
 export {SignalInputMigration} from './migration';
 export {type MigrationConfig} from './migration_config';
+export {nonIgnorableInputIncompatibilities} from './best_effort_mode';
+export {InputIncompatibilityReason} from './input_detection/incompatibility';

@@ -63,6 +63,7 @@ export function afterRenderEffect<E = never, W = never, M = never>(spec: {
 // @public
 export interface AfterRenderOptions {
     injector?: Injector;
+    manualCleanup?: boolean;
     // @deprecated
     phase?: AfterRenderPhase;
 }
@@ -711,14 +712,6 @@ export interface ExistingSansProvider {
 }
 
 // @public
-export class ExperimentalPendingTasks {
-    add(): () => void;
-    run<T>(fn: () => Promise<T>): Promise<T>;
-    // (undocumented)
-    static ɵprov: unknown;
-}
-
-// @public
 export interface FactoryProvider extends FactorySansProvider {
     multi?: boolean;
     provide: any;
@@ -1022,7 +1015,7 @@ export interface InputSignalWithTransform<T, TransformT> extends Signal<T> {
     // (undocumented)
     [ɵINPUT_SIGNAL_BRAND_WRITE_TYPE]: TransformT;
     // (undocumented)
-    [SIGNAL]: InputSignalNode<T, TransformT>;
+    [SIGNAL]: ɵInputSignalNode<T, TransformT>;
 }
 
 // @public
@@ -1114,8 +1107,6 @@ export class KeyValueDiffers {
     // (undocumented)
     static create<S>(factories: KeyValueDifferFactory[], parent?: KeyValueDiffers): KeyValueDiffers;
     static extend<S>(factories: KeyValueDifferFactory[]): StaticProvider;
-    // @deprecated (undocumented)
-    factories: KeyValueDifferFactory[];
     // (undocumented)
     find(kv: any): KeyValueDifferFactory;
     // (undocumented)
@@ -1165,7 +1156,7 @@ export interface ModelOptions {
 // @public
 export interface ModelSignal<T> extends WritableSignal<T>, InputSignal<T>, OutputRef<T> {
     // (undocumented)
-    [SIGNAL]: InputSignalNode<T, T>;
+    [SIGNAL]: ɵInputSignalNode<T, T>;
 }
 
 // @public @deprecated
@@ -1352,6 +1343,14 @@ export interface OutputRefSubscription {
 export const PACKAGE_ROOT_URL: InjectionToken<string>;
 
 // @public
+export class PendingTasks {
+    add(): () => void;
+    run<T>(fn: () => Promise<T>): Promise<T>;
+    // (undocumented)
+    static ɵprov: unknown;
+}
+
+// @public
 export interface Pipe {
     name: string;
     pure?: boolean;
@@ -1523,6 +1522,7 @@ export interface RendererType2 {
         [kind: string]: any;
     };
     encapsulation: ViewEncapsulation;
+    getExternalStyles?: ((encapsulationId?: string) => string[]) | null;
     id: string;
     styles: string[];
 }

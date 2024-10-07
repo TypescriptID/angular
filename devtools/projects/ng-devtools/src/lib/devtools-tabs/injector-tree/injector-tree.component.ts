@@ -3,7 +3,7 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
 import {
@@ -15,9 +15,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import {MatButton} from '@angular/material/button';
 import {MatCheckbox} from '@angular/material/checkbox';
-import {MatExpansionPanel} from '@angular/material/expansion';
 import {MatIcon} from '@angular/material/icon';
 import {MatTooltip} from '@angular/material/tooltip';
 import {
@@ -34,7 +32,6 @@ import {
   InjectorTreeD3Node,
   InjectorTreeVisualizer,
 } from '../dependency-injection/injector-tree-visualizer';
-import {ResolutionPathComponent} from '../dependency-injection/resolution-path.component';
 
 import {InjectorProvidersComponent} from './injector-providers.component';
 import {
@@ -51,11 +48,8 @@ import {
   standalone: true,
   selector: 'ng-injector-tree',
   imports: [
-    MatButton,
     SplitComponent,
     SplitAreaDirective,
-    ResolutionPathComponent,
-    MatExpansionPanel,
     InjectorProvidersComponent,
     MatIcon,
     MatTooltip,

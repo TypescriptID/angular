@@ -3,7 +3,7 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  *
  * @fileoverview Schematics for `ng add @angular/localize` schematic.
  */
@@ -40,6 +40,7 @@ function addPolyfillToConfig(projectName: string): Rule {
         case AngularBuilder.Browser:
         case AngularBuilder.BrowserEsbuild:
         case AngularBuilder.Application:
+        case AngularBuilder.BuildApplication:
           target.options ??= {};
           const value = target.options['polyfills'];
           if (typeof value === 'string') {
@@ -77,6 +78,7 @@ function addTypeScriptConfigTypes(projectName: string): Rule {
         case AngularBuilder.BrowserEsbuild:
         case AngularBuilder.Browser:
         case AngularBuilder.Application:
+        case AngularBuilder.BuildApplication:
           const value = target.options?.['tsConfig'];
           if (typeof value === 'string') {
             tsConfigFiles.add(value);
@@ -147,9 +149,7 @@ function moveToDependencies(host: Tree): Rule | void {
 }
 
 export default function (options: Schema): Rule {
-  // We favor the name option because the project option has a
-  // smart default which can be populated even when unspecified by the user.
-  const projectName = options.name ?? options.project;
+  const projectName = options.project;
 
   if (!projectName) {
     throw new SchematicsException('Option "project" is required.');

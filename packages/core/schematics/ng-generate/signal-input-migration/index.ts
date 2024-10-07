@@ -8,18 +8,18 @@
 
 import {Rule, SchematicsException} from '@angular-devkit/schematics';
 
-import assert from 'assert';
 import {SignalInputMigration} from '../../migrations/signal-migration/src';
 import {getProjectTsConfigPaths} from '../../utils/project_tsconfig_paths';
 import {DevkitMigrationFilesystem} from '../../utils/tsurge/helpers/angular_devkit/devkit_filesystem';
 import {groupReplacementsByFile} from '../../utils/tsurge/helpers/group_replacements';
 import {setFileSystem} from '@angular/compiler-cli/src/ngtsc/file_system';
 import {CompilationUnitData} from '../../migrations/signal-migration/src/batch/unit_data';
-import {ProjectRootRelativePath, Replacement, TextUpdate} from '../../utils/tsurge';
+import {ProjectRootRelativePath, TextUpdate} from '../../utils/tsurge';
 
 interface Options {
   path: string;
   bestEffortMode?: boolean;
+  insertTodos?: boolean;
   analysisDir: string;
 }
 
@@ -38,6 +38,7 @@ export function migrate(options: Options): Rule {
 
     const migration = new SignalInputMigration({
       bestEffortMode: options.bestEffortMode,
+      insertTodosForSkippedFields: options.insertTodos,
       shouldMigrateInput: (input) => {
         return (
           input.file.rootRelativePath.startsWith(fs.normalize(options.path)) &&
@@ -48,6 +49,8 @@ export function migrate(options: Options): Rule {
     const analysisPath = fs.resolve(options.analysisDir);
     const unitResults: CompilationUnitData[] = [];
     const programInfos = [...buildPaths, ...testPaths].map((tsconfigPath) => {
+      context.logger.info(`Preparing analysis for: ${tsconfigPath}..`);
+
       const baseInfo = migration.createProgram(tsconfigPath, fs);
       const info = migration.prepareProgram(baseInfo);
 
@@ -65,7 +68,7 @@ export function migrate(options: Options): Rule {
     // Analyze phase. Treat all projects as compilation units as
     // this allows us to support references between those.
     for (const {info, tsconfigPath} of programInfos) {
-      context.logger.info(`Analyzing: ${tsconfigPath}..`);
+      context.logger.info(`Scanning for inputs: ${tsconfigPath}..`);
 
       unitResults.push(await migration.analyze(info));
     }
@@ -101,8 +104,18 @@ export function migrate(options: Options): Rule {
       tree.commitUpdate(recorder);
     }
 
+    const {counters} = await migration.stats(merged);
+    const migratedInputs = counters.sourceInputs - counters.incompatibleInputs;
+
     context.logger.info('');
     context.logger.info(`Successfully migrated to signal inputs 🎉`);
+    context.logger.info(`  -> Migrated ${migratedInputs}/${counters.sourceInputs} inputs.`);
+
+    if (counters.incompatibleInputs > 0 && !options.insertTodos) {
+      context.logger.warn(`To see why ${counters.incompatibleInputs} inputs couldn't be migrated`);
+      context.logger.warn(`consider re-running with "--insert-todos" or "--best-effort-mode".`);
+    }
+
     if (options.bestEffortMode) {
       context.logger.warn(
         `You ran with best effort mode. Manually verify all code ` +

@@ -3,7 +3,7 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
 import ts from 'typescript';
@@ -39,12 +39,14 @@ export class DirectiveInfo {
   constructor(public clazz: ts.ClassDeclaration) {}
 
   /**
-   * Checks whether there are any incompatible inputs for the
+   * Checks whether there are any migrated inputs for the
    * given class.
+   *
+   * Returns `false` if all inputs are incompatible.
    */
-  hasIncompatibleMembers(): boolean {
-    return Array.from(this.inputFields.values()).some(({descriptor}) =>
-      this.isInputMemberIncompatible(descriptor),
+  hasMigratedFields(): boolean {
+    return Array.from(this.inputFields.values()).some(
+      ({descriptor}) => !this.isInputMemberIncompatible(descriptor),
     );
   }
 
@@ -53,6 +55,13 @@ export class DirectiveInfo {
    * then the member is as well.
    */
   isInputMemberIncompatible(input: InputDescriptor): boolean {
-    return this.incompatible !== null || this.memberIncompatibility.has(input.key);
+    return this.getInputMemberIncompatibility(input) !== null;
+  }
+
+  /** Get incompatibility of the given member, if it's incompatible for migration. */
+  getInputMemberIncompatibility(
+    input: InputDescriptor,
+  ): ClassIncompatibilityReason | InputMemberIncompatibility | null {
+    return this.memberIncompatibility.get(input.key) ?? this.incompatible ?? null;
   }
 }
