@@ -19,15 +19,31 @@ export enum FieldIncompatibilityReason {
   RedeclaredViaDerivedClassInputsArray = 2,
   TypeConflictWithBaseClass = 3,
   ParentIsIncompatible = 4,
-  SpyOnThatOverwritesField = 5,
-  PotentiallyNarrowedInTemplateButNoSupportYet = 6,
-  SignalInput__RequiredButNoGoodExplicitTypeExtractable = 7,
-  SignalInput__QuestionMarkButNoGoodExplicitTypeExtractable = 8,
-  WriteAssignment = 9,
-  Accessor = 10,
-  OutsideOfMigrationScope = 11,
-  SkippedViaConfigFilter = 12,
+  DerivedIsIncompatible = 5,
+  SpyOnThatOverwritesField = 6,
+  PotentiallyNarrowedInTemplateButNoSupportYet = 7,
+  SignalInput__RequiredButNoGoodExplicitTypeExtractable = 8,
+  SignalInput__QuestionMarkButNoGoodExplicitTypeExtractable = 9,
+  SignalQueries__QueryListProblematicFieldAccessed = 10,
+  SignalQueries__IncompatibleMultiUnionType = 11,
+  WriteAssignment = 12,
+  Accessor = 13,
+  OutsideOfMigrationScope = 14,
+  SkippedViaConfigFilter = 15,
 }
+
+/** Field reasons that cannot be ignored. */
+export const nonIgnorableFieldIncompatibilities: FieldIncompatibilityReason[] = [
+  // Outside of scope fields should not be migrated. E.g. references to inputs in `node_modules/`.
+  FieldIncompatibilityReason.OutsideOfMigrationScope,
+  // Explicitly filtered fields cannot be skipped via best effort mode.
+  FieldIncompatibilityReason.SkippedViaConfigFilter,
+  // There is no good output for accessor fields.
+  FieldIncompatibilityReason.Accessor,
+  // There is no good output for such inputs. We can't perform "conversion".
+  FieldIncompatibilityReason.SignalInput__RequiredButNoGoodExplicitTypeExtractable,
+  FieldIncompatibilityReason.SignalInput__QuestionMarkButNoGoodExplicitTypeExtractable,
+];
 
 /** Reasons why a whole class and its fields cannot be migrated. */
 export enum ClassIncompatibilityReason {

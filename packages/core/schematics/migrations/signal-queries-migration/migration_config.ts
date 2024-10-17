@@ -11,6 +11,18 @@ import {ClassFieldDescriptor} from '../signal-migration/src/passes/reference_res
 
 export interface MigrationConfig {
   /**
+   * Whether to migrate as much as possible, even if certain
+   * queries would otherwise be marked as incompatible for migration.
+   */
+  bestEffortMode?: boolean;
+
+  /**
+   * Whether to insert TODOs for skipped fields, and reasons on why they
+   * were skipped.
+   */
+  insertTodosForSkippedFields?: boolean;
+
+  /**
    * Whether the given query should be migrated. With batch execution, this
    * callback fires for foreign queries from other compilation units too.
    *

@@ -236,13 +236,21 @@ const AsyncMultiRenderHookProviders = [
 })
 class AsyncMultiRenderHookModule {}
 
-@Component({selector: 'app', template: `Works too!`})
+@Component({
+  selector: 'app',
+  template: `Works too!`,
+  standalone: false,
+})
 class MyServerApp2 {}
 
 @NgModule({declarations: [MyServerApp2], imports: [ServerModule], bootstrap: [MyServerApp2]})
 class ExampleModule2 {}
 
-@Component({selector: 'app', template: ``})
+@Component({
+  selector: 'app',
+  template: ``,
+  standalone: false,
+})
 class TitleApp {
   constructor(private title: Title) {}
   ngOnInit() {
@@ -421,7 +429,11 @@ export class MyHttpInterceptor implements HttpInterceptor {
 })
 export class HttpInterceptorExampleModule {}
 
-@Component({selector: 'app', template: `<img [src]="'link'">`})
+@Component({
+  selector: 'app',
+  template: `<img [src]="'link'">`,
+  standalone: false,
+})
 class ImageApp {}
 
 @NgModule({declarations: [ImageApp], imports: [ServerModule], bootstrap: [ImageApp]})
@@ -555,6 +567,10 @@ class HiddenModule {}
 
   describe('platform-server integration', () => {
     beforeEach(() => {
+      destroyPlatform();
+    });
+
+    afterEach(() => {
       destroyPlatform();
     });
 
@@ -758,6 +774,11 @@ class HiddenModule {}
       beforeEach(() => {
         // PlatformConfig takes in a parsed document so that it can be cached across requests.
         doc = '<html><head></head><body><app></app></body></html>';
+      });
+
+      afterEach(() => {
+        doc = '<html><head></head><body><app></app></body></html>';
+        TestBed.resetTestingModule();
       });
 
       it('using long form should work', async () => {

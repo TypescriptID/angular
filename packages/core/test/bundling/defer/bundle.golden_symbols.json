@@ -378,6 +378,9 @@
     "name": "NullInjector"
   },
   {
+    "name": "ON_COMPLETE_FNS"
+  },
+  {
     "name": "ObjectUnsubscribedError"
   },
   {
@@ -2002,6 +2005,9 @@
   },
   {
     "name": "init_skip_hydration"
+  },
+  {
+    "name": "init_standalone_default_value"
   },
   {
     "name": "init_standalone_feature"

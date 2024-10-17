@@ -18,8 +18,11 @@ import {
 } from '@angular/core/schematics/migrations/signal-queries-migration';
 import assert from 'assert';
 import {projectFile} from '../../../../core/schematics/utils/tsurge';
-
-// TODO: Can we share this with the input logic??
+import {FieldIncompatibilityReason} from '../../../../core/schematics/migrations/signal-migration/src';
+import {
+  isFieldIncompatibility,
+  nonIgnorableFieldIncompatibilities,
+} from '../../../../core/schematics/migrations/signal-migration/src/passes/problematic_patterns/incompatibility';
 
 export async function applySignalQueriesRefactoring(
   compiler: NgCompiler,
@@ -67,6 +70,7 @@ export async function applySignalQueriesRefactoring(
   }
 
   const incompatibilityMessages = new Map<string, string>();
+  const incompatibilityReasons = new Set<FieldIncompatibilityReason>();
 
   for (const query of targetQueries.filter((i) => knownQueries.isFieldIncompatible(i))) {
     // TODO: Improve type safety around this.
@@ -75,8 +79,23 @@ export async function applySignalQueriesRefactoring(
       'Expected query to have an analyzable field name.',
     );
 
-    // TODO: Deal with incompatibility reasons.
-    incompatibilityMessages.set(query.node.name.text, 'TODO');
+    const incompatibility = knownQueries.getIncompatibilityForField(query);
+    const text = knownQueries.getIncompatibilityTextForField(query);
+    if (incompatibility === null || text === null) {
+      return {
+        edits: [],
+        errorMessage:
+          'Queries could not be migrated, but no reasons were found. ' +
+          'Consider reporting a bug to the Angular team.',
+      };
+    }
+
+    incompatibilityMessages.set(query.node.name.text, `${text.short}\n${text.extra}`);
+
+    // Track field incompatibilities as those may be "ignored" via best effort mode.
+    if (isFieldIncompatibility(incompatibility)) {
+      incompatibilityReasons.add(incompatibility.reason);
+    }
   }
 
   let message: string | undefined = undefined;
@@ -88,6 +107,15 @@ export async function applySignalQueriesRefactoring(
     const queryPlural = incompatibilityMessages.size === 1 ? 'query' : `queries`;
     message = `${incompatibilityMessages.size} ${queryPlural} could not be migrated.\n`;
     message += `For more details, click on the skipped inputs and try to migrate individually.\n`;
+  }
+
+  // Only suggest the "force ignoring" option if there are actually
+  // ignorable incompatibilities.
+  const canBeForciblyIgnored = Array.from(incompatibilityReasons).some(
+    (r) => !nonIgnorableFieldIncompatibilities.includes(r),
+  );
+  if (!config.bestEffortMode && canBeForciblyIgnored) {
+    message += `Use the "(forcibly, ignoring errors)" action to forcibly convert.\n`;
   }
 
   // In multi mode, partial migration is allowed.
