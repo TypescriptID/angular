@@ -1464,6 +1464,43 @@ describe('inject migration', () => {
     ]);
   });
 
+  it('should insert generated variables on top of statements that appear before the `super` call', async () => {
+    writeFile(
+      '/dir.ts',
+      [
+        `import { Directive } from '@angular/core';`,
+        `import { Parent } from './parent';`,
+        `import { SomeService } from './service';`,
+        ``,
+        `@Directive()`,
+        `class MyDir extends Parent {`,
+        `  constructor(service: SomeService) {`,
+        `    console.log(service.getId());`,
+        `    super(service);`,
+        `  }`,
+        `}`,
+      ].join('\n'),
+    );
+
+    await runMigration();
+
+    expect(tree.readContent('/dir.ts').split('\n')).toEqual([
+      `import { Directive, inject } from '@angular/core';`,
+      `import { Parent } from './parent';`,
+      `import { SomeService } from './service';`,
+      ``,
+      `@Directive()`,
+      `class MyDir extends Parent {`,
+      `  constructor() {`,
+      `    const service = inject(SomeService);`,
+      ``,
+      `    console.log(service.getId());`,
+      `    super(service);`,
+      `  }`,
+      `}`,
+    ]);
+  });
+
   describe('internal-only behavior', () => {
     function runInternalMigration() {
       return runMigration({_internalCombineMemberInitializers: true});
@@ -1881,6 +1918,147 @@ describe('inject migration', () => {
         ``,
         `  /** ID of Foo */`,
         `  id: string = this.foo.getId();`,
+        `}`,
+      ]);
+    });
+
+    it('should hoist property declarations that were not combined above the inject() calls', async () => {
+      writeFile(
+        '/dir.ts',
+        [
+          `import { Injectable } from '@angular/core';`,
+          `import { Observable } from 'rxjs';`,
+          `import { StateService, State } from './state';`,
+          ``,
+          `@Injectable()`,
+          `export class SomeService {`,
+          `  /** Public state */`,
+          `  readonly state: Observable<State>;`,
+          ``,
+          `  /** Private state */`,
+          `  private internalState?: State;`,
+          ``,
+          `  constructor(readonly stateService: StateService) {`,
+          `    this.initializeInternalState();`,
+          `    this.state = this.internalState;`,
+          `  }`,
+          ``,
+          `  private initializeInternalState() {`,
+          `    this.internalState = new State();`,
+          `  }`,
+          `}`,
+        ].join('\n'),
+      );
+
+      await runInternalMigration();
+
+      expect(tree.readContent('/dir.ts').split('\n')).toEqual([
+        `import { Injectable, inject } from '@angular/core';`,
+        `import { Observable } from 'rxjs';`,
+        `import { StateService, State } from './state';`,
+        ``,
+        `@Injectable()`,
+        `export class SomeService {`,
+        `  /** Private state */`,
+        // The indentation here is slightly off, but it's not a problem because this code is internal-only.
+        `private internalState?: State;`,
+        ``,
+        `  readonly stateService = inject(StateService);`,
+        ``,
+        `  /** Public state */`,
+        `  readonly state: Observable<State> = this.internalState;`,
+        ``,
+        `  constructor() {`,
+        `    this.initializeInternalState();`,
+        `  }`,
+        ``,
+        `  private initializeInternalState() {`,
+        `    this.internalState = new State();`,
+        `  }`,
+        `}`,
+      ]);
+    });
+
+    it('should be able to insert statements after the `super` call when running in internal migration mode', async () => {
+      writeFile(
+        '/dir.ts',
+        [
+          `import { Directive, Inject, ElementRef } from '@angular/core';`,
+          `import { Foo } from 'foo';`,
+          `import { Parent } from './parent';`,
+          ``,
+          `@Directive()`,
+          `class MyDir extends Parent {`,
+          `  private value: number;`,
+          ``,
+          `  constructor(private foo: Foo, readonly elementRef: ElementRef) {`,
+          `    super();`,
+          `    this.value = this.foo.getValue();`,
+          `    console.log(elementRef.nativeElement.tagName);`,
+          `  }`,
+          `}`,
+        ].join('\n'),
+      );
+
+      await runInternalMigration();
+
+      expect(tree.readContent('/dir.ts').split('\n')).toEqual([
+        `import { Directive, ElementRef, inject } from '@angular/core';`,
+        `import { Foo } from 'foo';`,
+        `import { Parent } from './parent';`,
+        ``,
+        `@Directive()`,
+        `class MyDir extends Parent {`,
+        `  private foo = inject(Foo);`,
+        `  readonly elementRef = inject(ElementRef);`,
+        ``,
+        `  private value: number = this.foo.getValue();`,
+        ``,
+        `  constructor() {`,
+        `    super();`,
+        `    const elementRef = this.elementRef;`,
+        ``,
+        `    console.log(elementRef.nativeElement.tagName);`,
+        `  }`,
+        `}`,
+      ]);
+    });
+
+    it('should not inline properties initialized to identifiers referring to constructor parameters', async () => {
+      writeFile(
+        '/dir.ts',
+        [
+          `import { Injectable } from '@angular/core';`,
+          `import { OtherService } from './other-service';`,
+          ``,
+          `@Injectable()`,
+          `export class SomeService {`,
+          `  readonly otherService: OtherService;`,
+          ``,
+          `  constructor(readonly differentName: OtherService) {`,
+          `    this.otherService = differentName;`,
+          `  }`,
+          `}`,
+        ].join('\n'),
+      );
+
+      await runInternalMigration();
+
+      expect(tree.readContent('/dir.ts').split('\n')).toEqual([
+        `import { Injectable, inject } from '@angular/core';`,
+        `import { OtherService } from './other-service';`,
+        ``,
+        `@Injectable()`,
+        `export class SomeService {`,
+        `  readonly differentName = inject(OtherService);`,
+        ``,
+        `  readonly otherService: OtherService;`,
+        ``,
+        `  constructor() {`,
+        `    const differentName = this.differentName;`,
+        ``,
+        `    this.otherService = differentName;`,
+        `  }`,
         `}`,
       ]);
     });

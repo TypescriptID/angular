@@ -15,9 +15,6 @@
     "name": "AfterRenderManager"
   },
   {
-    "name": "AfterRenderPhase"
-  },
-  {
     "name": "AnonymousSubject"
   },
   {
@@ -166,6 +163,9 @@
   },
   {
     "name": "EnvironmentInjector"
+  },
+  {
+    "name": "EnvironmentNgModuleRefAdapter"
   },
   {
     "name": "ErrorHandler"
@@ -438,6 +438,9 @@
     "name": "SkipSelf"
   },
   {
+    "name": "StandaloneService"
+  },
+  {
     "name": "Subject"
   },
   {
@@ -540,12 +543,6 @@
     "name": "ZoneStablePendingTask"
   },
   {
-    "name": "_AfterRenderImpl"
-  },
-  {
-    "name": "_ComponentFactoryResolver"
-  },
-  {
     "name": "_DOM"
   },
   {
@@ -561,7 +558,13 @@
     "name": "_NullComponentFactoryResolver"
   },
   {
+    "name": "__defProp"
+  },
+  {
     "name": "__forward_ref__"
+  },
+  {
+    "name": "__publicField"
   },
   {
     "name": "_applyRootElementTransformImpl"
@@ -1008,9 +1011,6 @@
     "name": "getOrCreateViewRefs"
   },
   {
-    "name": "getOriginalError"
-  },
-  {
     "name": "getOwnDefinition"
   },
   {
@@ -1281,6 +1281,9 @@
     "name": "markViewForRefresh"
   },
   {
+    "name": "markedFeatures"
+  },
+  {
     "name": "maybeWrapInNotSelector"
   },
   {
@@ -1411,6 +1414,9 @@
   },
   {
     "name": "runEffectsInView"
+  },
+  {
+    "name": "runInInjectionContext"
   },
   {
     "name": "saveNameToExportMap"

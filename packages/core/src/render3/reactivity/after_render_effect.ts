@@ -25,7 +25,12 @@ import {
 } from '../../change_detection/scheduling/zoneless_scheduling';
 import {Injector} from '../../di/injector';
 import {inject} from '../../di/injector_compatibility';
-import {AfterRenderImpl, AfterRenderManager, AfterRenderSequence} from '../after_render/manager';
+import {
+  AFTER_RENDER_PHASES,
+  AfterRenderImpl,
+  AfterRenderManager,
+  AfterRenderSequence,
+} from '../after_render/manager';
 import {AfterRenderPhase, type AfterRenderRef} from '../after_render/api';
 import {NOOP_AFTER_RENDER_REF, type AfterRenderOptions} from '../after_render/hooks';
 import {DestroyRef} from '../../linker/destroy_ref';
@@ -67,7 +72,7 @@ interface AfterRenderPhaseEffectNode extends SignalNode<unknown> {
   phaseFn(previousValue?: unknown): unknown;
 }
 
-const AFTER_RENDER_PHASE_EFFECT_NODE = {
+const AFTER_RENDER_PHASE_EFFECT_NODE = /* @__PURE__ */ (() => ({
   ...SIGNAL_NODE,
   consumerIsAlwaysLive: true,
   consumerAllowSignalWrites: true,
@@ -140,7 +145,7 @@ const AFTER_RENDER_PHASE_EFFECT_NODE = {
 
     return this.signal;
   },
-};
+}))();
 
 /**
  * An `AfterRenderSequence` that manages an `afterRenderEffect`'s phase effects.
@@ -177,7 +182,7 @@ class AfterRenderEffectSequence extends AfterRenderSequence {
     super(impl, [undefined, undefined, undefined, undefined], false, destroyRef);
 
     // Setup a reactive node for each phase.
-    for (const phase of AfterRenderImpl.PHASES) {
+    for (const phase of AFTER_RENDER_PHASES) {
       const effectHook = effectHooks[phase];
       if (effectHook === undefined) {
         continue;

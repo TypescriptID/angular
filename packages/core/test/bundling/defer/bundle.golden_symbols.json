@@ -12,9 +12,6 @@
     "name": "AfterRenderManager"
   },
   {
-    "name": "AfterRenderPhase"
-  },
-  {
     "name": "AnonymousSubject"
   },
   {
@@ -117,7 +114,16 @@
     "name": "DEFER_BLOCK_CONFIG"
   },
   {
+    "name": "DEFER_BLOCK_ID"
+  },
+  {
     "name": "DEFER_BLOCK_STATE"
+  },
+  {
+    "name": "DEFER_BLOCK_STATE2"
+  },
+  {
+    "name": "DEHYDRATED_VIEWS"
   },
   {
     "name": "DI_DECORATOR_FLAG"
@@ -136,6 +142,9 @@
   },
   {
     "name": "DeferBlockInternalState"
+  },
+  {
+    "name": "DeferBlockRegistry"
   },
   {
     "name": "DeferBlockState"
@@ -177,9 +186,6 @@
     "name": "ENVIRONMENT_INITIALIZER"
   },
   {
-    "name": "ERROR_ORIGINAL_ERROR"
-  },
-  {
     "name": "EVENT_MANAGER_PLUGINS"
   },
   {
@@ -213,6 +219,9 @@
     "name": "GenericBrowserDomAdapter"
   },
   {
+    "name": "HYDRATE_TRIGGER_CLEANUP_FNS"
+  },
+  {
     "name": "INJECTOR"
   },
   {
@@ -226,6 +235,9 @@
   },
   {
     "name": "INTERNAL_BROWSER_PLATFORM_PROVIDERS"
+  },
+  {
+    "name": "IS_INCREMENTAL_HYDRATION_ENABLED"
   },
   {
     "name": "InjectFlags"
@@ -351,9 +363,6 @@
     "name": "NgModuleRef"
   },
   {
-    "name": "NgOnChangesFeatureImpl"
-  },
-  {
     "name": "NgZone"
   },
   {
@@ -444,6 +453,12 @@
     "name": "SOURCE"
   },
   {
+    "name": "SSR_BLOCK_STATE"
+  },
+  {
+    "name": "SSR_UNIQUE_ID"
+  },
+  {
     "name": "SVG_NAMESPACE"
   },
   {
@@ -519,12 +534,6 @@
     "name": "ZoneStablePendingTask"
   },
   {
-    "name": "_AfterRenderImpl"
-  },
-  {
-    "name": "_ComponentFactoryResolver"
-  },
-  {
     "name": "_DOM"
   },
   {
@@ -546,6 +555,9 @@
     "name": "__getOwnPropNames"
   },
   {
+    "name": "__publicField"
+  },
+  {
     "name": "_applyRootElementTransformImpl"
   },
   {
@@ -553,9 +565,6 @@
   },
   {
     "name": "_currentInjector"
-  },
-  {
-    "name": "_findMatchingDehydratedViewImpl"
   },
   {
     "name": "_getInsertInFrontOfRNodeWithI18n"
@@ -705,9 +714,6 @@
     "name": "configureViewWithDirective"
   },
   {
-    "name": "consumerAfterComputation"
-  },
-  {
     "name": "consumerBeforeComputation"
   },
   {
@@ -775,9 +781,6 @@
   },
   {
     "name": "deepForEachProvider"
-  },
-  {
-    "name": "defaultEquals"
   },
   {
     "name": "defaultErrorHandler"
@@ -879,6 +882,9 @@
     "name": "getBindingsEnabled"
   },
   {
+    "name": "getCleanupFnKeyByType"
+  },
+  {
     "name": "getClosureSafeProperty"
   },
   {
@@ -976,9 +982,6 @@
   },
   {
     "name": "getOrCreateTNode"
-  },
-  {
-    "name": "getOriginalError"
   },
   {
     "name": "getOwnDefinition"
@@ -1107,6 +1110,9 @@
     "name": "init_api4"
   },
   {
+    "name": "init_api5"
+  },
+  {
     "name": "init_api_flags"
   },
   {
@@ -1165,6 +1171,9 @@
   },
   {
     "name": "init_bindings"
+  },
+  {
+    "name": "init_blocks"
   },
   {
     "name": "init_bootstrap"
@@ -1323,6 +1332,9 @@
     "name": "init_decorators"
   },
   {
+    "name": "init_def_getters"
+  },
+  {
     "name": "init_default_iterable_differ"
   },
   {
@@ -1441,9 +1453,6 @@
   },
   {
     "name": "init_errors3"
-  },
-  {
-    "name": "init_errors4"
   },
   {
     "name": "init_errors_di"
@@ -1588,6 +1597,9 @@
   },
   {
     "name": "init_image_performance_warning"
+  },
+  {
+    "name": "init_incremental"
   },
   {
     "name": "init_inert_body"
@@ -1950,6 +1962,9 @@
     "name": "init_reflection_capabilities"
   },
   {
+    "name": "init_registry"
+  },
+  {
     "name": "init_render"
   },
   {
@@ -1960,6 +1975,12 @@
   },
   {
     "name": "init_reportUnhandledError"
+  },
+  {
+    "name": "init_resource"
+  },
+  {
+    "name": "init_resource2"
   },
   {
     "name": "init_resource_loading"
@@ -2013,7 +2034,7 @@
     "name": "init_standalone_default_value"
   },
   {
-    "name": "init_standalone_feature"
+    "name": "init_standalone_service"
   },
   {
     "name": "init_state"
@@ -2256,6 +2277,9 @@
     "name": "isFunction"
   },
   {
+    "name": "isIncrementalHydrationEnabled"
+  },
+  {
     "name": "isInlineTemplate"
   },
   {
@@ -2469,6 +2493,9 @@
     "name": "runEffectsInView"
   },
   {
+    "name": "runInInjectionContext"
+  },
+  {
     "name": "saveNameToExportMap"
   },
   {
@@ -2590,12 +2617,6 @@
   },
   {
     "name": "writeToDirectiveInput"
-  },
-  {
-    "name": "ɵɵNgOnChangesFeature"
-  },
-  {
-    "name": "ɵɵStandaloneFeature"
   },
   {
     "name": "ɵɵdefer"

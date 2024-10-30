@@ -104,6 +104,11 @@ export interface CreateEffectOptions {
    * @deprecated no longer required, signal writes are allowed by default.
    */
   allowSignalWrites?: boolean;
+
+  /**
+   * A debug name for the effect. Used in Angular DevTools to identify the effect.
+   */
+  debugName?: string;
 }
 
 /**
@@ -194,6 +199,10 @@ export function effect(
     node.onDestroyFn = destroyRef.onDestroy(() => node.destroy());
   }
 
+  if (ngDevMode) {
+    node.debugName = options?.debugName ?? '';
+  }
+
   return new EffectRefImpl(node);
 }
 
@@ -222,7 +231,7 @@ export interface RootEffectNode extends EffectNode {
  * Not public API, which guarantees `EffectScheduler` only ever comes from the application root
  * injector.
  */
-export const APP_EFFECT_SCHEDULER = new InjectionToken('', {
+export const APP_EFFECT_SCHEDULER = /* @__PURE__ */ new InjectionToken('', {
   providedIn: 'root',
   factory: () => inject(EffectScheduler),
 });

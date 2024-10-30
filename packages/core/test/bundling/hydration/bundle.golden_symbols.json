@@ -15,9 +15,6 @@
     "name": "AfterRenderManager"
   },
   {
-    "name": "AfterRenderPhase"
-  },
-  {
     "name": "AnonymousSubject"
   },
   {
@@ -103,6 +100,9 @@
   },
   {
     "name": "DEFAULT_APP_ID"
+  },
+  {
+    "name": "DEFER_BLOCK_ID"
   },
   {
     "name": "DEHYDRATED_VIEWS"
@@ -277,6 +277,9 @@
   },
   {
     "name": "NGH_DATA_KEY"
+  },
+  {
+    "name": "NGH_DEFER_BLOCKS_KEY"
   },
   {
     "name": "NG_COMP_DEF"
@@ -519,12 +522,6 @@
     "name": "ZoneStablePendingTask"
   },
   {
-    "name": "_AfterRenderImpl"
-  },
-  {
-    "name": "_ComponentFactoryResolver"
-  },
-  {
     "name": "_DOM"
   },
   {
@@ -540,7 +537,13 @@
     "name": "__await"
   },
   {
+    "name": "__defProp"
+  },
+  {
     "name": "__forward_ref__"
+  },
+  {
+    "name": "__publicField"
   },
   {
     "name": "_applyRootElementTransformImpl"
@@ -924,9 +927,6 @@
     "name": "getOrCreateTNode"
   },
   {
-    "name": "getOriginalError"
-  },
-  {
     "name": "getOwnDefinition"
   },
   {
@@ -1308,6 +1308,9 @@
     "name": "runEffectsInView"
   },
   {
+    "name": "runInInjectionContext"
+  },
+  {
     "name": "saveNameToExportMap"
   },
   {
@@ -1435,9 +1438,6 @@
   },
   {
     "name": "writeToDirectiveInput"
-  },
-  {
-    "name": "ɵɵStandaloneFeature"
   },
   {
     "name": "ɵɵdefineComponent"
