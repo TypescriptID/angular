@@ -1,3 +1,87 @@
+<a name="19.0.0-rc.1"></a>
+# 19.0.0-rc.1 (2024-11-06)
+### compiler
+| Commit | Type | Description |
+| -- | -- | -- |
+| [b25121ee4a](https://github.com/angular/angular/commit/b25121ee4aba427954fef074a967b9332654be84) | fix | avoid having to duplicate core environment ([#58444](https://github.com/angular/angular/pull/58444)) |
+### compiler-cli
+| Commit | Type | Description |
+| -- | -- | -- |
+| [d4d76ead80](https://github.com/angular/angular/commit/d4d76ead802837bc6cc7908bc9ebfefa73eb9969) | fix | do not fail fatal when references to non-existent module are discovered ([#58515](https://github.com/angular/angular/pull/58515)) |
+| [22cd6869ef](https://github.com/angular/angular/commit/22cd6869ef453c342b206f84e857ef6c34922fa5) | fix | make the unused imports diagnostic easier to read ([#58468](https://github.com/angular/angular/pull/58468)) |
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [8ae84be3df](https://github.com/angular/angular/commit/8ae84be3df4e1393c6f00e2d28ccacd5b2159a0f) | fix | avoid slow stringification when checking for duplicates in dev mode ([#58521](https://github.com/angular/angular/pull/58521)) |
+| [6e0af6dbbb](https://github.com/angular/angular/commit/6e0af6dbbbe5e9a9e2e5809ada0b7b5a7e456402) | fix | resolve forward-referenced host directives during directive matching ([#58492](https://github.com/angular/angular/pull/58492)) |
+### migrations
+| Commit | Type | Description |
+| -- | -- | -- |
+| [c5e676bb87](https://github.com/angular/angular/commit/c5e676bb8715bcde42e56eb08a41cc1ba5c95f91) | fix | flip the default standalone flag in route-lazy-loading migration ([#58474](https://github.com/angular/angular/pull/58474)) |
+| [e85ac5c7cb](https://github.com/angular/angular/commit/e85ac5c7cb06dc0fba757a9b931e79e07978f2a9) | fix | properly bundle shared compiler code into migrations ([#58515](https://github.com/angular/angular/pull/58515)) |
+### platform-browser
+| Commit | Type | Description |
+| -- | -- | -- |
+| [c36a1c023b](https://github.com/angular/angular/commit/c36a1c023b34f9b2056e1bef6364787e8495bfad) | fix | correctly add external stylesheets to ShadowDOM components ([#58482](https://github.com/angular/angular/pull/58482)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="18.2.11"></a>
+# 18.2.11 (2024-11-06)
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [5f2d98a1b1](https://github.com/angular/angular/commit/5f2d98a1b1262a9cca84143fdf9829537138fc5c) | fix | avoid slow stringification when checking for duplicates in dev mode ([#58521](https://github.com/angular/angular/pull/58521)) |
+| [3aa45a2fa1](https://github.com/angular/angular/commit/3aa45a2fa11ad568d12c622e0a9a94bbf1552118) | fix | resolve forward-referenced host directives during directive matching ([#58492](https://github.com/angular/angular/pull/58492)) ([#58500](https://github.com/angular/angular/pull/58500)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="19.0.0-rc.0"></a>
+# 19.0.0-rc.0 (2024-10-30)
+### compiler
+| Commit | Type | Description |
+| -- | -- | -- |
+| [98804fd4beb](https://github.com/angular/angular/commit/98804fd4beb6292f5a50ce728424fdb33c47f654) | fix | add more specific matcher for hydrate never block ([#58360](https://github.com/angular/angular/pull/58360)) |
+### compiler-cli
+| Commit | Type | Description |
+| -- | -- | -- |
+| [dbe612f2cd5](https://github.com/angular/angular/commit/dbe612f2cd59adecdab3abb270b014c4b26e472c) | fix | disable standalone by default on older versions of Angular ([#58405](https://github.com/angular/angular/pull/58405)) |
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [c095679f927](https://github.com/angular/angular/commit/c095679f927ad67fec6c18cb140ea550ae02639e) | fix | avoid breaking change with apps using rxjs 6.x ([#58341](https://github.com/angular/angular/pull/58341)) |
+| [fd7716440be](https://github.com/angular/angular/commit/fd7716440bec8f7ed042d79bafacf3048d45cd47) | fix | Prevents trying to trigger incremental hydration on CSR ([#58366](https://github.com/angular/angular/pull/58366)) |
+### localize
+| Commit | Type | Description |
+| -- | -- | -- |
+| [0730d9d748a](https://github.com/angular/angular/commit/0730d9d748a8b82f5a3e071e8756afbdd22901a1) | fix | Adding  arb format to the list of valid formats in the localization extractor cli ([#58287](https://github.com/angular/angular/pull/58287)) |
+### migrations
+| Commit | Type | Description |
+| -- | -- | -- |
+| [90c7ec39a06](https://github.com/angular/angular/commit/90c7ec39a06e5c14711e0a42e2d6a478cde2b9cc) | fix | inject migration always inserting generated variables before super call ([#58393](https://github.com/angular/angular/pull/58393)) |
+| [7a65cdd911c](https://github.com/angular/angular/commit/7a65cdd911cbbf22445c916fc754d3a3304bc5fe) | fix | inject migration not inserting generated code after super call in some cases ([#58393](https://github.com/angular/angular/pull/58393)) |
+| [616b411a6d9](https://github.com/angular/angular/commit/616b411a6d94d3dbc3e072b91c1194466c0a1add) | fix | properly migrate output aliases ([#58411](https://github.com/angular/angular/pull/58411)) |
+| [d504452e2f1](https://github.com/angular/angular/commit/d504452e2f193d3b494a0b2944cddb028c0a2231) | fix | properly replace imports across files ([#58414](https://github.com/angular/angular/pull/58414)) |
+### router
+| Commit | Type | Description |
+| -- | -- | -- |
+| [a49c35ec769](https://github.com/angular/angular/commit/a49c35ec769461b9eb490719f0aa3e5aea8e243f) | fix | remove setter for `injector` on `OutletContext` ([#58343](https://github.com/angular/angular/pull/58343)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="18.2.10"></a>
+# 18.2.10 (2024-10-30)
+### compiler
+| Commit | Type | Description |
+| -- | -- | -- |
+| [69dce38e778](https://github.com/angular/angular/commit/69dce38e778cb4c15aa06347031765a84e3ac6a5) | fix | transform pseudo selectors correctly for the encapsulated view. ([#58417](https://github.com/angular/angular/pull/58417)) |
+### localize
+| Commit | Type | Description |
+| -- | -- | -- |
+| [3b989ac5bd9](https://github.com/angular/angular/commit/3b989ac5bd951a3d28bcd0ada150fc81503a016a) | fix | Adding  arb format to the list of valid formats in the localization extractor cli ([#58287](https://github.com/angular/angular/pull/58287)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
 <a name="19.0.0-next.11"></a>
 # 19.0.0-next.11 (2024-10-23)
 ### common

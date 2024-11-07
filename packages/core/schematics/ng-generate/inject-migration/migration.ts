@@ -16,11 +16,12 @@ import {
   isNullableType,
   parameterDeclaresProperty,
   DI_PARAM_SYMBOLS,
+  MigrationOptions,
 } from './analysis';
 import {getAngularDecorators} from '../../utils/ng_decorators';
 import {getImportOfIdentifier} from '../../utils/typescript/imports';
 import {closestNode} from '../../utils/typescript/nodes';
-import {findUninitializedPropertiesToCombine} from './internal';
+import {findUninitializedPropertiesToCombine, shouldCombineInInitializationOrder} from './internal';
 import {getLeadingLineWhitespaceOfNode} from '../../utils/tsurge/helpers/ast/leading_space';
 
 /**
@@ -28,37 +29,6 @@ import {getLeadingLineWhitespaceOfNode} from '../../utils/tsurge/helpers/ast/lea
  * Includes Unicode characters to reduce the chance of collisions.
  */
 const PLACEHOLDER = 'ɵɵngGeneratePlaceholderɵɵ';
-
-/** Options that can be used to configure the migration. */
-export interface MigrationOptions {
-  /** Whether to generate code that keeps injectors backwards compatible. */
-  backwardsCompatibleConstructors?: boolean;
-
-  /** Whether to migrate abstract classes. */
-  migrateAbstractClasses?: boolean;
-
-  /** Whether to make the return type of `@Optinal()` parameters to be non-nullable. */
-  nonNullableOptional?: boolean;
-
-  /**
-   * Internal-only option that determines whether the migration should try to move the
-   * initializers of class members from the constructor back into the member itself. E.g.
-   *
-   * ```
-   * // Before
-   * private foo;
-   *
-   * constructor(@Inject(BAR) private bar: Bar) {
-   *   this.foo = this.bar.getValue();
-   * }
-   *
-   * // After
-   * private bar = inject(BAR);
-   * private foo = this.bar.getValue();
-   * ```
-   */
-  _internalCombineMemberInitializers?: boolean;
-}
 
 /**
  * Migrates all of the classes in a `SourceFile` away from constructor injection.
@@ -72,7 +42,7 @@ export function migrateFile(sourceFile: ts.SourceFile, options: MigrationOptions
   // 2. All the necessary information for this migration is local so using a file-specific type
   //    checker should speed up the lookups.
   const localTypeChecker = getLocalTypeChecker(sourceFile);
-  const analysis = analyzeFile(sourceFile, localTypeChecker);
+  const analysis = analyzeFile(sourceFile, localTypeChecker, options);
 
   if (analysis === null || analysis.classes.length === 0) {
     return [];
@@ -84,7 +54,9 @@ export function migrateFile(sourceFile: ts.SourceFile, options: MigrationOptions
   analysis.classes.forEach(({node, constructor, superCall}) => {
     const memberIndentation = getLeadingLineWhitespaceOfNode(node.members[0]);
     const prependToClass: string[] = [];
+    const afterInjectCalls: string[] = [];
     const removedStatements = new Set<ts.Statement>();
+    const removedMembers = new Set<ts.ClassElement>();
 
     if (options._internalCombineMemberInitializers) {
       applyInternalOnlyChanges(
@@ -94,7 +66,9 @@ export function migrateFile(sourceFile: ts.SourceFile, options: MigrationOptions
         tracker,
         printer,
         removedStatements,
+        removedMembers,
         prependToClass,
+        afterInjectCalls,
         memberIndentation,
       );
     }
@@ -106,7 +80,9 @@ export function migrateFile(sourceFile: ts.SourceFile, options: MigrationOptions
       options,
       memberIndentation,
       prependToClass,
+      afterInjectCalls,
       removedStatements,
+      removedMembers,
       localTypeChecker,
       printer,
       tracker,
@@ -131,7 +107,9 @@ export function migrateFile(sourceFile: ts.SourceFile, options: MigrationOptions
  * @param options Options used to configure the migration.
  * @param memberIndentation Indentation string of the members of the class.
  * @param prependToClass Text that should be prepended to the class.
+ * @param afterInjectCalls Text that will be inserted after the newly-added `inject` calls.
  * @param removedStatements Statements that have been removed from the constructor already.
+ * @param removedMembers Class members that have been removed by the migration.
  * @param localTypeChecker Type checker set up for the specific file.
  * @param printer Printer used to output AST nodes as strings.
  * @param tracker Object keeping track of the changes made to the file.
@@ -143,19 +121,13 @@ function migrateClass(
   options: MigrationOptions,
   memberIndentation: string,
   prependToClass: string[],
+  afterInjectCalls: string[],
   removedStatements: Set<ts.Statement>,
+  removedMembers: Set<ts.ClassElement>,
   localTypeChecker: ts.TypeChecker,
   printer: ts.Printer,
   tracker: ChangeTracker,
 ): void {
-  const isAbstract = !!node.modifiers?.some((m) => m.kind === ts.SyntaxKind.AbstractKeyword);
-
-  // Don't migrate abstract classes by default, because
-  // their parameters aren't guaranteed to be injectable.
-  if (isAbstract && !options.migrateAbstractClasses) {
-    return;
-  }
-
   const sourceFile = node.getSourceFile();
   const unusedParameters = getConstructorUnusedParameters(
     constructor,
@@ -173,7 +145,6 @@ function migrateClass(
   const innerIndentation = getLeadingLineWhitespaceOfNode(innerReference);
   const prependToConstructor: string[] = [];
   const afterSuper: string[] = [];
-  const removedMembers = new Set<ts.ClassElement>();
 
   for (const param of constructor.parameters) {
     const usedInSuper = superParameters !== null && superParameters.has(param);
@@ -201,14 +172,14 @@ function migrateClass(
   for (const member of node.members) {
     if (ts.isConstructorDeclaration(member) && member !== constructor) {
       removedMembers.add(member);
-      tracker.replaceText(sourceFile, member.getFullStart(), member.getFullWidth(), '');
+      tracker.removeNode(member, true);
     }
   }
 
   if (canRemoveConstructor(options, constructor, removedStatementCount, superCall)) {
     // Drop the constructor if it was empty.
     removedMembers.add(constructor);
-    tracker.replaceText(sourceFile, constructor.getFullStart(), constructor.getFullWidth(), '');
+    tracker.removeNode(constructor, true);
   } else {
     // If the constructor contains any statements, only remove the parameters.
     // We always do this no matter what is passed into `backwardsCompatibleConstructors`.
@@ -253,6 +224,10 @@ function migrateClass(
       tracker.insertText(sourceFile, constructor.getFullStart(), '\n' + extraSignature);
     }
   }
+
+  // Push the block of code that should appear after the `inject`
+  // calls now once all the members have been generated.
+  prependToClass.push(...afterInjectCalls);
 
   if (prependToClass.length > 0) {
     if (removedMembers.size === node.members.length) {
@@ -723,7 +698,9 @@ function getNextPreservedStatement(
  * @param tracker Object keeping track of the changes.
  * @param printer Printer used to output AST nodes as text.
  * @param removedStatements Statements that have been removed by the migration.
+ * @param removedMembers Class members that have been removed by the migration.
  * @param prependToClass Text that will be prepended to a class.
+ * @param afterInjectCalls Text that will be inserted after the newly-added `inject` calls.
  * @param memberIndentation Indentation string of the class' members.
  */
 function applyInternalOnlyChanges(
@@ -733,40 +710,61 @@ function applyInternalOnlyChanges(
   tracker: ChangeTracker,
   printer: ts.Printer,
   removedStatements: Set<ts.Statement>,
+  removedMembers: Set<ts.ClassElement>,
   prependToClass: string[],
+  afterInjectCalls: string[],
   memberIndentation: string,
 ) {
   const result = findUninitializedPropertiesToCombine(node, constructor, localTypeChecker);
 
-  result?.toCombine.forEach((initializer, property) => {
-    const statement = closestNode(initializer, ts.isStatement);
+  if (result === null) {
+    return;
+  }
 
-    if (!statement) {
-      return;
-    }
+  const preserveInitOrder = shouldCombineInInitializationOrder(result.toCombine, constructor);
 
+  // Sort the combined members based on the declaration order of their initializers, only if
+  // we've determined that would be safe. Note that `Array.prototype.sort` is in-place so we
+  // can just call it conditionally here.
+  if (preserveInitOrder) {
+    result.toCombine.sort((a, b) => a.initializer.getStart() - b.initializer.getStart());
+  }
+
+  result.toCombine.forEach(({declaration, initializer}) => {
+    const initializerStatement = closestNode(initializer, ts.isStatement);
     const newProperty = ts.factory.createPropertyDeclaration(
-      cloneModifiers(property.modifiers),
-      cloneName(property.name),
-      property.questionToken,
-      property.type,
+      cloneModifiers(declaration.modifiers),
+      cloneName(declaration.name),
+      declaration.questionToken,
+      declaration.type,
       initializer,
     );
-    tracker.replaceText(
-      statement.getSourceFile(),
-      statement.getFullStart(),
-      statement.getFullWidth(),
-      '',
-    );
-    tracker.replaceNode(property, newProperty);
-    removedStatements.add(statement);
+
+    // If the initialization order is being preserved, we have to remove the original
+    // declaration and re-declare it. Otherwise we can do the replacement in-place.
+    if (preserveInitOrder) {
+      tracker.removeNode(declaration, true);
+      removedMembers.add(declaration);
+      afterInjectCalls.push(
+        memberIndentation +
+          printer.printNode(ts.EmitHint.Unspecified, newProperty, declaration.getSourceFile()),
+      );
+    } else {
+      tracker.replaceNode(declaration, newProperty);
+    }
+
+    // This should always be defined, but null check it just in case.
+    if (initializerStatement) {
+      tracker.removeNode(initializerStatement, true);
+      removedStatements.add(initializerStatement);
+    }
   });
 
-  result?.toHoist.forEach((decl) => {
+  result.toHoist.forEach((decl) => {
     prependToClass.push(
       memberIndentation + printer.printNode(ts.EmitHint.Unspecified, decl, decl.getSourceFile()),
     );
-    tracker.replaceText(decl.getSourceFile(), decl.getFullStart(), decl.getFullWidth(), '');
+    tracker.removeNode(decl, true);
   });
 
   // If we added any hoisted properties, separate them visually with a new line.

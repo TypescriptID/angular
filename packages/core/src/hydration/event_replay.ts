@@ -25,10 +25,13 @@ import {Provider} from '../di/interface/provider';
 import {setStashFn} from '../render3/instructions/listener';
 import {RElement} from '../render3/interfaces/renderer_dom';
 import {CLEANUP, LView, TView} from '../render3/interfaces/view';
-import {isPlatformBrowser} from '../render3/util/misc_utils';
 import {unwrapRNode} from '../render3/util/view_utils';
 
-import {BLOCK_ELEMENT_MAP, EVENT_REPLAY_ENABLED_DEFAULT, IS_EVENT_REPLAY_ENABLED} from './tokens';
+import {
+  JSACTION_BLOCK_ELEMENT_MAP,
+  EVENT_REPLAY_ENABLED_DEFAULT,
+  IS_EVENT_REPLAY_ENABLED,
+} from './tokens';
 import {
   sharedStashFunction,
   sharedMapFunction,
@@ -39,12 +42,11 @@ import {
 } from '../event_delegation_utils';
 import {APP_ID} from '../application/application_tokens';
 import {performanceMarkFeature} from '../util/performance';
-import {hydrateFromBlockName, findFirstHydratedParentDeferBlock} from './blocks';
+import {hydrateFromBlockName} from './blocks';
 import {DeferBlock, DeferBlockTrigger, HydrateTriggerDetails} from '../defer/interfaces';
 import {triggerAndWaitForCompletion} from '../defer/instructions';
 import {cleanupDehydratedViews, cleanupLContainer} from './cleanup';
 import {hoverEventNames, interactionEventNames} from '../defer/dom_triggers';
-import {DeferBlockRegistry} from '../defer/registry';
 
 /** Apps in which we've enabled event replay.
  *  This is to prevent initializing event replay more than once per app.
@@ -68,12 +70,12 @@ function shouldEnableEventReplay(injector: Injector) {
  * Requires hydration to be enabled separately.
  */
 export function withEventReplay(): Provider[] {
-  return [
+  const providers: Provider[] = [
     {
       provide: IS_EVENT_REPLAY_ENABLED,
       useFactory: () => {
         let isEnabled = true;
-        if (isPlatformBrowser()) {
+        if (typeof ngServerMode === 'undefined' || !ngServerMode) {
           // Note: globalThis[CONTRACT_PROPERTY] may be undefined in case Event Replay feature
           // is enabled, but there are no events configured in this application, in which case
           // we don't activate this feature, since there are no events to replay.
@@ -86,30 +88,33 @@ export function withEventReplay(): Provider[] {
         return isEnabled;
       },
     },
-    {
-      provide: ENVIRONMENT_INITIALIZER,
-      useValue: () => {
-        const injector = inject(Injector);
-        // We have to check for the appRef here due to the possibility of multiple apps
-        // being present on the same page. We only want to enable event replay for the
-        // apps that actually want it.
-        const appRef = injector.get(ApplicationRef);
-        if (!appsWithEventReplay.has(appRef)) {
-          const jsActionMap = inject(BLOCK_ELEMENT_MAP);
-          if (isPlatformBrowser(injector) && shouldEnableEventReplay(injector)) {
-            setStashFn((rEl: RElement, eventName: string, listenerFn: VoidFunction) => {
-              sharedStashFunction(rEl, eventName, listenerFn);
-              sharedMapFunction(rEl, jsActionMap);
-            });
+  ];
+
+  if (typeof ngServerMode === 'undefined' || !ngServerMode) {
+    providers.push(
+      {
+        provide: ENVIRONMENT_INITIALIZER,
+        useValue: () => {
+          const injector = inject(Injector);
+          const appRef = injector.get(ApplicationRef);
+          // We have to check for the appRef here due to the possibility of multiple apps
+          // being present on the same page. We only want to enable event replay for the
+          // apps that actually want it.
+          if (!appsWithEventReplay.has(appRef)) {
+            const jsActionMap = inject(JSACTION_BLOCK_ELEMENT_MAP);
+            if (shouldEnableEventReplay(injector)) {
+              setStashFn((rEl: RElement, eventName: string, listenerFn: VoidFunction) => {
+                sharedStashFunction(rEl, eventName, listenerFn);
+                sharedMapFunction(rEl, jsActionMap);
+              });
+            }
           }
-        }
+        },
+        multi: true,
       },
-      multi: true,
-    },
-    {
-      provide: APP_BOOTSTRAP_LISTENER,
-      useFactory: () => {
-        if (isPlatformBrowser()) {
+      {
+        provide: APP_BOOTSTRAP_LISTENER,
+        useFactory: () => {
           const injector = inject(Injector);
           const appRef = inject(ApplicationRef);
           return () => {
@@ -134,12 +139,13 @@ export function withEventReplay(): Provider[] {
               });
             }
           };
-        }
-        return () => {}; // noop for the server code
+        },
+        multi: true,
       },
-      multi: true,
-    },
-  ];
+    );
+  }
+
+  return providers;
 }
 
 const initEventReplay = (eventDelegation: EventContractDetails, injector: Injector) => {
@@ -250,11 +256,6 @@ async function hydrateAndInvokeBlockListeners(
     fetchAndRenderDeferBlock,
   );
   if (deferBlock !== null) {
-    // TODO(incremental-hydration): extract this work into a post
-    // hydration cleanup function
-    const deferBlockRegistry = injector.get(DeferBlockRegistry);
-    deferBlockRegistry.hydrating.delete(blockName);
-    hydratedBlocks.add(blockName);
     const appRef = injector.get(ApplicationRef);
     await appRef.whenStable();
     replayQueuedBlockEvents(hydratedBlocks, injector);
@@ -301,7 +302,7 @@ export function convertHydrateTriggersToJsAction(
 }
 
 export function appendBlocksToJSActionMap(el: RElement, injector: Injector) {
-  const jsActionMap = injector.get(BLOCK_ELEMENT_MAP);
+  const jsActionMap = injector.get(JSACTION_BLOCK_ELEMENT_MAP);
   sharedMapFunction(el, jsActionMap);
 }
 

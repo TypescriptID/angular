@@ -117,6 +117,9 @@
     "name": "DEFER_BLOCK_ID"
   },
   {
+    "name": "DEFER_BLOCK_REGISTRY"
+  },
+  {
     "name": "DEFER_BLOCK_STATE"
   },
   {
@@ -142,9 +145,6 @@
   },
   {
     "name": "DeferBlockInternalState"
-  },
-  {
-    "name": "DeferBlockRegistry"
   },
   {
     "name": "DeferBlockState"
@@ -1815,6 +1815,9 @@
     "name": "init_ng_reflect"
   },
   {
+    "name": "init_ng_server_mode"
+  },
+  {
     "name": "init_ng_zone"
   },
   {
@@ -2029,9 +2032,6 @@
   },
   {
     "name": "init_skip_hydration"
-  },
-  {
-    "name": "init_standalone_default_value"
   },
   {
     "name": "init_standalone_service"
@@ -2293,9 +2293,6 @@
   },
   {
     "name": "isNodeMatchingSelectorList"
-  },
-  {
-    "name": "isPlatformBrowser"
   },
   {
     "name": "isPlatformServer"
