@@ -158,7 +158,6 @@ export {
   ɵɵdeferHydrateOnHover,
   ɵɵdeferHydrateOnInteraction,
   ɵɵdeferHydrateOnViewport,
-  ɵɵdeferEnableTimerScheduling,
   ɵɵtext,
   ɵɵtextInterpolate,
   ɵɵtextInterpolate1,
@@ -180,11 +179,13 @@ export {
   ɵɵdeclareLet,
   ɵɵstoreLet,
   ɵɵreadContextLet,
+  ɵɵattachSourceLocations,
 } from './instructions/all';
 export {
+  ɵɵdeferEnableTimerScheduling,
   DEFER_BLOCK_DEPENDENCY_INTERCEPTOR as ɵDEFER_BLOCK_DEPENDENCY_INTERCEPTOR,
   DEFER_BLOCK_CONFIG as ɵDEFER_BLOCK_CONFIG,
-} from '../defer/instructions';
+} from '../defer/rendering';
 export {DeferBlockDependencyInterceptor as ɵDeferBlockDependencyInterceptor} from '../defer/interfaces';
 export {
   ɵɵi18n,

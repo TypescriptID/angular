@@ -177,7 +177,7 @@ export interface SerializedDeferBlock {
    * The list of triggers that exist for incremental hydration, based on the
    * `Trigger` enum.
    */
-  [DEFER_HYDRATE_TRIGGERS]: (DeferBlockTrigger | SerializedTriggerDetails)[] | null;
+  [DEFER_HYDRATE_TRIGGERS]?: (DeferBlockTrigger | SerializedTriggerDetails)[];
 }
 
 export interface SerializedTriggerDetails {
@@ -274,4 +274,21 @@ export interface DehydratedIcuData {
    * AST to be used to clean up dehydrated nodes.
    */
   node: I18nICUNode;
+}
+
+/**
+ * Summarizes the presence of specific types of triggers anywhere in the DOM
+ */
+export interface BlockSummary {
+  data: SerializedDeferBlock;
+  hydrate: {idle: boolean; immediate: boolean; viewport: boolean; timer: number | null};
+}
+
+/**
+ * The details of a specific element's trigger and how it is associated to a block
+ */
+export interface ElementTrigger {
+  el: HTMLElement;
+  blockName: string;
+  delay?: number;
 }

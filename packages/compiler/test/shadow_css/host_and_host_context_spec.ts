@@ -83,6 +83,21 @@ describe('ShadowCss, :host and :host-context', () => {
       expect(shim(':host(:not(p)):before {}', 'contenta', 'a-host')).toEqualCss(
         '[a-host]:not(p):before {}',
       );
+      expect(shim(':host:not(:host.foo) {}', 'contenta', 'a-host')).toEqualCss(
+        '[a-host]:not([a-host].foo) {}',
+      );
+      expect(shim(':host:not(.foo:host) {}', 'contenta', 'a-host')).toEqualCss(
+        '[a-host]:not(.foo[a-host]) {}',
+      );
+      expect(shim(':host:not(:host.foo, :host.bar) {}', 'contenta', 'a-host')).toEqualCss(
+        '[a-host]:not([a-host].foo, .bar[a-host]) {}',
+      );
+      expect(shim(':host:not(:host.foo, .bar :host) {}', 'contenta', 'a-host')).toEqualCss(
+        '[a-host]:not([a-host].foo, .bar [a-host]) {}',
+      );
+      expect(shim(':host:not(.foo, .bar) {}', 'contenta', 'a-host')).toEqualCss(
+        '[a-host]:not(.foo, .bar) {}',
+      );
     });
 
     // see b/63672152
@@ -102,6 +117,17 @@ describe('ShadowCss, :host and :host-context', () => {
       );
       expect(shim('cmp :host >>> child {}', 'contenta', 'a-host')).toEqualCss(
         'cmp [a-host] child {}',
+      );
+    });
+
+    it('should support newlines in the same selector and content ', () => {
+      const selector = `.foo:not(
+        :host) {
+          background-color:
+            green;
+      }`;
+      expect(shim(selector, 'contenta', 'a-host')).toEqualCss(
+        '.foo[contenta]:not( [a-host]) { background-color:green;}',
       );
     });
   });
@@ -237,6 +263,18 @@ describe('ShadowCss, :host and :host-context', () => {
     it('should handle selectors on the same element', () => {
       expect(shim(':host-context(div):host(.x) > .y {}', 'contenta', 'a-host')).toEqualCss(
         'div.x[a-host] > .y[contenta] {}',
+      );
+    });
+
+    it('should handle no selector :host', () => {
+      // The second selector below should have a `[a-host]` attribute selector
+      // attached to `.one`, current `:host-context` unwrapping logic doesn't
+      // work correctly on prefixed selectors, see #58345.
+      expect(shim(':host:host-context(.one) {}', 'contenta', 'a-host')).toEqualCss(
+        '.one[a-host][a-host], .one [a-host] {}',
+      );
+      expect(shim(':host-context(.one) :host {}', 'contenta', 'a-host')).toEqualCss(
+        '.one [a-host] {}',
       );
     });
 

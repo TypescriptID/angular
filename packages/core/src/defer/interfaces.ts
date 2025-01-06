@@ -12,13 +12,11 @@ import type {DependencyType} from '../render3/interfaces/definition';
 import type {TNode} from '../render3/interfaces/node';
 import type {LView} from '../render3/interfaces/view';
 
-// TODO(incremental-hydration): This interface should be renamed to better
-// reflect what it does. DeferBlock is to generic
 /**
  * Basic set of data structures used for identifying a defer block
  * and triggering defer blocks
  */
-export interface DeferBlock {
+export interface DehydratedDeferBlock {
   lView: LView;
   tNode: TNode;
   lContainer: LContainer;
@@ -143,9 +141,33 @@ export interface TDeferBlockDetails {
   hydrateTriggers: Map<DeferBlockTrigger, HydrateTriggerDetails | null> | null;
 
   /**
-   * List of prefetch triggers for a given block
+   * Defer block flags, which should be used for all
+   * instances of a given defer block (the flags that should be
+   * placed into the `TDeferDetails` at runtime).
    */
-  prefetchTriggers: Set<DeferBlockTrigger> | null;
+  flags: TDeferDetailsFlags;
+
+  /**
+   * Tracks debugging information about the deferred block.
+   */
+  debug: {
+    /** Text representations of the block's triggers. */
+    triggers?: Set<string>;
+  } | null;
+}
+
+/**
+ * Specifies defer block flags, which should be used for all
+ * instances of a given defer block (the flags that should be
+ * placed into the `TDeferDetails` at runtime).
+ */
+export const enum TDeferDetailsFlags {
+  Default = 0,
+
+  /**
+   * Whether or not the defer block has hydrate triggers.
+   */
+  HasHydrateTriggers = 1 << 0,
 }
 
 /**

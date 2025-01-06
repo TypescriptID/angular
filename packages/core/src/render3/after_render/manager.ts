@@ -16,6 +16,7 @@ import {
   NotificationSource,
 } from '../../change_detection/scheduling/zoneless_scheduling';
 import {type DestroyRef} from '../../linker/destroy_ref';
+import {TracingAction, TracingService, TracingSnapshot} from '../../application/tracing';
 
 export class AfterRenderManager {
   impl: AfterRenderImpl | null = null;
@@ -54,6 +55,11 @@ export class AfterRenderImpl {
   /** Whether the `AfterRenderManager` is currently executing hooks. */
   executing = false;
 
+  constructor() {
+    // Inject the tracing service to make sure it's initialized.
+    inject(TracingService, {optional: true});
+  }
+
   /**
    * Run the sequence of phases of hooks, once through. As a result of executing some hooks, more
    * might be scheduled.
@@ -68,7 +74,10 @@ export class AfterRenderImpl {
 
         try {
           sequence.pipelinedValue = this.ngZone.runOutsideAngular(() =>
-            sequence.hooks[phase]!(sequence.pipelinedValue),
+            this.maybeTrace(
+              () => sequence.hooks[phase]!(sequence.pipelinedValue),
+              sequence.snapshot,
+            ),
           );
         } catch (err) {
           sequence.erroredOrDestroyed = true;
@@ -124,6 +133,11 @@ export class AfterRenderImpl {
     }
   }
 
+  protected maybeTrace<T>(fn: () => T, snapshot: TracingSnapshot | null): T {
+    // Only trace the execution if the snapshot is defined.
+    return snapshot ? snapshot.run(TracingAction.AFTER_NEXT_RENDER, fn) : fn();
+  }
+
   /** @nocollapse */
   static ɵprov = /** @pureOrBreakMyCode */ /* @__PURE__ */ ɵɵdefineInjectable({
     token: AfterRenderImpl,
@@ -160,6 +174,7 @@ export class AfterRenderSequence implements AfterRenderRef {
     readonly hooks: AfterRenderHooks,
     public once: boolean,
     destroyRef: DestroyRef | null,
+    public snapshot: TracingSnapshot | null = null,
   ) {
     this.unregisterOnDestroy = destroyRef?.onDestroy(() => this.destroy());
   }
@@ -167,6 +182,13 @@ export class AfterRenderSequence implements AfterRenderRef {
   afterRun(): void {
     this.erroredOrDestroyed = false;
     this.pipelinedValue = undefined;
+
+    // Clear the tracing snapshot after the initial run. This snapshot only
+    // associates the initial run of the hook with the context that created it.
+    // Follow-up runs are independent of that initial context and have different
+    // triggers.
+    this.snapshot?.dispose();
+    this.snapshot = null;
   }
 
   destroy(): void {

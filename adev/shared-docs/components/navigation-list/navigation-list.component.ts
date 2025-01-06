@@ -6,41 +6,39 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {ChangeDetectionStrategy, Component, Input, inject, output} from '@angular/core';
+import {ChangeDetectionStrategy, Component, inject, input, output} from '@angular/core';
 import {NavigationItem} from '../../interfaces/index';
 import {NavigationState} from '../../services/index';
 import {RouterLink, RouterLinkActive} from '@angular/router';
-import {CommonModule} from '@angular/common';
 import {IconComponent} from '../icon/icon.component';
 import {IsActiveNavigationItem} from '../../pipes/is-active-navigation-item.pipe';
+import {NgTemplateOutlet} from '@angular/common';
 
 @Component({
   selector: 'docs-navigation-list',
-  standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive, IconComponent, IsActiveNavigationItem],
+  imports: [RouterLink, RouterLinkActive, IconComponent, IsActiveNavigationItem, NgTemplateOutlet],
   templateUrl: './navigation-list.component.html',
   styleUrls: ['./navigation-list.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class NavigationList {
-  @Input({required: true}) navigationItems: NavigationItem[] = [];
-  @Input() displayItemsToLevel: number = 2;
-  @Input() collapsableLevel: number | undefined = undefined;
-  @Input() expandableLevel: number = 2;
-  @Input() isDropdownView = false;
+  readonly navigationItems = input.required<NavigationItem[]>();
+  readonly displayItemsToLevel = input<number>(2);
+  readonly collapsableLevel = input<number | undefined>();
+  readonly expandableLevel = input<number>(2);
+  readonly isDropdownView = input<boolean>(false);
 
   readonly linkClicked = output<void>();
 
   private readonly navigationState = inject(NavigationState);
 
-  expandedItems = this.navigationState.expandedItems;
-  activeItem = this.navigationState.activeNavigationItem;
+  readonly activeItem = this.navigationState.activeNavigationItem;
 
   toggle(item: NavigationItem): void {
     if (
       item.level === 1 &&
-      item.level !== this.expandableLevel &&
-      item.level !== this.collapsableLevel
+      item.level !== this.expandableLevel() &&
+      item.level !== this.collapsableLevel()
     ) {
       return;
     }

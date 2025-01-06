@@ -51,7 +51,7 @@ import {
   validateMatchingNode,
   validateNodeExists,
 } from './error_handling';
-import {collectDomEventsInfo, convertHydrateTriggersToJsAction} from './event_replay';
+import {collectDomEventsInfo} from './event_replay';
 import {setJSActionAttributes} from '../event_delegation_utils';
 import {
   getOrComputeI18nChildren,
@@ -82,6 +82,7 @@ import {calcPathForNode, isDisconnectedNode} from './node_lookup_utils';
 import {isInSkipHydrationBlock, SKIP_HYDRATION_ATTR_NAME} from './skip_hydration';
 import {EVENT_REPLAY_ENABLED_DEFAULT, IS_EVENT_REPLAY_ENABLED} from './tokens';
 import {
+  convertHydrateTriggersToJsAction,
   getLNodeForHydration,
   isIncrementalHydrationEnabled,
   NGH_ATTR_NAME,
@@ -302,7 +303,6 @@ export function annotateForHydration(appRef: ApplicationRef, doc: Document) {
 
   if (deferBlocks.size > 0) {
     const blocks: {[key: string]: SerializedDeferBlock} = {};
-    // TODO(incremental-hydration): we should probably have an object here instead of a Map?
     for (const [id, info] of deferBlocks.entries()) {
       blocks[id] = info;
     }
@@ -356,7 +356,7 @@ function serializeLContainer(
         // The `+1` is to capture the `<app-root />` element.
         numRootNodes = calcNumRootNodesInLContainer(childLView) + 1;
 
-        annotateLContainerForHydration(childLView, context, lView[INJECTOR]!);
+        annotateLContainerForHydration(childLView, context, lView[INJECTOR]);
 
         const componentLView = unwrapLView(childLView[HOST]) as LView<unknown>;
 
@@ -391,12 +391,12 @@ function serializeLContainer(
       // If this is a defer block, serialize extra info.
       if (isDeferBlock(lView[TVIEW], tNode)) {
         const lDetails = getLDeferBlockDetails(lView, tNode);
+        const tDetails = getTDeferBlockDetails(lView[TVIEW], tNode);
 
-        if (context.isIncrementalHydrationEnabled) {
+        if (context.isIncrementalHydrationEnabled && tDetails.hydrateTriggers !== null) {
           const deferBlockId = `d${context.deferBlocks.size}`;
 
-          const tDetails = getTDeferBlockDetails(lView[TVIEW], tNode);
-          if (tDetails.hydrateTriggers?.has(DeferBlockTrigger.Never)) {
+          if (tDetails.hydrateTriggers.has(DeferBlockTrigger.Never)) {
             isHydrateNeverBlock = true;
           }
 
@@ -408,8 +408,12 @@ function serializeLContainer(
             [DEFER_PARENT_BLOCK_ID]: parentDeferBlockId,
             [NUM_ROOT_NODES]: rootNodes.length,
             [DEFER_BLOCK_STATE]: lDetails[CURRENT_DEFER_BLOCK_STATE],
-            [DEFER_HYDRATE_TRIGGERS]: serializeHydrateTriggers(tDetails.hydrateTriggers),
           };
+
+          const serializedTriggers = serializeHydrateTriggers(tDetails.hydrateTriggers);
+          if (serializedTriggers.length > 0) {
+            deferBlockInfo[DEFER_HYDRATE_TRIGGERS] = serializedTriggers;
+          }
 
           context.deferBlocks.set(deferBlockId, deferBlockInfo);
 
@@ -446,11 +450,10 @@ function serializeLContainer(
       }
 
       if (!isHydrateNeverBlock) {
-        // TODO(incremental-hydration): avoid copying of an object here
-        serializedView = {
-          ...serializedView,
-          ...serializeLView(lContainer[i] as LView, parentDeferBlockId, context),
-        };
+        Object.assign(
+          serializedView,
+          serializeLView(lContainer[i] as LView, parentDeferBlockId, context),
+        );
       }
     }
 
@@ -472,24 +475,21 @@ function serializeLContainer(
 }
 
 function serializeHydrateTriggers(
-  triggerMap: Map<DeferBlockTrigger, HydrateTriggerDetails | null> | null,
-): (DeferBlockTrigger | SerializedTriggerDetails)[] | null {
-  if (triggerMap === null) {
-    return null;
-  }
+  triggerMap: Map<DeferBlockTrigger, HydrateTriggerDetails | null>,
+): (DeferBlockTrigger | SerializedTriggerDetails)[] {
   const serializableDeferBlockTrigger = new Set<DeferBlockTrigger>([
     DeferBlockTrigger.Idle,
     DeferBlockTrigger.Immediate,
     DeferBlockTrigger.Viewport,
     DeferBlockTrigger.Timer,
   ]);
-  let triggers = [];
+  let triggers: (DeferBlockTrigger | SerializedTriggerDetails)[] = [];
   for (let [trigger, details] of triggerMap) {
     if (serializableDeferBlockTrigger.has(trigger)) {
       if (details === null) {
         triggers.push(trigger);
       } else {
-        triggers.push({trigger, details});
+        triggers.push({trigger, delay: details.delay});
       }
     }
   }

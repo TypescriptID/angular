@@ -10,11 +10,11 @@ import {HarnessLoader} from '@angular/cdk/testing';
 import {TestbedHarnessEnvironment} from '@angular/cdk/testing/testbed';
 import {TestBed} from '@angular/core/testing';
 import {MatTabGroupHarness} from '@angular/material/tabs/testing';
-import {NoopAnimationsModule} from '@angular/platform-browser/animations';
+import {provideNoopAnimations} from '@angular/platform-browser/animations';
 import {ReferenceScrollHandler} from '../services/reference-scroll-handler.service';
 import {signal} from '@angular/core';
-import {provideRouter} from '@angular/router';
-import {RouterTestingHarness, RouterTestingModule} from '@angular/router/testing';
+import {provideRouter, withComponentInputBinding} from '@angular/router';
+import {RouterTestingHarness} from '@angular/router/testing';
 
 import ApiReferenceDetailsPage from './api-reference-details-page.component';
 import {By} from '@angular/platform-browser';
@@ -40,20 +40,24 @@ describe('ApiReferenceDetailsPage', () => {
 
   beforeEach(async () => {
     TestBed.configureTestingModule({
-      imports: [ApiReferenceDetailsPage, RouterTestingModule, NoopAnimationsModule],
+      imports: [ApiReferenceDetailsPage],
       providers: [
-        provideRouter([
-          {
-            path: '**',
-            component: ApiReferenceDetailsPage,
-            data: {
-              'docContent': {
-                id: 'id',
-                contents: SAMPLE_CONTENT_WITH_TABS,
+        provideNoopAnimations(),
+        provideRouter(
+          [
+            {
+              path: '**',
+              component: ApiReferenceDetailsPage,
+              data: {
+                'docContent': {
+                  id: 'id',
+                  contents: SAMPLE_CONTENT_WITH_TABS,
+                },
               },
             },
-          },
-        ]),
+          ],
+          withComponentInputBinding(),
+        ),
       ],
     });
     TestBed.overrideProvider(ReferenceScrollHandler, {useValue: fakeApiReferenceScrollHandler});

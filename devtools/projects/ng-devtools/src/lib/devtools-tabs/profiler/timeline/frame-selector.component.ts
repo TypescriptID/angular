@@ -15,7 +15,6 @@ import {
   afterRenderEffect,
   Component,
   computed,
-  effect,
   ElementRef,
   inject,
   input,
@@ -23,7 +22,6 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import {toSignal} from '@angular/core/rxjs-interop';
 
 import {TabUpdate} from '../../tab-update/index';
 
@@ -39,7 +37,6 @@ const ITEM_WIDTH = 30;
   selector: 'ng-frame-selector',
   templateUrl: './frame-selector.component.html',
   styleUrls: ['./frame-selector.component.scss'],
-  standalone: true,
   imports: [
     MatCard,
     MatTooltip,

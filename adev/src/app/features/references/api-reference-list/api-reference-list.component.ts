@@ -16,7 +16,7 @@ import {
   model,
   signal,
   viewChild,
-  afterRenderEffect,
+  afterNextRender,
 } from '@angular/core';
 import ApiItemsSection from '../api-items-section/api-items-section.component';
 import {FormsModule} from '@angular/forms';
@@ -32,7 +32,6 @@ export const ALL_STATUSES_KEY = 'All';
 
 @Component({
   selector: 'adev-reference-list',
-  standalone: true,
   imports: [ApiItemsSection, ApiItemLabel, FormsModule, SlideToggle, TextField, ApiLabel],
   templateUrl: './api-reference-list.component.html',
   styleUrls: ['./api-reference-list.component.scss'],
@@ -51,21 +50,20 @@ export default class ApiReferenceList {
   itemTypes = Object.values(ApiItemType);
 
   // state
-  featuredGroup = this.apiReferenceManager.featuredGroup; // THINK: this is a shortcut - why would people write this?
   includeDeprecated = signal(false);
 
   // queries
   filterInput = viewChild.required(TextField, {read: ElementRef});
 
   constructor() {
-    afterRenderEffect({
-      write: () => {
-        // Lord forgive me for I have sinned
-        // Use the CVA to focus when https://github.com/angular/angular/issues/31133 is implemented
-        if (matchMedia('(hover: hover) and (pointer:fine)').matches) {
+    afterNextRender(() => {
+      // Lord forgive me for I have sinned
+      // Use the CVA to focus when https://github.com/angular/angular/issues/31133 is implemented
+      if (matchMedia('(hover: hover) and (pointer:fine)').matches) {
+        scheduleOnIdle(() => {
           this.filterInput().nativeElement.querySelector('input').focus();
-        }
-      },
+        });
+      }
     });
 
     effect(() => {
@@ -91,7 +89,6 @@ export default class ApiReferenceList {
       .apiGroups()
       .map((group) => ({
         title: group.title,
-        isFeatured: group.isFeatured,
         id: group.id,
         items: group.items.filter((apiItem) => {
           return (
@@ -108,5 +105,18 @@ export default class ApiReferenceList {
 
   filterByItemType(itemType: ApiItemType): void {
     this.type.update((currentType) => (currentType === itemType ? ALL_STATUSES_KEY : itemType));
+  }
+}
+
+/**
+ * Schedules a function to be run in a new macrotask.
+ * This is needed because the `requestIdleCallback` API is not available in all browsers.
+ * @param fn
+ */
+function scheduleOnIdle(fn: () => void): void {
+  if (typeof requestIdleCallback !== 'undefined') {
+    requestIdleCallback(fn);
+  } else {
+    setTimeout(fn, 0);
   }
 }

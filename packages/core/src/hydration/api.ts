@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {APP_BOOTSTRAP_LISTENER, ApplicationRef, whenStable} from '../application/application_ref';
+import {APP_BOOTSTRAP_LISTENER, ApplicationRef} from '../application/application_ref';
 import {Console} from '../console';
 import {
   ENVIRONMENT_INITIALIZER,
@@ -28,7 +28,7 @@ import {getDocument} from '../render3/interfaces/document';
 import {TransferState} from '../transfer_state';
 import {performanceMarkFeature} from '../util/performance';
 import {NgZone} from '../zone';
-import {appendDeferBlocksToJSActionMap, withEventReplay} from './event_replay';
+import {withEventReplay} from './event_replay';
 
 import {cleanupDehydratedViews} from './cleanup';
 import {
@@ -42,10 +42,20 @@ import {
   IS_INCREMENTAL_HYDRATION_ENABLED,
   PRESERVE_HOST_CONTENT,
 } from './tokens';
-import {enableRetrieveHydrationInfoImpl, NGH_DATA_KEY, SSR_CONTENT_INTEGRITY_MARKER} from './utils';
+import {
+  appendDeferBlocksToJSActionMap,
+  countBlocksSkippedByHydration,
+  enableRetrieveDeferBlockDataImpl,
+  enableRetrieveHydrationInfoImpl,
+  isIncrementalHydrationEnabled,
+  NGH_DATA_KEY,
+  processBlockData,
+  SSR_CONTENT_INTEGRITY_MARKER,
+} from './utils';
 import {enableFindMatchingDehydratedViewImpl} from './views';
-import {bootstrapIncrementalHydration, enableRetrieveDeferBlockDataImpl} from './incremental';
-import {DEFER_BLOCK_REGISTRY, DeferBlockRegistry} from '../defer/registry';
+import {DEHYDRATED_BLOCK_REGISTRY, DehydratedBlockRegistry} from '../defer/registry';
+import {gatherDeferBlocksCommentNodes} from './node_lookup_utils';
+import {processAndInitTriggers} from '../defer/triggering';
 
 /**
  * Indicates whether the hydration-related code was added,
@@ -135,6 +145,9 @@ function printHydrationStats(injector: Injector) {
     `Angular hydrated ${ngDevMode!.hydratedComponents} component(s) ` +
     `and ${ngDevMode!.hydratedNodes} node(s), ` +
     `${ngDevMode!.componentsSkippedHydration} component(s) were skipped. ` +
+    (isIncrementalHydrationEnabled(injector)
+      ? `${ngDevMode!.deferBlocksWithIncrementalHydration} defer block(s) were configured to use incremental hydration. `
+      : '') +
     `Learn more at https://angular.dev/guide/hydration.`;
   // tslint:disable-next-line:no-console
   console.log(message);
@@ -144,7 +157,7 @@ function printHydrationStats(injector: Injector) {
  * Returns a Promise that is resolved when an application becomes stable.
  */
 function whenStableWithTimeout(appRef: ApplicationRef, injector: Injector): Promise<void> {
-  const whenStablePromise = whenStable(appRef);
+  const whenStablePromise = appRef.whenStable();
   if (typeof ngDevMode !== 'undefined' && ngDevMode) {
     const timeoutTime = APPLICATION_IS_STABLE_TIMEOUT;
     const console = injector.get(Console);
@@ -274,6 +287,7 @@ export function withDomHydration(): EnvironmentProviders {
               whenStableWithTimeout(appRef, injector).then(() => {
                 cleanupDehydratedViews(appRef);
                 if (typeof ngDevMode !== 'undefined' && ngDevMode) {
+                  countBlocksSkippedByHydration(injector);
                   printHydrationStats(injector);
                 }
               });
@@ -328,13 +342,14 @@ export function withIncrementalHydration(): Provider[] {
       useValue: true,
     },
     {
-      provide: DEFER_BLOCK_REGISTRY,
-      useClass: DeferBlockRegistry,
+      provide: DEHYDRATED_BLOCK_REGISTRY,
+      useClass: DehydratedBlockRegistry,
     },
     {
       provide: ENVIRONMENT_INITIALIZER,
       useValue: () => {
         enableIncrementalHydrationRuntimeSupport();
+        performanceMarkFeature('NgIncrementalHydration');
       },
       multi: true,
     },
@@ -348,7 +363,9 @@ export function withIncrementalHydration(): Provider[] {
         const doc = getDocument();
 
         return () => {
-          bootstrapIncrementalHydration(doc, injector);
+          const deferBlockData = processBlockData(injector);
+          const commentsByBlockId = gatherDeferBlocksCommentNodes(doc, doc.body);
+          processAndInitTriggers(injector, deferBlockData, commentsByBlockId);
           appendDeferBlocksToJSActionMap(doc, injector);
         };
       },

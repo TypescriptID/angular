@@ -6,9 +6,6 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {Injector} from '../di';
-import {RuntimeError, RuntimeErrorCode} from '../errors';
-import {isIncrementalHydrationEnabled} from '../hydration/utils';
 import {assertIndexInDeclRange} from '../render3/assert';
 import {DependencyDef} from '../render3/interfaces/definition';
 import {TContainerNode, TNode} from '../render3/interfaces/node';
@@ -185,15 +182,15 @@ export function isDeferBlock(tView: TView, tNode: TNode): boolean {
   return !!tDetails && isTDeferBlockDetails(tDetails);
 }
 
-/** Throws an error if the incremental hydration is not enabled */
-export function assertIncrementalHydrationIsConfigured(injector: Injector) {
-  if (!isIncrementalHydrationEnabled(injector)) {
-    throw new RuntimeError(
-      RuntimeErrorCode.MISCONFIGURED_INCREMENTAL_HYDRATION,
-      'Angular has detected that some `@defer` blocks use `hydrate` triggers, ' +
-        'but incremental hydration was not enabled. Please ensure that the `withIncrementalHydration()` ' +
-        'call is added as an argument for the `provideClientHydration()` function call ' +
-        'in your application config.',
-    );
-  }
+/**
+ * Tracks debugging information about a trigger.
+ * @param tView TView in which the trigger is declared.
+ * @param tNode TNode on which the trigger is declared.
+ * @param textRepresentation Text representation of the trigger to be used for debugging purposes.
+ */
+export function trackTriggerForDebugging(tView: TView, tNode: TNode, textRepresentation: string) {
+  const tDetails = getTDeferBlockDetails(tView, tNode);
+  tDetails.debug ??= {};
+  tDetails.debug.triggers ??= new Set();
+  tDetails.debug.triggers.add(textRepresentation);
 }

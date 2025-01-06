@@ -134,6 +134,7 @@ export class ApplicationModule {
 
 // @public
 export class ApplicationRef {
+    constructor();
     attachView(viewRef: ViewRef): void;
     bootstrap<C>(component: Type<C>, rootSelectorOrNode?: string | any): ComponentRef<C>;
     // @deprecated
@@ -1123,12 +1124,12 @@ export class KeyValueDiffers {
     static ɵprov: unknown;
 }
 
-// @public (undocumented)
+// @public
 export function linkedSignal<D>(computation: () => D, options?: {
     equal?: ValueEqualityFn<NoInfer<D>>;
 }): WritableSignal<D>;
 
-// @public (undocumented)
+// @public
 export function linkedSignal<S, D>(options: {
     source: () => S;
     computation: (source: NoInfer<S>, previous?: {
@@ -1137,6 +1138,16 @@ export function linkedSignal<S, D>(options: {
     }) => D;
     equal?: ValueEqualityFn<NoInfer<D>>;
 }): WritableSignal<D>;
+
+// @public
+export interface ListenerOptions {
+    // (undocumented)
+    capture?: boolean;
+    // (undocumented)
+    once?: boolean;
+    // (undocumented)
+    passive?: boolean;
+}
 
 // @public
 export const LOCALE_ID: InjectionToken<string>;
@@ -1523,7 +1534,7 @@ export abstract class Renderer2 {
     abstract destroy(): void;
     destroyNode: ((node: any) => void) | null;
     abstract insertBefore(parent: any, newChild: any, refChild: any, isMove?: boolean): void;
-    abstract listen(target: 'window' | 'document' | 'body' | any, eventName: string, callback: (event: any) => boolean | void): () => void;
+    abstract listen(target: 'window' | 'document' | 'body' | any, eventName: string, callback: (event: any) => boolean | void, options?: ListenerOptions): () => void;
     abstract nextSibling(node: any): any;
     abstract parentNode(node: any): any;
     abstract removeAttribute(el: any, name: string, namespace?: string | null): void;
@@ -1561,6 +1572,12 @@ export interface RendererType2 {
     id: string;
     styles: string[];
 }
+
+// @public
+export const REQUEST: InjectionToken<Request | null>;
+
+// @public
+export const REQUEST_CONTEXT: InjectionToken<unknown>;
 
 // @public
 export function resolveForwardRef<T>(type: T): T;
@@ -1617,6 +1634,9 @@ export enum ResourceStatus {
     Reloading = 3,
     Resolved = 4
 }
+
+// @public
+export const RESPONSE_INIT: InjectionToken<ResponseInit | null>;
 
 // @public
 export function runInInjectionContext<ReturnT>(injector: Injector, fn: () => ReturnT): ReturnT;

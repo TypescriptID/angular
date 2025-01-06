@@ -101,15 +101,18 @@ export class OutputMigration extends TsurgeFunnelMigration<
     const reflector = new TypeScriptReflectionHost(checker);
     const dtsReader = new DtsMetadataReader(checker, reflector);
     const evaluator = new PartialEvaluator(reflector, checker, null);
-    const ngCompiler = info.ngCompiler;
-    assert(ngCompiler !== null, 'Requires ngCompiler to run the migration');
-    const resourceLoader = ngCompiler['resourceManager'];
-    // Pre-Analyze the program and get access to the template type checker.
-    const {templateTypeChecker} = ngCompiler['ensureAnalyzed']();
+    const resourceLoader = info.ngCompiler?.['resourceManager'] ?? null;
+
+    // Pre-analyze the program and get access to the template type checker.
+    // If we are processing a non-Angular target, there is no template info.
+    const {templateTypeChecker} = info.ngCompiler?.['ensureAnalyzed']() ?? {
+      templateTypeChecker: null,
+    };
+
     const knownFields: KnownFields<ClassFieldDescriptor> = {
       // Note: We don't support cross-target migration of `Partial<T>` usages.
       // This is an acceptable limitation for performance reasons.
-      shouldTrackClassReference: (node) => false,
+      shouldTrackClassReference: () => false,
       attemptRetrieveDescriptorFromSymbol: (s) => {
         const propDeclaration = getTargetPropertyDeclaration(s);
         if (propDeclaration !== null) {
@@ -275,7 +278,11 @@ export class OutputMigration extends TsurgeFunnelMigration<
       // detect .next usages that should be migrated to .emit in template and host binding expressions
       if (ref.kind === ReferenceKind.InTemplate) {
         const callExpr = checkNonTsReferenceCallsField(ref, 'next');
-        if (callExpr !== null) {
+        // TODO: here and below for host bindings, we should ideally filter in the global meta stage
+        // (instead of using the `outputFieldReplacements` map)
+        //  as technically, the call expression could refer to an output
+        //  from a whole different compilation unit (e.g. tsconfig.json).
+        if (callExpr !== null && outputFieldReplacements[ref.target.key] !== undefined) {
           addOutputReplacement(
             outputFieldReplacements,
             ref.target.key,
@@ -285,7 +292,7 @@ export class OutputMigration extends TsurgeFunnelMigration<
         }
       } else if (ref.kind === ReferenceKind.InHostBinding) {
         const callExpr = checkNonTsReferenceCallsField(ref, 'next');
-        if (callExpr !== null) {
+        if (callExpr !== null && outputFieldReplacements[ref.target.key] !== undefined) {
           addOutputReplacement(
             outputFieldReplacements,
             ref.target.key,

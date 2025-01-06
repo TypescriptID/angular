@@ -734,16 +734,18 @@ export class ShadowCss {
     _polyfillHostRe.lastIndex = 0;
     if (_polyfillHostRe.test(selector)) {
       const replaceBy = `[${hostSelector}]`;
-      return selector
-        .replace(_polyfillHostNoCombinatorReGlobal, (_hnc, selector) => {
+      let result = selector;
+      while (result.match(_polyfillHostNoCombinatorRe)) {
+        result = result.replace(_polyfillHostNoCombinatorRe, (_hnc, selector) => {
           return selector.replace(
             /([^:\)]*)(:*)(.*)/,
             (_: string, before: string, colon: string, after: string) => {
               return before + replaceBy + colon + after;
             },
           );
-        })
-        .replace(_polyfillHostRe, replaceBy + ' ');
+        });
+      }
+      return result.replace(_polyfillHostRe, replaceBy);
     }
 
     return scopeSelector + ' ' + selector;
@@ -765,7 +767,7 @@ export class ShadowCss {
     const isRe = /\[is=([^\]]*)\]/g;
     scopeSelector = scopeSelector.replace(isRe, (_: string, ...parts: string[]) => parts[0]);
 
-    const attrName = '[' + scopeSelector + ']';
+    const attrName = `[${scopeSelector}]`;
 
     const _scopeSelectorPart = (p: string) => {
       let scopedP = p.trim();
@@ -776,15 +778,15 @@ export class ShadowCss {
 
       if (p.includes(_polyfillHostNoCombinator)) {
         scopedP = this._applySimpleSelectorScope(p, scopeSelector, hostSelector);
-        if (_polyfillHostNoCombinatorWithinPseudoFunction.test(p)) {
-          const [_, before, colon, after] = scopedP.match(/([^:]*)(:*)(.*)/)!;
+        if (!p.match(_polyfillHostNoCombinatorOutsidePseudoFunction)) {
+          const [_, before, colon, after] = scopedP.match(/([^:]*)(:*)([\s\S]*)/)!;
           scopedP = before + attrName + colon + after;
         }
       } else {
         // remove :host since it should be unnecessary
         const t = p.replace(_polyfillHostRe, '');
         if (t.length > 0) {
-          const matches = t.match(/([^:]*)(:*)(.*)/);
+          const matches = t.match(/([^:]*)(:*)([\s\S]*)/);
           if (matches) {
             scopedP = matches[1] + attrName + matches[2] + matches[3];
           }
@@ -800,30 +802,67 @@ export class ShadowCss {
     const _pseudoFunctionAwareScopeSelectorPart = (selectorPart: string) => {
       let scopedPart = '';
 
-      const cssPrefixWithPseudoSelectorFunctionMatch = selectorPart.match(
-        _cssPrefixWithPseudoSelectorFunction,
-      );
-      if (cssPrefixWithPseudoSelectorFunctionMatch) {
-        const [cssPseudoSelectorFunction] = cssPrefixWithPseudoSelectorFunctionMatch;
+      // Collect all outer `:where()` and `:is()` selectors,
+      // counting parenthesis to keep nested selectors intact.
+      const pseudoSelectorParts = [];
+      let pseudoSelectorMatch: RegExpExecArray | null;
+      while (
+        (pseudoSelectorMatch = _cssPrefixWithPseudoSelectorFunction.exec(selectorPart)) !== null
+      ) {
+        let openedBrackets = 1;
+        let index = _cssPrefixWithPseudoSelectorFunction.lastIndex;
 
-        // Unwrap the pseudo selector to scope its contents.
-        // For example,
-        // - `:where(selectorToScope)` -> `selectorToScope`;
-        // - `:is(.foo, .bar)` -> `.foo, .bar`.
-        const selectorToScope = selectorPart.slice(cssPseudoSelectorFunction.length, -1);
-
-        if (selectorToScope.includes(_polyfillHostNoCombinator)) {
-          this._shouldScopeIndicator = true;
+        while (index < selectorPart.length) {
+          const currentSymbol = selectorPart[index];
+          index++;
+          if (currentSymbol === '(') {
+            openedBrackets++;
+            continue;
+          }
+          if (currentSymbol === ')') {
+            openedBrackets--;
+            if (openedBrackets === 0) {
+              break;
+            }
+            continue;
+          }
         }
 
-        const scopedInnerPart = this._scopeSelector({
-          selector: selectorToScope,
-          scopeSelector,
-          hostSelector,
-        });
+        pseudoSelectorParts.push(
+          `${pseudoSelectorMatch[0]}${selectorPart.slice(_cssPrefixWithPseudoSelectorFunction.lastIndex, index)}`,
+        );
+        _cssPrefixWithPseudoSelectorFunction.lastIndex = index;
+      }
 
-        // Put the result back into the pseudo selector function.
-        scopedPart = `${cssPseudoSelectorFunction}${scopedInnerPart})`;
+      // If selector consists of only `:where()` and `:is()` on the outer level
+      // scope those pseudo-selectors individually, otherwise scope the whole
+      // selector.
+      if (pseudoSelectorParts.join('') === selectorPart) {
+        scopedPart = pseudoSelectorParts
+          .map((selectorPart) => {
+            const [cssPseudoSelectorFunction] =
+              selectorPart.match(_cssPrefixWithPseudoSelectorFunction) ?? [];
+
+            // Unwrap the pseudo selector to scope its contents.
+            // For example,
+            // - `:where(selectorToScope)` -> `selectorToScope`;
+            // - `:is(.foo, .bar)` -> `.foo, .bar`.
+            const selectorToScope = selectorPart.slice(cssPseudoSelectorFunction?.length, -1);
+
+            if (selectorToScope.includes(_polyfillHostNoCombinator)) {
+              this._shouldScopeIndicator = true;
+            }
+
+            const scopedInnerPart = this._scopeSelector({
+              selector: selectorToScope,
+              scopeSelector,
+              hostSelector,
+            });
+
+            // Put the result back into the pseudo selector function.
+            return `${cssPseudoSelectorFunction}${scopedInnerPart})`;
+          })
+          .join('');
       } else {
         this._shouldScopeIndicator =
           this._shouldScopeIndicator || selectorPart.includes(_polyfillHostNoCombinator);
@@ -962,7 +1001,7 @@ class SafeSelector {
 }
 
 const _cssScopedPseudoFunctionPrefix = '(:(where|is)\\()?';
-const _cssPrefixWithPseudoSelectorFunction = /^:(where|is)\(/i;
+const _cssPrefixWithPseudoSelectorFunction = /:(where|is)\(/gi;
 const _cssContentNextSelectorRe =
   /polyfill-next-selector[^}]*content:[\s]*?(['"])(.*?)\1[;\s]*}([^{]*?){/gim;
 const _cssContentRuleRe = /(polyfill-rule)[^}]*(content:[\s]*(['"])(.*?)\3)[;\s]*[^}]*}/gim;
@@ -979,11 +1018,11 @@ const _cssColonHostContextReGlobal = new RegExp(
 );
 const _cssColonHostContextRe = new RegExp(_polyfillHostContext + _parenSuffix, 'im');
 const _polyfillHostNoCombinator = _polyfillHost + '-no-combinator';
-const _polyfillHostNoCombinatorWithinPseudoFunction = new RegExp(
-  `:.*\\(.*${_polyfillHostNoCombinator}.*\\)`,
+const _polyfillHostNoCombinatorOutsidePseudoFunction = new RegExp(
+  `${_polyfillHostNoCombinator}(?![^(]*\\))`,
+  'g',
 );
-const _polyfillHostNoCombinatorRe = /-shadowcsshost-no-combinator([^\s]*)/;
-const _polyfillHostNoCombinatorReGlobal = new RegExp(_polyfillHostNoCombinatorRe, 'g');
+const _polyfillHostNoCombinatorRe = /-shadowcsshost-no-combinator([^\s,]*)/;
 const _shadowDOMSelectorsRe = [
   /::shadow/g,
   /::content/g,

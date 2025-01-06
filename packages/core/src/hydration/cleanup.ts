@@ -7,6 +7,8 @@
  */
 
 import {ApplicationRef} from '../application/application_ref';
+import {DehydratedDeferBlock} from '../defer/interfaces';
+import {DehydratedBlockRegistry} from '../defer/registry';
 import {
   CONTAINER_HEADER_OFFSET,
   DEHYDRATED_VIEWS,
@@ -127,5 +129,23 @@ export function cleanupDehydratedViews(appRef: ApplicationRef) {
       }
       ngDevMode && ngDevMode.dehydratedViewsCleanupRuns++;
     }
+  }
+}
+
+/**
+ * post hydration cleanup handling for defer blocks that were incrementally
+ * hydrated. This removes all the jsaction attributes, timers, observers,
+ * dehydrated views and containers
+ */
+export function cleanupHydratedDeferBlocks(
+  deferBlock: DehydratedDeferBlock | null,
+  hydratedBlocks: string[],
+  registry: DehydratedBlockRegistry,
+  appRef: ApplicationRef,
+): void {
+  if (deferBlock !== null) {
+    registry.cleanup(hydratedBlocks);
+    cleanupLContainer(deferBlock.lContainer);
+    cleanupDehydratedViews(appRef);
   }
 }

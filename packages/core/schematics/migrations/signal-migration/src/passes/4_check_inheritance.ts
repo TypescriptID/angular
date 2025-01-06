@@ -16,7 +16,7 @@ import {checkInheritanceOfKnownFields} from './problematic_patterns/check_inheri
  * Phase that propagates incompatibilities to derived classes or
  * base classes. For example, consider:
  *
- * ```
+ * ```ts
  * class Base {
  *   bla = true;
  * }
@@ -34,7 +34,7 @@ import {checkInheritanceOfKnownFields} from './problematic_patterns/check_inheri
  */
 export function pass4__checkInheritanceOfInputs(
   inheritanceGraph: InheritanceGraph,
-  metaRegistry: MetadataReader,
+  metaRegistry: MetadataReader | null,
   knownInputs: KnownInputs,
 ) {
   checkInheritanceOfKnownFields(inheritanceGraph, metaRegistry, knownInputs, {

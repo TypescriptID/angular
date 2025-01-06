@@ -33,6 +33,7 @@ import {getLinkToModule} from './url-transforms';
 import {addApiLinksToHtml} from './code-transforms';
 import {getCurrentSymbol, getModuleName, logUnknownSymbol} from '../symbol-context';
 
+export const JS_DOC_REMARKS_TAG = 'remarks';
 export const JS_DOC_USAGE_NOTES_TAG = 'usageNotes';
 export const JS_DOC_SEE_TAG = 'see';
 export const JS_DOC_DESCRIPTION_TAG = 'description';
@@ -96,11 +97,11 @@ export function addHtmlAdditionalLinks<T extends HasJsDocTags & HasModuleName>(
 }
 
 export function addHtmlUsageNotes<T extends HasJsDocTags>(entry: T): T & HasHtmlUsageNotes {
-  const usageNotesTag = entry.jsdocTags.find((tag) => tag.name === JS_DOC_USAGE_NOTES_TAG);
+  const usageNotesTag = entry.jsdocTags.find(
+    ({name}) => name === JS_DOC_USAGE_NOTES_TAG || name === JS_DOC_REMARKS_TAG,
+  );
   const htmlUsageNotes = usageNotesTag
-    ? (marked.parse(
-        convertJsDocExampleToHtmlExample(wrapExampleHtmlElementsWithCode(usageNotesTag.comment)),
-      ) as string)
+    ? (marked.parse(wrapExampleHtmlElementsWithCode(usageNotesTag.comment)) as string)
     : '';
 
   const transformedHtml = addApiLinksToHtml(htmlUsageNotes);
@@ -173,17 +174,6 @@ function wrapExampleHtmlElementsWithCode(text: string) {
   return text
     .replace(/'<input>'/g, `<code><input></code>`)
     .replace(/'<img>'/g, `<code><img></code>`);
-}
-
-function convertJsDocExampleToHtmlExample(text: string): string {
-  const codeExampleAtRule = /{@example (\S+) region=(['"])([^'"]+)\2\s*}/g;
-
-  return text.replace(
-    codeExampleAtRule,
-    (_: string, path: string, separator: string, region: string) => {
-      return `<code-example path="${path}" region="${region}" />`;
-    },
-  );
 }
 
 /**

@@ -58,6 +58,8 @@ export function ingestComponent(
   i18nUseExternalIds: boolean,
   deferMeta: R3ComponentDeferMetadata,
   allDeferrableDepsFn: o.ReadVarExpr | null,
+  relativeTemplatePath: string | null,
+  enableDebugLocations: boolean,
 ): ComponentCompilationJob {
   const job = new ComponentCompilationJob(
     componentName,
@@ -67,6 +69,8 @@ export function ingestComponent(
     i18nUseExternalIds,
     deferMeta,
     allDeferrableDepsFn,
+    relativeTemplatePath,
+    enableDebugLocations,
   );
   ingestNodes(job.root, template);
   return job;
@@ -665,6 +669,7 @@ function ingestDeferBlock(unit: ViewCompilationUnit, deferBlock: t.DeferredBlock
   deferOp.placeholderMinimumTime = deferBlock.placeholder?.minimumTime ?? null;
   deferOp.loadingMinimumTime = deferBlock.loading?.minimumTime ?? null;
   deferOp.loadingAfterTime = deferBlock.loading?.afterTime ?? null;
+  deferOp.flags = calcDeferBlockFlags(deferBlock);
   unit.create.push(deferOp);
 
   // Configure all defer `on` conditions.
@@ -719,6 +724,13 @@ function ingestDeferBlock(unit: ViewCompilationUnit, deferBlock: t.DeferredBlock
 
   unit.create.push(deferOnOps);
   unit.update.push(deferWhenOps);
+}
+
+function calcDeferBlockFlags(deferBlockDetails: t.DeferredBlock): ir.TDeferDetailsFlags | null {
+  if (Object.keys(deferBlockDetails.hydrateTriggers).length > 0) {
+    return ir.TDeferDetailsFlags.HasHydrateTriggers;
+  }
+  return null;
 }
 
 function ingestDeferTriggers(
@@ -1734,7 +1746,7 @@ function convertSourceSpan(
  *    workaround, because it'll include an additional text node as the first child. We can work
  *    around it here, but in a discussion it was decided not to, because the user explicitly opted
  *    into preserving the whitespace and we would have to drop it from the generated code.
- *    The diagnostic mentioned point #1 will flag such cases to users.
+ *    The diagnostic mentioned point in #1 will flag such cases to users.
  *
  * @returns Tag name to be used for the control flow template.
  */
@@ -1746,8 +1758,9 @@ function ingestControlFlowInsertionPoint(
   let root: t.Element | t.Template | null = null;
 
   for (const child of node.children) {
-    // Skip over comment nodes.
-    if (child instanceof t.Comment) {
+    // Skip over comment nodes and @let declarations since
+    // it doesn't matter where they end up in the DOM.
+    if (child instanceof t.Comment || child instanceof t.LetDeclaration) {
       continue;
     }
 
@@ -1759,6 +1772,8 @@ function ingestControlFlowInsertionPoint(
     // Root nodes can only elements or templates with a tag name (e.g. `<div *foo></div>`).
     if (child instanceof t.Element || (child instanceof t.Template && child.tagName !== null)) {
       root = child;
+    } else {
+      return null;
     }
   }
 

@@ -36,6 +36,7 @@ import {NOOP_AFTER_RENDER_REF, type AfterRenderOptions} from '../after_render/ho
 import {DestroyRef} from '../../linker/destroy_ref';
 import {assertNotInReactiveContext} from './asserts';
 import {assertInInjectionContext} from '../../di/contextual';
+import {TracingService, TracingSnapshot} from '../../application/tracing';
 
 const NOT_SET = Symbol('NOT_SET');
 const EMPTY_CLEANUP_SET = new Set<() => void>();
@@ -175,10 +176,11 @@ class AfterRenderEffectSequence extends AfterRenderSequence {
     effectHooks: Array<AfterRenderPhaseEffectHook | undefined>,
     readonly scheduler: ChangeDetectionScheduler,
     destroyRef: DestroyRef,
+    snapshot: TracingSnapshot | null = null,
   ) {
     // Note that we also initialize the underlying `AfterRenderSequence` hooks to `undefined` and
     // populate them as we create reactive nodes below.
-    super(impl, [undefined, undefined, undefined, undefined], false, destroyRef);
+    super(impl, [undefined, undefined, undefined, undefined], false, destroyRef, snapshot);
 
     // Setup a reactive node for each phase.
     for (const phase of AFTER_RENDER_PHASES) {
@@ -239,7 +241,7 @@ export type ɵFirstAvailableSignal<T extends unknown[]> = T extends [infer H, ..
  * Register an effect that, when triggered, is invoked when the application finishes rendering, during the
  * `mixedReadWrite` phase.
  *
- * <div class="alert is-critical">
+ * <div class="docs-alert docs-alert-critical">
  *
  * You should prefer specifying an explicit phase for the effect instead, or you risk significant
  * performance degradation.
@@ -252,7 +254,7 @@ export type ɵFirstAvailableSignal<T extends unknown[]> = T extends [infer H, ..
  * - on browser platforms only
  * - during the `mixedReadWrite` phase
  *
- * <div class="alert is-important">
+ * <div class="docs-alert docs-alert-important">
  *
  * Components are not guaranteed to be [hydrated](guide/hydration) before the callback runs.
  * You must use caution when directly reading or writing the DOM and layout.
@@ -283,7 +285,7 @@ export function afterRenderEffect(
  * - `read`
  *    Use this phase to **read** from the DOM. **Never** write to the DOM in this phase.
  *
- * <div class="alert is-critical">
+ * <div class="docs-alert docs-alert-critical">
  *
  * You should prefer using the `read` and `write` phases over the `earlyRead` and `mixedReadWrite`
  * phases when possible, to avoid performance degradation.
@@ -311,7 +313,7 @@ export function afterRenderEffect(
  * manual DOM access, ensuring the best experience for the end users of your application
  * or library.
  *
- * <div class="alert is-important">
+ * <div class="docs-alert docs-alert-important">
  *
  * Components are not guaranteed to be [hydrated](guide/hydration) before the callback runs.
  * You must use caution when directly reading or writing the DOM and layout.
@@ -370,6 +372,7 @@ export function afterRenderEffect<E = never, W = never, M = never>(
   const injector = options?.injector ?? inject(Injector);
   const scheduler = injector.get(ChangeDetectionScheduler);
   const manager = injector.get(AfterRenderManager);
+  const tracing = injector.get(TracingService, null, {optional: true});
   manager.impl ??= injector.get(AfterRenderImpl);
 
   let spec = callbackOrSpec;
@@ -382,6 +385,7 @@ export function afterRenderEffect<E = never, W = never, M = never>(
     [spec.earlyRead, spec.write, spec.mixedReadWrite, spec.read] as AfterRenderPhaseEffectHook[],
     scheduler,
     injector.get(DestroyRef),
+    tracing?.snapshot(null),
   );
   manager.impl.register(sequence);
   return sequence;

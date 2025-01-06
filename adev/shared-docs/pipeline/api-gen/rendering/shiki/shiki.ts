@@ -1,3 +1,11 @@
+/**
+ * @license
+ * Copyright Google LLC All Rights Reserved.
+ *
+ * Use of this source code is governed by an MIT-style license that can be
+ * found in the LICENSE file at https://angular.dev/license
+ */
+
 let highlighter: any;
 
 export async function initHighlighter() {
@@ -21,11 +29,7 @@ export async function initHighlighter() {
   });
 }
 
-export function codeToHtml(
-  code: string,
-  language: string | undefined,
-  options?: {removeFunctionKeyword?: boolean},
-): string {
+export function codeToHtml(code: string, language: string | undefined): string {
   const html = highlighter.codeToHtml(code, {
     lang: language ?? 'text',
     themes: {
@@ -36,9 +40,6 @@ export function codeToHtml(
     defaultColor: false,
   });
 
-  if (options?.removeFunctionKeyword) {
-    return replaceKeywordFromShikiHtml('function', html);
-  }
   return html;
 }
 

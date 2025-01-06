@@ -40,19 +40,20 @@ import {
 } from './interfaces/view';
 import {assertTNodeType} from './node_assert';
 import {destroyLView, removeViewFromDOM} from './node_manipulation';
+import {RendererFactory} from './interfaces/renderer';
 
 /**
  * Replaces the metadata of a component type and re-renders all live instances of the component.
  * @param type Class whose metadata will be replaced.
  * @param applyMetadata Callback that will apply a new set of metadata on the `type` when invoked.
- * @param environment Core runtime environment to use when applying the HMR update.
+ * @param environment Syntehtic namespace imports that need to be passed along to the callback.
  * @param locals Local symbols from the source location that have to be exposed to the callback.
  * @codeGenApi
  */
 export function ɵɵreplaceMetadata(
   type: Type<unknown>,
-  applyMetadata: (...args: [Type<unknown>, Record<string, unknown>, ...unknown[]]) => void,
-  environment: Record<string, unknown>,
+  applyMetadata: (...args: [Type<unknown>, unknown[], ...unknown[]]) => void,
+  namespaces: unknown[],
   locals: unknown[],
 ) {
   ngDevMode && assertComponentDef(type);
@@ -63,7 +64,7 @@ export function ɵɵreplaceMetadata(
   // can be functions for embedded views, the variables for the constant pool and `setClassMetadata`
   // calls. The callback allows us to keep them isolate from the rest of the app and to invoke
   // them at the right time.
-  applyMetadata.apply(null, [type, environment, ...locals]);
+  applyMetadata.apply(null, [type, namespaces, ...locals]);
 
   // If a `tView` hasn't been created yet, it means that this component hasn't been instantianted
   // before. In this case there's nothing left for us to do aside from patching it in.
@@ -115,6 +116,19 @@ function recreateMatchingLViews(def: ComponentDef<unknown>, rootLView: LView): v
 }
 
 /**
+ * Removes any cached renderers from the factory for the provided type.
+ * This is currently used by the HMR logic to ensure Renderers are kept
+ * synchronized with any definition metadata updates.
+ * @param factory A RendererFactory2 instance.
+ * @param def A ComponentDef instance.
+ */
+function clearRendererCache(factory: RendererFactory, def: ComponentDef<unknown>) {
+  // Cast to read a private field.
+  // NOTE: This must be kept synchronized with the renderer factory implementation in platform-browser.
+  (factory as {rendererByCompId?: Map<string, unknown>}).rendererByCompId?.delete(def.id);
+}
+
+/**
  * Recreates an LView in-place from a new component definition.
  * @param def Definition from which to recreate the view.
  * @param lView View to be recreated.
@@ -132,6 +146,11 @@ function recreateLView(def: ComponentDef<unknown>, lView: LView<unknown>): void 
   // Recreate the TView since the template might've changed.
   const newTView = getOrCreateComponentTView(def);
 
+  // Always force the creation of a new renderer to ensure state captured during construction
+  // stays consistent with the new component definition by clearing any old cached factories.
+  const rendererFactory = lView[ENVIRONMENT].rendererFactory;
+  clearRendererCache(rendererFactory, def);
+
   // Create a new LView from the new TView, but reusing the existing TNode and DOM node.
   const newLView = createLView(
     parentLView,
@@ -141,7 +160,7 @@ function recreateLView(def: ComponentDef<unknown>, lView: LView<unknown>): void 
     host,
     tNode,
     null,
-    lView[ENVIRONMENT].rendererFactory.createRenderer(host, def),
+    rendererFactory.createRenderer(host, def),
     null,
     null,
     null,

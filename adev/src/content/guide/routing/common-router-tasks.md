@@ -110,7 +110,6 @@ You also need to add the `RouterLink`, `RouterLinkActive`, and `RouterOutlet` to
 ```ts
 @Component({
   selector: 'app-root',
-  standalone: true,
   imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css']
@@ -517,10 +516,11 @@ The following example uses `canActivateFn` to guard the route.
 
 ```ts
 export const yourGuardFunction: CanActivateFn = (
-    next: ActivatedRouteSnapshot,
-    state: RouterStateSnapshot) => {
-      // your  logic goes here
-  }
+  next: ActivatedRouteSnapshot,
+  state: RouterStateSnapshot
+) => {
+  // your  logic goes here
+}
 ```
 
 In your routing module, use the appropriate property in your `routes` configuration.

@@ -134,6 +134,18 @@ export function verifyAllChildNodesClaimedForHydration(
   }
 }
 
+export function verifyNodeWasHydrated(el: HTMLElement) {
+  if (readHydrationInfo(el)?.status !== HydrationStatus.Hydrated) {
+    fail('Hydration error: the node is *not* hydrated: ' + el.outerHTML);
+  }
+}
+
+export function verifyNodeWasNotHydrated(el: HTMLElement) {
+  if (readHydrationInfo(el)?.status === HydrationStatus.Hydrated) {
+    fail('Hydration error: the node is hydrated and should not be: ' + el.outerHTML);
+  }
+}
+
 /**
  * Walks over DOM nodes starting from a given node and make sure
  * those nodes were not annotated as "claimed" by hydration.
@@ -234,21 +246,19 @@ export function withDebugConsole() {
  */
 export async function ssr(
   component: Type<unknown>,
-  options?: {
+  options: {
     doc?: string;
     envProviders?: Provider[];
-    hydrationFeatures?: HydrationFeature<HydrationFeatureKind>[];
+    hydrationFeatures?: () => HydrationFeature<HydrationFeatureKind>[];
     enableHydration?: boolean;
-  },
+  } = {},
 ): Promise<string> {
   const defaultHtml = DEFAULT_DOCUMENT;
-  const enableHydration = options?.enableHydration ?? true;
-  const envProviders = options?.envProviders ?? [];
-  const hydrationFeatures = options?.hydrationFeatures ?? [];
+  const {enableHydration = true, envProviders = [], hydrationFeatures = () => []} = options;
   const providers = [
     ...envProviders,
     provideServerRendering(),
-    enableHydration ? provideClientHydration(...hydrationFeatures) : [],
+    enableHydration ? provideClientHydration(...hydrationFeatures()) : [],
   ];
 
   const bootstrap = () => bootstrapApplication(component, {providers});
@@ -275,4 +285,18 @@ export function verifyEmptyConsole(appRef: ApplicationRef) {
 export function clearConsole(appRef: ApplicationRef) {
   const console = appRef.injector.get(Console) as DebugConsole;
   console.logs = [];
+}
+
+// Clears all the counts in ngDevMode
+export function resetNgDevModeCounters() {
+  if (typeof ngDevMode === 'object') {
+    // Reset all ngDevMode counters.
+    for (const metric of Object.keys(ngDevMode!)) {
+      const currentValue = (ngDevMode as unknown as {[key: string]: number | boolean})[metric];
+      if (typeof currentValue === 'number') {
+        // Rest only numeric values, which represent counters.
+        (ngDevMode as unknown as {[key: string]: number | boolean})[metric] = 0;
+      }
+    }
+  }
 }

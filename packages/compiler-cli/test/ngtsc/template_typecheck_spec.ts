@@ -544,7 +544,7 @@ runInEachFileSystem(() => {
     });
 
     it('should type check a two-way binding to a generic property', () => {
-      env.tsconfig({strictTemplates: true});
+      env.tsconfig({strictTemplates: true, _checkTwoWayBoundEvents: true});
       env.write(
         'test.ts',
         `
@@ -568,16 +568,21 @@ runInEachFileSystem(() => {
       );
 
       const diags = env.driveDiagnostics();
-      expect(diags.length).toBe(1);
+      expect(diags.length).toBe(2);
       expect(diags[0].messageText).toEqual(
         jasmine.objectContaining({
           messageText: `Type '{ id: number; }' is not assignable to type '{ id: string; }'.`,
         }),
       );
+      expect(diags[1].messageText).toEqual(
+        jasmine.objectContaining({
+          messageText: `Type '{ id: string; }' is not assignable to type '{ id: number; }'.`,
+        }),
+      );
     });
 
     it('should use the setter type when assigning using a two-way binding to an input with different getter and setter types', () => {
-      env.tsconfig({strictTemplates: true});
+      env.tsconfig({strictTemplates: true, _checkTwoWayBoundEvents: true});
       env.write(
         'test.ts',
         `
@@ -603,7 +608,7 @@ runInEachFileSystem(() => {
               imports: [Dir],
             })
             export class FooCmp {
-              nullableType = null;
+              nullableType: string | null = null;
             }
           `,
       );
@@ -613,7 +618,7 @@ runInEachFileSystem(() => {
     });
 
     it('should type check a two-way binding to a function value', () => {
-      env.tsconfig({strictTemplates: true});
+      env.tsconfig({strictTemplates: true, _checkTwoWayBoundEvents: true});
       env.write(
         'test.ts',
         `
@@ -639,12 +644,45 @@ runInEachFileSystem(() => {
       );
 
       const diags = env.driveDiagnostics();
-      expect(diags.length).toBe(1);
+      expect(diags.length).toBe(2);
       expect(diags[0].messageText).toEqual(
         jasmine.objectContaining({
           messageText: `Type '(val: string) => number' is not assignable to type 'TestFn'.`,
         }),
       );
+      expect(diags[1].messageText).toEqual(
+        jasmine.objectContaining({
+          messageText: `Type 'TestFn' is not assignable to type '(val: string) => number'.`,
+        }),
+      );
+    });
+
+    it('should type check a two-way binding to input/output pair where the input has a wider type than the output', () => {
+      env.tsconfig({strictTemplates: true, _checkTwoWayBoundEvents: true});
+      env.write(
+        'test.ts',
+        `
+          import {Component, Directive, Input, Output, EventEmitter} from '@angular/core';
+
+          @Directive({selector: '[dir]'})
+          export class Dir {
+            @Input() value: string | number;
+            @Output() valueChange = new EventEmitter<number>();
+          }
+
+          @Component({
+            template: '<div dir [(value)]="value"></div>',
+            imports: [Dir],
+          })
+          export class App {
+            value = 'hello';
+          }
+        `,
+      );
+
+      const diags = env.driveDiagnostics();
+      expect(diags.length).toBe(1);
+      expect(diags[0].messageText).toBe(`Type 'number' is not assignable to type 'string'.`);
     });
 
     it('should check the fallback content of ng-content', () => {
@@ -2969,7 +3007,7 @@ runInEachFileSystem(() => {
       });
 
       it('should type check a two-way binding to an input with a transform', () => {
-        env.tsconfig({strictTemplates: true});
+        env.tsconfig({strictTemplates: true, _checkTwoWayBoundEvents: true});
         env.write(
           'test.ts',
           `
@@ -7709,9 +7747,7 @@ suppress
 
         const diags = env.driveDiagnostics();
         expect(diags.length).toBe(1);
-        expect(diags[0].messageText).toBe('Imports array contains unused imports');
-        expect(diags[0].relatedInformation?.length).toBe(1);
-        expect(getSourceCodeForDiagnostic(diags[0].relatedInformation![0])).toBe('UnusedDir');
+        expect(diags[0].messageText).toBe('UnusedDir is not used within the template of MyComp');
       });
 
       it('should report when a pipe is not used within a template', () => {
@@ -7766,9 +7802,7 @@ suppress
 
         const diags = env.driveDiagnostics();
         expect(diags.length).toBe(1);
-        expect(diags[0].messageText).toBe('Imports array contains unused imports');
-        expect(diags[0].relatedInformation?.length).toBe(1);
-        expect(getSourceCodeForDiagnostic(diags[0].relatedInformation![0])).toBe('UnusedPipe');
+        expect(diags[0].messageText).toBe('UnusedPipe is not used within the template of MyComp');
       });
 
       it('should not report imports only used inside @defer blocks', () => {
@@ -7835,7 +7869,6 @@ suppress
         const diags = env.driveDiagnostics();
         expect(diags.length).toBe(1);
         expect(diags[0].messageText).toBe('All imports are unused');
-        expect(diags[0].relatedInformation).toBeFalsy();
       });
 
       it('should not report unused imports coming from modules', () => {
@@ -7953,11 +7986,9 @@ suppress
         );
 
         const diags = env.driveDiagnostics();
-        expect(diags.length).toBe(1);
-        expect(diags[0].messageText).toBe('Imports array contains unused imports');
-        expect(diags[0].relatedInformation?.length).toBe(2);
-        expect(getSourceCodeForDiagnostic(diags[0].relatedInformation![0])).toBe('NgFor');
-        expect(getSourceCodeForDiagnostic(diags[0].relatedInformation![1])).toBe('PercentPipe');
+        expect(diags.length).toBe(2);
+        expect(diags[0].messageText).toBe('NgFor is not used within the template of MyComp');
+        expect(diags[1].messageText).toBe('PercentPipe is not used within the template of MyComp');
       });
 
       it('should report unused imports coming from a nested array from the same file', () => {
@@ -8017,9 +8048,7 @@ suppress
 
         const diags = env.driveDiagnostics();
         expect(diags.length).toBe(1);
-        expect(diags[0].messageText).toBe('Imports array contains unused imports');
-        expect(diags[0].relatedInformation?.length).toBe(1);
-        expect(getSourceCodeForDiagnostic(diags[0].relatedInformation![0])).toBe('UnusedDir');
+        expect(diags[0].messageText).toBe('UnusedDir is not used within the template of MyComp');
       });
 
       it('should report unused imports coming from an array used as the `imports` initializer', () => {
@@ -8068,9 +8097,7 @@ suppress
 
         const diags = env.driveDiagnostics();
         expect(diags.length).toBe(1);
-        expect(diags[0].messageText).toBe('Imports array contains unused imports');
-        expect(diags[0].relatedInformation?.length).toBe(1);
-        expect(getSourceCodeForDiagnostic(diags[0].relatedInformation![0])).toBe('UnusedDir');
+        expect(diags[0].messageText).toBe('UnusedDir is not used within the template of MyComp');
       });
 
       it('should not report unused imports coming from an array through a spread expression from a different file', () => {
