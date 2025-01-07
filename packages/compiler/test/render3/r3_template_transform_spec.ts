@@ -491,6 +491,14 @@ describe('R3 template transform', () => {
       ]);
     });
 
+    it('should parse $any in a two-way binding', () => {
+      expectFromHtml('<div [(prop)]="$any(v)"></div>').toEqual([
+        ['Element', 'div'],
+        ['BoundAttribute', BindingType.TwoWay, 'prop', '$any(v)'],
+        ['BoundEvent', ParsedEventType.TwoWay, 'propChange', null, '$any(v)'],
+      ]);
+    });
+
     it('should parse bound events and properties via bindon-', () => {
       expectFromHtml('<div bindon-prop="v"></div>').toEqual([
         ['Element', 'div'],
@@ -553,6 +561,9 @@ describe('R3 template transform', () => {
         '!a',
         '!!a',
         'a ? b : c',
+        '$any(a || b)',
+        'this.$any(a)',
+        '$any(a, b)',
       ];
 
       for (const expression of unsupportedExpressions) {
@@ -1979,7 +1990,7 @@ describe('R3 template transform', () => {
 
       it('should report unrecognized for loop parameters', () => {
         expect(() => parse(`@for (a of b; foo bar) {hello}`)).toThrowError(
-          /Unrecognized @for loop paramater "foo bar"/,
+          /Unrecognized @for loop parameter "foo bar"/,
         );
       });
 
@@ -2257,7 +2268,7 @@ describe('R3 template transform', () => {
           parse(`
           @if (foo; bar) {hello}
         `),
-        ).toThrowError(/Unrecognized conditional paramater "bar"/);
+        ).toThrowError(/Unrecognized conditional parameter "bar"/);
       });
 
       it('should report an unknown parameter in an else if block', () => {
@@ -2265,7 +2276,7 @@ describe('R3 template transform', () => {
           parse(`
           @if (foo) {hello} @else if (bar; baz) {goodbye}
         `),
-        ).toThrowError(/Unrecognized conditional paramater "baz"/);
+        ).toThrowError(/Unrecognized conditional parameter "baz"/);
       });
 
       it('should report an if block that has multiple `as` expressions', () => {
