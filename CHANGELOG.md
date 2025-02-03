@@ -1,16 +1,232 @@
-<a name="19.1.0-next.4"></a>
-# 19.1.0-next.4 (2024-12-18)
+<a name="19.2.0-next.1"></a>
+# 19.2.0-next.1 (2025-01-29)
 ### core
 | Commit | Type | Description |
 | -- | -- | -- |
-| [57f3550219](https://github.com/angular/angular/commit/57f3550219f2a57c7c26c9183e48ee66845e0439) | feat | add utility for resolving defer block information to ng global ([#59184](https://github.com/angular/angular/pull/59184)) |
-| [22f191f763](https://github.com/angular/angular/commit/22f191f76339a08bb8f0f2dfbc60dde0f2e38e73) | feat | extend the set of profiler events ([#59183](https://github.com/angular/angular/pull/59183)) |
-| [1f4ff2fa36](https://github.com/angular/angular/commit/1f4ff2fa36f5d6240cbc4a40839d3d89501519d8) | fix | avoid triggering `on timer` and `on idle` on the server ([#59177](https://github.com/angular/angular/pull/59177)) |
-| [cf89f14766](https://github.com/angular/angular/commit/cf89f14766b0ed0204f7012d44a4732fccb35398) | fix | Fix nested timer serialization ([#59173](https://github.com/angular/angular/pull/59173)) |
+| [168516462a9](https://github.com/angular/angular/commit/168516462a9673b158fcaa38b8ce17bf684a8ac9) | feat | support default value in `resource()` ([#59655](https://github.com/angular/angular/pull/59655)) |
+| [6c92d653493](https://github.com/angular/angular/commit/6c92d653493404a5f13aa59cde390bcbed973fb6) | fix | add `hasValue` narrowing to `ResourceRef` ([#59708](https://github.com/angular/angular/pull/59708)) |
+| [96e602ebe9c](https://github.com/angular/angular/commit/96e602ebe9cdf7355befad22c11f9f91e0436e01) | fix | cancel in-progress request when same value is assigned ([#59280](https://github.com/angular/angular/pull/59280)) |
+| [cf9054248d1](https://github.com/angular/angular/commit/cf9054248d1b8b5658c5f8b582cea71535f081c2) | fix | check whether application is destroyed before printing hydration stats ([#59716](https://github.com/angular/angular/pull/59716)) |
+| [82876242e55](https://github.com/angular/angular/commit/82876242e557abbced793cff06c4d68c4721e6d2) | fix | ensure type is preserved during HMR ([#59700](https://github.com/angular/angular/pull/59700)) |
+| [127fc0dc847](https://github.com/angular/angular/commit/127fc0dc847a4e8b62be36cdd980a067c4da974f) | fix | fix `resource()`'s `previous.state` ([#59708](https://github.com/angular/angular/pull/59708)) |
+| [f862ace1819](https://github.com/angular/angular/commit/f862ace18191d7fda3b12fc3c6486c035a6b431d) | fix | fixes test timer-based test flakiness in CI ([#59674](https://github.com/angular/angular/pull/59674)) |
+### elements
+| Commit | Type | Description |
+| -- | -- | -- |
+| [0c1ecb453c8](https://github.com/angular/angular/commit/0c1ecb453c8b01447fb5a9f38fdfe9936a60abe5) | fix | not setting initial value on signal-based input ([#59773](https://github.com/angular/angular/pull/59773)) |
+### platform-browser
+| Commit | Type | Description |
+| -- | -- | -- |
+| [e6cb411e439](https://github.com/angular/angular/commit/e6cb411e4393a4b1f5852d3d7c5b9622504399b1) | fix | automatically disable animations on the server ([#59762](https://github.com/angular/angular/pull/59762)) |
+| [6b09716754b](https://github.com/angular/angular/commit/6b09716754b979c98489a2710eda977e51fe92d0) | fix | prepend `baseHref` to `sourceMappingURL` in CSS content ([#59730](https://github.com/angular/angular/pull/59730)) |
+| [fd7ee47bf70](https://github.com/angular/angular/commit/fd7ee47bf702029e481ad40362684f0a01ef2ec0) | fix | Update pseudoevent created by createMouseSpecialEvent to populate `_originalEvent` property ([#59690](https://github.com/angular/angular/pull/59690)) |
+| [65cf061feb4](https://github.com/angular/angular/commit/65cf061feb402e1532cd06d0fda5d2b7749ac421) | fix | Update pseudoevent created by createMouseSpecialEvent to populate `_originalEvent` property ([#59690](https://github.com/angular/angular/pull/59690)) |
+| [af9d74710c4](https://github.com/angular/angular/commit/af9d74710c460b0aaeaf3226533e9e544025523c) | fix | Update pseudoevent created by createMouseSpecialEvent to populate `_originalEvent` property ([#59690](https://github.com/angular/angular/pull/59690)) |
 ### platform-server
 | Commit | Type | Description |
 | -- | -- | -- |
-| [300b141cc8](https://github.com/angular/angular/commit/300b141cc8652fd714b02f05c943cb79167ea844) | fix | Warn user when transfer state happens more than once ([#58935](https://github.com/angular/angular/pull/58935)) |
+| [fc5d187da5e](https://github.com/angular/angular/commit/fc5d187da5e8895d60caa35b7b59e234998eddf0) | fix | decouple server from animations module ([#59762](https://github.com/angular/angular/pull/59762)) |
+### router
+| Commit | Type | Description |
+| -- | -- | -- |
+| [c7b6e1107c6](https://github.com/angular/angular/commit/c7b6e1107c6fcc7ed1dbb7c7b8698b09bfa8f1cc) | fix | prevent error handling when injector is destroyed ([#59457](https://github.com/angular/angular/pull/59457)) |
+### service-worker
+| Commit | Type | Description |
+| -- | -- | -- |
+| [e2987a1d4ab](https://github.com/angular/angular/commit/e2987a1d4ab09b1abf1f42597c40f2055db116e1) | fix | add missing `rxjs` peer dependency ([#59747](https://github.com/angular/angular/pull/59747)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="19.1.4"></a>
+# 19.1.4 (2025-01-29)
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [544b9ee7ca0](https://github.com/angular/angular/commit/544b9ee7ca00925e62b7c74cf7930777a10aaf76) | fix | check whether application is destroyed before printing hydration stats ([#59716](https://github.com/angular/angular/pull/59716)) |
+| [d6e78c072dc](https://github.com/angular/angular/commit/d6e78c072dcb5b0b6efc2b098fdb911ccddf6e81) | fix | ensure type is preserved during HMR ([#59700](https://github.com/angular/angular/pull/59700)) |
+| [c2436702df9](https://github.com/angular/angular/commit/c2436702df980bbf2db0fe3bee4c72860edb4e63) | fix | fixes test timer-based test flakiness in CI ([#59674](https://github.com/angular/angular/pull/59674)) |
+### elements
+| Commit | Type | Description |
+| -- | -- | -- |
+| [44180645992](https://github.com/angular/angular/commit/44180645992f7d9018ccb2d7663530b3cffde36b) | fix | not setting initial value on signal-based input ([#59773](https://github.com/angular/angular/pull/59773)) |
+### platform-browser
+| Commit | Type | Description |
+| -- | -- | -- |
+| [1828a840620](https://github.com/angular/angular/commit/1828a8406201827e52549c8afa487bf6364a70c3) | fix | prepend `baseHref` to `sourceMappingURL` in CSS content ([#59730](https://github.com/angular/angular/pull/59730)) |
+| [1c84cbca30e](https://github.com/angular/angular/commit/1c84cbca30e6606e6df3f40346989d9434d89bc6) | fix | Update pseudoevent created by createMouseSpecialEvent to populate `_originalEvent` property ([#59690](https://github.com/angular/angular/pull/59690)) |
+| [12256574626](https://github.com/angular/angular/commit/12256574626f04f5fe2b41e805f7bdc93d62df0a) | fix | Update pseudoevent created by createMouseSpecialEvent to populate `_originalEvent` property ([#59690](https://github.com/angular/angular/pull/59690)) |
+| [3f4d5f636aa](https://github.com/angular/angular/commit/3f4d5f636aac90cabe32ff6c4d75180ced99eb97) | fix | Update pseudoevent created by createMouseSpecialEvent to populate `_originalEvent` property ([#59690](https://github.com/angular/angular/pull/59690)) |
+### router
+| Commit | Type | Description |
+| -- | -- | -- |
+| [e3da35ec749](https://github.com/angular/angular/commit/e3da35ec749395239731158f89e29d47e7a9ef36) | fix | prevent error handling when injector is destroyed ([#59457](https://github.com/angular/angular/pull/59457)) |
+### service-worker
+| Commit | Type | Description |
+| -- | -- | -- |
+| [522acbf3d7e](https://github.com/angular/angular/commit/522acbf3d7ed502e7802117776acda3529a9a2b4) | fix | add missing `rxjs` peer dependency ([#59747](https://github.com/angular/angular/pull/59747)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="19.2.0-next.0"></a>
+# 19.2.0-next.0 (2025-01-22)
+### compiler
+| Commit | Type | Description |
+| -- | -- | -- |
+| [fe8a68329b](https://github.com/angular/angular/commit/fe8a68329b50363f914a728579392f3fc68670a6) | feat | support untagged template literals in expressions ([#59230](https://github.com/angular/angular/pull/59230)) |
+### compiler-cli
+| Commit | Type | Description |
+| -- | -- | -- |
+| [ed705a856a](https://github.com/angular/angular/commit/ed705a856a164f91d33e2173b4f371329d07c472) | feat | detect missing structural directive imports ([#59443](https://github.com/angular/angular/pull/59443)) |
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [bc2ad7bfd3](https://github.com/angular/angular/commit/bc2ad7bfd37a61992b550943de5da0eab2eec98b) | feat | support streaming resources ([#59573](https://github.com/angular/angular/pull/59573)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="19.1.3"></a>
+# 19.1.3 (2025-01-22)
+### compiler
+| Commit | Type | Description |
+| -- | -- | -- |
+| [ecfb74d287](https://github.com/angular/angular/commit/ecfb74d287bec7bec37d0b476b321b047bef2c43) | fix | handle :host-context with comma-separated child selector ([#59276](https://github.com/angular/angular/pull/59276)) |
+### compiler-cli
+| Commit | Type | Description |
+| -- | -- | -- |
+| [53160e504d](https://github.com/angular/angular/commit/53160e504df44b05f59cacd9afeb40a0e627b744) | fix | extract parenthesized dependencies during HMR ([#59644](https://github.com/angular/angular/pull/59644)) |
+| [39690969af](https://github.com/angular/angular/commit/39690969af14914df0c9b5a009b2df920f5c03e7) | fix | handle conditional expressions when extracting dependencies ([#59637](https://github.com/angular/angular/pull/59637)) |
+| [78af7a5059](https://github.com/angular/angular/commit/78af7a5059cc3e03704ba63f8512351a40470557) | fix | handle new expressions when extracting dependencies ([#59637](https://github.com/angular/angular/pull/59637)) |
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [408af24ff3](https://github.com/angular/angular/commit/408af24ff3490926e9992cb4f1f71914d71ad6ad) | fix | capture self-referencing component during HMR ([#59644](https://github.com/angular/angular/pull/59644)) |
+| [d7575c201c](https://github.com/angular/angular/commit/d7575c201cfd61010952b3a633eec03e32f58220) | fix | replace metadata in place during HMR ([#59644](https://github.com/angular/angular/pull/59644)) |
+| [26f6d4c485](https://github.com/angular/angular/commit/26f6d4c485b566d7bc127c78cc163c376d0fe6b5) | fix | skip component ID collision warning during SSR ([#59625](https://github.com/angular/angular/pull/59625)) |
+### migrations
+| Commit | Type | Description |
+| -- | -- | -- |
+| [a62c84bc18](https://github.com/angular/angular/commit/a62c84bc188d41ea24cf0eca14ac18c4b917ccd0) | fix | avoid applying the same replacements twice when cleaning up unused imports ([#59656](https://github.com/angular/angular/pull/59656)) |
+### platform-browser
+| Commit | Type | Description |
+| -- | -- | -- |
+| [b2b3816cb1](https://github.com/angular/angular/commit/b2b3816cb1c5c573dc9368f05fd2971671d7159f) | fix | clear renderer cache during HMR when using async animations ([#59644](https://github.com/angular/angular/pull/59644)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="19.1.2"></a>
+# 19.1.2 (2025-01-20)
+### compiler
+| Commit | Type | Description |
+| -- | -- | -- |
+| [8dcd889987](https://github.com/angular/angular/commit/8dcd88998700a94115a542462e6ae6beedbfbd9d) | fix | update `@ng/component` URL to be relative ([#59620](https://github.com/angular/angular/pull/59620)) |
+### compiler-cli
+| Commit | Type | Description |
+| -- | -- | -- |
+| [95a05bb202](https://github.com/angular/angular/commit/95a05bb2021acab02df3468212adf023d331a688) | fix | disable tree shaking during HMR ([#59595](https://github.com/angular/angular/pull/59595)) |
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [a4eb74c79c](https://github.com/angular/angular/commit/a4eb74c79cca802d8179118cf4d53c73285baadb) | fix | animation sometimes renderer not being destroyed during HMR ([#59574](https://github.com/angular/angular/pull/59574)) |
+| [906413aba3](https://github.com/angular/angular/commit/906413aba31459e6499420ed14519d1280e182ad) | fix | change `Resource` to use explicit `undefined` in its typings ([#59024](https://github.com/angular/angular/pull/59024)) |
+| [4eb541837c](https://github.com/angular/angular/commit/4eb541837cf28ce1950d782213291165a2436410) | fix | cleanup `_ejsa` when app is destroyed ([#59492](https://github.com/angular/angular/pull/59492)) |
+| [5497102769](https://github.com/angular/angular/commit/549710276969ec4cf8c1e3d2f19d1fe9f755976e) | fix | cleanup stash listener when app is destroyed ([#59598](https://github.com/angular/angular/pull/59598)) |
+| [266a8f2f2e](https://github.com/angular/angular/commit/266a8f2f2ebf9f5e310ba5de695be5072790e1e5) | fix | handle shadow DOM encapsulated component with HMR ([#59597](https://github.com/angular/angular/pull/59597)) |
+| [6f7716268a](https://github.com/angular/angular/commit/6f7716268afa5146f2b2d0dbbea146defa9acfef) | fix | HMR not matching component that injects ViewContainerRef ([#59596](https://github.com/angular/angular/pull/59596)) |
+| [d12a186d53](https://github.com/angular/angular/commit/d12a186d531b41e6a16f84446a1d54eaed010fc4) | fix | treat exceptions in `equal` as part of computation ([#55818](https://github.com/angular/angular/pull/55818)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="19.1.1"></a>
+# 19.1.1 (2025-01-16)
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [357795cb96](https://github.com/angular/angular/commit/357795cb96a1cd138ec263c468c9de8ca8b2af9c) | fix | run HMR replacement in the zone ([#59562](https://github.com/angular/angular/pull/59562)) |
+### platform-browser
+| Commit | Type | Description |
+| -- | -- | -- |
+| [eb0b1851f4](https://github.com/angular/angular/commit/eb0b1851f494adfe72f583763a44bd2528a5956c) | fix | roll back HMR fix ([#59557](https://github.com/angular/angular/pull/59557)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="19.1.0"></a>
+# 19.1.0 (2025-01-15)
+### common
+| Commit | Type | Description |
+| -- | -- | -- |
+| [e4c50b3bea](https://github.com/angular/angular/commit/e4c50b3bea22ca2afba74465893c36730952f4b9) | feat | expose component instance in NgComponentOutlet ([#58698](https://github.com/angular/angular/pull/58698)) |
+### compiler
+| Commit | Type | Description |
+| -- | -- | -- |
+| [ceadd28ea1](https://github.com/angular/angular/commit/ceadd28ea12140e8e78cdb706aff0487f5a87a3c) | fix | allow $any in two-way bindings ([#59362](https://github.com/angular/angular/pull/59362)) |
+| [aed49ddaaa](https://github.com/angular/angular/commit/aed49ddaaa40d6e6816198b47ceada4e98cd636c) | fix | use chunk origin in template HMR request URL ([#59459](https://github.com/angular/angular/pull/59459)) |
+### compiler-cli
+| Commit | Type | Description |
+| -- | -- | -- |
+| [c5c20e9d86](https://github.com/angular/angular/commit/c5c20e9d86d72b33840dcf0adea02876437a589f) | fix | check event side of two-way bindings ([#59002](https://github.com/angular/angular/pull/59002)) |
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [d010e11b73](https://github.com/angular/angular/commit/d010e11b735562ded439989ddb84cc83c6c00e81) | feat | add event listener options to renderer ([#59092](https://github.com/angular/angular/pull/59092)) |
+| [57f3550219](https://github.com/angular/angular/commit/57f3550219f2a57c7c26c9183e48ee66845e0439) | feat | add utility for resolving defer block information to ng global ([#59184](https://github.com/angular/angular/pull/59184)) |
+| [22f191f763](https://github.com/angular/angular/commit/22f191f76339a08bb8f0f2dfbc60dde0f2e38e73) | feat | extend the set of profiler events ([#59183](https://github.com/angular/angular/pull/59183)) |
+| [e894a5daea](https://github.com/angular/angular/commit/e894a5daea401b4e1173b0e66557ae40140eb9a0) | feat | set kind field on template and effect nodes ([#58865](https://github.com/angular/angular/pull/58865)) |
+| [bd1f1294ae](https://github.com/angular/angular/commit/bd1f1294aeb0d47b24421b7b7a608988689a459f) | feat | support TypeScript 5.7 ([#58609](https://github.com/angular/angular/pull/58609)) |
+| [9870b643bf](https://github.com/angular/angular/commit/9870b643bff46f089a3f0a30514fb7e062a66d56) | fix | Defer afterRender until after first CD ([#58250](https://github.com/angular/angular/pull/58250)) |
+| [a5fc962094](https://github.com/angular/angular/commit/a5fc9620948c59da2146d46d27de388839b93254) | fix | Don't run effects in check no changes pass ([#58250](https://github.com/angular/angular/pull/58250)) |
+### migrations
+| Commit | Type | Description |
+| -- | -- | -- |
+| [d298d25426](https://github.com/angular/angular/commit/d298d254269ff759111fbdef7736bc8b713638bc) | feat | add schematic to clean up unused imports ([#59353](https://github.com/angular/angular/pull/59353)) |
+| [14fb8ce4c0](https://github.com/angular/angular/commit/14fb8ce4c00fc458cfbe1d7f2c85638c6165b636) | fix | resolve text replacement issue ([#59452](https://github.com/angular/angular/pull/59452)) |
+### platform-browser
+| Commit | Type | Description |
+| -- | -- | -- |
+| [8c5db3cfb7](https://github.com/angular/angular/commit/8c5db3cfb75700dd64f4c8c073554c7086835950) | fix | avoid circular DI error in async renderer ([#59256](https://github.com/angular/angular/pull/59256)) |
+### router
+| Commit | Type | Description |
+| -- | -- | -- |
+| [52a6710f54](https://github.com/angular/angular/commit/52a6710f54bcec81f4cde23a78b9f78d038156c5) | fix | complete router `events` on dispose ([#59327](https://github.com/angular/angular/pull/59327)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="19.0.7"></a>
+# 19.0.7 (2025-01-15)
+### compiler-cli
+| Commit | Type | Description |
+| -- | -- | -- |
+| [2b4b7c3ebf](https://github.com/angular/angular/commit/2b4b7c3ebfb2d4f4fd96fd2f1890b67c832505fd) | fix | handle more node types when extracting dependencies ([#59445](https://github.com/angular/angular/pull/59445)) |
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [f893d07232](https://github.com/angular/angular/commit/f893d0723262d699979d55e43e4ddbcf64a3fc13) | fix | destroy renderer when replacing styles during HMR ([#59514](https://github.com/angular/angular/pull/59514)) |
+### migrations
+| Commit | Type | Description |
+| -- | -- | -- |
+| [eb2fcd1896](https://github.com/angular/angular/commit/eb2fcd1896e0b834b86fe79e8d806bdab24aabcc) | fix | incorrect stats when migrating queries with best effort mode ([#59463](https://github.com/angular/angular/pull/59463)) |
+
+<!-- CHANGELOG SPLIT MARKER -->
+
+<a name="19.0.6"></a>
+# 19.0.6 (2025-01-08)
+### compiler-cli
+| Commit | Type | Description |
+| -- | -- | -- |
+| [06a55e9817](https://github.com/angular/angular/commit/06a55e98173ff7bdd4e2ac1263309f9b935240f0) | fix | account for more expression types when determining HMR dependencies ([#59323](https://github.com/angular/angular/pull/59323)) |
+| [17fb20f85d](https://github.com/angular/angular/commit/17fb20f85db9f3c172c194c0436644f34b7176b1) | fix | preserve defer block dependencies during HMR when class metadata is disabled ([#59313](https://github.com/angular/angular/pull/59313)) |
+### core
+| Commit | Type | Description |
+| -- | -- | -- |
+| [07afce81b8](https://github.com/angular/angular/commit/07afce81b8ce28d1b308ff25017a4d4993881f36) | fix | Ensure that a destroyed `effect` never run. ([#59415](https://github.com/angular/angular/pull/59415)) |
+### platform-browser
+| Commit | Type | Description |
+| -- | -- | -- |
+| [dbb8980d03](https://github.com/angular/angular/commit/dbb8980d03485ad1cf0e19503c4e770b1ba0767e) | fix | avoid circular DI error in async renderer ([#59271](https://github.com/angular/angular/pull/59271)) |
+| [6d00efde95](https://github.com/angular/angular/commit/6d00efde952971573359b32cab06d0a513600fe0) | fix | styles not replaced during HMR when using animations renderer ([#59393](https://github.com/angular/angular/pull/59393)) |
+### router
+| Commit | Type | Description |
+| -- | -- | -- |
+| [144bccb687](https://github.com/angular/angular/commit/144bccb6872ece8fa1cf4954b5839054ccf20aa1) | fix | avoid component ID collisions with user code ([#59300](https://github.com/angular/angular/pull/59300)) |
 
 <!-- CHANGELOG SPLIT MARKER -->
 
@@ -25,26 +241,6 @@
 | Commit | Type | Description |
 | -- | -- | -- |
 | [9085a8fbd8](https://github.com/angular/angular/commit/9085a8fbd8cb61e3ce45adfa9ca2e96ba0be6f62) | fix | Warn user when transfer state happens more than once ([#58935](https://github.com/angular/angular/pull/58935)) |
-
-<!-- CHANGELOG SPLIT MARKER -->
-
-<a name="19.1.0-next.3"></a>
-# 19.1.0-next.3 (2024-12-12)
-### compiler-cli
-| Commit | Type | Description |
-| -- | -- | -- |
-| [c5c20e9d86](https://github.com/angular/angular/commit/c5c20e9d86d72b33840dcf0adea02876437a589f) | fix | check event side of two-way bindings ([#59002](https://github.com/angular/angular/pull/59002)) |
-| [0dee2681f7](https://github.com/angular/angular/commit/0dee2681f782106fdb0fdcf9bc6ad1bca562751d) | fix | consider pre-release versions when detecting feature support ([#59061](https://github.com/angular/angular/pull/59061)) |
-| [1b9492edf8](https://github.com/angular/angular/commit/1b9492edf88f8a217c0fd1a8203df489d91b623b) | fix | error in unused standalone imports diagnostic ([#59064](https://github.com/angular/angular/pull/59064)) |
-### core
-| Commit | Type | Description |
-| -- | -- | -- |
-| [d010e11b73](https://github.com/angular/angular/commit/d010e11b735562ded439989ddb84cc83c6c00e81) | feat | add event listener options to renderer ([#59092](https://github.com/angular/angular/pull/59092)) |
-| [30e676098d](https://github.com/angular/angular/commit/30e676098d72e9e11a6628b9716668df08f18c62) | fix | Fix a bug where snapshotted functions are being run twice if they return a nullish/falsey value. ([#59073](https://github.com/angular/angular/pull/59073)) |
-### platform-browser
-| Commit | Type | Description |
-| -- | -- | -- |
-| [52be35118f](https://github.com/angular/angular/commit/52be35118feee587d2efe5a6c55502c171caaa97) | fix | collect external component styles from server rendering ([#59031](https://github.com/angular/angular/pull/59031)) |
 
 <!-- CHANGELOG SPLIT MARKER -->
 
@@ -66,40 +262,8 @@
 
 <!-- CHANGELOG SPLIT MARKER -->
 
-<a name="19.1.0-next.2"></a>
-# 19.1.0-next.2 (2024-12-04)
-
-<!-- CHANGELOG SPLIT MARKER -->
-
 <a name="19.0.3"></a>
 # 19.0.3 (2024-12-04)
-
-<!-- CHANGELOG SPLIT MARKER -->
-
-<a name="19.1.0-next.1"></a>
-# 19.1.0-next.1 (2024-12-04)
-### compiler-cli
-| Commit | Type | Description |
-| -- | -- | -- |
-| [f280467398](https://github.com/angular/angular/commit/f280467398c6980878b5e755a78606251814447b) | fix | account for multiple generated namespace imports in HMR ([#58924](https://github.com/angular/angular/pull/58924)) |
-### core
-| Commit | Type | Description |
-| -- | -- | -- |
-| [e894a5daea](https://github.com/angular/angular/commit/e894a5daea401b4e1173b0e66557ae40140eb9a0) | feat | set kind field on template and effect nodes ([#58865](https://github.com/angular/angular/pull/58865)) |
-| [3b765367f3](https://github.com/angular/angular/commit/3b765367f31b6d1bb32406505f18151acdf1f2b2) | fix | Explicitly manage TracingSnapshot lifecycle and dispose of it once it's been used. ([#58929](https://github.com/angular/angular/pull/58929)) |
-### migrations
-| Commit | Type | Description |
-| -- | -- | -- |
-| [e31e52e177](https://github.com/angular/angular/commit/e31e52e1771ea565a6869b4ed252d6ff7097d4ad) | fix | class content being deleted in some edge cases ([#58959](https://github.com/angular/angular/pull/58959)) |
-| [508d3a1b3b](https://github.com/angular/angular/commit/508d3a1b3bc5770f18e3e46e2105bf0ba6178a87) | fix | correctly strip away parameters surrounded by comments in inject migration ([#58959](https://github.com/angular/angular/pull/58959)) |
-| [7191aa6e09](https://github.com/angular/angular/commit/7191aa6e09ca3b85efd3fd14a18944eac4384763) | fix | don't migrate classes with parameters that can't be injected ([#58959](https://github.com/angular/angular/pull/58959)) |
-| [a4924af6d5](https://github.com/angular/angular/commit/a4924af6d580c5bdaa185c4c97277c4effb55af9) | fix | inject migration aggressively removing imports ([#58959](https://github.com/angular/angular/pull/58959)) |
-| [35165d152d](https://github.com/angular/angular/commit/35165d152d7f9c3c8789ebdf792037aafdc1cc66) | fix | inject migration dropping code if everything except super is removed ([#58959](https://github.com/angular/angular/pull/58959)) |
-| [68e5ba7a3a](https://github.com/angular/angular/commit/68e5ba7a3a44c2f1647c4c6cc7ed66b010f85d15) | fix | preserve type literals and tuples in inject migrations ([#58959](https://github.com/angular/angular/pull/58959)) |
-### platform-server
-| Commit | Type | Description |
-| -- | -- | -- |
-| [1cfbfc66d3](https://github.com/angular/angular/commit/1cfbfc66d3a24b6c41abf13550e7c2911e20b550) | fix | remove peer dependency on animations ([#58997](https://github.com/angular/angular/pull/58997)) |
 
 <!-- CHANGELOG SPLIT MARKER -->
 
@@ -135,19 +299,6 @@
 | Commit | Type | Description |
 | -- | -- | -- |
 | [06d70a25ea](https://github.com/angular/angular/commit/06d70a25ea7a6ef32f47516fcb8542d98ac45e14) | fix | take care of tests that import both HttpClientModule & HttpClientTestingModule. ([#58777](https://github.com/angular/angular/pull/58777)) |
-
-<!-- CHANGELOG SPLIT MARKER -->
-
-<a name="19.1.0-next.0"></a>
-# 19.1.0-next.0 (2024-11-26)
-### common
-| Commit | Type | Description |
-| -- | -- | -- |
-| [e4c50b3bea](https://github.com/angular/angular/commit/e4c50b3bea22ca2afba74465893c36730952f4b9) | feat | expose component instance in NgComponentOutlet ([#58698](https://github.com/angular/angular/pull/58698)) |
-### core
-| Commit | Type | Description |
-| -- | -- | -- |
-| [bd1f1294ae](https://github.com/angular/angular/commit/bd1f1294aeb0d47b24421b7b7a608988689a459f) | feat | support TypeScript 5.7 ([#58609](https://github.com/angular/angular/pull/58609)) |
 
 <!-- CHANGELOG SPLIT MARKER -->
 

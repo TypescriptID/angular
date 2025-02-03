@@ -15,6 +15,7 @@ import {
   inject,
   InjectionToken,
   Input,
+  NgZone,
   OnChanges,
   OnDestroy,
   OnInit,
@@ -24,14 +25,19 @@ import {
   Type,
   ViewChild,
   ViewChildren,
+  ViewContainerRef,
+  ViewEncapsulation,
   ɵNG_COMP_DEF,
   ɵɵreplaceMetadata,
+  ɵɵsetComponentScope,
 } from '@angular/core';
 import {TestBed} from '@angular/core/testing';
 import {compileComponent} from '@angular/core/src/render3/jit/directive';
 import {angularCoreEnv} from '@angular/core/src/render3/jit/environment';
 import {clearTranslations, loadTranslations} from '@angular/localize';
 import {computeMsgId} from '@angular/compiler';
+import {EVENT_MANAGER_PLUGINS} from '@angular/platform-browser';
+import {ComponentType} from '@angular/core/src/render3';
 
 describe('hot module replacement', () => {
   it('should recreate a single usage of a basic component', () => {
@@ -245,6 +251,65 @@ describe('hot module replacement', () => {
     );
   });
 
+  it('should replace a component using shadow DOM encapsulation', () => {
+    // Domino doesn't support shadow DOM.
+    if (isNode) {
+      return;
+    }
+
+    let instance!: ChildCmp;
+    const initialMetadata: Component = {
+      encapsulation: ViewEncapsulation.ShadowDom,
+      selector: 'child-cmp',
+      template: 'Hello <strong>{{state}}</strong>',
+      styles: `strong {color: red;}`,
+    };
+
+    @Component(initialMetadata)
+    class ChildCmp {
+      state = 0;
+
+      constructor() {
+        instance = this;
+      }
+    }
+
+    @Component({
+      standalone: true,
+      imports: [ChildCmp],
+      template: '<child-cmp/>',
+    })
+    class RootCmp {}
+
+    const fixture = TestBed.createComponent(RootCmp);
+    fixture.detectChanges();
+    const getShadowRoot = () => fixture.nativeElement.querySelector('child-cmp').shadowRoot;
+
+    markNodesAsCreatedInitially(getShadowRoot());
+    expectHTML(getShadowRoot(), `<style>strong {color: red;}</style>Hello <strong>0</strong>`);
+
+    instance.state = 1;
+    fixture.detectChanges();
+    expectHTML(getShadowRoot(), `<style>strong {color: red;}</style>Hello <strong>1</strong>`);
+
+    replaceMetadata(ChildCmp, {
+      ...initialMetadata,
+      template: `Changed <strong>{{state}}</strong>!`,
+      styles: `strong {background: pink;}`,
+    });
+    fixture.detectChanges();
+
+    verifyNodesWereRecreated([
+      fixture.nativeElement.querySelector('child-cmp'),
+      ...childrenOf(getShadowRoot()),
+    ]);
+
+    expectHTML(
+      getShadowRoot(),
+      `<style>strong {background: pink;}</style>Changed <strong>1</strong>!`,
+    );
+  });
+
   it('should continue binding inputs to a component that is replaced', () => {
     const initialMetadata: Component = {
       selector: 'child-cmp',
@@ -412,6 +477,88 @@ describe('hot module replacement', () => {
     recreatedNodes = childrenOf(...fixture.nativeElement.querySelectorAll('child-cmp'));
     verifyNodesRemainUntouched(fixture.nativeElement, recreatedNodes);
     verifyNodesWereRecreated(recreatedNodes);
+  });
+
+  it('should be able to replace a component that injects ViewContainerRef', () => {
+    const initialMetadata: Component = {
+      selector: 'child-cmp',
+      standalone: true,
+      template: 'Hello <strong>world</strong>',
+    };
+
+    @Component(initialMetadata)
+    class ChildCmp {
+      vcr = inject(ViewContainerRef);
+    }
+
+    @Component({
+      standalone: true,
+      imports: [ChildCmp],
+      template: '<child-cmp/>',
+    })
+    class RootCmp {}
+
+    const fixture = TestBed.createComponent(RootCmp);
+    fixture.detectChanges();
+    markNodesAsCreatedInitially(fixture.nativeElement);
+
+    expectHTML(
+      fixture.nativeElement,
+      `
+        <child-cmp>
+          Hello <strong>world</strong>
+        </child-cmp>
+      `,
+    );
+
+    replaceMetadata(ChildCmp, {
+      ...initialMetadata,
+      template: `Hello <i>Bob</i>!`,
+    });
+    fixture.detectChanges();
+
+    const recreatedNodes = childrenOf(...fixture.nativeElement.querySelectorAll('child-cmp'));
+    verifyNodesRemainUntouched(fixture.nativeElement, recreatedNodes);
+    verifyNodesWereRecreated(recreatedNodes);
+
+    expectHTML(
+      fixture.nativeElement,
+      `
+        <child-cmp>
+          Hello <i>Bob</i>!
+        </child-cmp>
+      `,
+    );
+  });
+
+  it('should carry over dependencies defined by setComponentScope', () => {
+    // In some cases the AoT compiler produces a `setComponentScope` for non-standalone
+    // components. We simulate it here by declaring two components that are not standalone
+    // and manually calling `setComponentScope`.
+    @Component({selector: 'child-cmp', template: 'hello', standalone: false})
+    class ChildCmp {}
+
+    @Component({template: 'Initial <child-cmp/>', standalone: false})
+    class RootCmp {}
+
+    ɵɵsetComponentScope(RootCmp as ComponentType<RootCmp>, [ChildCmp], []);
+
+    const fixture = TestBed.createComponent(RootCmp);
+    fixture.detectChanges();
+    markNodesAsCreatedInitially(fixture.nativeElement);
+    expectHTML(fixture.nativeElement, 'Initial <child-cmp>hello</child-cmp>');
+
+    replaceMetadata(RootCmp, {
+      standalone: false,
+      template: 'Changed <child-cmp/>',
+    });
+    fixture.detectChanges();
+
+    const recreatedNodes = childrenOf(fixture.nativeElement);
+    verifyNodesRemainUntouched(fixture.nativeElement, recreatedNodes);
+    verifyNodesWereRecreated(recreatedNodes);
+
+    expectHTML(fixture.nativeElement, 'Changed <child-cmp>hello</child-cmp>');
   });
 
   describe('queries', () => {
@@ -1213,6 +1360,47 @@ describe('hot module replacement', () => {
       fixture.detectChanges();
       expect(count).toBe(2);
     });
+
+    it('should bind events inside the NgZone after a replacement', () => {
+      const calls: {name: string; inZone: boolean}[] = [];
+
+      @Component({template: `<button (click)="clicked()"></button>`})
+      class App {
+        clicked() {}
+      }
+
+      TestBed.configureTestingModule({
+        providers: [
+          {
+            // Note: TestBed brings things into the zone even if they aren't which makes this
+            // test hard to write. We have to intercept the listener being bound at the renderer
+            // level in order to get a true sense if it'll be bound inside or outside the zone.
+            // We do so with a custom event manager.
+            provide: EVENT_MANAGER_PLUGINS,
+            multi: true,
+            useValue: {
+              supports: () => true,
+              addEventListener: (_: unknown, name: string) => {
+                calls.push({name, inZone: NgZone.isInAngularZone()});
+                return () => {};
+              },
+            },
+          },
+        ],
+      });
+
+      const fixture = TestBed.createComponent(App);
+      fixture.detectChanges();
+      expect(calls).toEqual([{name: 'click', inZone: true}]);
+
+      replaceMetadata(App, {template: '<button class="foo" (click)="clicked()"></button>'});
+      fixture.detectChanges();
+
+      expect(calls).toEqual([
+        {name: 'click', inZone: true},
+        {name: 'click', inZone: true},
+      ]);
+    });
   });
 
   describe('directives', () => {
@@ -1975,7 +2163,7 @@ describe('hot module replacement', () => {
   function expectHTML(element: HTMLElement, expectation: string) {
     const actual = element.innerHTML
       .replace(/<!--(\W|\w)*?-->/g, '')
-      .replace(/\sng-reflect-\S*="[^"]*"/g, '');
+      .replace(/\s(ng-reflect|_nghost|_ngcontent)-\S*="[^"]*"/g, '');
     expect(actual.replace(/\s/g, '') === expectation.replace(/\s/g, ''))
       .withContext(`HTML does not match expectation. Actual HTML:\n${actual}`)
       .toBe(true);

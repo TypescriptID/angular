@@ -38,6 +38,7 @@ import {getLView} from '@angular/core/src/render3/state';
 import {ngDevModeResetPerfCounters} from '@angular/core/src/util/ng_dev_mode';
 import {fakeAsync, flushMicrotasks, TestBed} from '@angular/core/testing';
 import {By} from '@angular/platform-browser';
+import {NoopAnimationsModule} from '@angular/platform-browser/animations';
 import {expectPerfCounters} from '@angular/private/testing';
 
 describe('acceptance integration tests', () => {
@@ -2715,6 +2716,26 @@ describe('acceptance integration tests', () => {
     expect(() => TestBed.createComponent(Comp).detectChanges()).not.toThrow();
   });
 
+  it('should support template literals in expressions', () => {
+    @Component({
+      standalone: true,
+      template: 'Message: {{`Hello, ${name} - ${value}`}}',
+    })
+    class TestComponent {
+      name = 'Frodo';
+      value = 0;
+    }
+
+    const fixture = TestBed.createComponent(TestComponent);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Message: Hello, Frodo - 0');
+
+    fixture.componentInstance.value++;
+    fixture.componentInstance.name = 'Bilbo';
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Message: Hello, Bilbo - 1');
+  });
+
   describe('tView.firstUpdatePass', () => {
     function isFirstUpdatePass() {
       const lView = getLView();
@@ -2869,6 +2890,7 @@ describe('acceptance integration tests', () => {
 
       TestBed.configureTestingModule({
         declarations: [Cmp, AnimationComp],
+        imports: [NoopAnimationsModule],
         providers: [{provide: AnimationDriver, useClass: MockAnimationDriver}],
       });
       const fixture = TestBed.createComponent(Cmp);
@@ -2959,6 +2981,7 @@ describe('acceptance integration tests', () => {
 
       TestBed.configureTestingModule({
         declarations: [Cmp, InnerComp],
+        imports: [NoopAnimationsModule],
         providers: [{provide: AnimationDriver, useClass: MockAnimationDriver}],
       });
       const fixture = TestBed.createComponent(Cmp);

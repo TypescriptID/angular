@@ -185,6 +185,14 @@ export interface AttributeDecorator {
 }
 
 // @public
+export interface BaseResourceOptions<T, R> {
+    defaultValue?: NoInfer<T>;
+    equal?: ValueEqualityFn<T>;
+    injector?: Injector;
+    request?: () => R;
+}
+
+// @public
 export function booleanAttribute(value: unknown): boolean;
 
 // @public
@@ -1437,6 +1445,11 @@ export class PlatformRef {
 export type Predicate<T> = (value: T) => boolean;
 
 // @public
+export interface PromiseResourceOptions<T, R> extends BaseResourceOptions<T, R> {
+    loader: ResourceLoader<T, R>;
+}
+
+// @public
 export function provideAppInitializer(initializerFn: () => Observable<unknown> | Promise<unknown> | void): EnvironmentProviders;
 
 // @public
@@ -1585,17 +1598,20 @@ export function resolveForwardRef<T>(type: T): T;
 // @public
 export interface Resource<T> {
     readonly error: Signal<unknown>;
-    hasValue(): this is Resource<T> & {
-        value: Signal<T>;
-    };
+    hasValue(): this is Resource<Exclude<T, undefined>>;
     readonly isLoading: Signal<boolean>;
     reload(): boolean;
     readonly status: Signal<ResourceStatus>;
-    readonly value: Signal<T | undefined>;
+    readonly value: Signal<T>;
 }
 
 // @public
-export function resource<T, R>(options: ResourceOptions<T, R>): ResourceRef<T>;
+export function resource<T, R>(options: ResourceOptions<T, R> & {
+    defaultValue: NoInfer<T>;
+}): ResourceRef<T>;
+
+// @public
+export function resource<T, R>(options: ResourceOptions<T, R>): ResourceRef<T | undefined>;
 
 // @public
 export type ResourceLoader<T, R> = (param: ResourceLoaderParams<R>) => PromiseLike<T>;
@@ -1612,17 +1628,14 @@ export interface ResourceLoaderParams<R> {
     request: Exclude<NoInfer<R>, undefined>;
 }
 
-// @public
-export interface ResourceOptions<T, R> {
-    equal?: ValueEqualityFn<T>;
-    injector?: Injector;
-    loader: ResourceLoader<T, R>;
-    request?: () => R;
-}
+// @public (undocumented)
+export type ResourceOptions<T, R> = PromiseResourceOptions<T, R> | StreamingResourceOptions<T, R>;
 
 // @public
 export interface ResourceRef<T> extends WritableResource<T> {
     destroy(): void;
+    // (undocumented)
+    hasValue(): this is ResourceRef<Exclude<T, undefined>>;
 }
 
 // @public
@@ -1634,6 +1647,13 @@ export enum ResourceStatus {
     Reloading = 3,
     Resolved = 4
 }
+
+// @public
+export type ResourceStreamingLoader<T, R> = (param: ResourceLoaderParams<R>) => PromiseLike<Signal<{
+    value: T;
+} | {
+    error: unknown;
+}>>;
 
 // @public
 export const RESPONSE_INIT: InjectionToken<ResponseInit | null>;
@@ -1748,6 +1768,11 @@ export interface StaticClassSansProvider {
 
 // @public
 export type StaticProvider = ValueProvider | ExistingProvider | StaticClassProvider | ConstructorProvider | FactoryProvider | any[];
+
+// @public
+export interface StreamingResourceOptions<T, R> extends BaseResourceOptions<T, R> {
+    stream: ResourceStreamingLoader<T, R>;
+}
 
 // @public
 export abstract class TemplateRef<C> {
@@ -1984,13 +2009,11 @@ export interface WritableResource<T> extends Resource<T> {
     // (undocumented)
     asReadonly(): Resource<T>;
     // (undocumented)
-    hasValue(): this is WritableResource<T> & {
-        value: WritableSignal<T>;
-    };
-    set(value: T | undefined): void;
-    update(updater: (value: T | undefined) => T | undefined): void;
+    hasValue(): this is WritableResource<Exclude<T, undefined>>;
+    set(value: T): void;
+    update(updater: (value: T) => T): void;
     // (undocumented)
-    readonly value: WritableSignal<T | undefined>;
+    readonly value: WritableSignal<T>;
 }
 
 // @public

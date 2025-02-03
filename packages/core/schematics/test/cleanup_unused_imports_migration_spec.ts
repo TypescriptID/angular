@@ -19,6 +19,7 @@ describe('cleanup unused imports schematic', () => {
   let tree: UnitTestTree;
   let tmpDirPath: string;
   let previousWorkingDir: string;
+  let logs: string[];
 
   function writeFile(filePath: string, contents: string) {
     host.sync.write(normalize(filePath), virtualFs.stringToFileBuffer(contents));
@@ -36,17 +37,9 @@ describe('cleanup unused imports schematic', () => {
     runner = new SchematicTestRunner('test', runfiles.resolvePackageRelative('../collection.json'));
     host = new TempScopedNodeJsSyncHost();
     tree = new UnitTestTree(new HostTree(host));
+    logs = [];
 
-    writeFile(
-      '/tsconfig.json',
-      JSON.stringify({
-        compilerOptions: {
-          lib: ['es2015'],
-          strictNullChecks: true,
-        },
-      }),
-    );
-
+    writeFile('/tsconfig.json', '{}');
     writeFile(
       '/angular.json',
       JSON.stringify({
@@ -57,6 +50,7 @@ describe('cleanup unused imports schematic', () => {
 
     previousWorkingDir = shx.pwd();
     tmpDirPath = getSystemPath(host.root);
+    runner.logger.subscribe((log) => logs.push(log.message));
 
     // Switch into the temporary directory path. This allows us to run
     // the schematic against our custom unit test tree.
@@ -101,6 +95,7 @@ describe('cleanup unused imports schematic', () => {
 
     await runMigration();
 
+    expect(logs.pop()).toBe('Removed 2 imports in 1 file');
     expect(stripWhitespace(tree.readContent('comp.ts'))).toBe(
       stripWhitespace(`
         import {Component} from '@angular/core';
@@ -132,6 +127,7 @@ describe('cleanup unused imports schematic', () => {
 
     await runMigration();
 
+    expect(logs.pop()).toBe('Removed 3 imports in 1 file');
     expect(stripWhitespace(tree.readContent('comp.ts'))).toBe(
       stripWhitespace(`
         import {Component} from '@angular/core';
@@ -162,6 +158,7 @@ describe('cleanup unused imports schematic', () => {
 
     await runMigration();
 
+    expect(logs.pop()).toBe('Removed 2 imports in 1 file');
     expect(stripWhitespace(tree.readContent('comp.ts'))).toBe(
       stripWhitespace(`
         import {Component} from '@angular/core';
@@ -199,6 +196,7 @@ describe('cleanup unused imports schematic', () => {
 
     await runMigration();
 
+    expect(logs.pop()).toBe('Removed 1 import in 1 file');
     expect(stripWhitespace(tree.readContent('comp.ts'))).toBe(
       stripWhitespace(`
         import {Component} from '@angular/core';
@@ -235,6 +233,7 @@ describe('cleanup unused imports schematic', () => {
 
     await runMigration();
 
+    expect(logs.pop()).toBe('Schematic could not find unused imports in the project');
     expect(tree.readContent('comp.ts')).toBe(initialContent);
   });
 
@@ -251,6 +250,51 @@ describe('cleanup unused imports schematic', () => {
 
     await runMigration();
 
+    expect(logs.pop()).toBe('Schematic could not find unused imports in the project');
     expect(tree.readContent('comp.ts')).toBe(initialContent);
+  });
+
+  it('should handle a file that is present in multiple projects', async () => {
+    writeFile('/tsconfig-2.json', '{}');
+    writeFile(
+      '/angular.json',
+      JSON.stringify({
+        version: 1,
+        projects: {
+          a: {root: '', architect: {build: {options: {tsConfig: './tsconfig.json'}}}},
+          b: {root: '', architect: {build: {options: {tsConfig: './tsconfig-2.json'}}}},
+        },
+      }),
+    );
+
+    writeFile(
+      'comp.ts',
+      `
+        import {Component} from '@angular/core';
+        import {One, Two, Three} from './directives';
+
+        @Component({
+          imports: [Three, One, Two],
+          template: '<div one></div>',
+        })
+        export class Comp {}
+      `,
+    );
+
+    await runMigration();
+
+    expect(logs.pop()).toBe('Removed 2 imports in 1 file');
+    expect(stripWhitespace(tree.readContent('comp.ts'))).toBe(
+      stripWhitespace(`
+        import {Component} from '@angular/core';
+        import {One} from './directives';
+
+        @Component({
+          imports: [One],
+          template: '<div one></div>',
+        })
+        export class Comp {}
+    `),
+    );
   });
 });

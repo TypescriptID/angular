@@ -34,14 +34,14 @@ import {
   setCurrentTNode,
   wasLastNodeCreated,
 } from '../state';
+import {getOrCreateTNode} from '../tnode_manipulation';
 import {getConstant} from '../util/view_utils';
 
 import {
   addToEndOfViewTree,
-  createDirectivesInstances,
+  createDirectivesInstancesInInstruction,
   createLContainer,
   createTView,
-  getOrCreateTNode,
   resolveDirectives,
   saveResolvedLocalsInData,
 } from './shared';
@@ -154,7 +154,7 @@ export function declareTemplate(
   populateDehydratedViewsInLContainer(lContainer, tNode, declarationLView);
 
   if (isDirectiveHost(tNode)) {
-    createDirectivesInstances(declarationTView, declarationLView, tNode);
+    createDirectivesInstancesInInstruction(declarationTView, declarationLView, tNode);
   }
 
   if (localRefsIndex != null) {

@@ -34,7 +34,6 @@ import {
   TAttributes,
   TElementNode,
   TNode,
-  TNodeFlags,
   TNodeType,
 } from '../interfaces/node';
 import {Renderer} from '../interfaces/renderer';
@@ -42,12 +41,13 @@ import {RElement} from '../interfaces/renderer_dom';
 import {isComponentHost, isContentQueryHost, isDirectiveHost} from '../interfaces/type_checks';
 import {HEADER_OFFSET, HYDRATION, LView, RENDERER, TView} from '../interfaces/view';
 import {assertTNodeType} from '../node_assert';
+import {executeContentQueries} from '../queries/query_execution';
+import {appendChild} from '../node_manipulation';
 import {
-  appendChild,
   clearElementContents,
   createElementNode,
   setupStaticAttributes,
-} from '../node_manipulation';
+} from '../dom_node_manipulation';
 import {
   decreaseElementDepthCount,
   enterSkipHydrationBlock,
@@ -73,12 +73,11 @@ import {getConstant} from '../util/view_utils';
 import {validateElementIsKnown} from './element_validation';
 import {setDirectiveInputsWhichShadowsStyling} from './property';
 import {
-  createDirectivesInstances,
-  executeContentQueries,
-  getOrCreateTNode,
+  createDirectivesInstancesInInstruction,
   resolveDirectives,
   saveResolvedLocalsInData,
 } from './shared';
+import {getOrCreateTNode} from '../tnode_manipulation';
 
 function elementStartFirstCreatePass(
   index: number,
@@ -177,7 +176,7 @@ export function ɵɵelementStart(
   increaseElementDepthCount();
 
   if (hasDirectives) {
-    createDirectivesInstances(tView, lView, tNode);
+    createDirectivesInstancesInInstruction(tView, lView, tNode);
     executeContentQueries(tView, tNode, lView);
   }
   if (localRefsIndex !== null) {

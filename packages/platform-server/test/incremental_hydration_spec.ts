@@ -3,7 +3,7 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
 import {
@@ -38,7 +38,7 @@ import {
   withEventReplay,
   withIncrementalHydration,
 } from '@angular/platform-browser';
-import {TestBed} from '@angular/core/testing';
+import {fakeAsync, TestBed} from '@angular/core/testing';
 import {PLATFORM_BROWSER_ID} from '@angular/common/src/platform_id';
 import {DEHYDRATED_BLOCK_REGISTRY} from '@angular/core/src/defer/registry';
 import {JSACTION_BLOCK_ELEMENT_MAP} from '@angular/core/src/hydration/tokens';
@@ -222,7 +222,7 @@ describe('platform-server partial hydration integration', () => {
         const ssrContents = getAppContents(html);
 
         expect(ssrContents).toContain(
-          '"__nghDeferData__":{"d0":{"p":null,"r":1,"s":2},"d1":{"p":"d0","r":2,"s":2}}',
+          '"__nghDeferData__":{"d0":{"r":1,"s":2},"d1":{"r":2,"s":2,"p":"d0"}}',
         );
       });
 
@@ -285,8 +285,37 @@ describe('platform-server partial hydration integration', () => {
         const ssrContents = getAppContents(html);
 
         expect(ssrContents).toContain(
-          '"__nghDeferData__":{"d0":{"p":null,"r":1,"s":2},"d1":{"p":"d0","r":2,"s":2,"t":[2]}}',
+          '"__nghDeferData__":{"d0":{"r":1,"s":2},"d1":{"r":2,"s":2,"t":[2],"p":"d0"}}',
         );
+      });
+
+      it('should not include parent id in serialized data for top-level `@defer` blocks', async () => {
+        @Component({
+          selector: 'app',
+          template: `
+            @defer (on viewport; hydrate on interaction) {
+              Hello world!
+            } @placeholder {
+              <span>Placeholder</span>
+            }
+        `,
+        })
+        class SimpleComponent {}
+
+        const appId = 'custom-app-id';
+        const providers = [{provide: APP_ID, useValue: appId}];
+        const hydrationFeatures = () => [withIncrementalHydration()];
+
+        const html = await ssr(SimpleComponent, {
+          envProviders: providers,
+          hydrationFeatures,
+        });
+
+        const ssrContents = getAppContents(html);
+
+        // Assert that the serialized data doesn't contain the "p" field,
+        // which contains parent id (which is not needed for top-level blocks).
+        expect(ssrContents).toContain('"__nghDeferData__":{"d0":{"r":1,"s":2}}}');
       });
     });
 
@@ -347,7 +376,7 @@ describe('platform-server partial hydration integration', () => {
         expect(ssrContents).toContain('<p jsaction="click:;keydown:;" ngb="d1');
         // There is an extra annotation in the TransferState data.
         expect(ssrContents).toContain(
-          '"__nghDeferData__":{"d0":{"p":null,"r":1,"s":2},"d1":{"p":"d0","r":1,"s":2}}',
+          '"__nghDeferData__":{"d0":{"r":1,"s":2},"d1":{"r":1,"s":2,"p":"d0"}}',
         );
         // Outer defer block is rendered.
         expect(ssrContents).toContain('Main defer block rendered');
@@ -460,7 +489,7 @@ describe('platform-server partial hydration integration', () => {
         expect(ssrContents).toContain('<p jsaction="click:;keydown:;" ngb="d1');
         // There is an extra annotation in the TransferState data.
         expect(ssrContents).toContain(
-          '"__nghDeferData__":{"d0":{"p":null,"r":1,"s":2},"d1":{"p":"d0","r":1,"s":2}}',
+          '"__nghDeferData__":{"d0":{"r":1,"s":2},"d1":{"r":1,"s":2,"p":"d0"}}',
         );
         // Outer defer block is rendered.
         expect(ssrContents).toContain('Main defer block rendered');
@@ -569,7 +598,7 @@ describe('platform-server partial hydration integration', () => {
         // <p> is inside a nested defer block -> different namespace.
         // expect(ssrContents).toContain('<p jsaction="click:;" ngb="d1');
         // There is an extra annotation in the TransferState data.
-        expect(ssrContents).toContain('"__nghDeferData__":{"d0":{"p":null,"r":1,"s":2}}');
+        expect(ssrContents).toContain('"__nghDeferData__":{"d0":{"r":1,"s":2}}');
         // Outer defer block is rendered.
         expect(ssrContents).toContain('Main defer block rendered');
         // Inner defer block should only display placeholder.
@@ -1300,7 +1329,7 @@ describe('platform-server partial hydration integration', () => {
       });
 
       describe('timer', () => {
-        it('top level timer', async () => {
+        it('top level timer', fakeAsync(async () => {
           @Component({
             selector: 'app',
             template: `
@@ -1370,9 +1399,9 @@ describe('platform-server partial hydration integration', () => {
           appRef.tick();
 
           expect(appHostNode.outerHTML).toContain('<span id="test">end</span>');
-        });
+        }));
 
-        it('nested timer', async () => {
+        it('nested timer', fakeAsync(async () => {
           @Component({
             selector: 'app',
             template: `
@@ -1458,7 +1487,7 @@ describe('platform-server partial hydration integration', () => {
           appRef.tick();
 
           expect(appHostNode.outerHTML).toContain('<span id="test">end</span>');
-        });
+        }));
       });
 
       it('when', async () => {
@@ -1793,6 +1822,9 @@ describe('platform-server partial hydration integration', () => {
 
   describe('client side navigation', () => {
     beforeEach(() => {
+      // This test emulates client-side behavior, set global server mode flag to `false`.
+      globalThis['ngServerMode'] = false;
+
       TestBed.configureTestingModule({
         providers: [
           {provide: PLATFORM_ID, useValue: PLATFORM_BROWSER_ID},
@@ -1801,32 +1833,28 @@ describe('platform-server partial hydration integration', () => {
       });
     });
 
+    afterEach(() => {
+      globalThis['ngServerMode'] = undefined;
+    });
+
     it('should not try to hydrate in CSR only cases', async () => {
       @Component({
         selector: 'app',
         template: `
-          <main (click)="fnA()">
-            @defer (hydrate when true) {
-              <article>
-                defer block rendered!
-                <span id="test" (click)="fnB()">{{value()}}</span>
-              </article>
-            } @placeholder {
-              <span>Outer block placeholder</span>
-            }
-          </main>
+          @defer (hydrate when true; on interaction) {
+            <p>Defer block rendered!</p>
+          } @placeholder {
+            <span>Outer block placeholder</span>
+          }
         `,
       })
-      class SimpleComponent {
-        value = signal('start');
-        fnA() {}
-        fnB() {
-          this.value.set('end');
-        }
-      }
+      class SimpleComponent {}
+
       const fixture = TestBed.createComponent(SimpleComponent);
       fixture.detectChanges();
 
+      // Verify that `hydrate when true` doesn't trigger rendering of the main
+      // content in client-only use-cases (expecting to see placeholder content).
       expect(fixture.nativeElement.innerHTML).toContain('Outer block placeholder');
     });
   });

@@ -196,10 +196,11 @@ class PotentialTopLevelReadsVisitor extends o.RecursiveAstVisitor {
    * TypeScript identifiers are used both when referring to a variable (e.g. `console.log(foo)`)
    * and for names (e.g. `{foo: 123}`). This function determines if the identifier is a top-level
    * variable read, rather than a nested name.
-   * @param node Identifier to check.
+   * @param identifier Identifier to check.
    */
-  private isTopLevelIdentifierReference(node: ts.Identifier): boolean {
-    const parent = node.parent;
+  private isTopLevelIdentifierReference(identifier: ts.Identifier): boolean {
+    let node = identifier as ts.Expression;
+    let parent = node.parent;
 
     // The parent might be undefined for a synthetic node or if `setParentNodes` is set to false
     // when the SourceFile was created. We can account for such cases using the type checker, at
@@ -209,11 +210,17 @@ class PotentialTopLevelReadsVisitor extends o.RecursiveAstVisitor {
       return false;
     }
 
+    // Unwrap parenthesized identifiers, but use the closest parenthesized expression
+    // as the reference node so that we can check cases like `{prop: ((value))}`.
+    if (ts.isParenthesizedExpression(parent) && parent.expression === node) {
+      while (parent && ts.isParenthesizedExpression(parent)) {
+        node = parent;
+        parent = parent.parent;
+      }
+    }
+
     // Identifier referenced at the top level. Unlikely.
-    if (
-      ts.isSourceFile(parent) ||
-      (ts.isExpressionStatement(parent) && parent.expression === node)
-    ) {
+    if (ts.isSourceFile(parent)) {
       return true;
     }
 
@@ -225,6 +232,7 @@ class PotentialTopLevelReadsVisitor extends o.RecursiveAstVisitor {
 
     // Identifier used in a nested expression is only top-level if it's the actual expression.
     if (
+      ts.isExpressionStatement(parent) ||
       ts.isPropertyAccessExpression(parent) ||
       ts.isComputedPropertyName(parent) ||
       ts.isTemplateSpan(parent) ||
@@ -235,11 +243,10 @@ class PotentialTopLevelReadsVisitor extends o.RecursiveAstVisitor {
       ts.isIfStatement(parent) ||
       ts.isDoStatement(parent) ||
       ts.isWhileStatement(parent) ||
-      ts.isForInStatement(parent) ||
-      ts.isForOfStatement(parent) ||
       ts.isSwitchStatement(parent) ||
       ts.isCaseClause(parent) ||
-      ts.isThrowStatement(parent)
+      ts.isThrowStatement(parent) ||
+      ts.isNewExpression(parent)
     ) {
       return parent.expression === node;
     }
@@ -249,9 +256,21 @@ class PotentialTopLevelReadsVisitor extends o.RecursiveAstVisitor {
       return parent.elements.includes(node);
     }
 
-    // Identifier in a property assignment is only top level if it's the initializer.
-    if (ts.isPropertyAssignment(parent)) {
+    // If the parent is an initialized node, the identifier is
+    // at the top level if it's the initializer itself.
+    if (
+      ts.isPropertyAssignment(parent) ||
+      ts.isParameter(parent) ||
+      ts.isBindingElement(parent) ||
+      ts.isPropertyDeclaration(parent) ||
+      ts.isEnumMember(parent)
+    ) {
       return parent.initializer === node;
+    }
+
+    // Identifier in a function is top level if it's either the name or the initializer.
+    if (ts.isVariableDeclaration(parent)) {
+      return parent.name === node || parent.initializer === node;
     }
 
     // Identifier in a declaration is only top level if it's the name.
@@ -259,7 +278,6 @@ class PotentialTopLevelReadsVisitor extends o.RecursiveAstVisitor {
     if (
       ts.isClassDeclaration(parent) ||
       ts.isFunctionDeclaration(parent) ||
-      ts.isVariableDeclaration(parent) ||
       ts.isShorthandPropertyAssignment(parent)
     ) {
       return parent.name === node;
@@ -273,10 +291,28 @@ class PotentialTopLevelReadsVisitor extends o.RecursiveAstVisitor {
       return parent.left === node || parent.right === node;
     }
 
+    if (ts.isForInStatement(parent) || ts.isForOfStatement(parent)) {
+      return parent.expression === node || parent.initializer === node;
+    }
+
+    if (ts.isForStatement(parent)) {
+      return (
+        parent.condition === node || parent.initializer === node || parent.incrementor === node
+      );
+    }
+
+    if (ts.isArrowFunction(parent)) {
+      return parent.body === node;
+    }
+
     // It's unlikely that we'll run into imports/exports in this use case.
     // We handle them since it's simple and for completeness' sake.
     if (ts.isImportSpecifier(parent) || ts.isExportSpecifier(parent)) {
       return (parent.propertyName || parent.name) === node;
+    }
+
+    if (ts.isConditionalExpression(parent)) {
+      return parent.condition === node || parent.whenFalse === node || parent.whenTrue === node;
     }
 
     // Otherwise it's not top-level.
