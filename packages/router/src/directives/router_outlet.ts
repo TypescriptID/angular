@@ -17,15 +17,15 @@ import {
   InjectionToken,
   Injector,
   Input,
+  input,
   OnDestroy,
   OnInit,
   Output,
   reflectComponentType,
-  SimpleChanges,
-  ViewContainerRef,
   ɵRuntimeError as RuntimeError,
   Signal,
-  input,
+  SimpleChanges,
+  ViewContainerRef,
 } from '@angular/core';
 import {combineLatest, of, Subscription} from 'rxjs';
 import {switchMap} from 'rxjs/operators';
@@ -243,10 +243,10 @@ export class RouterOutlet implements OnDestroy, OnInit, RouterOutletContract {
   private location = inject(ViewContainerRef);
   private changeDetector = inject(ChangeDetectorRef);
   private inputBinder = inject(INPUT_BINDER, {optional: true});
-  /** @nodoc */
+  /** @docs-private */
   readonly supportsBindingToComponentInputs = true;
 
-  /** @nodoc */
+  /** @docs-private */
   ngOnChanges(changes: SimpleChanges) {
     if (changes['name']) {
       const {firstChange, previousValue} = changes['name'];
@@ -266,7 +266,7 @@ export class RouterOutlet implements OnDestroy, OnInit, RouterOutletContract {
     }
   }
 
-  /** @nodoc */
+  /** @docs-private */
   ngOnDestroy(): void {
     // Ensure that the registered outlet is this one before removing it on the context.
     if (this.isTrackedInParentContexts(this.name)) {
@@ -279,7 +279,7 @@ export class RouterOutlet implements OnDestroy, OnInit, RouterOutletContract {
     return this.parentContexts.getContext(outletName)?.outlet === this;
   }
 
-  /** @nodoc */
+  /** @docs-private */
   ngOnInit(): void {
     this.initializeOutletWithName();
   }
@@ -409,25 +409,6 @@ export class RouterOutlet implements OnDestroy, OnInit, RouterOutletContract {
 }
 
 class OutletInjector implements Injector {
-  /**
-   * This injector has a special handing for the `ActivatedRoute` and
-   * `ChildrenOutletContexts` tokens: it returns corresponding values for those
-   * tokens dynamically. This behavior is different from the regular injector logic,
-   * when we initialize and store a value, which is later returned for all inject
-   * requests.
-   *
-   * In some cases (e.g. when using `@defer`), this dynamic behavior requires special
-   * handling. This function allows to identify an instance of the `OutletInjector` and
-   * create an instance of it without referring to the class itself (so this logic can
-   * be invoked from the `core` package). This helps to retain dynamic behavior for the
-   * mentioned tokens.
-   *
-   * Note: it's a temporary solution and we should explore how to support this case better.
-   */
-  private __ngOutletInjector(parentInjector: Injector) {
-    return new OutletInjector(this.route, this.childContexts, parentInjector, this.outletData);
-  }
-
   constructor(
     private route: ActivatedRoute,
     private childContexts: ChildrenOutletContexts,

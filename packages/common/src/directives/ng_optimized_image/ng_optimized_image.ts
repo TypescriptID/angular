@@ -7,9 +7,16 @@
  */
 
 import {
+  ApplicationRef,
   booleanAttribute,
+  ChangeDetectorRef,
+  DestroyRef,
   Directive,
   ElementRef,
+  ɵformatRuntimeError as formatRuntimeError,
+  ɵIMAGE_CONFIG as IMAGE_CONFIG,
+  ɵIMAGE_CONFIG_DEFAULTS as IMAGE_CONFIG_DEFAULTS,
+  ɵImageConfig as ImageConfig,
   inject,
   Injector,
   Input,
@@ -17,19 +24,12 @@ import {
   numberAttribute,
   OnChanges,
   OnInit,
-  Renderer2,
-  SimpleChanges,
-  ɵformatRuntimeError as formatRuntimeError,
-  ɵIMAGE_CONFIG as IMAGE_CONFIG,
-  ɵIMAGE_CONFIG_DEFAULTS as IMAGE_CONFIG_DEFAULTS,
-  ɵImageConfig as ImageConfig,
   ɵperformanceMarkFeature as performanceMarkFeature,
+  Renderer2,
   ɵRuntimeError as RuntimeError,
   ɵSafeValue as SafeValue,
+  SimpleChanges,
   ɵunwrapSafeValue as unwrapSafeValue,
-  ChangeDetectorRef,
-  ApplicationRef,
-  DestroyRef,
 } from '@angular/core';
 
 import {RuntimeErrorCode} from '../../errors';
@@ -110,11 +110,6 @@ const OVERSIZED_IMAGE_TOLERANCE = 1000;
  */
 const FIXED_SRCSET_WIDTH_LIMIT = 1920;
 const FIXED_SRCSET_HEIGHT_LIMIT = 1080;
-
-/**
- * Default blur radius of the CSS filter used on placeholder images, in pixels
- */
-export const PLACEHOLDER_BLUR_AMOUNT = 15;
 
 /**
  * Placeholder dimension (height or width) limit in pixels. Angular produces a warning
@@ -279,7 +274,8 @@ export interface ImagePlaceholderConfig {
     '[style.background-position]': 'placeholder ? "50% 50%" : null',
     '[style.background-repeat]': 'placeholder ? "no-repeat" : null',
     '[style.background-image]': 'placeholder ? generatePlaceholder(placeholder) : null',
-    '[style.filter]': `placeholder && shouldBlurPlaceholder(placeholderConfig) ? "blur(${PLACEHOLDER_BLUR_AMOUNT}px)" : null`,
+    '[style.filter]':
+      'placeholder && shouldBlurPlaceholder(placeholderConfig) ? "blur(15px)" : null',
   },
 })
 export class NgOptimizedImage implements OnInit, OnChanges {
@@ -412,7 +408,7 @@ export class NgOptimizedImage implements OnInit, OnChanges {
     }
   }
 
-  /** @nodoc */
+  /** @docs-private */
   ngOnInit() {
     performanceMarkFeature('NgOptimizedImage');
 
@@ -524,7 +520,7 @@ export class NgOptimizedImage implements OnInit, OnChanges {
     }
   }
 
-  /** @nodoc */
+  /** @docs-private */
   ngOnChanges(changes: SimpleChanges) {
     if (ngDevMode) {
       assertNoPostInitInputChange(this, changes, [
@@ -687,7 +683,7 @@ export class NgOptimizedImage implements OnInit, OnChanges {
    * * A base64 encoded image, which is wrapped and passed through.
    * * A boolean. If true, calls the image loader to generate a small placeholder url.
    */
-  private generatePlaceholder(placeholderInput: string | boolean): string | boolean | null {
+  protected generatePlaceholder(placeholderInput: string | boolean): string | boolean | null {
     const {placeholderResolution} = this.config;
     if (placeholderInput === true) {
       return `url(${this.callImageLoader({
@@ -705,7 +701,7 @@ export class NgOptimizedImage implements OnInit, OnChanges {
    * Determines if blur should be applied, based on an optional boolean
    * property `blur` within the optional configuration object `placeholderConfig`.
    */
-  private shouldBlurPlaceholder(placeholderConfig?: ImagePlaceholderConfig): boolean {
+  protected shouldBlurPlaceholder(placeholderConfig?: ImagePlaceholderConfig): boolean {
     if (!placeholderConfig || !placeholderConfig.hasOwnProperty('blur')) {
       return true;
     }

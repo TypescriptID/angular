@@ -9,7 +9,6 @@ import {ɵɵdefineComponent, ɵɵdefineDirective, ɵɵdefineNgModule, ɵɵdefine
 import {ɵɵCopyDefinitionFeature} from './features/copy_definition_feature';
 import {ɵɵHostDirectivesFeature} from './features/host_directives_feature';
 import {ɵɵInheritDefinitionFeature} from './features/inherit_definition_feature';
-import {ɵɵInputTransformsFeature} from './features/input_transforms_feature';
 import {ɵɵNgOnChangesFeature} from './features/ng_onchanges_feature';
 import {ɵɵProvidersFeature} from './features/providers_feature';
 import {ɵɵExternalStylesFeature} from './features/external_styles_feature';
@@ -31,7 +30,15 @@ import {
 } from './interfaces/public_definitions';
 import {ɵɵsetComponentScope, ɵɵsetNgModuleScope} from './scope';
 import {
-  ComponentDebugMetadata,
+  Framework,
+  BaseDirectiveDebugMetadata,
+  AngularDirectiveDebugMetadata,
+  AngularComponentDebugMetadata,
+  AcxChangeDetectionStrategy,
+  AcxViewEncapsulation,
+  AcxDirectiveDebugMetadata,
+  AcxComponentDebugMetadata,
+  WizComponentDebugMetadata,
   DirectiveDebugMetadata,
   getComponent,
   getDirectiveMetadata,
@@ -77,7 +84,7 @@ export {
   ɵɵelementEnd,
   ɵɵelementStart,
   ɵɵgetCurrentView,
-  ɵɵhostProperty,
+  ɵɵdomProperty,
   ɵɵinjectAttribute,
   ɵɵinvalidFactory,
   ɵɵlistener,
@@ -134,6 +141,8 @@ export {
   ɵɵsyntheticHostProperty,
   ɵɵtemplate,
   ɵɵconditional,
+  ɵɵconditionalCreate,
+  ɵɵconditionalBranchCreate,
   ɵɵdefer,
   ɵɵdeferWhen,
   ɵɵdeferOnIdle,
@@ -222,10 +231,18 @@ export {ɵsetClassDebugInfo} from './debug/set_debug_info';
 export {ɵɵreplaceMetadata} from './hmr';
 
 export {
-  ComponentDebugMetadata,
   ComponentDef,
   ComponentTemplate,
   ComponentType,
+  Framework,
+  BaseDirectiveDebugMetadata,
+  AngularDirectiveDebugMetadata,
+  AngularComponentDebugMetadata,
+  AcxChangeDetectionStrategy,
+  AcxViewEncapsulation,
+  AcxDirectiveDebugMetadata,
+  AcxComponentDebugMetadata,
+  WizComponentDebugMetadata,
   DirectiveDebugMetadata,
   DirectiveDef,
   DirectiveType,
@@ -246,7 +263,6 @@ export {
   ɵɵHostDirectivesFeature,
   ɵɵInheritDefinitionFeature,
   ɵɵInjectorDeclaration,
-  ɵɵInputTransformsFeature,
   ɵɵNgModuleDeclaration,
   ɵɵNgOnChangesFeature,
   ɵɵPipeDeclaration,

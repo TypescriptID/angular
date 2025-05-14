@@ -160,6 +160,8 @@ function setup(
     /* strictStandalone */ false,
     /* enableHmr */ false,
     /* implicitStandaloneValue */ true,
+    /* typeCheckHostBindings */ true,
+    /* enableSelectorless */ false,
   );
   return {reflectionHost, handler, resourceLoader, metaRegistry};
 }
@@ -230,8 +232,8 @@ runInEachFileSystem(() => {
         return fail('Failed to recognize @Component');
       }
       const {analysis} = handler.analyze(TestCmp, detected.metadata);
-      expect(analysis?.resources.template.path).toBeNull();
-      expect(analysis?.resources.template.expression.getText()).toEqual(`'${template}'`);
+      expect(analysis?.resources.template?.path).toBeNull();
+      expect(analysis?.resources.template?.node.getText()).toEqual(`'${template}'`);
     });
 
     it('should keep track of external template', () => {
@@ -263,8 +265,8 @@ runInEachFileSystem(() => {
         return fail('Failed to recognize @Component');
       }
       const {analysis} = handler.analyze(TestCmp, detected.metadata);
-      expect(analysis?.resources.template.path).toContain(templateUrl);
-      expect(analysis?.resources.template.expression.getText()).toContain(`'${templateUrl}'`);
+      expect(analysis?.resources.template?.path).toContain(templateUrl);
+      expect(analysis?.resources.template?.node.getText()).toContain(`'${templateUrl}'`);
     });
 
     it('should keep track of internal and external styles', () => {
@@ -300,7 +302,7 @@ runInEachFileSystem(() => {
         return fail('Failed to recognize @Component');
       }
       const {analysis} = handler.analyze(TestCmp, detected.metadata);
-      expect(analysis?.resources.styles.size).toBe(3);
+      expect(analysis?.resources.styles?.size).toBe(3);
     });
 
     it('should use an empty source map URL for an indirect template', () => {
@@ -402,7 +404,7 @@ runInEachFileSystem(() => {
         return fail('Failed to recognize @Component');
       }
       const {analysis} = handler.analyze(TestCmp, detected.metadata);
-      expect(analysis?.resources.styles.size).toBe(2);
+      expect(analysis?.resources.styles?.size).toBe(2);
       expect(analysis?.meta.externalStyles).toEqual(['/myStyle.css']);
     });
 
@@ -438,7 +440,7 @@ runInEachFileSystem(() => {
         return fail('Failed to recognize @Component');
       }
       const {analysis} = handler.analyze(TestCmp, detected.metadata);
-      expect(analysis?.resources.styles.size).toBe(2);
+      expect(analysis?.resources.styles?.size).toBe(2);
       expect(analysis?.meta.externalStyles).toEqual(['/myStyle.css', '/myOtherStyle.css']);
     });
 
@@ -507,7 +509,7 @@ runInEachFileSystem(() => {
         return fail('Failed to recognize @Component');
       }
       const {analysis} = handler.analyze(TestCmp, detected.metadata);
-      expect(analysis?.resources.styles.size).toBe(2);
+      expect(analysis?.resources.styles?.size).toBe(2);
       expect(analysis?.meta.externalStyles).toEqual(['myTemplateStyle.css']);
     });
 
@@ -544,7 +546,7 @@ runInEachFileSystem(() => {
         return fail('Failed to recognize @Component');
       }
       const {analysis} = handler.analyze(TestCmp, detected.metadata);
-      expect(analysis?.resources.styles.size).toBe(2);
+      expect(analysis?.resources.styles?.size).toBe(2);
       expect(analysis?.meta.externalStyles).toEqual([
         'abc//myStyle.css',
         'abc/myTemplateStyle.css',
@@ -592,7 +594,7 @@ runInEachFileSystem(() => {
       await handler.preanalyze(TestCmp, detected.metadata);
 
       const {analysis} = handler.analyze(TestCmp, detected.metadata);
-      expect(analysis?.resources.styles.size).toBe(1);
+      expect(analysis?.resources.styles?.size).toBe(1);
       expect(analysis?.meta.externalStyles).toEqual(['abc/myInlineStyle.css']);
       expect(analysis?.meta.styles).toEqual([]);
     });
@@ -628,7 +630,7 @@ runInEachFileSystem(() => {
       await handler.preanalyze(TestCmp, detected.metadata);
 
       const {analysis} = handler.analyze(TestCmp, detected.metadata);
-      expect(analysis?.resources.styles.size).toBe(1);
+      expect(analysis?.resources.styles?.size).toBe(1);
       expect(analysis?.meta.externalStyles).toEqual([]);
       expect(analysis?.meta.styles).toEqual(['.abc {}']);
     });
@@ -662,7 +664,7 @@ runInEachFileSystem(() => {
       }
 
       const {analysis} = handler.analyze(TestCmp, detected.metadata);
-      expect(analysis?.resources.styles.size).toBe(1);
+      expect(analysis?.resources.styles?.size).toBe(1);
       expect(analysis?.meta.externalStyles).toEqual([]);
       expect(analysis?.meta.styles).toEqual(['.abc {}']);
     });

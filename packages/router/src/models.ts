@@ -46,7 +46,7 @@ import type {UrlSegment, UrlSegmentGroup, UrlTree} from './url_tree';
 export type OnSameUrlNavigation = 'reload' | 'ignore';
 
 /**
- * The `InjectionToken` and `@Injectable` classes for guards and resolvers are deprecated in favor
+ * The `InjectionToken` and `@Injectable` classes for guards are deprecated in favor
  * of plain JavaScript functions instead. Dependency injection can still be achieved using the
  * [`inject`](api/core/inject) function from `@angular/core` and an injectable class can be used as
  * a functional guard using [`inject`](api/core/inject): `canActivate: [() =>
@@ -58,11 +58,23 @@ export type OnSameUrlNavigation = 'reload' | 'ignore';
  * @see {@link CanActivateFn}
  * @see {@link CanActivateChildFn}
  * @see {@link CanDeactivateFn}
- * @see {@link ResolveFn}
- * @see {@link core/inject}
+ * @see {@link /api/core/inject inject}
  * @publicApi
  */
-export type DeprecatedGuard = ProviderToken<any> | any;
+export type DeprecatedGuard = ProviderToken<any> | string;
+
+/**
+ * The `InjectionToken` and `@Injectable` classes for resolvers are deprecated in favor
+ * of plain JavaScript functions instead. Dependency injection can still be achieved using the
+ * [`inject`](api/core/inject) function from `@angular/core` and an injectable class can be used as
+ * a functional guard using [`inject`](api/core/inject): `myResolvedData: () => inject(MyResolver).resolve()`.
+ *
+ * @deprecated
+ * @see {@link ResolveFn}
+ * @see {@link /api/core/inject inject}
+ * @publicApi
+ */
+export type DeprecatedResolve = DeprecatedGuard | any;
 
 /**
  * The supported types that can be returned from a `Router` guard.
@@ -90,7 +102,7 @@ export type GuardResult = boolean | UrlTree | RedirectCommand;
  *       if (!authService.isLoggedIn()) {
  *         const loginPath = router.parseUrl("/login");
  *         return new RedirectCommand(loginPath, {
- *           skipLocationChange: "true",
+ *           skipLocationChange: true,
  *         });
  *       }
  *
@@ -197,7 +209,7 @@ export type Data = {
  * @publicApi
  */
 export type ResolveData = {
-  [key: string | symbol]: ResolveFn<unknown> | DeprecatedGuard;
+  [key: string | symbol]: ResolveFn<unknown> | DeprecatedResolve;
 };
 
 /**
@@ -304,7 +316,7 @@ export type RedirectFunction = (
     ActivatedRouteSnapshot,
     'routeConfig' | 'url' | 'params' | 'queryParams' | 'fragment' | 'data' | 'outlet' | 'title'
   >,
-) => string | UrlTree;
+) => MaybeAsync<string | UrlTree>;
 
 /**
  * A policy for when to run guards and resolvers on a route.

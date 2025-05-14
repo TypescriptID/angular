@@ -26,29 +26,6 @@ declare global {
   const ngDevMode: null | NgDevModePerfCounters;
 
   interface NgDevModePerfCounters {
-    namedConstructors: boolean;
-    firstCreatePass: number;
-    tNode: number;
-    tView: number;
-    rendererCreateTextNode: number;
-    rendererSetText: number;
-    rendererCreateElement: number;
-    rendererAddEventListener: number;
-    rendererSetAttribute: number;
-    rendererRemoveAttribute: number;
-    rendererSetProperty: number;
-    rendererSetClassName: number;
-    rendererAddClass: number;
-    rendererRemoveClass: number;
-    rendererSetStyle: number;
-    rendererRemoveStyle: number;
-    rendererDestroy: number;
-    rendererDestroyNode: number;
-    rendererMoveNode: number;
-    rendererRemoveNode: number;
-    rendererAppendChild: number;
-    rendererInsertBefore: number;
-    rendererCreateComment: number;
     hydratedNodes: number;
     hydratedComponents: number;
     dehydratedViewsRemoved: number;
@@ -58,32 +35,9 @@ declare global {
   }
 }
 
-export function ngDevModeResetPerfCounters(): NgDevModePerfCounters {
+function ngDevModeResetPerfCounters(): NgDevModePerfCounters {
   const locationString = typeof location !== 'undefined' ? location.toString() : '';
   const newCounters: NgDevModePerfCounters = {
-    namedConstructors: locationString.indexOf('ngDevMode=namedConstructors') != -1,
-    firstCreatePass: 0,
-    tNode: 0,
-    tView: 0,
-    rendererCreateTextNode: 0,
-    rendererSetText: 0,
-    rendererCreateElement: 0,
-    rendererAddEventListener: 0,
-    rendererSetAttribute: 0,
-    rendererRemoveAttribute: 0,
-    rendererSetProperty: 0,
-    rendererSetClassName: 0,
-    rendererAddClass: 0,
-    rendererRemoveClass: 0,
-    rendererSetStyle: 0,
-    rendererRemoveStyle: 0,
-    rendererDestroy: 0,
-    rendererDestroyNode: 0,
-    rendererMoveNode: 0,
-    rendererRemoveNode: 0,
-    rendererAppendChild: 0,
-    rendererInsertBefore: 0,
-    rendererCreateComment: 0,
     hydratedNodes: 0,
     hydratedComponents: 0,
     dehydratedViewsRemoved: 0,
@@ -122,9 +76,6 @@ export function ngDevModeResetPerfCounters(): NgDevModePerfCounters {
  *  get a `ReferenceError` like in https://github.com/angular/angular/issues/31595.
  *
  * Details on possible values for `ngDevMode` can be found on its docstring.
- *
- * NOTE:
- * - changes to the `ngDevMode` name must be synced with `compiler-cli/src/tooling.ts`.
  */
 export function initNgDevMode(): boolean {
   // The below checks are to ensure that calling `initNgDevMode` multiple times does not

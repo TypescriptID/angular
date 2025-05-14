@@ -807,6 +807,25 @@ runInEachFileSystem(() => {
       expect(diags[0].messageText).toContain(`This comparison appears to be unintentional`);
     });
 
+    it('should error on invalid "in" binary expressions', () => {
+      env.write(
+        'test.ts',
+        `
+        import {Component} from '@angular/core';
+
+        @Component({
+          template: \` {{'foo' in 'foobar'}} \`,
+        })
+        class TestCmp {
+        }
+        `,
+      );
+
+      const diags = env.driveDiagnostics();
+      expect(diags.length).toBe(1);
+      expect(diags[0].messageText).toContain(`Type 'string' is not assignable to type 'object'`);
+    });
+
     describe('strictInputTypes', () => {
       beforeEach(() => {
         env.write(
@@ -3401,6 +3420,108 @@ runInEachFileSystem(() => {
         expect(diags[0].messageText).toBe(
           `Argument of type 'number' is not assignable to parameter of type 'string'.`,
         );
+      });
+    });
+
+    describe('tagged template literals', () => {
+      function getDiagnosticLines(diag: ts.Diagnostic): string[] {
+        const separator = '~~~~~';
+        return ts.flattenDiagnosticMessageText(diag.messageText, separator).split(separator);
+      }
+
+      it('should not produce diagnostics for valid tagged literals', () => {
+        env.write(
+          'test.ts',
+          `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: 'Result: {{ tag\`foo\` }} {{ tag\`foo \${"bar"}\` }}',
+            standalone: true,
+          })
+          export class Main {
+            tag(strings: TemplateStringsArray, ...args: string[]) {
+              return '';
+            }
+          }
+        `,
+        );
+
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toBe(0);
+      });
+
+      it('should treat tagged template literals as strings', () => {
+        env.write(
+          'test.ts',
+          `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: 'Result: {{ getValue(tag\`foo\`) }}',
+            standalone: true,
+          })
+          export class Main {
+            getValue(value: number) {
+              return value;
+            }
+            tag(strings: TemplateStringsArray, ...args: string[]) {
+              return '';
+            }
+          }
+        `,
+        );
+
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toBe(1);
+        expect(getDiagnosticLines(diags[0])).toEqual([
+          `Argument of type 'string' is not assignable to parameter of type 'number'.`,
+        ]);
+      });
+
+      it('should produce diagnostics for invalid tag function', () => {
+        env.write(
+          'test.ts',
+          `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: 'Result: {{ null\`foo\` }}',
+            standalone: true,
+          })
+          export class Main { }
+        `,
+        );
+
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toBe(1);
+        expect(getDiagnosticLines(diags[0])).toEqual([
+          `This expression is not callable.`,
+          `  Type 'null' has no call signatures.`,
+        ]);
+      });
+
+      it('should produce diagnostics for invalid tag function arguments', () => {
+        env.write(
+          'test.ts',
+          `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: 'Result: {{ tag\`foo\${"str"}\` }}',
+            standalone: true,
+          })
+          export class Main {
+            tag(strings: TemplateStringsArray, arg1: number, arg2: string) {
+              return '';
+            }
+          }
+        `,
+        );
+
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toBe(1);
+        expect(getDiagnosticLines(diags[0])).toEqual(['Expected 3 arguments, but got 2.']);
       });
     });
 

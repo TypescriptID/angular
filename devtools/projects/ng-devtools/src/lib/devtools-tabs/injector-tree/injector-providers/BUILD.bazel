@@ -6,10 +6,8 @@ package(default_visibility = ["//visibility:public"])
 sass_binary(
     name = "injector_providers_component_styles",
     src = "injector-providers.component.scss",
-    include_paths = [
-        "external/npm/node_modules",
-    ],
-    deps = ["//devtools:material_sass_deps"],
+    include_paths = ["external/npm/node_modules"],
+    deps = ["//devtools/projects/ng-devtools/src/styles:typography"],
 )
 
 ng_module(
@@ -22,7 +20,7 @@ ng_module(
         ":injector_providers_component_styles",
     ],
     deps = [
-        "//devtools/projects/ng-devtools/src/lib/devtools-tabs/dependency-injection:resolution_path",
+        "//devtools/projects/ng-devtools/src/lib/devtools-tabs/dependency-injection/resolution-path",
         "//devtools/projects/protocol",
         "//packages/animations",
         "//packages/common",

@@ -6,26 +6,29 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {Component, signal, effect, computed, Injectable, inject} from '@angular/core/public_api';
+import {Component, computed, effect, inject, Injectable, signal} from '../../src/core';
 import {
-  setupFrameworkInjectorProfiler,
   getFrameworkDIDebugData,
-} from '@angular/core/src/render3/debug/framework_injector_profiler';
+  setupFrameworkInjectorProfiler,
+} from '../../src/render3/debug/framework_injector_profiler';
+import {setInjectorProfiler} from '../../src/render3/debug/injector_profiler';
 import {
   DebugSignalGraphEdge,
   DebugSignalGraphNode,
   getSignalGraph,
-} from '@angular/core/src/render3/util/signal_debug';
-import {TestBed, fakeAsync, tick} from '@angular/core/testing';
+} from '../../src/render3/util/signal_debug';
+import {fakeAsync, TestBed, tick} from '../../testing';
 
 describe('getSignalGraph', () => {
   beforeEach(() => {
     // Effect detection depends on the framework injector profiler being enabled
+    setInjectorProfiler(null);
     setupFrameworkInjectorProfiler();
   });
 
   afterEach(() => {
     getFrameworkDIDebugData().reset();
+    setInjectorProfiler(null);
     TestBed.resetTestingModule();
   });
 
@@ -91,7 +94,7 @@ describe('getSignalGraph', () => {
         );
       }
     }
-    TestBed.configureTestingModule({imports: [WithEffect]}).compileComponents();
+    TestBed.configureTestingModule({imports: [WithEffect]});
     const fixture = TestBed.createComponent(WithEffect);
 
     tick();
@@ -128,7 +131,7 @@ describe('getSignalGraph', () => {
         debugName: 'computedSignal',
       });
     }
-    TestBed.configureTestingModule({imports: [WithComputed]}).compileComponents();
+    TestBed.configureTestingModule({imports: [WithComputed]});
     const fixture = TestBed.createComponent(WithComputed);
 
     tick();
@@ -189,7 +192,7 @@ describe('getSignalGraph', () => {
         debugName: 'computedSignal',
       });
     }
-    TestBed.configureTestingModule({imports: [WithUnusedReactiveNodes]}).compileComponents();
+    TestBed.configureTestingModule({imports: [WithUnusedReactiveNodes]});
     const fixture = TestBed.createComponent(WithUnusedReactiveNodes);
 
     tick();
@@ -209,7 +212,7 @@ describe('getSignalGraph', () => {
       primitiveSignal = signal(123, {debugName: 'primitiveSignal'});
       primitiveSignalEffect = effect(() => {}, {debugName: 'primitiveSignalEffect'});
     }
-    TestBed.configureTestingModule({imports: [WithNoEffectSignalDependencies]}).compileComponents();
+    TestBed.configureTestingModule({imports: [WithNoEffectSignalDependencies]});
     const fixture = TestBed.createComponent(WithNoEffectSignalDependencies);
 
     tick();
@@ -226,7 +229,7 @@ describe('getSignalGraph', () => {
   it('should return the signal graph for a component with no signal dependencies in the template or component effects', fakeAsync(() => {
     @Component({selector: 'component-with-no-effect-dependencies', template: ``})
     class WithNoEffectDependencies {}
-    TestBed.configureTestingModule({imports: [WithNoEffectDependencies]}).compileComponents();
+    TestBed.configureTestingModule({imports: [WithNoEffectDependencies]});
     const fixture = TestBed.createComponent(WithNoEffectDependencies);
 
     tick();
@@ -264,7 +267,7 @@ describe('getSignalGraph', () => {
         );
       }
     }
-    TestBed.configureTestingModule({imports: [WithExternalService]}).compileComponents();
+    TestBed.configureTestingModule({imports: [WithExternalService]});
     const fixture = TestBed.createComponent(WithExternalService);
 
     tick();

@@ -332,19 +332,29 @@ const DOCS_SUB_NAVIGATION_DATA: NavigationItem[] = [
             contentPath: 'guide/routing/overview',
           },
           {
-            label: 'Common routing tasks',
+            label: 'Define routes',
+            path: 'guide/routing/define-routes',
+            contentPath: 'guide/routing/define-routes',
+          },
+          {
+            label: 'Show routes with Outlets',
+            path: 'guide/routing/show-routes-with-outlets',
+            contentPath: 'guide/routing/show-routes-with-outlets',
+          },
+          {
+            label: 'Navigate to routes',
+            path: 'guide/routing/navigate-to-routes',
+            contentPath: 'guide/routing/navigate-to-routes',
+          },
+          {
+            label: 'Read route state',
+            path: 'guide/routing/read-route-state',
+            contentPath: 'guide/routing/read-route-state',
+          },
+          {
+            label: 'Other routing tasks',
             path: 'guide/routing/common-router-tasks',
             contentPath: 'guide/routing/common-router-tasks',
-          },
-          {
-            label: 'Routing in single-page applications',
-            path: 'guide/routing/router-tutorial',
-            contentPath: 'guide/routing/router-tutorial',
-          },
-          {
-            label: 'Creating custom route matches',
-            path: 'guide/routing/routing-with-urlmatcher',
-            contentPath: 'guide/routing/routing-with-urlmatcher',
           },
           {
             label: 'Router reference',
@@ -427,19 +437,9 @@ const DOCS_SUB_NAVIGATION_DATA: NavigationItem[] = [
             contentPath: 'guide/performance/overview',
           },
           {
-            label: 'Server-side rendering',
+            label: 'Server-side and hybrid-rendering',
             path: 'guide/ssr',
             contentPath: 'guide/ssr',
-          },
-          {
-            label: 'Build-time prerendering',
-            path: 'guide/prerendering',
-            contentPath: 'guide/prerendering',
-          },
-          {
-            label: 'Hybrid rendering with server routing',
-            path: 'guide/hybrid-rendering',
-            contentPath: 'guide/hybrid-rendering',
           },
           {
             label: 'Hydration',
@@ -584,9 +584,18 @@ const DOCS_SUB_NAVIGATION_DATA: NavigationItem[] = [
         ],
       },
       {
-        label: 'Experimental features',
+        label: 'Animations',
         children: [
-          {label: 'Zoneless', path: 'guide/experimental/zoneless', contentPath: 'guide/zoneless'},
+          {
+            label: 'Animating your content',
+            path: 'guide/animations/css',
+            contentPath: 'guide/animations/css',
+          },
+          {
+            label: 'Route transition animations',
+            path: 'guide/animations/route-animations',
+            contentPath: 'guide/animations/route-animations',
+          },
         ],
       },
     ],
@@ -752,6 +761,7 @@ const DOCS_SUB_NAVIGATION_DATA: NavigationItem[] = [
             path: 'best-practices/skipping-subtrees',
             contentPath: 'best-practices/runtime-performance/skipping-subtrees',
           },
+          {label: 'Zoneless', path: 'guide/zoneless', contentPath: 'guide/zoneless'},
         ],
       },
       {
@@ -793,9 +803,9 @@ const DOCS_SUB_NAVIGATION_DATA: NavigationItem[] = [
             contentPath: 'guide/animations/reusable-animations',
           },
           {
-            label: 'Route transition animations',
-            path: 'guide/animations/route-animations',
-            contentPath: 'guide/animations/route-animations',
+            label: 'Migrating to Native CSS Animations',
+            path: 'guide/animations/migration',
+            contentPath: 'guide/animations/migration',
           },
         ],
       },
@@ -858,6 +868,11 @@ const DOCS_SUB_NAVIGATION_DATA: NavigationItem[] = [
         label: 'Web workers',
         path: 'ecosystem/web-workers',
         contentPath: 'ecosystem/web-workers',
+      },
+      {
+        label: 'Custom build pipeline',
+        path: 'ecosystem/custom-build-pipeline',
+        contentPath: 'ecosystem/custom-build-pipeline',
       },
       {
         label: 'Angular Fire',
@@ -1232,6 +1247,11 @@ const REFERENCE_SUB_NAVIGATION_DATA: NavigationItem[] = [
         label: 'Clean up unused imports',
         path: 'reference/migrations/cleanup-unused-imports',
         contentPath: 'reference/migrations/cleanup-unused-imports',
+      },
+      {
+        label: 'Self-closing tags',
+        path: 'reference/migrations/self-closing-tags',
+        contentPath: 'reference/migrations/self-closing-tags',
       },
     ],
   },

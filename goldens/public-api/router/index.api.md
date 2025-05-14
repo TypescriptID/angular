@@ -5,8 +5,8 @@
 ```ts
 
 import { AfterContentInit } from '@angular/core';
+import * as _angular_router from '@angular/router';
 import { ChangeDetectorRef } from '@angular/core';
-import { Compiler } from '@angular/core';
 import { ComponentRef } from '@angular/core';
 import { ElementRef } from '@angular/core';
 import { EnvironmentInjector } from '@angular/core';
@@ -15,7 +15,6 @@ import { EventEmitter } from '@angular/core';
 import * as i0 from '@angular/core';
 import { InjectionToken } from '@angular/core';
 import { Injector } from '@angular/core';
-import { InputSignal } from '@angular/core';
 import { LocationStrategy } from '@angular/common';
 import { ModuleWithProviders } from '@angular/core';
 import { NgModuleFactory } from '@angular/core';
@@ -27,7 +26,6 @@ import { Provider } from '@angular/core';
 import { ProviderToken } from '@angular/core';
 import { QueryList } from '@angular/core';
 import { Renderer2 } from '@angular/core';
-import { RouterState as RouterState_2 } from '@angular/router';
 import { Signal } from '@angular/core';
 import { SimpleChanges } from '@angular/core';
 import { Title } from '@angular/platform-browser';
@@ -208,7 +206,7 @@ export type ComponentInputBindingFeature = RouterFeature<RouterFeatureKind.Compo
 export function convertToParamMap(params: Params): ParamMap;
 
 // @public
-export function createUrlTreeFromSnapshot(relativeTo: ActivatedRouteSnapshot, commands: any[], queryParams?: Params | null, fragment?: string | null): UrlTree;
+export function createUrlTreeFromSnapshot(relativeTo: ActivatedRouteSnapshot, commands: readonly any[], queryParams?: Params | null, fragment?: string | null): UrlTree;
 
 // @public
 export type Data = {
@@ -245,7 +243,10 @@ export class DefaultUrlSerializer implements UrlSerializer {
 }
 
 // @public @deprecated
-export type DeprecatedGuard = ProviderToken<any> | any;
+export type DeprecatedGuard = ProviderToken<any> | string;
+
+// @public @deprecated
+export type DeprecatedResolve = DeprecatedGuard | any;
 
 // @public
 export type DetachedRouteHandle = {};
@@ -399,13 +400,14 @@ export type MaybeAsync<T> = T | Observable<T> | Promise<T>;
 
 // @public
 export interface Navigation {
+    readonly abort: () => void;
     extractedUrl: UrlTree;
     extras: NavigationExtras;
     finalUrl?: UrlTree;
     id: number;
     initialUrl: UrlTree;
     previousNavigation: Navigation | null;
-    trigger: 'imperative' | 'popstate' | 'hashchange';
+    trigger: NavigationTrigger;
 }
 
 // @public
@@ -437,6 +439,7 @@ export class NavigationCancel extends RouterEvent {
 
 // @public
 export enum NavigationCancellationCode {
+    Aborted = 4,
     GuardRejected = 3,
     NoDataFromResolver = 2,
     Redirect = 0,
@@ -602,7 +605,7 @@ export class RedirectCommand {
 }
 
 // @public
-export type RedirectFunction = (redirectData: Pick<ActivatedRouteSnapshot, 'routeConfig' | 'url' | 'params' | 'queryParams' | 'fragment' | 'data' | 'outlet' | 'title'>) => string | UrlTree;
+export type RedirectFunction = (redirectData: Pick<ActivatedRouteSnapshot, 'routeConfig' | 'url' | 'params' | 'queryParams' | 'fragment' | 'data' | 'outlet' | 'title'>) => MaybeAsync<string | UrlTree>;
 
 // @public
 export interface Resolve<T> {
@@ -612,7 +615,7 @@ export interface Resolve<T> {
 
 // @public
 export type ResolveData = {
-    [key: string | symbol]: ResolveFn<unknown> | DeprecatedGuard;
+    [key: string | symbol]: ResolveFn<unknown> | DeprecatedResolve;
 };
 
 // @public
@@ -706,7 +709,7 @@ export class Router {
     readonly componentInputBindingEnabled: boolean;
     // (undocumented)
     config: Routes;
-    createUrlTree(commands: any[], navigationExtras?: UrlCreationOptions): UrlTree;
+    createUrlTree(commands: readonly any[], navigationExtras?: UrlCreationOptions): UrlTree;
     dispose(): void;
     get events(): Observable<Event_2>;
     getCurrentNavigation(): Navigation | null;
@@ -715,10 +718,9 @@ export class Router {
     isActive(url: string | UrlTree, exact: boolean): boolean;
     isActive(url: string | UrlTree, matchOptions: IsActiveMatchOptions): boolean;
     get lastSuccessfulNavigation(): Navigation | null;
-    navigate(commands: any[], extras?: NavigationExtras): Promise<boolean>;
+    navigate(commands: readonly any[], extras?: NavigationExtras): Promise<boolean>;
     navigateByUrl(url: string | UrlTree, extras?: NavigationBehaviorOptions): Promise<boolean>;
     navigated: boolean;
-    // (undocumented)
     ngOnDestroy(): void;
     // @deprecated
     onSameUrlNavigation: OnSameUrlNavigation;
@@ -726,7 +728,7 @@ export class Router {
     resetConfig(config: Routes): void;
     // @deprecated
     routeReuseStrategy: RouteReuseStrategy;
-    get routerState(): RouterState_2;
+    get routerState(): _angular_router.RouterState;
     serializeUrl(url: UrlTree): string;
     setUpLocationChangeListener(): void;
     get url(): string;
@@ -785,7 +787,7 @@ export interface RouterFeature<FeatureKind extends RouterFeatureKind> {
     // (undocumented)
     ɵkind: FeatureKind;
     // (undocumented)
-    ɵproviders: Provider[];
+    ɵproviders: Array<Provider | EnvironmentProviders>;
 }
 
 // @public
@@ -798,7 +800,8 @@ export type RouterHashLocationFeature = RouterFeature<RouterFeatureKind.RouterHa
 class RouterLink implements OnChanges, OnDestroy {
     constructor(router: Router, route: ActivatedRoute, tabIndexAttribute: string | null | undefined, renderer: Renderer2, el: ElementRef, locationStrategy?: LocationStrategy | undefined);
     fragment?: string;
-    href: string | null;
+    get href(): string | null;
+    set href(value: string | null);
     info?: unknown;
     // (undocumented)
     static ngAcceptInputType_preserveFragment: unknown;
@@ -806,18 +809,17 @@ class RouterLink implements OnChanges, OnDestroy {
     static ngAcceptInputType_replaceUrl: unknown;
     // (undocumented)
     static ngAcceptInputType_skipLocationChange: unknown;
-    // (undocumented)
     ngOnChanges(changes?: SimpleChanges): void;
-    // (undocumented)
     ngOnDestroy(): any;
-    // (undocumented)
     onClick(button: number, ctrlKey: boolean, shiftKey: boolean, altKey: boolean, metaKey: boolean): boolean;
     preserveFragment: boolean;
     queryParams?: Params | null;
     queryParamsHandling?: QueryParamsHandling | null;
+    // (undocumented)
+    protected readonly reactiveHref: i0.WritableSignal<string | null>;
     relativeTo?: ActivatedRoute | null;
     replaceUrl: boolean;
-    set routerLink(commandsOrUrlTree: any[] | string | UrlTree | null | undefined);
+    set routerLink(commandsOrUrlTree: readonly any[] | string | UrlTree | null | undefined);
     skipLocationChange: boolean;
     state?: {
         [k: string]: any;
@@ -842,11 +844,8 @@ export class RouterLinkActive implements OnChanges, OnDestroy, AfterContentInit 
     readonly isActiveChange: EventEmitter<boolean>;
     // (undocumented)
     links: QueryList<RouterLink>;
-    // (undocumented)
     ngAfterContentInit(): void;
-    // (undocumented)
     ngOnChanges(changes: SimpleChanges): void;
-    // (undocumented)
     ngOnDestroy(): void;
     // (undocumented)
     set routerLinkActive(data: string[] | string);
@@ -869,7 +868,7 @@ export class RouterModule {
     // (undocumented)
     static ɵinj: i0.ɵɵInjectorDeclaration<RouterModule>;
     // (undocumented)
-    static ɵmod: i0.ɵɵNgModuleDeclaration<RouterModule, never, [typeof i1.RouterOutlet, typeof i2.RouterLink, typeof i3.RouterLinkActive, typeof i4.ɵEmptyOutletComponent], [typeof i1.RouterOutlet, typeof i2.RouterLink, typeof i3.RouterLinkActive, typeof i4.ɵEmptyOutletComponent]>;
+    static ɵmod: i0.ɵɵNgModuleDeclaration<RouterModule, never, [typeof RouterOutlet, typeof RouterLink, typeof RouterLinkActive, typeof ɵEmptyOutletComponent], [typeof RouterOutlet, typeof RouterLink, typeof RouterLinkActive, typeof ɵEmptyOutletComponent]>;
 }
 
 // @public
@@ -895,14 +894,10 @@ export class RouterOutlet implements OnDestroy, OnInit, RouterOutletContract {
     // (undocumented)
     get isActivated(): boolean;
     name: string;
-    // (undocumented)
     ngOnChanges(changes: SimpleChanges): void;
-    // (undocumented)
     ngOnDestroy(): void;
-    // (undocumented)
     ngOnInit(): void;
-    readonly routerOutletData: InputSignal<unknown>;
-    // (undocumented)
+    readonly routerOutletData: i0.InputSignal<unknown>;
     readonly supportsBindingToComponentInputs = true;
     // (undocumented)
     static ɵdir: i0.ɵɵDirectiveDeclaration<RouterOutlet, "router-outlet", ["outlet"], { "name": { "alias": "name"; "required": false; }; "routerOutletData": { "alias": "routerOutletData"; "required": false; "isSignal": true; }; }, { "activateEvents": "activate"; "deactivateEvents": "deactivate"; "attachEvents": "attach"; "detachEvents": "detach"; }, never, never, true, never>;
@@ -929,8 +924,7 @@ export interface RouterOutletContract {
 
 // @public
 export class RouterPreloader implements OnDestroy {
-    constructor(router: Router, compiler: Compiler, injector: EnvironmentInjector, preloadingStrategy: PreloadingStrategy, loader: RouterConfigLoader);
-    // (undocumented)
+    constructor(router: Router, injector: EnvironmentInjector, preloadingStrategy: PreloadingStrategy, loader: RouterConfigLoader);
     ngOnDestroy(): void;
     // (undocumented)
     preload(): Observable<any>;
@@ -1110,12 +1104,7 @@ export const VERSION: Version;
 export interface ViewTransitionInfo {
     from: ActivatedRouteSnapshot;
     to: ActivatedRouteSnapshot;
-    transition: {
-        finished: Promise<void>;
-        ready: Promise<void>;
-        updateCallbackDone: Promise<void>;
-        skipTransition(): void;
-    };
+    transition: ViewTransition;
 }
 
 // @public

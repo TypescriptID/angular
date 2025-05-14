@@ -4,7 +4,9 @@ Forms are a big part of many apps because they enable your app to accept user in
 
 In Angular, there are two types of forms: template-driven and reactive. You'll learn about both over the next few activities.
 
-In this activity, you'll learn how to setup a form using a template-driven approach.
+Note: Learn more about [forms in Angular in the in-depth guide](/guide/forms).
+
+In this activity, you'll learn how to set up a form using a template-driven approach.
 
 <hr>
 
@@ -34,8 +36,8 @@ import {Component} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 
 @Component({
-  ...
-  imports: [FormsModule],
+...
+imports: [FormsModule],
 })
 export class UserComponent {}
 </docs-code>
@@ -57,7 +59,7 @@ Update the input to use the `ngModel` directive, specifically with the following
 
 After you've made changes, try entering a value in the input field. Notice how it updates on the screen (yes, very cool).
 
-Note: The syntax `[()]` is known as "banana in a box" but it represents two-way binding: property binding and event binding. Learn more in the [Angular docs about two-way data binding](guide/templates/two-way-binding).
+NOTE: The syntax `[()]` is known as "banana in a box" but it represents two-way binding: property binding and event binding. Learn more in the [Angular docs about two-way data binding](guide/templates/two-way-binding).
 
 </docs-step>
 

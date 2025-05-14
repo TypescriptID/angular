@@ -1,5 +1,6 @@
-# load("//devtools/tools:typescript.bzl", "ts_library")
+load("//devtools/tools:defaults.bzl", "karma_web_test_suite")
 load("//devtools/tools:ng_module.bzl", "ng_module")
+load("//devtools/tools:typescript.bzl", "ts_test_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -10,6 +11,27 @@ ng_module(
         exclude = ["*.spec.ts"],
     ),
     deps = [
+        "//devtools/projects/ng-devtools-backend/src/lib/component-tree:core-enums",
+        "//devtools/projects/ng-devtools-backend/src/lib/component-tree:get-roots",
+        "//devtools/projects/protocol",
         "//packages/core",
     ],
+)
+
+ts_test_library(
+    name = "ng-debug-api_test_lib",
+    srcs = ["ng-debug-api.spec.ts"],
+    interop_deps = [
+        "//packages/core",
+        ":ng-debug-api",
+    ],
+    deps = [
+        "//:node_modules/jasmine",
+        "//devtools/projects/ng-devtools-backend/src/lib/component-tree:core-enums_rjs",
+    ],
+)
+
+karma_web_test_suite(
+    name = "ng-debug-api_test",
+    deps = [":ng-debug-api_test_lib"],
 )

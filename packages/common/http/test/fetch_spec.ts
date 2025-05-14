@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {HttpEvent, HttpEventType, HttpRequest, HttpResponse} from '@angular/common/http';
+import {HttpEvent, HttpEventType, HttpRequest, HttpResponse} from '../index';
 import {TestBed} from '@angular/core/testing';
 import {Observable, of, Subject} from 'rxjs';
 import {catchError, retry, scan, skip, take, toArray} from 'rxjs/operators';
@@ -289,6 +289,20 @@ describe('FetchBackend', async () => {
       },
     });
     fetchMock.mockAbortEvent();
+  });
+
+  it('should pass keepalive option to fetch', () => {
+    const req = new HttpRequest('GET', '/test', {keepalive: true});
+    backend.handle(req).subscribe();
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/test',
+      jasmine.objectContaining({
+        keepalive: true,
+      }),
+    );
+
+    fetchMock.mockFlush(HttpStatusCode.Ok, 'OK');
   });
 
   describe('progress events', () => {

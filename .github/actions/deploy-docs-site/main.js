@@ -2966,6 +2966,7 @@ var require_context = __commonJS({
         this.action = process.env.GITHUB_ACTION;
         this.actor = process.env.GITHUB_ACTOR;
         this.job = process.env.GITHUB_JOB;
+        this.runAttempt = parseInt(process.env.GITHUB_RUN_ATTEMPT, 10);
         this.runNumber = parseInt(process.env.GITHUB_RUN_NUMBER, 10);
         this.runId = parseInt(process.env.GITHUB_RUN_ID, 10);
         this.apiUrl = (_a = process.env.GITHUB_API_URL) !== null && _a !== void 0 ? _a : `https://api.github.com`;
@@ -3283,7 +3284,7 @@ var require_dist_node2 = __commonJS({
     });
     module.exports = __toCommonJS(dist_src_exports);
     var import_universal_user_agent7 = require_dist_node();
-    var VERSION11 = "9.0.5";
+    var VERSION11 = "9.0.6";
     var userAgent3 = `octokit-endpoint.js/${VERSION11} ${(0, import_universal_user_agent7.getUserAgent)()}`;
     var DEFAULTS3 = {
       method: "GET",
@@ -3339,7 +3340,6 @@ var require_dist_node2 = __commonJS({
       return obj;
     }
     function merge3(defaults, route, options) {
-      var _a;
       if (typeof route === "string") {
         let [method, url] = route.split(" ");
         options = Object.assign(url ? { method, url } : { url: method }, options);
@@ -3351,7 +3351,7 @@ var require_dist_node2 = __commonJS({
       removeUndefinedProperties3(options.headers);
       const mergedOptions = mergeDeep3(defaults || {}, options);
       if (options.url === "/graphql") {
-        if (defaults && ((_a = defaults.mediaType.previews) == null ? void 0 : _a.length)) {
+        if (defaults && defaults.mediaType.previews?.length) {
           mergedOptions.mediaType.previews = defaults.mediaType.previews.filter(
             (preview) => !mergedOptions.mediaType.previews.includes(preview)
           ).concat(mergedOptions.mediaType.previews);
@@ -3373,9 +3373,9 @@ var require_dist_node2 = __commonJS({
         return `${name}=${encodeURIComponent(parameters[name])}`;
       }).join("&");
     }
-    var urlVariableRegex3 = /\{[^}]+\}/g;
+    var urlVariableRegex3 = /\{[^{}}]+\}/g;
     function removeNonChars3(variableName) {
-      return variableName.replace(/^\W+|\W+$/g, "").split(/,/);
+      return variableName.replace(/(?:^\W+)|(?:(?<!\W)\W+$)/g, "").split(/,/);
     }
     function extractUrlVariableNames3(url) {
       const matches = url.match(urlVariableRegex3);
@@ -3524,7 +3524,6 @@ var require_dist_node2 = __commonJS({
       }
     }
     function parse3(options) {
-      var _a;
       let method = options.method.toUpperCase();
       let url = (options.url || "/").replace(/:([a-z]\w+)/g, "{$1}");
       let headers = Object.assign({}, options.headers);
@@ -3555,8 +3554,8 @@ var require_dist_node2 = __commonJS({
           ).join(",");
         }
         if (url.endsWith("/graphql")) {
-          if ((_a = options.mediaType.previews) == null ? void 0 : _a.length) {
-            const previewsFromAcceptHeader = headers.accept.match(/[\w-]+(?=-preview)/g) || [];
+          if (options.mediaType.previews?.length) {
+            const previewsFromAcceptHeader = headers.accept.match(/(?<![\w-])[\w-]+(?=-preview)/g) || [];
             headers.accept = previewsFromAcceptHeader.concat(options.mediaType.previews).map((preview) => {
               const format = options.mediaType.format ? `.${options.mediaType.format}` : "+json";
               return `application/vnd.github.${preview}-preview${format}`;
@@ -3754,7 +3753,7 @@ var require_dist_node4 = __commonJS({
         if (options.request.headers.authorization) {
           requestCopy.headers = Object.assign({}, options.request.headers, {
             authorization: options.request.headers.authorization.replace(
-              / .*$/,
+              /(?<! ) .*$/,
               " [REDACTED]"
             )
           });
@@ -3814,7 +3813,7 @@ var require_dist_node5 = __commonJS({
     module.exports = __toCommonJS(dist_src_exports);
     var import_endpoint3 = require_dist_node2();
     var import_universal_user_agent7 = require_dist_node();
-    var VERSION11 = "8.4.0";
+    var VERSION11 = "8.4.1";
     function isPlainObject5(value) {
       if (typeof value !== "object" || value === null)
         return false;
@@ -3863,7 +3862,7 @@ var require_dist_node5 = __commonJS({
           headers[keyAndValue[0]] = keyAndValue[1];
         }
         if ("deprecation" in headers) {
-          const matches = headers.link && headers.link.match(/<([^>]+)>; rel="deprecation"/);
+          const matches = headers.link && headers.link.match(/<([^<>]+)>; rel="deprecation"/);
           const deprecationLink = matches && matches.pop();
           log.warn(
             `[@octokit/request] "${requestOptions.method} ${requestOptions.url}" is deprecated. It is scheduled to be removed on ${headers.sunset}${deprecationLink ? `. See ${deprecationLink}` : ""}`
@@ -4015,16 +4014,16 @@ var require_dist_node6 = __commonJS({
       return to;
     };
     var __toCommonJS = (mod) => __copyProps2(__defProp2({}, "__esModule", { value: true }), mod);
-    var dist_src_exports = {};
-    __export(dist_src_exports, {
+    var index_exports = {};
+    __export(index_exports, {
       GraphqlResponseError: () => GraphqlResponseError2,
       graphql: () => graphql22,
       withCustomRequest: () => withCustomRequest2
     });
-    module.exports = __toCommonJS(dist_src_exports);
+    module.exports = __toCommonJS(index_exports);
     var import_request3 = require_dist_node5();
     var import_universal_user_agent7 = require_dist_node();
-    var VERSION11 = "7.1.0";
+    var VERSION11 = "7.1.1";
     var import_request22 = require_dist_node5();
     var import_request4 = require_dist_node5();
     function _buildMessageForResponseErrors2(data) {
@@ -4158,13 +4157,13 @@ var require_dist_node7 = __commonJS({
       createTokenAuth: () => createTokenAuth3
     });
     module.exports = __toCommonJS(dist_src_exports);
-    var REGEX_IS_INSTALLATION_LEGACY2 = /^v1\./;
-    var REGEX_IS_INSTALLATION2 = /^ghs_/;
-    var REGEX_IS_USER_TO_SERVER2 = /^ghu_/;
+    var REGEX_IS_INSTALLATION_LEGACY = /^v1\./;
+    var REGEX_IS_INSTALLATION = /^ghs_/;
+    var REGEX_IS_USER_TO_SERVER = /^ghu_/;
     async function auth2(token) {
       const isApp = token.split(/\./).length === 3;
-      const isInstallation = REGEX_IS_INSTALLATION_LEGACY2.test(token) || REGEX_IS_INSTALLATION2.test(token);
-      const isUserToServer = REGEX_IS_USER_TO_SERVER2.test(token);
+      const isInstallation = REGEX_IS_INSTALLATION_LEGACY.test(token) || REGEX_IS_INSTALLATION.test(token);
+      const isUserToServer = REGEX_IS_USER_TO_SERVER.test(token);
       const tokenType = isApp ? "app" : isInstallation ? "installation" : isUserToServer ? "user-to-server" : "oauth";
       return {
         type: "token",
@@ -4224,24 +4223,26 @@ var require_dist_node8 = __commonJS({
       return to;
     };
     var __toCommonJS = (mod) => __copyProps2(__defProp2({}, "__esModule", { value: true }), mod);
-    var dist_src_exports = {};
-    __export(dist_src_exports, {
+    var index_exports = {};
+    __export(index_exports, {
       Octokit: () => Octokit3
     });
-    module.exports = __toCommonJS(dist_src_exports);
+    module.exports = __toCommonJS(index_exports);
     var import_universal_user_agent7 = require_dist_node();
     var import_before_after_hook2 = require_before_after_hook();
     var import_request3 = require_dist_node5();
     var import_graphql2 = require_dist_node6();
     var import_auth_token2 = require_dist_node7();
-    var VERSION11 = "5.2.0";
+    var VERSION11 = "5.2.1";
     var noop2 = () => {
     };
     var consoleWarn2 = console.warn.bind(console);
     var consoleError2 = console.error.bind(console);
     var userAgentTrail2 = `octokit-core.js/${VERSION11} ${(0, import_universal_user_agent7.getUserAgent)()}`;
-    var _a;
-    var Octokit3 = (_a = class {
+    var Octokit3 = class {
+      static {
+        this.VERSION = VERSION11;
+      }
       static defaults(defaults) {
         const OctokitWithDefaults = class extends this {
           constructor(...args) {
@@ -4264,15 +4265,18 @@ var require_dist_node8 = __commonJS({
         };
         return OctokitWithDefaults;
       }
+      static {
+        this.plugins = [];
+      }
       static plugin(...newPlugins) {
-        var _a2;
         const currentPlugins = this.plugins;
-        const NewOctokit = (_a2 = class extends this {
-        }, (() => {
-          _a2.plugins = currentPlugins.concat(
-            newPlugins.filter((plugin) => !currentPlugins.includes(plugin))
-          );
-        })(), _a2);
+        const NewOctokit = class extends this {
+          static {
+            this.plugins = currentPlugins.concat(
+              newPlugins.filter((plugin) => !currentPlugins.includes(plugin))
+            );
+          }
+        };
         return NewOctokit;
       }
       constructor(options = {}) {
@@ -4341,11 +4345,7 @@ var require_dist_node8 = __commonJS({
           Object.assign(this, classConstructor.plugins[i](this, options));
         }
       }
-    }, (() => {
-      _a.VERSION = VERSION11;
-    })(), (() => {
-      _a.plugins = [];
-    })(), _a);
+    };
   }
 });
 
@@ -6533,7 +6533,7 @@ var require_dist_node10 = __commonJS({
       paginatingEndpoints: () => paginatingEndpoints
     });
     module.exports = __toCommonJS(dist_src_exports);
-    var VERSION11 = "9.2.1";
+    var VERSION11 = "9.2.2";
     function normalizePaginatedListResponse2(response) {
       if (!response.data) {
         return {
@@ -6577,7 +6577,7 @@ var require_dist_node10 = __commonJS({
               const response = await requestMethod({ method, url, headers });
               const normalizedResponse = normalizePaginatedListResponse2(response);
               url = ((normalizedResponse.headers.link || "").match(
-                /<([^>]+)>;\s*rel="next"/
+                /<([^<>]+)>;\s*rel="next"/
               ) || [])[1];
               return { value: normalizedResponse };
             } catch (error) {
@@ -7327,6 +7327,7 @@ var require_tmp = __commonJS({
 // 
 var require_constants = __commonJS({
   ""(exports, module) {
+    "use strict";
     var SEMVER_SPEC_VERSION = "2.0.0";
     var MAX_LENGTH = 256;
     var MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER || 9007199254740991;
@@ -7357,6 +7358,7 @@ var require_constants = __commonJS({
 // 
 var require_debug = __commonJS({
   ""(exports, module) {
+    "use strict";
     var debug = typeof process === "object" && process.env && process.env.NODE_DEBUG && /\bsemver\b/i.test(process.env.NODE_DEBUG) ? (...args) => console.error("SEMVER", ...args) : () => {
     };
     module.exports = debug;
@@ -7366,6 +7368,7 @@ var require_debug = __commonJS({
 // 
 var require_re = __commonJS({
   ""(exports, module) {
+    "use strict";
     var {
       MAX_SAFE_COMPONENT_LENGTH,
       MAX_SAFE_BUILD_LENGTH,
@@ -7376,6 +7379,7 @@ var require_re = __commonJS({
     var re = exports.re = [];
     var safeRe = exports.safeRe = [];
     var src = exports.src = [];
+    var safeSrc = exports.safeSrc = [];
     var t = exports.t = {};
     var R = 0;
     var LETTERDASHNUMBER = "[a-zA-Z0-9-]";
@@ -7396,6 +7400,7 @@ var require_re = __commonJS({
       debug(name, index, value);
       t[name] = index;
       src[index] = value;
+      safeSrc[index] = safe;
       re[index] = new RegExp(value, isGlobal ? "g" : void 0);
       safeRe[index] = new RegExp(safe, isGlobal ? "g" : void 0);
     };
@@ -7404,8 +7409,8 @@ var require_re = __commonJS({
     createToken("NONNUMERICIDENTIFIER", `\\d*[a-zA-Z-]${LETTERDASHNUMBER}*`);
     createToken("MAINVERSION", `(${src[t.NUMERICIDENTIFIER]})\\.(${src[t.NUMERICIDENTIFIER]})\\.(${src[t.NUMERICIDENTIFIER]})`);
     createToken("MAINVERSIONLOOSE", `(${src[t.NUMERICIDENTIFIERLOOSE]})\\.(${src[t.NUMERICIDENTIFIERLOOSE]})\\.(${src[t.NUMERICIDENTIFIERLOOSE]})`);
-    createToken("PRERELEASEIDENTIFIER", `(?:${src[t.NUMERICIDENTIFIER]}|${src[t.NONNUMERICIDENTIFIER]})`);
-    createToken("PRERELEASEIDENTIFIERLOOSE", `(?:${src[t.NUMERICIDENTIFIERLOOSE]}|${src[t.NONNUMERICIDENTIFIER]})`);
+    createToken("PRERELEASEIDENTIFIER", `(?:${src[t.NONNUMERICIDENTIFIER]}|${src[t.NUMERICIDENTIFIER]})`);
+    createToken("PRERELEASEIDENTIFIERLOOSE", `(?:${src[t.NONNUMERICIDENTIFIER]}|${src[t.NUMERICIDENTIFIERLOOSE]})`);
     createToken("PRERELEASE", `(?:-(${src[t.PRERELEASEIDENTIFIER]}(?:\\.${src[t.PRERELEASEIDENTIFIER]})*))`);
     createToken("PRERELEASELOOSE", `(?:-?(${src[t.PRERELEASEIDENTIFIERLOOSE]}(?:\\.${src[t.PRERELEASEIDENTIFIERLOOSE]})*))`);
     createToken("BUILDIDENTIFIER", `${LETTERDASHNUMBER}+`);
@@ -7451,6 +7456,7 @@ var require_re = __commonJS({
 // 
 var require_parse_options = __commonJS({
   ""(exports, module) {
+    "use strict";
     var looseOption = Object.freeze({ loose: true });
     var emptyOpts = Object.freeze({});
     var parseOptions = (options) => {
@@ -7469,6 +7475,7 @@ var require_parse_options = __commonJS({
 // 
 var require_identifiers = __commonJS({
   ""(exports, module) {
+    "use strict";
     var numeric = /^[0-9]+$/;
     var compareIdentifiers = (a, b) => {
       const anum = numeric.test(a);
@@ -7490,6 +7497,7 @@ var require_identifiers = __commonJS({
 // 
 var require_semver = __commonJS({
   ""(exports, module) {
+    "use strict";
     var debug = require_debug();
     var { MAX_LENGTH, MAX_SAFE_INTEGER } = require_constants();
     var { safeRe: re, t } = require_re();
@@ -7630,6 +7638,17 @@ var require_semver = __commonJS({
         } while (++i);
       }
       inc(release, identifier, identifierBase) {
+        if (release.startsWith("pre")) {
+          if (!identifier && identifierBase === false) {
+            throw new Error("invalid increment argument: identifier is empty");
+          }
+          if (identifier) {
+            const match = `-${identifier}`.match(this.options.loose ? re[t.PRERELEASELOOSE] : re[t.PRERELEASE]);
+            if (!match || match[1] !== identifier) {
+              throw new Error(`invalid identifier: ${identifier}`);
+            }
+          }
+        }
         switch (release) {
           case "premajor":
             this.prerelease.length = 0;
@@ -7655,6 +7674,12 @@ var require_semver = __commonJS({
             }
             this.inc("pre", identifier, identifierBase);
             break;
+          case "release":
+            if (this.prerelease.length === 0) {
+              throw new Error(`version ${this.raw} is not a prerelease`);
+            }
+            this.prerelease.length = 0;
+            break;
           case "major":
             if (this.minor !== 0 || this.patch !== 0 || this.prerelease.length === 0) {
               this.major++;
@@ -7678,9 +7703,6 @@ var require_semver = __commonJS({
             break;
           case "pre": {
             const base = Number(identifierBase) ? 1 : 0;
-            if (!identifier && identifierBase === false) {
-              throw new Error("invalid increment argument: identifier is empty");
-            }
             if (this.prerelease.length === 0) {
               this.prerelease = [base];
             } else {
@@ -7730,6 +7752,7 @@ var require_semver = __commonJS({
 // 
 var require_parse = __commonJS({
   ""(exports, module) {
+    "use strict";
     var SemVer = require_semver();
     var parse3 = (version, options, throwErrors = false) => {
       if (version instanceof SemVer) {
@@ -7751,6 +7774,7 @@ var require_parse = __commonJS({
 // 
 var require_valid = __commonJS({
   ""(exports, module) {
+    "use strict";
     var parse3 = require_parse();
     var valid = (version, options) => {
       const v = parse3(version, options);
@@ -7763,6 +7787,7 @@ var require_valid = __commonJS({
 // 
 var require_clean = __commonJS({
   ""(exports, module) {
+    "use strict";
     var parse3 = require_parse();
     var clean = (version, options) => {
       const s = parse3(version.trim().replace(/^[=v]+/, ""), options);
@@ -7775,6 +7800,7 @@ var require_clean = __commonJS({
 // 
 var require_inc = __commonJS({
   ""(exports, module) {
+    "use strict";
     var SemVer = require_semver();
     var inc = (version, release, options, identifier, identifierBase) => {
       if (typeof options === "string") {
@@ -7798,6 +7824,7 @@ var require_inc = __commonJS({
 // 
 var require_diff = __commonJS({
   ""(exports, module) {
+    "use strict";
     var parse3 = require_parse();
     var diff = (version1, version2) => {
       const v1 = parse3(version1, null, true);
@@ -7815,13 +7842,12 @@ var require_diff = __commonJS({
         if (!lowVersion.patch && !lowVersion.minor) {
           return "major";
         }
-        if (highVersion.patch) {
+        if (lowVersion.compareMain(highVersion) === 0) {
+          if (lowVersion.minor && !lowVersion.patch) {
+            return "minor";
+          }
           return "patch";
         }
-        if (highVersion.minor) {
-          return "minor";
-        }
-        return "major";
       }
       const prefix = highHasPre ? "pre" : "";
       if (v1.major !== v2.major) {
@@ -7842,6 +7868,7 @@ var require_diff = __commonJS({
 // 
 var require_major = __commonJS({
   ""(exports, module) {
+    "use strict";
     var SemVer = require_semver();
     var major = (a, loose) => new SemVer(a, loose).major;
     module.exports = major;
@@ -7851,6 +7878,7 @@ var require_major = __commonJS({
 // 
 var require_minor = __commonJS({
   ""(exports, module) {
+    "use strict";
     var SemVer = require_semver();
     var minor = (a, loose) => new SemVer(a, loose).minor;
     module.exports = minor;
@@ -7860,6 +7888,7 @@ var require_minor = __commonJS({
 // 
 var require_patch = __commonJS({
   ""(exports, module) {
+    "use strict";
     var SemVer = require_semver();
     var patch = (a, loose) => new SemVer(a, loose).patch;
     module.exports = patch;
@@ -7869,6 +7898,7 @@ var require_patch = __commonJS({
 // 
 var require_prerelease = __commonJS({
   ""(exports, module) {
+    "use strict";
     var parse3 = require_parse();
     var prerelease = (version, options) => {
       const parsed = parse3(version, options);
@@ -7881,6 +7911,7 @@ var require_prerelease = __commonJS({
 // 
 var require_compare = __commonJS({
   ""(exports, module) {
+    "use strict";
     var SemVer = require_semver();
     var compare = (a, b, loose) => new SemVer(a, loose).compare(new SemVer(b, loose));
     module.exports = compare;
@@ -7890,6 +7921,7 @@ var require_compare = __commonJS({
 // 
 var require_rcompare = __commonJS({
   ""(exports, module) {
+    "use strict";
     var compare = require_compare();
     var rcompare = (a, b, loose) => compare(b, a, loose);
     module.exports = rcompare;
@@ -7899,6 +7931,7 @@ var require_rcompare = __commonJS({
 // 
 var require_compare_loose = __commonJS({
   ""(exports, module) {
+    "use strict";
     var compare = require_compare();
     var compareLoose = (a, b) => compare(a, b, true);
     module.exports = compareLoose;
@@ -7908,6 +7941,7 @@ var require_compare_loose = __commonJS({
 // 
 var require_compare_build = __commonJS({
   ""(exports, module) {
+    "use strict";
     var SemVer = require_semver();
     var compareBuild = (a, b, loose) => {
       const versionA = new SemVer(a, loose);
@@ -7921,6 +7955,7 @@ var require_compare_build = __commonJS({
 // 
 var require_sort = __commonJS({
   ""(exports, module) {
+    "use strict";
     var compareBuild = require_compare_build();
     var sort = (list, loose) => list.sort((a, b) => compareBuild(a, b, loose));
     module.exports = sort;
@@ -7930,6 +7965,7 @@ var require_sort = __commonJS({
 // 
 var require_rsort = __commonJS({
   ""(exports, module) {
+    "use strict";
     var compareBuild = require_compare_build();
     var rsort = (list, loose) => list.sort((a, b) => compareBuild(b, a, loose));
     module.exports = rsort;
@@ -7939,6 +7975,7 @@ var require_rsort = __commonJS({
 // 
 var require_gt = __commonJS({
   ""(exports, module) {
+    "use strict";
     var compare = require_compare();
     var gt = (a, b, loose) => compare(a, b, loose) > 0;
     module.exports = gt;
@@ -7948,6 +7985,7 @@ var require_gt = __commonJS({
 // 
 var require_lt = __commonJS({
   ""(exports, module) {
+    "use strict";
     var compare = require_compare();
     var lt = (a, b, loose) => compare(a, b, loose) < 0;
     module.exports = lt;
@@ -7957,6 +7995,7 @@ var require_lt = __commonJS({
 // 
 var require_eq = __commonJS({
   ""(exports, module) {
+    "use strict";
     var compare = require_compare();
     var eq = (a, b, loose) => compare(a, b, loose) === 0;
     module.exports = eq;
@@ -7966,6 +8005,7 @@ var require_eq = __commonJS({
 // 
 var require_neq = __commonJS({
   ""(exports, module) {
+    "use strict";
     var compare = require_compare();
     var neq = (a, b, loose) => compare(a, b, loose) !== 0;
     module.exports = neq;
@@ -7975,6 +8015,7 @@ var require_neq = __commonJS({
 // 
 var require_gte = __commonJS({
   ""(exports, module) {
+    "use strict";
     var compare = require_compare();
     var gte = (a, b, loose) => compare(a, b, loose) >= 0;
     module.exports = gte;
@@ -7984,6 +8025,7 @@ var require_gte = __commonJS({
 // 
 var require_lte = __commonJS({
   ""(exports, module) {
+    "use strict";
     var compare = require_compare();
     var lte = (a, b, loose) => compare(a, b, loose) <= 0;
     module.exports = lte;
@@ -7993,6 +8035,7 @@ var require_lte = __commonJS({
 // 
 var require_cmp = __commonJS({
   ""(exports, module) {
+    "use strict";
     var eq = require_eq();
     var neq = require_neq();
     var gt = require_gt();
@@ -8042,6 +8085,7 @@ var require_cmp = __commonJS({
 // 
 var require_coerce = __commonJS({
   ""(exports, module) {
+    "use strict";
     var SemVer = require_semver();
     var parse3 = require_parse();
     var { safeRe: re, t } = require_re();
@@ -8087,6 +8131,7 @@ var require_coerce = __commonJS({
 // 
 var require_lrucache = __commonJS({
   ""(exports, module) {
+    "use strict";
     var LRUCache = class {
       constructor() {
         this.max = 1e3;
@@ -8124,6 +8169,7 @@ var require_lrucache = __commonJS({
 // 
 var require_range = __commonJS({
   ""(exports, module) {
+    "use strict";
     var SPACE_CHARACTERS = /\s+/g;
     var Range = class {
       constructor(range, options) {
@@ -8498,6 +8544,7 @@ var require_range = __commonJS({
 // 
 var require_comparator = __commonJS({
   ""(exports, module) {
+    "use strict";
     var ANY = Symbol("SemVer ANY");
     var Comparator = class {
       static get ANY() {
@@ -8610,6 +8657,7 @@ var require_comparator = __commonJS({
 // 
 var require_satisfies = __commonJS({
   ""(exports, module) {
+    "use strict";
     var Range = require_range();
     var satisfies = (version, range, options) => {
       try {
@@ -8626,6 +8674,7 @@ var require_satisfies = __commonJS({
 // 
 var require_to_comparators = __commonJS({
   ""(exports, module) {
+    "use strict";
     var Range = require_range();
     var toComparators = (range, options) => new Range(range, options).set.map((comp) => comp.map((c) => c.value).join(" ").trim().split(" "));
     module.exports = toComparators;
@@ -8635,6 +8684,7 @@ var require_to_comparators = __commonJS({
 // 
 var require_max_satisfying = __commonJS({
   ""(exports, module) {
+    "use strict";
     var SemVer = require_semver();
     var Range = require_range();
     var maxSatisfying = (versions, range, options) => {
@@ -8663,6 +8713,7 @@ var require_max_satisfying = __commonJS({
 // 
 var require_min_satisfying = __commonJS({
   ""(exports, module) {
+    "use strict";
     var SemVer = require_semver();
     var Range = require_range();
     var minSatisfying = (versions, range, options) => {
@@ -8691,6 +8742,7 @@ var require_min_satisfying = __commonJS({
 // 
 var require_min_version = __commonJS({
   ""(exports, module) {
+    "use strict";
     var SemVer = require_semver();
     var Range = require_range();
     var gt = require_gt();
@@ -8747,6 +8799,7 @@ var require_min_version = __commonJS({
 // 
 var require_valid2 = __commonJS({
   ""(exports, module) {
+    "use strict";
     var Range = require_range();
     var validRange = (range, options) => {
       try {
@@ -8762,6 +8815,7 @@ var require_valid2 = __commonJS({
 // 
 var require_outside = __commonJS({
   ""(exports, module) {
+    "use strict";
     var SemVer = require_semver();
     var Comparator = require_comparator();
     var { ANY } = Comparator;
@@ -8830,6 +8884,7 @@ var require_outside = __commonJS({
 // 
 var require_gtr = __commonJS({
   ""(exports, module) {
+    "use strict";
     var outside = require_outside();
     var gtr = (version, range, options) => outside(version, range, ">", options);
     module.exports = gtr;
@@ -8839,6 +8894,7 @@ var require_gtr = __commonJS({
 // 
 var require_ltr = __commonJS({
   ""(exports, module) {
+    "use strict";
     var outside = require_outside();
     var ltr = (version, range, options) => outside(version, range, "<", options);
     module.exports = ltr;
@@ -8848,6 +8904,7 @@ var require_ltr = __commonJS({
 // 
 var require_intersects = __commonJS({
   ""(exports, module) {
+    "use strict";
     var Range = require_range();
     var intersects = (r1, r2, options) => {
       r1 = new Range(r1, options);
@@ -8861,6 +8918,7 @@ var require_intersects = __commonJS({
 // 
 var require_simplify = __commonJS({
   ""(exports, module) {
+    "use strict";
     var satisfies = require_satisfies();
     var compare = require_compare();
     module.exports = (versions, range, options) => {
@@ -8910,6 +8968,7 @@ var require_simplify = __commonJS({
 // 
 var require_subset = __commonJS({
   ""(exports, module) {
+    "use strict";
     var Range = require_range();
     var Comparator = require_comparator();
     var { ANY } = Comparator;
@@ -9072,6 +9131,7 @@ var require_subset = __commonJS({
 // 
 var require_semver2 = __commonJS({
   ""(exports, module) {
+    "use strict";
     var internalRe = require_re();
     var constants = require_constants();
     var SemVer = require_semver();
@@ -9581,10 +9641,9 @@ var require_posix = __commonJS({
     exports.sync = sync;
     var checkStat = (stat, options) => stat.isFile() && checkMode(stat, options);
     var checkMode = (stat, options) => {
-      var _a, _b, _c;
-      const myUid = options.uid ?? ((_a = process.getuid) == null ? void 0 : _a.call(process));
-      const myGroups = options.groups ?? ((_b = process.getgroups) == null ? void 0 : _b.call(process)) ?? [];
-      const myGid = options.gid ?? ((_c = process.getgid) == null ? void 0 : _c.call(process)) ?? myGroups[0];
+      const myUid = options.uid ?? process.getuid?.();
+      const myGroups = options.groups ?? process.getgroups?.() ?? [];
+      const myGid = options.gid ?? process.getgid?.() ?? myGroups[0];
       if (myUid === void 0 || myGid === void 0) {
         throw new Error("cannot get uid or gid");
       }
@@ -9719,9 +9778,9 @@ var require_cjs = __commonJS({
 var require_lib2 = __commonJS({
   ""(exports, module) {
     var { isexe, sync: isexeSync } = require_cjs();
-    var { join: join3, delimiter, sep, posix } = __require("path");
+    var { join: join3, delimiter, sep: sep2, posix } = __require("path");
     var isWindows = process.platform === "win32";
-    var rSlash = new RegExp(`[${posix.sep}${sep === posix.sep ? "" : sep}]`.replace(/(\\)/g, "\\$1"));
+    var rSlash = new RegExp(`[${posix.sep}${sep2 === posix.sep ? "" : sep2}]`.replace(/(\\)/g, "\\$1"));
     var rRel = new RegExp(`^\\.${rSlash.source}`);
     var getNotFoundError = (cmd) => Object.assign(new Error(`not found: ${cmd}`), { code: "ENOENT" });
     var getPathInfo = (cmd, {
@@ -11800,15 +11859,15 @@ var require_lockfile = __commonJS({
           }
           toString(opts) {
             opts = opts || {};
-            let sep = opts.sep || " ";
+            let sep2 = opts.sep || " ";
             if (opts.strict) {
-              sep = sep.replace(/\S+/g, " ");
+              sep2 = sep2.replace(/\S+/g, " ");
             }
             return Object.keys(this).map((k) => {
               return this[k].map((hash) => {
                 return Hash.prototype.toString.call(hash, opts);
-              }).filter((x) => x.length).join(sep);
-            }).filter((x) => x.length).join(sep);
+              }).filter((x) => x.length).join(sep2);
+            }).filter((x) => x.length).join(sep2);
           }
           concat(integrity, opts) {
             const other = typeof integrity === "string" ? integrity : stringify(integrity, opts);
@@ -17622,19 +17681,18 @@ var require_visit = __commonJS({
       return visitor;
     }
     function callVisitor(key, node, visitor, path) {
-      var _a, _b, _c, _d, _e;
       if (typeof visitor === "function")
         return visitor(key, node, path);
       if (identity.isMap(node))
-        return (_a = visitor.Map) == null ? void 0 : _a.call(visitor, key, node, path);
+        return visitor.Map?.(key, node, path);
       if (identity.isSeq(node))
-        return (_b = visitor.Seq) == null ? void 0 : _b.call(visitor, key, node, path);
+        return visitor.Seq?.(key, node, path);
       if (identity.isPair(node))
-        return (_c = visitor.Pair) == null ? void 0 : _c.call(visitor, key, node, path);
+        return visitor.Pair?.(key, node, path);
       if (identity.isScalar(node))
-        return (_d = visitor.Scalar) == null ? void 0 : _d.call(visitor, key, node, path);
+        return visitor.Scalar?.(key, node, path);
       if (identity.isAlias(node))
-        return (_e = visitor.Alias) == null ? void 0 : _e.call(visitor, key, node, path);
+        return visitor.Alias?.(key, node, path);
       return void 0;
     }
     function replaceNode(key, path, node) {
@@ -17949,7 +18007,7 @@ var require_toJS = __commonJS({
           ctx.onCreate(res);
         return res;
       }
-      if (typeof value === "bigint" && !(ctx == null ? void 0 : ctx.keep))
+      if (typeof value === "bigint" && !ctx?.keep)
         return Number(value);
       return value;
     }
@@ -18108,7 +18166,7 @@ var require_Scalar = __commonJS({
         this.value = value;
       }
       toJSON(arg, ctx) {
-        return (ctx == null ? void 0 : ctx.keep) ? this.value : toJS.toJS(this.value, arg, ctx);
+        return ctx?.keep ? this.value : toJS.toJS(this.value, arg, ctx);
       }
       toString() {
         return String(this.value);
@@ -18140,19 +18198,15 @@ var require_createNode = __commonJS({
           throw new Error(`Tag ${tagName} not found`);
         return tagObj;
       }
-      return tags.find((t) => {
-        var _a;
-        return ((_a = t.identify) == null ? void 0 : _a.call(t, value)) && !t.format;
-      });
+      return tags.find((t) => t.identify?.(value) && !t.format);
     }
     function createNode(value, tagName, ctx) {
-      var _a, _b, _c;
       if (identity.isDocument(value))
         value = value.contents;
       if (identity.isNode(value))
         return value;
       if (identity.isPair(value)) {
-        const map = (_b = (_a = ctx.schema[identity.MAP]).createNode) == null ? void 0 : _b.call(_a, ctx.schema, null, ctx);
+        const map = ctx.schema[identity.MAP].createNode?.(ctx.schema, null, ctx);
         map.items.push(value);
         return map;
       }
@@ -18172,7 +18226,7 @@ var require_createNode = __commonJS({
           sourceObjects.set(value, ref);
         }
       }
-      if (tagName == null ? void 0 : tagName.startsWith("!!"))
+      if (tagName?.startsWith("!!"))
         tagName = defaultTagPrefix + tagName.slice(2);
       let tagObj = findTagObject(value, tagName, schema.tags);
       if (!tagObj) {
@@ -18191,7 +18245,7 @@ var require_createNode = __commonJS({
         onTagObj(tagObj);
         delete ctx.onTagObj;
       }
-      const node = (tagObj == null ? void 0 : tagObj.createNode) ? tagObj.createNode(ctx.schema, value, ctx) : typeof ((_c = tagObj == null ? void 0 : tagObj.nodeClass) == null ? void 0 : _c.from) === "function" ? tagObj.nodeClass.from(ctx.schema, value, ctx) : new Scalar.Scalar(value);
+      const node = tagObj?.createNode ? tagObj.createNode(ctx.schema, value, ctx) : typeof tagObj?.nodeClass?.from === "function" ? tagObj.nodeClass.from(ctx.schema, value, ctx) : new Scalar.Scalar(value);
       if (tagName)
         node.tag = tagName;
       else if (!tagObj.default)
@@ -18713,12 +18767,9 @@ ${indent}${start}${value}${end}`;
       const str = value.replace(/\n+/g, `$&
 ${indent}`);
       if (actualString) {
-        const test = (tag) => {
-          var _a;
-          return tag.default && tag.tag !== "tag:yaml.org,2002:str" && ((_a = tag.test) == null ? void 0 : _a.test(str));
-        };
+        const test = (tag) => tag.default && tag.tag !== "tag:yaml.org,2002:str" && tag.test?.test(str);
         const { compat, tags } = ctx.doc.schema;
-        if (tags.some(test) || (compat == null ? void 0 : compat.some(test)))
+        if (tags.some(test) || compat?.some(test))
           return quotedString(value, ctx);
       }
       return implicitKey ? str : foldFlowLines.foldFlowLines(str, indent, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, false));
@@ -18810,7 +18861,6 @@ var require_stringify = __commonJS({
       };
     }
     function getTagObject(tags, item) {
-      var _a;
       if (item.tag) {
         const match = tags.filter((t) => t.tag === item.tag);
         if (match.length > 0)
@@ -18820,10 +18870,7 @@ var require_stringify = __commonJS({
       let obj;
       if (identity.isScalar(item)) {
         obj = item.value;
-        let match = tags.filter((t) => {
-          var _a2;
-          return (_a2 = t.identify) == null ? void 0 : _a2.call(t, obj);
-        });
+        let match = tags.filter((t) => t.identify?.(obj));
         if (match.length > 1) {
           const testMatch = match.filter((t) => t.test);
           if (testMatch.length > 0)
@@ -18835,7 +18882,7 @@ var require_stringify = __commonJS({
         tagObj = tags.find((t) => t.nodeClass && obj instanceof t.nodeClass);
       }
       if (!tagObj) {
-        const name = ((_a = obj == null ? void 0 : obj.constructor) == null ? void 0 : _a.name) ?? typeof obj;
+        const name = obj?.constructor?.name ?? typeof obj;
         throw new Error(`Tag not resolved for ${name} value`);
       }
       return tagObj;
@@ -18855,13 +18902,12 @@ var require_stringify = __commonJS({
       return props.join(" ");
     }
     function stringify(item, ctx, onComment, onChompKeep) {
-      var _a;
       if (identity.isPair(item))
         return item.toString(ctx, onComment, onChompKeep);
       if (identity.isAlias(item)) {
         if (ctx.doc.directives)
           return item.toString(ctx);
-        if ((_a = ctx.resolvedAliases) == null ? void 0 : _a.has(item)) {
+        if (ctx.resolvedAliases?.has(item)) {
           throw new TypeError(`Cannot stringify circular structure without alias nodes`);
         } else {
           if (ctx.resolvedAliases)
@@ -19026,7 +19072,7 @@ ${ctx.indent}`;
 var require_log = __commonJS({
   ""(exports) {
     "use strict";
-    var node_process = __require("process");
+    var node_process = __require("node:process");
     function debug(logLevel, ...messages) {
       if (logLevel === "debug")
         console.log(...messages);
@@ -19061,7 +19107,7 @@ var require_merge = __commonJS({
       }),
       stringify: () => MERGE_KEY
     };
-    var isMergeKey = (ctx, key) => (merge3.identify(key) || identity.isScalar(key) && (!key.type || key.type === Scalar.Scalar.PLAIN) && merge3.identify(key.value)) && (ctx == null ? void 0 : ctx.doc.schema.tags.some((tag) => tag.tag === merge3.tag && tag.default));
+    var isMergeKey = (ctx, key) => (merge3.identify(key) || identity.isScalar(key) && (!key.type || key.type === Scalar.Scalar.PLAIN) && merge3.identify(key.value)) && ctx?.doc.schema.tags.some((tag) => tag.tag === merge3.tag && tag.default);
     function addMergeToJSMap(ctx, map, value) {
       value = ctx && identity.isAlias(value) ? value.resolve(ctx.doc) : value;
       if (identity.isSeq(value))
@@ -19142,7 +19188,7 @@ var require_addPairToJSMap = __commonJS({
         return "";
       if (typeof jsKey !== "object")
         return String(jsKey);
-      if (identity.isNode(key) && (ctx == null ? void 0 : ctx.doc)) {
+      if (identity.isNode(key) && ctx?.doc) {
         const strCtx = stringify.createStringifyContext(ctx.doc, {});
         strCtx.anchors = /* @__PURE__ */ new Set();
         for (const node of ctx.anchors.keys())
@@ -19193,11 +19239,11 @@ var require_Pair = __commonJS({
         return new Pair(key, value);
       }
       toJSON(_, ctx) {
-        const pair = (ctx == null ? void 0 : ctx.mapAsMap) ? /* @__PURE__ */ new Map() : {};
+        const pair = ctx?.mapAsMap ? /* @__PURE__ */ new Map() : {};
         return addPairToJSMap.addPairToJSMap(ctx, pair, this);
       }
       toString(ctx, onComment, onChompKeep) {
-        return (ctx == null ? void 0 : ctx.doc) ? stringifyPair.stringifyPair(this, ctx, onComment, onChompKeep) : JSON.stringify(this);
+        return ctx?.doc ? stringifyPair.stringifyPair(this, ctx, onComment, onChompKeep) : JSON.stringify(this);
       }
     };
     exports.Pair = Pair;
@@ -19301,7 +19347,7 @@ ${indent}${line}` : "\n";
               comment = iv.comment;
             if (iv.commentBefore)
               reqNewline = true;
-          } else if (item.value == null && (ik == null ? void 0 : ik.comment)) {
+          } else if (item.value == null && ik?.comment) {
             comment = ik.comment;
           }
         }
@@ -19403,16 +19449,15 @@ var require_YAMLMap = __commonJS({
         return map;
       }
       add(pair, overwrite) {
-        var _a;
         let _pair;
         if (identity.isPair(pair))
           _pair = pair;
         else if (!pair || typeof pair !== "object" || !("key" in pair)) {
-          _pair = new Pair.Pair(pair, pair == null ? void 0 : pair.value);
+          _pair = new Pair.Pair(pair, pair?.value);
         } else
           _pair = new Pair.Pair(pair.key, pair.value);
         const prev = findPair(this.items, _pair.key);
-        const sortEntries = (_a = this.schema) == null ? void 0 : _a.sortMapEntries;
+        const sortEntries = this.schema?.sortMapEntries;
         if (prev) {
           if (!overwrite)
             throw new Error(`Key ${_pair.key} already set`);
@@ -19439,7 +19484,7 @@ var require_YAMLMap = __commonJS({
       }
       get(key, keepScalar) {
         const it = findPair(this.items, key);
-        const node = it == null ? void 0 : it.value;
+        const node = it?.value;
         return (!keepScalar && identity.isScalar(node) ? node.value : node) ?? void 0;
       }
       has(key) {
@@ -19449,8 +19494,8 @@ var require_YAMLMap = __commonJS({
         this.add(new Pair.Pair(key, value), true);
       }
       toJSON(_, ctx, Type) {
-        const map = Type ? new Type() : (ctx == null ? void 0 : ctx.mapAsMap) ? /* @__PURE__ */ new Map() : {};
-        if (ctx == null ? void 0 : ctx.onCreate)
+        const map = Type ? new Type() : ctx?.mapAsMap ? /* @__PURE__ */ new Map() : {};
+        if (ctx?.onCreate)
           ctx.onCreate(map);
         for (const item of this.items)
           addPairToJSMap.addPairToJSMap(ctx, map, item);
@@ -19552,7 +19597,7 @@ var require_YAMLSeq = __commonJS({
       }
       toJSON(_, ctx) {
         const seq = [];
-        if (ctx == null ? void 0 : ctx.onCreate)
+        if (ctx?.onCreate)
           ctx.onCreate(seq);
         let i = 0;
         for (const item of this.items)
@@ -19896,7 +19941,7 @@ var require_schema2 = __commonJS({
 var require_binary = __commonJS({
   ""(exports) {
     "use strict";
-    var node_buffer = __require("buffer");
+    var node_buffer = __require("node:buffer");
     var Scalar = require_Scalar();
     var stringifyString = require_stringifyString();
     var binary = {
@@ -19918,6 +19963,8 @@ var require_binary = __commonJS({
         }
       },
       stringify({ comment, type, value }, ctx, onComment, onChompKeep) {
+        if (!value)
+          return "";
         const buf = value;
         let str;
         if (typeof node_buffer.Buffer === "function") {
@@ -20049,7 +20096,7 @@ var require_omap = __commonJS({
         if (!ctx)
           return super.toJSON(_);
         const map = /* @__PURE__ */ new Map();
-        if (ctx == null ? void 0 : ctx.onCreate)
+        if (ctx?.onCreate)
           ctx.onCreate(map);
         for (const pair of this.items) {
           let key, value;
@@ -20422,7 +20469,7 @@ var require_timestamp = __commonJS({
         }
         return new Date(date);
       },
-      stringify: ({ value }) => value.toISOString().replace(/(T00:00:00)?\.000Z$/, "")
+      stringify: ({ value }) => value?.toISOString().replace(/(T00:00:00)?\.000Z$/, "") ?? ""
     };
     exports.floatTime = floatTime;
     exports.intTime = intTime;
@@ -20608,7 +20655,6 @@ var require_stringifyDocument = __commonJS({
     var stringify = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyDocument(doc, options) {
-      var _a;
       const lines = [];
       let hasDirectives = options.directives === true;
       if (options.directives !== false && doc.directives) {
@@ -20653,7 +20699,7 @@ var require_stringifyDocument = __commonJS({
       } else {
         lines.push(stringify.stringify(doc.contents, ctx));
       }
-      if ((_a = doc.directives) == null ? void 0 : _a.docEnd) {
+      if (doc.directives?.docEnd) {
         if (doc.comment) {
           const cs = commentString(doc.comment);
           if (cs.includes("\n")) {
@@ -20722,7 +20768,7 @@ var require_Document = __commonJS({
         }, options);
         this.options = opt;
         let { version } = opt;
-        if (options == null ? void 0 : options._directives) {
+        if (options?._directives) {
           this.directives = options._directives.atDocument();
           if (this.directives.yaml.explicit)
             version = this.directives.yaml.version;
@@ -21019,7 +21065,7 @@ var require_resolve_props = __commonJS({
         }
         switch (token.type) {
           case "space":
-            if (!flow && (indicator !== "doc-start" || (next == null ? void 0 : next.type) !== "flow-collection") && token.source.includes("	")) {
+            if (!flow && (indicator !== "doc-start" || next?.type !== "flow-collection") && token.source.includes("	")) {
               tab = token;
             }
             hasSpace = true;
@@ -21102,7 +21148,7 @@ var require_resolve_props = __commonJS({
       if (reqSpace && next && next.type !== "space" && next.type !== "newline" && next.type !== "comma" && (next.type !== "scalar" || next.source !== "")) {
         onError(next.offset, "MISSING_CHAR", "Tags and anchors must be separated from the next token by white space");
       }
-      if (tab && (atNewline && tab.indent <= parentIndent || (next == null ? void 0 : next.type) === "block-map" || (next == null ? void 0 : next.type) === "block-seq"))
+      if (tab && (atNewline && tab.indent <= parentIndent || next?.type === "block-map" || next?.type === "block-seq"))
         onError(tab, "TAB_AS_INDENT", "Tabs are not allowed as indentation");
       return {
         comma,
@@ -21169,7 +21215,7 @@ var require_util_flow_indent_check = __commonJS({
     "use strict";
     var utilContainsNewline = require_util_contains_newline();
     function flowIndentCheck(indent, fc, onError) {
-      if ((fc == null ? void 0 : fc.type) === "flow-collection") {
+      if (fc?.type === "flow-collection") {
         const end = fc.end[0];
         if (end.indent === indent && (end.source === "]" || end.source === "}") && utilContainsNewline.containsNewline(fc)) {
           const msg = "Flow end indicator should be more indented than parent";
@@ -21209,18 +21255,17 @@ var require_resolve_block_map = __commonJS({
     var utilMapIncludes = require_util_map_includes();
     var startColMsg = "All mapping items must start at the same column";
     function resolveBlockMap({ composeNode, composeEmptyNode }, ctx, bm, onError, tag) {
-      var _a;
-      const NodeClass = (tag == null ? void 0 : tag.nodeClass) ?? YAMLMap.YAMLMap;
+      const NodeClass = tag?.nodeClass ?? YAMLMap.YAMLMap;
       const map = new NodeClass(ctx.schema);
       if (ctx.atRoot)
         ctx.atRoot = false;
       let offset = bm.offset;
       let commentEnd = null;
       for (const collItem of bm.items) {
-        const { start, key, sep, value } = collItem;
+        const { start, key, sep: sep2, value } = collItem;
         const keyProps = resolveProps.resolveProps(start, {
           indicator: "explicit-key-ind",
-          next: key ?? (sep == null ? void 0 : sep[0]),
+          next: key ?? sep2?.[0],
           offset,
           onError,
           parentIndent: bm.indent,
@@ -21234,7 +21279,7 @@ var require_resolve_block_map = __commonJS({
             else if ("indent" in key && key.indent !== bm.indent)
               onError(offset, "BAD_INDENT", startColMsg);
           }
-          if (!keyProps.anchor && !keyProps.tag && !sep) {
+          if (!keyProps.anchor && !keyProps.tag && !sep2) {
             commentEnd = keyProps.end;
             if (keyProps.comment) {
               if (map.comment)
@@ -21247,7 +21292,7 @@ var require_resolve_block_map = __commonJS({
           if (keyProps.newlineAfterProp || utilContainsNewline.containsNewline(key)) {
             onError(key ?? start[start.length - 1], "MULTILINE_IMPLICIT_KEY", "Implicit keys need to be on a single line");
           }
-        } else if (((_a = keyProps.found) == null ? void 0 : _a.indent) !== bm.indent) {
+        } else if (keyProps.found?.indent !== bm.indent) {
           onError(offset, "BAD_INDENT", startColMsg);
         }
         ctx.atKey = true;
@@ -21258,7 +21303,7 @@ var require_resolve_block_map = __commonJS({
         ctx.atKey = false;
         if (utilMapIncludes.mapIncludes(ctx, map.items, keyNode))
           onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
-        const valueProps = resolveProps.resolveProps(sep ?? [], {
+        const valueProps = resolveProps.resolveProps(sep2 ?? [], {
           indicator: "map-value-ind",
           next: value,
           offset: keyNode.range[2],
@@ -21269,12 +21314,12 @@ var require_resolve_block_map = __commonJS({
         offset = valueProps.end;
         if (valueProps.found) {
           if (implicitKey) {
-            if ((value == null ? void 0 : value.type) === "block-map" && !valueProps.hasNewline)
+            if (value?.type === "block-map" && !valueProps.hasNewline)
               onError(offset, "BLOCK_AS_IMPLICIT_KEY", "Nested mappings are not allowed in compact mappings");
             if (ctx.options.strict && keyProps.start < valueProps.found.offset - 1024)
               onError(keyNode.range, "KEY_OVER_1024_CHARS", "The : indicator must be at most 1024 chars after the start of an implicit block mapping key");
           }
-          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep, null, valueProps, onError);
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep2, null, valueProps, onError);
           if (ctx.schema.compat)
             utilFlowIndentCheck.flowIndentCheck(bm.indent, value, onError);
           offset = valueNode.range[2];
@@ -21314,7 +21359,7 @@ var require_resolve_block_seq = __commonJS({
     var resolveProps = require_resolve_props();
     var utilFlowIndentCheck = require_util_flow_indent_check();
     function resolveBlockSeq({ composeNode, composeEmptyNode }, ctx, bs, onError, tag) {
-      const NodeClass = (tag == null ? void 0 : tag.nodeClass) ?? YAMLSeq.YAMLSeq;
+      const NodeClass = tag?.nodeClass ?? YAMLSeq.YAMLSeq;
       const seq = new NodeClass(ctx.schema);
       if (ctx.atRoot)
         ctx.atRoot = false;
@@ -21365,7 +21410,7 @@ var require_resolve_end = __commonJS({
       let comment = "";
       if (end) {
         let hasSpace = false;
-        let sep = "";
+        let sep2 = "";
         for (const token of end) {
           const { source, type } = token;
           switch (type) {
@@ -21379,13 +21424,13 @@ var require_resolve_end = __commonJS({
               if (!comment)
                 comment = cb;
               else
-                comment += sep + cb;
-              sep = "";
+                comment += sep2 + cb;
+              sep2 = "";
               break;
             }
             case "newline":
               if (comment)
-                sep += source;
+                sep2 += source;
               hasSpace = true;
               break;
             default:
@@ -21417,7 +21462,7 @@ var require_resolve_flow_collection = __commonJS({
     function resolveFlowCollection({ composeNode, composeEmptyNode }, ctx, fc, onError, tag) {
       const isMap = fc.start.source === "{";
       const fcName = isMap ? "flow map" : "flow sequence";
-      const NodeClass = (tag == null ? void 0 : tag.nodeClass) ?? (isMap ? YAMLMap.YAMLMap : YAMLSeq.YAMLSeq);
+      const NodeClass = tag?.nodeClass ?? (isMap ? YAMLMap.YAMLMap : YAMLSeq.YAMLSeq);
       const coll = new NodeClass(ctx.schema);
       coll.flow = true;
       const atRoot = ctx.atRoot;
@@ -21428,18 +21473,18 @@ var require_resolve_flow_collection = __commonJS({
       let offset = fc.offset + fc.start.source.length;
       for (let i = 0; i < fc.items.length; ++i) {
         const collItem = fc.items[i];
-        const { start, key, sep, value } = collItem;
+        const { start, key, sep: sep2, value } = collItem;
         const props = resolveProps.resolveProps(start, {
           flow: fcName,
           indicator: "explicit-key-ind",
-          next: key ?? (sep == null ? void 0 : sep[0]),
+          next: key ?? sep2?.[0],
           offset,
           onError,
           parentIndent: fc.indent,
           startOnNewline: false
         });
         if (!props.found) {
-          if (!props.anchor && !props.tag && !sep && !value) {
+          if (!props.anchor && !props.tag && !sep2 && !value) {
             if (i === 0 && props.comma)
               onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`);
             else if (i < fc.items.length - 1)
@@ -21493,8 +21538,8 @@ var require_resolve_flow_collection = __commonJS({
             }
           }
         }
-        if (!isMap && !sep && !props.found) {
-          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep, null, props, onError);
+        if (!isMap && !sep2 && !props.found) {
+          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep2, null, props, onError);
           coll.items.push(valueNode);
           offset = valueNode.range[2];
           if (isBlock(value))
@@ -21506,7 +21551,7 @@ var require_resolve_flow_collection = __commonJS({
           if (isBlock(key))
             onError(keyNode.range, "BLOCK_IN_FLOW", blockMsg);
           ctx.atKey = false;
-          const valueProps = resolveProps.resolveProps(sep ?? [], {
+          const valueProps = resolveProps.resolveProps(sep2 ?? [], {
             flow: fcName,
             indicator: "map-value-ind",
             next: value,
@@ -21517,8 +21562,8 @@ var require_resolve_flow_collection = __commonJS({
           });
           if (valueProps.found) {
             if (!isMap && !props.found && ctx.options.strict) {
-              if (sep)
-                for (const st of sep) {
+              if (sep2)
+                for (const st of sep2) {
                   if (st === valueProps.found)
                     break;
                   if (st.type === "newline") {
@@ -21535,7 +21580,7 @@ var require_resolve_flow_collection = __commonJS({
             else
               onError(valueProps.start, "MISSING_CHAR", `Missing , or : between ${fcName} items`);
           }
-          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep, null, valueProps, onError) : null;
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep2, null, valueProps, onError) : null;
           if (valueNode) {
             if (isBlock(value))
               onError(valueNode.range, "BLOCK_IN_FLOW", blockMsg);
@@ -21617,7 +21662,6 @@ var require_compose_collection = __commonJS({
       return coll;
     }
     function composeCollection(CN, ctx, token, props, onError) {
-      var _a;
       const tagToken = props.tag;
       const tagName = !tagToken ? null : ctx.directives.tagName(tagToken.source, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg));
       if (token.type === "block-seq") {
@@ -21639,8 +21683,8 @@ var require_compose_collection = __commonJS({
           ctx.schema.tags.push(Object.assign({}, kt, { default: false }));
           tag = kt;
         } else {
-          if (kt == null ? void 0 : kt.collection) {
-            onError(tagToken, "BAD_COLLECTION_TYPE", `${kt.tag} used for ${expType} collection, but expects ${kt.collection}`, true);
+          if (kt) {
+            onError(tagToken, "BAD_COLLECTION_TYPE", `${kt.tag} used for ${expType} collection, but expects ${kt.collection ?? "scalar"}`, true);
           } else {
             onError(tagToken, "TAG_RESOLVE_FAILED", `Unresolved tag: ${tagName}`, true);
           }
@@ -21648,11 +21692,11 @@ var require_compose_collection = __commonJS({
         }
       }
       const coll = resolveCollection(CN, ctx, token, onError, tagName, tag);
-      const res = ((_a = tag.resolve) == null ? void 0 : _a.call(tag, coll, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg), ctx.options)) ?? coll;
+      const res = tag.resolve?.(coll, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg), ctx.options) ?? coll;
       const node = identity.isNode(res) ? res : new Scalar.Scalar(res);
       node.range = coll.range;
       node.tag = tagName;
-      if (tag == null ? void 0 : tag.format)
+      if (tag?.format)
         node.format = tag.format;
       return node;
     }
@@ -21716,7 +21760,7 @@ var require_resolve_block_scalar = __commonJS({
           chompStart = i + 1;
       }
       let value = "";
-      let sep = "";
+      let sep2 = "";
       let prevMoreIndented = false;
       for (let i = 0; i < contentStart; ++i)
         value += lines[i][0].slice(trimIndent) + "\n";
@@ -21733,24 +21777,24 @@ var require_resolve_block_scalar = __commonJS({
           indent = "";
         }
         if (type === Scalar.Scalar.BLOCK_LITERAL) {
-          value += sep + indent.slice(trimIndent) + content;
-          sep = "\n";
+          value += sep2 + indent.slice(trimIndent) + content;
+          sep2 = "\n";
         } else if (indent.length > trimIndent || content[0] === "	") {
-          if (sep === " ")
-            sep = "\n";
-          else if (!prevMoreIndented && sep === "\n")
-            sep = "\n\n";
-          value += sep + indent.slice(trimIndent) + content;
-          sep = "\n";
+          if (sep2 === " ")
+            sep2 = "\n";
+          else if (!prevMoreIndented && sep2 === "\n")
+            sep2 = "\n\n";
+          value += sep2 + indent.slice(trimIndent) + content;
+          sep2 = "\n";
           prevMoreIndented = true;
         } else if (content === "") {
-          if (sep === "\n")
+          if (sep2 === "\n")
             value += "\n";
           else
-            sep = "\n";
+            sep2 = "\n";
         } else {
-          value += sep + content;
-          sep = " ";
+          value += sep2 + content;
+          sep2 = " ";
           prevMoreIndented = false;
         }
       }
@@ -21831,7 +21875,7 @@ var require_resolve_block_scalar = __commonJS({
       const split = source.split(/\n( *)/);
       const first = split[0];
       const m = first.match(/^( *)/);
-      const line0 = (m == null ? void 0 : m[1]) ? [m[1], first.slice(m[1].length)] : ["", first];
+      const line0 = m?.[1] ? [m[1], first.slice(m[1].length)] : ["", first];
       const lines = [line0];
       for (let i = 1; i < split.length; i += 2)
         lines.push([split[i], split[i + 1]]);
@@ -21928,25 +21972,25 @@ var require_resolve_flow_scalar = __commonJS({
       if (!match)
         return source;
       let res = match[1];
-      let sep = " ";
+      let sep2 = " ";
       let pos = first.lastIndex;
       line.lastIndex = pos;
       while (match = line.exec(source)) {
         if (match[1] === "") {
-          if (sep === "\n")
-            res += sep;
+          if (sep2 === "\n")
+            res += sep2;
           else
-            sep = "\n";
+            sep2 = "\n";
         } else {
-          res += sep + match[1];
-          sep = " ";
+          res += sep2 + match[1];
+          sep2 = " ";
         }
         pos = line.lastIndex;
       }
       const last = /[ \t]*(.*)/sy;
       last.lastIndex = pos;
       match = last.exec(source);
-      return res + sep + ((match == null ? void 0 : match[1]) ?? "");
+      return res + sep2 + (match?.[1] ?? "");
     }
     function doubleQuotedValue(source, onError) {
       let res = "";
@@ -22087,7 +22131,6 @@ var require_compose_scalar = __commonJS({
       return scalar;
     }
     function findScalarTagByName(schema, value, tagName, tagToken, onError) {
-      var _a;
       if (tagName === "!")
         return schema[identity.SCALAR];
       const matchWithTest = [];
@@ -22100,7 +22143,7 @@ var require_compose_scalar = __commonJS({
         }
       }
       for (const tag of matchWithTest)
-        if ((_a = tag.test) == null ? void 0 : _a.test(value))
+        if (tag.test?.test(value))
           return tag;
       const kt = schema.knownTags[tagName];
       if (kt && !kt.collection) {
@@ -22111,15 +22154,9 @@ var require_compose_scalar = __commonJS({
       return schema[identity.SCALAR];
     }
     function findScalarTagByTest({ atKey, directives, schema }, value, token, onError) {
-      const tag = schema.tags.find((tag2) => {
-        var _a;
-        return (tag2.default === true || atKey && tag2.default === "key") && ((_a = tag2.test) == null ? void 0 : _a.test(value));
-      }) || schema[identity.SCALAR];
+      const tag = schema.tags.find((tag2) => (tag2.default === true || atKey && tag2.default === "key") && tag2.test?.test(value)) || schema[identity.SCALAR];
       if (schema.compat) {
-        const compat = schema.compat.find((tag2) => {
-          var _a;
-          return tag2.default && ((_a = tag2.test) == null ? void 0 : _a.test(value));
-        }) ?? schema[identity.SCALAR];
+        const compat = schema.compat.find((tag2) => tag2.default && tag2.test?.test(value)) ?? schema[identity.SCALAR];
         if (tag.tag !== compat.tag) {
           const ts = directives.tagString(tag.tag);
           const cs = directives.tagString(compat.tag);
@@ -22151,7 +22188,7 @@ var require_util_empty_scalar_position = __commonJS({
               continue;
           }
           st = before[++i];
-          while ((st == null ? void 0 : st.type) === "space") {
+          while (st?.type === "space") {
             offset += st.source.length;
             st = before[++i];
           }
@@ -22285,7 +22322,7 @@ var require_compose_doc = __commonJS({
       };
       const props = resolveProps.resolveProps(start, {
         indicator: "doc-start",
-        next: value ?? (end == null ? void 0 : end[0]),
+        next: value ?? end?.[0],
         offset,
         onError,
         parentIndent: 0,
@@ -22312,7 +22349,7 @@ var require_compose_doc = __commonJS({
 var require_composer = __commonJS({
   ""(exports) {
     "use strict";
-    var node_process = __require("process");
+    var node_process = __require("node:process");
     var directives = require_directives();
     var Document = require_Document();
     var errors = require_errors();
@@ -22328,7 +22365,6 @@ var require_composer = __commonJS({
       return [offset, offset + (typeof source === "string" ? source.length : 1)];
     }
     function parsePrelude(prelude) {
-      var _a;
       let comment = "";
       let atComment = false;
       let afterEmptyLine = false;
@@ -22341,7 +22377,7 @@ var require_composer = __commonJS({
             afterEmptyLine = false;
             break;
           case "%":
-            if (((_a = prelude[i + 1]) == null ? void 0 : _a[0]) !== "#")
+            if (prelude[i + 1]?.[0] !== "#")
               i += 1;
             atComment = false;
             break;
@@ -22726,14 +22762,14 @@ var require_cst_stringify = __commonJS({
         }
       }
     }
-    function stringifyItem({ start, key, sep, value }) {
+    function stringifyItem({ start, key, sep: sep2, value }) {
       let res = "";
       for (const st of start)
         res += st.source;
       if (key)
         res += stringifyToken(key);
-      if (sep)
-        for (const st of sep)
+      if (sep2)
+        for (const st of sep2)
           res += st.source;
       if (value)
         res += stringifyToken(value);
@@ -22761,7 +22797,7 @@ var require_cst_visit = __commonJS({
     visit.itemAtPath = (cst, path) => {
       let item = cst;
       for (const [field, index] of path) {
-        const tok = item == null ? void 0 : item[field];
+        const tok = item?.[field];
         if (tok && "items" in tok) {
           item = tok.items[index];
         } else
@@ -22772,7 +22808,7 @@ var require_cst_visit = __commonJS({
     visit.parentCollection = (cst, path) => {
       const parent = visit.itemAtPath(cst, path.slice(0, -1));
       const field = path[path.length - 1][0];
-      const coll = parent == null ? void 0 : parent[field];
+      const coll = parent?.[field];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
@@ -23511,7 +23547,7 @@ var require_line_counter = __commonJS({
 var require_parser = __commonJS({
   ""(exports) {
     "use strict";
-    var node_process = __require("process");
+    var node_process = __require("node:process");
     var cst = require_cst();
     var lexer = require_lexer();
     function includesToken(list, type) {
@@ -23534,7 +23570,7 @@ var require_parser = __commonJS({
       return -1;
     }
     function isFlowToken(token) {
-      switch (token == null ? void 0 : token.type) {
+      switch (token?.type) {
         case "alias":
         case "scalar":
         case "single-quoted-scalar":
@@ -23560,7 +23596,6 @@ var require_parser = __commonJS({
       }
     }
     function getFirstKeyStartProps(prev) {
-      var _a;
       if (prev.length === 0)
         return [];
       let i = prev.length;
@@ -23575,7 +23610,7 @@ var require_parser = __commonJS({
               break loop;
           }
         }
-      while (((_a = prev[++i]) == null ? void 0 : _a.type) === "space") {
+      while (prev[++i]?.type === "space") {
       }
       return prev.splice(i, prev.length);
     }
@@ -23857,18 +23892,18 @@ var require_parser = __commonJS({
         if (this.type === "map-value-ind") {
           const prev = getPrevProps(this.peek(2));
           const start = getFirstKeyStartProps(prev);
-          let sep;
+          let sep2;
           if (scalar.end) {
-            sep = scalar.end;
-            sep.push(this.sourceToken);
+            sep2 = scalar.end;
+            sep2.push(this.sourceToken);
             delete scalar.end;
           } else
-            sep = [this.sourceToken];
+            sep2 = [this.sourceToken];
           const map = {
             type: "block-map",
             offset: scalar.offset,
             indent: scalar.indent,
-            items: [{ start, key: scalar, sep }]
+            items: [{ start, key: scalar, sep: sep2 }]
           };
           this.onKeyLine = true;
           this.stack[this.stack.length - 1] = map;
@@ -23901,7 +23936,6 @@ var require_parser = __commonJS({
         }
       }
       *blockMap(map) {
-        var _a;
         const it = map.items[map.items.length - 1];
         switch (this.type) {
           case "newline":
@@ -23909,8 +23943,8 @@ var require_parser = __commonJS({
             if (it.value) {
               const end = "end" in it.value ? it.value.end : void 0;
               const last = Array.isArray(end) ? end[end.length - 1] : void 0;
-              if ((last == null ? void 0 : last.type) === "comment")
-                end == null ? void 0 : end.push(this.sourceToken);
+              if (last?.type === "comment")
+                end?.push(this.sourceToken);
               else
                 map.items.push({ start: [this.sourceToken] });
             } else if (it.sep) {
@@ -23928,7 +23962,7 @@ var require_parser = __commonJS({
             } else {
               if (this.atIndentedComment(it.start, map.indent)) {
                 const prev = map.items[map.items.length - 2];
-                const end = (_a = prev == null ? void 0 : prev.value) == null ? void 0 : _a.end;
+                const end = prev?.value?.end;
                 if (Array.isArray(end)) {
                   Array.prototype.push.apply(end, it.start);
                   end.push(this.sourceToken);
@@ -24021,15 +24055,15 @@ var require_parser = __commonJS({
                 } else if (isFlowToken(it.key) && !includesToken(it.sep, "newline")) {
                   const start2 = getFirstKeyStartProps(it.start);
                   const key = it.key;
-                  const sep = it.sep;
-                  sep.push(this.sourceToken);
+                  const sep2 = it.sep;
+                  sep2.push(this.sourceToken);
                   delete it.key;
                   delete it.sep;
                   this.stack.push({
                     type: "block-map",
                     offset: this.offset,
                     indent: this.indent,
-                    items: [{ start: start2, key, sep }]
+                    items: [{ start: start2, key, sep: sep2 }]
                   });
                 } else if (start.length > 0) {
                   it.sep = it.sep.concat(start, this.sourceToken);
@@ -24073,7 +24107,17 @@ var require_parser = __commonJS({
             default: {
               const bv = this.startBlockValue(map);
               if (bv) {
-                if (atMapIndent && bv.type !== "block-seq") {
+                if (bv.type === "block-seq") {
+                  if (!it.explicitKey && it.sep && !includesToken(it.sep, "newline")) {
+                    yield* this.pop({
+                      type: "error",
+                      offset: this.offset,
+                      message: "Unexpected block-seq-ind on same line with key",
+                      source: this.source
+                    });
+                    return;
+                  }
+                } else if (atMapIndent) {
                   map.items.push({ start });
                 }
                 this.stack.push(bv);
@@ -24086,15 +24130,14 @@ var require_parser = __commonJS({
         yield* this.step();
       }
       *blockSequence(seq) {
-        var _a;
         const it = seq.items[seq.items.length - 1];
         switch (this.type) {
           case "newline":
             if (it.value) {
               const end = "end" in it.value ? it.value.end : void 0;
               const last = Array.isArray(end) ? end[end.length - 1] : void 0;
-              if ((last == null ? void 0 : last.type) === "comment")
-                end == null ? void 0 : end.push(this.sourceToken);
+              if (last?.type === "comment")
+                end?.push(this.sourceToken);
               else
                 seq.items.push({ start: [this.sourceToken] });
             } else
@@ -24107,7 +24150,7 @@ var require_parser = __commonJS({
             else {
               if (this.atIndentedComment(it.start, seq.indent)) {
                 const prev = seq.items[seq.items.length - 2];
-                const end = (_a = prev == null ? void 0 : prev.value) == null ? void 0 : _a.end;
+                const end = prev?.value?.end;
                 if (Array.isArray(end)) {
                   Array.prototype.push.apply(end, it.start);
                   end.push(this.sourceToken);
@@ -24214,13 +24257,13 @@ var require_parser = __commonJS({
             const prev = getPrevProps(parent);
             const start = getFirstKeyStartProps(prev);
             fixFlowSeqItems(fc);
-            const sep = fc.end.splice(1, fc.end.length);
-            sep.push(this.sourceToken);
+            const sep2 = fc.end.splice(1, fc.end.length);
+            sep2.push(this.sourceToken);
             const map = {
               type: "block-map",
               offset: fc.offset,
               indent: fc.indent,
-              items: [{ start, key: fc, sep }]
+              items: [{ start, key: fc, sep: sep2 }]
             };
             this.onKeyLine = true;
             this.stack[this.stack.length - 1] = map;
@@ -24366,7 +24409,7 @@ var require_public_api = __commonJS({
     }
     function parseAllDocuments(source, options = {}) {
       const { lineCounter: lineCounter2, prettyErrors } = parseOptions(options);
-      const parser$1 = new parser.Parser(lineCounter2 == null ? void 0 : lineCounter2.addNewLine);
+      const parser$1 = new parser.Parser(lineCounter2?.addNewLine);
       const composer$1 = new composer.Composer(options);
       const docs = Array.from(composer$1.compose(parser$1.parse(source)));
       if (prettyErrors && lineCounter2)
@@ -24380,7 +24423,7 @@ var require_public_api = __commonJS({
     }
     function parseDocument(source, options = {}) {
       const { lineCounter: lineCounter2, prettyErrors } = parseOptions(options);
-      const parser$1 = new parser.Parser(lineCounter2 == null ? void 0 : lineCounter2.addNewLine);
+      const parser$1 = new parser.Parser(lineCounter2?.addNewLine);
       const composer$1 = new composer.Composer(options);
       let doc = null;
       for (const _doc of composer$1.compose(parser$1.parse(source), true, source.length)) {
@@ -24502,15 +24545,15 @@ var import_core3 = __toESM(require_core(), 1);
 var import_github3 = __toESM(require_github(), 1);
 
 // 
-import { cp, mkdtemp, readFile, rm, writeFile } from "fs/promises";
-import { join } from "path";
-import { tmpdir } from "os";
-import { spawnSync } from "child_process";
+import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
 
 // 
 var import_tmp = __toESM(require_tmp(), 1);
 var import_core = __toESM(require_core(), 1);
-import { writeSync } from "fs";
+import { writeSync } from "node:fs";
 var credentialFilePath;
 function getCredentialFilePath() {
   if (credentialFilePath === void 0) {
@@ -24768,9 +24811,9 @@ var ansiStyles = assembleStyles();
 var ansi_styles_default = ansiStyles;
 
 // 
-import process2 from "process";
-import os from "os";
-import tty from "tty";
+import process2 from "node:process";
+import os from "node:os";
+import tty from "node:tty";
 function hasFlag(flag, argv = globalThis.Deno ? globalThis.Deno.args : process2.argv) {
   const prefix = flag.startsWith("-") ? "" : flag.length === 1 ? "-" : "--";
   const position = argv.indexOf(prefix + flag);
@@ -25071,9 +25114,9 @@ var chalkStderr = createChalk({ level: stderrColor ? stderrColor.level : 0 });
 var source_default = chalk;
 
 // 
-import process3 from "process";
-import os2 from "os";
-import tty2 from "tty";
+import process3 from "node:process";
+import os2 from "node:os";
+import tty2 from "node:tty";
 function hasFlag2(flag, argv = globalThis.Deno ? globalThis.Deno.args : process3.argv) {
   const prefix = flag.startsWith("-") ? "" : flag.length === 1 ? "-" : "--";
   const position = argv.indexOf(prefix + flag);
@@ -25246,7 +25289,6 @@ function getEnvironmentForNonInteractiveCommand(userProvidedEnv) {
 }
 function processAsyncCmd(command, options, childProcess) {
   return new Promise((resolve, reject) => {
-    var _a, _b;
     let logOutput = "";
     let stdout = "";
     let stderr = "";
@@ -25256,14 +25298,14 @@ function processAsyncCmd(command, options, childProcess) {
       childProcess.stdin.write(options.input);
       childProcess.stdin.end();
     }
-    (_a = childProcess.stderr) == null ? void 0 : _a.on("data", (message) => {
+    childProcess.stderr?.on("data", (message) => {
       stderr += message;
       logOutput += message;
       if (options.mode === void 0 || options.mode === "enabled") {
         process.stderr.write(message);
       }
     });
-    (_b = childProcess.stdout) == null ? void 0 : _b.on("data", (message) => {
+    childProcess.stdout?.on("data", (message) => {
       stdout += message;
       logOutput += message;
       if (options.mode === void 0 || options.mode === "enabled") {
@@ -25658,7 +25700,8 @@ var mergeLabels = createTypedObject(MergeLabel)({
   },
   MERGE_FIX_COMMIT_MESSAGE: {
     description: "When the PR is merged, rewrites/fixups of the commit messages are needed",
-    name: "merge: fix commit message"
+    name: "merge: fix commit message",
+    repositories: [ManagedRepositories.COMPONENTS, ManagedRepositories.ANGULAR_CLI]
   },
   MERGE_CARETAKER_NOTE: {
     description: "Alert the caretaker performing the merge to check the PR for an out of normal action needed or note",
@@ -26186,7 +26229,6 @@ function removeUndefinedProperties(obj) {
   return obj;
 }
 function merge(defaults, route, options) {
-  var _a;
   if (typeof route === "string") {
     let [method, url] = route.split(" ");
     options = Object.assign(url ? { method, url } : { url: method }, options);
@@ -26198,7 +26240,7 @@ function merge(defaults, route, options) {
   removeUndefinedProperties(options.headers);
   const mergedOptions = mergeDeep(defaults || {}, options);
   if (options.url === "/graphql") {
-    if (defaults && ((_a = defaults.mediaType.previews) == null ? void 0 : _a.length)) {
+    if (defaults && defaults.mediaType.previews?.length) {
       mergedOptions.mediaType.previews = defaults.mediaType.previews.filter(
         (preview) => !mergedOptions.mediaType.previews.includes(preview)
       ).concat(mergedOptions.mediaType.previews);
@@ -26220,9 +26262,9 @@ function addQueryParameters(url, parameters) {
     return `${name}=${encodeURIComponent(parameters[name])}`;
   }).join("&");
 }
-var urlVariableRegex = /\{[^}]+\}/g;
+var urlVariableRegex = /\{[^{}}]+\}/g;
 function removeNonChars(variableName) {
-  return variableName.replace(/^\W+|\W+$/g, "").split(/,/);
+  return variableName.replace(/(?:^\W+)|(?:(?<!\W)\W+$)/g, "").split(/,/);
 }
 function extractUrlVariableNames(url) {
   const matches = url.match(urlVariableRegex);
@@ -26371,7 +26413,6 @@ function expand(template, context2) {
   }
 }
 function parse(options) {
-  var _a;
   let method = options.method.toUpperCase();
   let url = (options.url || "/").replace(/:([a-z]\w+)/g, "{$1}");
   let headers = Object.assign({}, options.headers);
@@ -26402,8 +26443,8 @@ function parse(options) {
       ).join(",");
     }
     if (url.endsWith("/graphql")) {
-      if ((_a = options.mediaType.previews) == null ? void 0 : _a.length) {
-        const previewsFromAcceptHeader = headers.accept.match(/[\w-]+(?=-preview)/g) || [];
+      if (options.mediaType.previews?.length) {
+        const previewsFromAcceptHeader = headers.accept.match(/(?<![\w-])[\w-]+(?=-preview)/g) || [];
         headers.accept = previewsFromAcceptHeader.concat(options.mediaType.previews).map((preview) => {
           const format = options.mediaType.format ? `.${options.mediaType.format}` : "+json";
           return `application/vnd.github.${preview}-preview${format}`;
@@ -26472,7 +26513,7 @@ var RequestError = class extends Error {
     if (options.request.headers.authorization) {
       requestCopy.headers = Object.assign({}, options.request.headers, {
         authorization: options.request.headers.authorization.replace(
-          / .*$/,
+          /(?<! ) .*$/,
           " [REDACTED]"
         )
       });
@@ -26501,15 +26542,14 @@ function isPlainObject2(value) {
   return typeof Ctor === "function" && Ctor instanceof Ctor && Function.prototype.call(Ctor) === Function.prototype.call(value);
 }
 async function fetchWrapper(requestOptions) {
-  var _a, _b, _c, _d, _e;
-  const fetch2 = ((_a = requestOptions.request) == null ? void 0 : _a.fetch) || globalThis.fetch;
+  const fetch2 = requestOptions.request?.fetch || globalThis.fetch;
   if (!fetch2) {
     throw new Error(
       "fetch is not set. Please pass a fetch implementation as new Octokit({ request: { fetch }}). Learn more at https://github.com/octokit/octokit.js/#fetch-missing"
     );
   }
-  const log = ((_b = requestOptions.request) == null ? void 0 : _b.log) || console;
-  const parseSuccessResponseBody = ((_c = requestOptions.request) == null ? void 0 : _c.parseSuccessResponseBody) !== false;
+  const log = requestOptions.request?.log || console;
+  const parseSuccessResponseBody = requestOptions.request?.parseSuccessResponseBody !== false;
   const body = isPlainObject2(requestOptions.body) || Array.isArray(requestOptions.body) ? JSON.stringify(requestOptions.body) : requestOptions.body;
   const requestHeaders = Object.fromEntries(
     Object.entries(requestOptions.headers).map(([name, value]) => [
@@ -26522,9 +26562,9 @@ async function fetchWrapper(requestOptions) {
     fetchResponse = await fetch2(requestOptions.url, {
       method: requestOptions.method,
       body,
-      redirect: (_d = requestOptions.request) == null ? void 0 : _d.redirect,
+      redirect: requestOptions.request?.redirect,
       headers: requestHeaders,
-      signal: (_e = requestOptions.request) == null ? void 0 : _e.signal,
+      signal: requestOptions.request?.signal,
       ...requestOptions.body && { duplex: "half" }
     });
   } catch (error) {
@@ -26562,7 +26602,7 @@ async function fetchWrapper(requestOptions) {
     data: ""
   };
   if ("deprecation" in responseHeaders) {
-    const matches = responseHeaders.link && responseHeaders.link.match(/<([^>]+)>; rel="deprecation"/);
+    const matches = responseHeaders.link && responseHeaders.link.match(/<([^<>]+)>; rel="deprecation"/);
     const deprecationLink = matches && matches.pop();
     log.warn(
       `[@octokit/request] "${requestOptions.method} ${requestOptions.url}" is deprecated. It is scheduled to be removed on ${responseHeaders.sunset}${deprecationLink ? `. See ${deprecationLink}` : ""}`
@@ -26598,7 +26638,6 @@ async function fetchWrapper(requestOptions) {
   return octokitResponse;
 }
 async function getResponseData(response) {
-  var _a;
   const contentType = response.headers.get("content-type");
   if (!contentType) {
     return response.text().catch(() => "");
@@ -26612,7 +26651,7 @@ async function getResponseData(response) {
     } catch (err) {
       return text;
     }
-  } else if (mimetype.type.startsWith("text/") || ((_a = mimetype.parameters.charset) == null ? void 0 : _a.toLowerCase()) === "utf-8") {
+  } else if (mimetype.type.startsWith("text/") || mimetype.parameters.charset?.toLowerCase() === "utf-8") {
     return response.text().catch(() => "");
   } else {
     return response.arrayBuffer().catch(() => new ArrayBuffer(0));
@@ -26727,7 +26766,6 @@ function removeUndefinedProperties2(obj) {
   return obj;
 }
 function merge2(defaults, route, options) {
-  var _a;
   if (typeof route === "string") {
     let [method, url] = route.split(" ");
     options = Object.assign(url ? { method, url } : { url: method }, options);
@@ -26739,7 +26777,7 @@ function merge2(defaults, route, options) {
   removeUndefinedProperties2(options.headers);
   const mergedOptions = mergeDeep2(defaults || {}, options);
   if (options.url === "/graphql") {
-    if (defaults && ((_a = defaults.mediaType.previews) == null ? void 0 : _a.length)) {
+    if (defaults && defaults.mediaType.previews?.length) {
       mergedOptions.mediaType.previews = defaults.mediaType.previews.filter(
         (preview) => !mergedOptions.mediaType.previews.includes(preview)
       ).concat(mergedOptions.mediaType.previews);
@@ -26761,9 +26799,9 @@ function addQueryParameters2(url, parameters) {
     return `${name}=${encodeURIComponent(parameters[name])}`;
   }).join("&");
 }
-var urlVariableRegex2 = /\{[^}]+\}/g;
+var urlVariableRegex2 = /\{[^{}}]+\}/g;
 function removeNonChars2(variableName) {
-  return variableName.replace(/^\W+|\W+$/g, "").split(/,/);
+  return variableName.replace(/(?:^\W+)|(?:(?<!\W)\W+$)/g, "").split(/,/);
 }
 function extractUrlVariableNames2(url) {
   const matches = url.match(urlVariableRegex2);
@@ -26912,7 +26950,6 @@ function expand2(template, context2) {
   }
 }
 function parse2(options) {
-  var _a;
   let method = options.method.toUpperCase();
   let url = (options.url || "/").replace(/:([a-z]\w+)/g, "{$1}");
   let headers = Object.assign({}, options.headers);
@@ -26943,8 +26980,8 @@ function parse2(options) {
       ).join(",");
     }
     if (url.endsWith("/graphql")) {
-      if ((_a = options.mediaType.previews) == null ? void 0 : _a.length) {
-        const previewsFromAcceptHeader = headers.accept.match(/[\w-]+(?=-preview)/g) || [];
+      if (options.mediaType.previews?.length) {
+        const previewsFromAcceptHeader = headers.accept.match(/(?<![\w-])[\w-]+(?=-preview)/g) || [];
         headers.accept = previewsFromAcceptHeader.concat(options.mediaType.previews).map((preview) => {
           const format = options.mediaType.format ? `.${options.mediaType.format}` : "+json";
           return `application/vnd.github.${preview}-preview${format}`;
@@ -27013,7 +27050,7 @@ var RequestError2 = class extends Error {
     if (options.request.headers.authorization) {
       requestCopy.headers = Object.assign({}, options.request.headers, {
         authorization: options.request.headers.authorization.replace(
-          / .*$/,
+          /(?<! ) .*$/,
           " [REDACTED]"
         )
       });
@@ -27042,15 +27079,14 @@ function isPlainObject4(value) {
   return typeof Ctor === "function" && Ctor instanceof Ctor && Function.prototype.call(Ctor) === Function.prototype.call(value);
 }
 async function fetchWrapper2(requestOptions) {
-  var _a, _b, _c, _d, _e;
-  const fetch2 = ((_a = requestOptions.request) == null ? void 0 : _a.fetch) || globalThis.fetch;
+  const fetch2 = requestOptions.request?.fetch || globalThis.fetch;
   if (!fetch2) {
     throw new Error(
       "fetch is not set. Please pass a fetch implementation as new Octokit({ request: { fetch }}). Learn more at https://github.com/octokit/octokit.js/#fetch-missing"
     );
   }
-  const log = ((_b = requestOptions.request) == null ? void 0 : _b.log) || console;
-  const parseSuccessResponseBody = ((_c = requestOptions.request) == null ? void 0 : _c.parseSuccessResponseBody) !== false;
+  const log = requestOptions.request?.log || console;
+  const parseSuccessResponseBody = requestOptions.request?.parseSuccessResponseBody !== false;
   const body = isPlainObject4(requestOptions.body) || Array.isArray(requestOptions.body) ? JSON.stringify(requestOptions.body) : requestOptions.body;
   const requestHeaders = Object.fromEntries(
     Object.entries(requestOptions.headers).map(([name, value]) => [
@@ -27063,9 +27099,9 @@ async function fetchWrapper2(requestOptions) {
     fetchResponse = await fetch2(requestOptions.url, {
       method: requestOptions.method,
       body,
-      redirect: (_d = requestOptions.request) == null ? void 0 : _d.redirect,
+      redirect: requestOptions.request?.redirect,
       headers: requestHeaders,
-      signal: (_e = requestOptions.request) == null ? void 0 : _e.signal,
+      signal: requestOptions.request?.signal,
       ...requestOptions.body && { duplex: "half" }
     });
   } catch (error) {
@@ -27103,7 +27139,7 @@ async function fetchWrapper2(requestOptions) {
     data: ""
   };
   if ("deprecation" in responseHeaders) {
-    const matches = responseHeaders.link && responseHeaders.link.match(/<([^>]+)>; rel="deprecation"/);
+    const matches = responseHeaders.link && responseHeaders.link.match(/<([^<>]+)>; rel="deprecation"/);
     const deprecationLink = matches && matches.pop();
     log.warn(
       `[@octokit/request] "${requestOptions.method} ${requestOptions.url}" is deprecated. It is scheduled to be removed on ${responseHeaders.sunset}${deprecationLink ? `. See ${deprecationLink}` : ""}`
@@ -27139,7 +27175,6 @@ async function fetchWrapper2(requestOptions) {
   return octokitResponse;
 }
 async function getResponseData2(response) {
-  var _a;
   const contentType = response.headers.get("content-type");
   if (!contentType) {
     return response.text().catch(() => "");
@@ -27153,7 +27188,7 @@ async function getResponseData2(response) {
     } catch (err) {
       return text;
     }
-  } else if (mimetype.type.startsWith("text/") || ((_a = mimetype.parameters.charset) == null ? void 0 : _a.toLowerCase()) === "utf-8") {
+  } else if (mimetype.type.startsWith("text/") || mimetype.parameters.charset?.toLowerCase() === "utf-8") {
     return response.text().catch(() => "");
   } else {
     return response.arrayBuffer().catch(() => new ArrayBuffer(0));
@@ -27229,7 +27264,8 @@ var NON_VARIABLE_OPTIONS = [
   "headers",
   "request",
   "query",
-  "mediaType"
+  "mediaType",
+  "operationName"
 ];
 var FORBIDDEN_VARIABLE_OPTIONS = ["query", "method", "url"];
 var GHES_V3_SUFFIX_REGEX = /\/api\/v3\/?$/;
@@ -27308,13 +27344,14 @@ function withCustomRequest(customRequest) {
 }
 
 // 
-var REGEX_IS_INSTALLATION_LEGACY = /^v1\./;
-var REGEX_IS_INSTALLATION = /^ghs_/;
-var REGEX_IS_USER_TO_SERVER = /^ghu_/;
+var b64url = "(?:[a-zA-Z0-9_-]+)";
+var sep = "\\.";
+var jwtRE = new RegExp(`^${b64url}${sep}${b64url}${sep}${b64url}$`);
+var isJWT = jwtRE.test.bind(jwtRE);
 async function auth(token) {
-  const isApp = token.split(/\./).length === 3;
-  const isInstallation = REGEX_IS_INSTALLATION_LEGACY.test(token) || REGEX_IS_INSTALLATION.test(token);
-  const isUserToServer = REGEX_IS_USER_TO_SERVER.test(token);
+  const isApp = isJWT(token);
+  const isInstallation = token.startsWith("v1.") || token.startsWith("ghs_");
+  const isUserToServer = token.startsWith("ghu_");
   const tokenType = isApp ? "app" : isInstallation ? "installation" : isUserToServer ? "user-to-server" : "oauth";
   return {
     type: "token",
@@ -27352,7 +27389,7 @@ var createTokenAuth = function createTokenAuth2(token) {
 };
 
 // 
-var VERSION6 = "6.1.3";
+var VERSION6 = "6.1.5";
 
 // 
 var noop = () => {
@@ -27484,8 +27521,7 @@ function requestLog(octokit) {
       );
       return response;
     }).catch((error) => {
-      var _a;
-      const requestId = ((_a = error.response) == null ? void 0 : _a.headers["x-github-request-id"]) || "UNKNOWN";
+      const requestId = error.response?.headers["x-github-request-id"] || "UNKNOWN";
       octokit.log.error(
         `${requestOptions.method} ${path} - ${error.status} with id ${requestId} in ${Date.now() - start}ms`
       );
@@ -27540,7 +27576,7 @@ function iterator(octokit, route, parameters) {
           const response = await requestMethod({ method, url, headers });
           const normalizedResponse = normalizePaginatedListResponse(response);
           url = ((normalizedResponse.headers.link || "").match(
-            /<([^>]+)>;\s*rel="next"/
+            /<([^<>]+)>;\s*rel="next"/
           ) || [])[1];
           return { value: normalizedResponse };
         } catch (error) {
@@ -27602,7 +27638,7 @@ function paginateRest(octokit) {
 paginateRest.VERSION = VERSION8;
 
 // 
-var VERSION9 = "13.3.0";
+var VERSION9 = "13.5.0";
 
 // 
 var Endpoints = {
@@ -27631,6 +27667,7 @@ var Endpoints = {
     createEnvironmentVariable: [
       "POST /repos/{owner}/{repo}/environments/{environment_name}/variables"
     ],
+    createHostedRunnerForOrg: ["POST /orgs/{org}/actions/hosted-runners"],
     createOrUpdateEnvironmentSecret: [
       "PUT /repos/{owner}/{repo}/environments/{environment_name}/secrets/{secret_name}"
     ],
@@ -27667,6 +27704,9 @@ var Endpoints = {
     ],
     deleteEnvironmentVariable: [
       "DELETE /repos/{owner}/{repo}/environments/{environment_name}/variables/{name}"
+    ],
+    deleteHostedRunnerForOrg: [
+      "DELETE /orgs/{org}/actions/hosted-runners/{hosted_runner_id}"
     ],
     deleteOrgSecret: ["DELETE /orgs/{org}/actions/secrets/{secret_name}"],
     deleteOrgVariable: ["DELETE /orgs/{org}/actions/variables/{name}"],
@@ -27756,6 +27796,24 @@ var Endpoints = {
     getGithubActionsPermissionsRepository: [
       "GET /repos/{owner}/{repo}/actions/permissions"
     ],
+    getHostedRunnerForOrg: [
+      "GET /orgs/{org}/actions/hosted-runners/{hosted_runner_id}"
+    ],
+    getHostedRunnersGithubOwnedImagesForOrg: [
+      "GET /orgs/{org}/actions/hosted-runners/images/github-owned"
+    ],
+    getHostedRunnersLimitsForOrg: [
+      "GET /orgs/{org}/actions/hosted-runners/limits"
+    ],
+    getHostedRunnersMachineSpecsForOrg: [
+      "GET /orgs/{org}/actions/hosted-runners/machine-sizes"
+    ],
+    getHostedRunnersPartnerImagesForOrg: [
+      "GET /orgs/{org}/actions/hosted-runners/images/partner"
+    ],
+    getHostedRunnersPlatformsForOrg: [
+      "GET /orgs/{org}/actions/hosted-runners/platforms"
+    ],
     getJobForWorkflowRun: ["GET /repos/{owner}/{repo}/actions/jobs/{job_id}"],
     getOrgPublicKey: ["GET /orgs/{org}/actions/secrets/public-key"],
     getOrgSecret: ["GET /orgs/{org}/actions/secrets/{secret_name}"],
@@ -27799,6 +27857,10 @@ var Endpoints = {
     listEnvironmentVariables: [
       "GET /repos/{owner}/{repo}/environments/{environment_name}/variables"
     ],
+    listGithubHostedRunnersInGroupForOrg: [
+      "GET /orgs/{org}/actions/runner-groups/{runner_group_id}/hosted-runners"
+    ],
+    listHostedRunnersForOrg: ["GET /orgs/{org}/actions/hosted-runners"],
     listJobsForWorkflowRun: [
       "GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs"
     ],
@@ -27916,6 +27978,9 @@ var Endpoints = {
     ],
     updateEnvironmentVariable: [
       "PATCH /repos/{owner}/{repo}/environments/{environment_name}/variables/{name}"
+    ],
+    updateHostedRunnerForOrg: [
+      "PATCH /orgs/{org}/actions/hosted-runners/{hosted_runner_id}"
     ],
     updateOrgVariable: ["PATCH /orgs/{org}/actions/variables/{name}"],
     updateRepoVariable: [
@@ -28434,6 +28499,26 @@ var Endpoints = {
     getAllTemplates: ["GET /gitignore/templates"],
     getTemplate: ["GET /gitignore/templates/{name}"]
   },
+  hostedCompute: {
+    createNetworkConfigurationForOrg: [
+      "POST /orgs/{org}/settings/network-configurations"
+    ],
+    deleteNetworkConfigurationFromOrg: [
+      "DELETE /orgs/{org}/settings/network-configurations/{network_configuration_id}"
+    ],
+    getNetworkConfigurationForOrg: [
+      "GET /orgs/{org}/settings/network-configurations/{network_configuration_id}"
+    ],
+    getNetworkSettingsForOrg: [
+      "GET /orgs/{org}/settings/network-settings/{network_settings_id}"
+    ],
+    listNetworkConfigurationsForOrg: [
+      "GET /orgs/{org}/settings/network-configurations"
+    ],
+    updateNetworkConfigurationForOrg: [
+      "PATCH /orgs/{org}/settings/network-configurations/{network_configuration_id}"
+    ]
+  },
   interactions: {
     getRestrictionsForAuthenticatedUser: ["GET /user/interaction-limits"],
     getRestrictionsForOrg: ["GET /orgs/{org}/interaction-limits"],
@@ -28625,6 +28710,7 @@ var Endpoints = {
       "PUT /orgs/{org}/outside_collaborators/{username}"
     ],
     createInvitation: ["POST /orgs/{org}/invitations"],
+    createIssueType: ["POST /orgs/{org}/issue-types"],
     createOrUpdateCustomProperties: ["PATCH /orgs/{org}/properties/schema"],
     createOrUpdateCustomPropertiesValuesForRepos: [
       "PATCH /orgs/{org}/properties/values"
@@ -28634,6 +28720,7 @@ var Endpoints = {
     ],
     createWebhook: ["POST /orgs/{org}/hooks"],
     delete: ["DELETE /orgs/{org}"],
+    deleteIssueType: ["DELETE /orgs/{org}/issue-types/{issue_type_id}"],
     deleteWebhook: ["DELETE /orgs/{org}/hooks/{hook_id}"],
     enableOrDisableSecurityProductOnAllOrgRepos: [
       "POST /orgs/{org}/{security_product}/{enablement}",
@@ -28650,6 +28737,10 @@ var Endpoints = {
     getMembershipForAuthenticatedUser: ["GET /user/memberships/orgs/{org}"],
     getMembershipForUser: ["GET /orgs/{org}/memberships/{username}"],
     getOrgRole: ["GET /orgs/{org}/organization-roles/{role_id}"],
+    getOrgRulesetHistory: ["GET /orgs/{org}/rulesets/{ruleset_id}/history"],
+    getOrgRulesetVersion: [
+      "GET /orgs/{org}/rulesets/{ruleset_id}/history/{version_id}"
+    ],
     getWebhook: ["GET /orgs/{org}/hooks/{hook_id}"],
     getWebhookConfigForOrg: ["GET /orgs/{org}/hooks/{hook_id}/config"],
     getWebhookDelivery: [
@@ -28664,6 +28755,7 @@ var Endpoints = {
     listForAuthenticatedUser: ["GET /user/orgs"],
     listForUser: ["GET /users/{username}/orgs"],
     listInvitationTeams: ["GET /orgs/{org}/invitations/{invitation_id}/teams"],
+    listIssueTypes: ["GET /orgs/{org}/issue-types"],
     listMembers: ["GET /orgs/{org}/members"],
     listMembershipsForAuthenticatedUser: ["GET /user/memberships/orgs"],
     listOrgRoleTeams: ["GET /orgs/{org}/organization-roles/{role_id}/teams"],
@@ -28738,6 +28830,7 @@ var Endpoints = {
     ],
     unblockUser: ["DELETE /orgs/{org}/blocks/{username}"],
     update: ["PATCH /orgs/{org}"],
+    updateIssueType: ["PUT /orgs/{org}/issue-types/{issue_type_id}"],
     updateMembershipForAuthenticatedUser: [
       "PATCH /user/memberships/orgs/{org}"
     ],
@@ -28851,35 +28944,181 @@ var Endpoints = {
     ]
   },
   projects: {
-    addCollaborator: ["PUT /projects/{project_id}/collaborators/{username}"],
-    createCard: ["POST /projects/columns/{column_id}/cards"],
-    createColumn: ["POST /projects/{project_id}/columns"],
-    createForAuthenticatedUser: ["POST /user/projects"],
-    createForOrg: ["POST /orgs/{org}/projects"],
-    createForRepo: ["POST /repos/{owner}/{repo}/projects"],
-    delete: ["DELETE /projects/{project_id}"],
-    deleteCard: ["DELETE /projects/columns/cards/{card_id}"],
-    deleteColumn: ["DELETE /projects/columns/{column_id}"],
-    get: ["GET /projects/{project_id}"],
-    getCard: ["GET /projects/columns/cards/{card_id}"],
-    getColumn: ["GET /projects/columns/{column_id}"],
+    addCollaborator: [
+      "PUT /projects/{project_id}/collaborators/{username}",
+      {},
+      {
+        deprecated: "octokit.rest.projects.addCollaborator() is deprecated, see https://docs.github.com/rest/projects/collaborators#add-project-collaborator"
+      }
+    ],
+    createCard: [
+      "POST /projects/columns/{column_id}/cards",
+      {},
+      {
+        deprecated: "octokit.rest.projects.createCard() is deprecated, see https://docs.github.com/rest/projects/cards#create-a-project-card"
+      }
+    ],
+    createColumn: [
+      "POST /projects/{project_id}/columns",
+      {},
+      {
+        deprecated: "octokit.rest.projects.createColumn() is deprecated, see https://docs.github.com/rest/projects/columns#create-a-project-column"
+      }
+    ],
+    createForAuthenticatedUser: [
+      "POST /user/projects",
+      {},
+      {
+        deprecated: "octokit.rest.projects.createForAuthenticatedUser() is deprecated, see https://docs.github.com/rest/projects/projects#create-a-user-project"
+      }
+    ],
+    createForOrg: [
+      "POST /orgs/{org}/projects",
+      {},
+      {
+        deprecated: "octokit.rest.projects.createForOrg() is deprecated, see https://docs.github.com/rest/projects/projects#create-an-organization-project"
+      }
+    ],
+    createForRepo: [
+      "POST /repos/{owner}/{repo}/projects",
+      {},
+      {
+        deprecated: "octokit.rest.projects.createForRepo() is deprecated, see https://docs.github.com/rest/projects/projects#create-a-repository-project"
+      }
+    ],
+    delete: [
+      "DELETE /projects/{project_id}",
+      {},
+      {
+        deprecated: "octokit.rest.projects.delete() is deprecated, see https://docs.github.com/rest/projects/projects#delete-a-project"
+      }
+    ],
+    deleteCard: [
+      "DELETE /projects/columns/cards/{card_id}",
+      {},
+      {
+        deprecated: "octokit.rest.projects.deleteCard() is deprecated, see https://docs.github.com/rest/projects/cards#delete-a-project-card"
+      }
+    ],
+    deleteColumn: [
+      "DELETE /projects/columns/{column_id}",
+      {},
+      {
+        deprecated: "octokit.rest.projects.deleteColumn() is deprecated, see https://docs.github.com/rest/projects/columns#delete-a-project-column"
+      }
+    ],
+    get: [
+      "GET /projects/{project_id}",
+      {},
+      {
+        deprecated: "octokit.rest.projects.get() is deprecated, see https://docs.github.com/rest/projects/projects#get-a-project"
+      }
+    ],
+    getCard: [
+      "GET /projects/columns/cards/{card_id}",
+      {},
+      {
+        deprecated: "octokit.rest.projects.getCard() is deprecated, see https://docs.github.com/rest/projects/cards#get-a-project-card"
+      }
+    ],
+    getColumn: [
+      "GET /projects/columns/{column_id}",
+      {},
+      {
+        deprecated: "octokit.rest.projects.getColumn() is deprecated, see https://docs.github.com/rest/projects/columns#get-a-project-column"
+      }
+    ],
     getPermissionForUser: [
-      "GET /projects/{project_id}/collaborators/{username}/permission"
+      "GET /projects/{project_id}/collaborators/{username}/permission",
+      {},
+      {
+        deprecated: "octokit.rest.projects.getPermissionForUser() is deprecated, see https://docs.github.com/rest/projects/collaborators#get-project-permission-for-a-user"
+      }
     ],
-    listCards: ["GET /projects/columns/{column_id}/cards"],
-    listCollaborators: ["GET /projects/{project_id}/collaborators"],
-    listColumns: ["GET /projects/{project_id}/columns"],
-    listForOrg: ["GET /orgs/{org}/projects"],
-    listForRepo: ["GET /repos/{owner}/{repo}/projects"],
-    listForUser: ["GET /users/{username}/projects"],
-    moveCard: ["POST /projects/columns/cards/{card_id}/moves"],
-    moveColumn: ["POST /projects/columns/{column_id}/moves"],
+    listCards: [
+      "GET /projects/columns/{column_id}/cards",
+      {},
+      {
+        deprecated: "octokit.rest.projects.listCards() is deprecated, see https://docs.github.com/rest/projects/cards#list-project-cards"
+      }
+    ],
+    listCollaborators: [
+      "GET /projects/{project_id}/collaborators",
+      {},
+      {
+        deprecated: "octokit.rest.projects.listCollaborators() is deprecated, see https://docs.github.com/rest/projects/collaborators#list-project-collaborators"
+      }
+    ],
+    listColumns: [
+      "GET /projects/{project_id}/columns",
+      {},
+      {
+        deprecated: "octokit.rest.projects.listColumns() is deprecated, see https://docs.github.com/rest/projects/columns#list-project-columns"
+      }
+    ],
+    listForOrg: [
+      "GET /orgs/{org}/projects",
+      {},
+      {
+        deprecated: "octokit.rest.projects.listForOrg() is deprecated, see https://docs.github.com/rest/projects/projects#list-organization-projects"
+      }
+    ],
+    listForRepo: [
+      "GET /repos/{owner}/{repo}/projects",
+      {},
+      {
+        deprecated: "octokit.rest.projects.listForRepo() is deprecated, see https://docs.github.com/rest/projects/projects#list-repository-projects"
+      }
+    ],
+    listForUser: [
+      "GET /users/{username}/projects",
+      {},
+      {
+        deprecated: "octokit.rest.projects.listForUser() is deprecated, see https://docs.github.com/rest/projects/projects#list-user-projects"
+      }
+    ],
+    moveCard: [
+      "POST /projects/columns/cards/{card_id}/moves",
+      {},
+      {
+        deprecated: "octokit.rest.projects.moveCard() is deprecated, see https://docs.github.com/rest/projects/cards#move-a-project-card"
+      }
+    ],
+    moveColumn: [
+      "POST /projects/columns/{column_id}/moves",
+      {},
+      {
+        deprecated: "octokit.rest.projects.moveColumn() is deprecated, see https://docs.github.com/rest/projects/columns#move-a-project-column"
+      }
+    ],
     removeCollaborator: [
-      "DELETE /projects/{project_id}/collaborators/{username}"
+      "DELETE /projects/{project_id}/collaborators/{username}",
+      {},
+      {
+        deprecated: "octokit.rest.projects.removeCollaborator() is deprecated, see https://docs.github.com/rest/projects/collaborators#remove-user-as-a-collaborator"
+      }
     ],
-    update: ["PATCH /projects/{project_id}"],
-    updateCard: ["PATCH /projects/columns/cards/{card_id}"],
-    updateColumn: ["PATCH /projects/columns/{column_id}"]
+    update: [
+      "PATCH /projects/{project_id}",
+      {},
+      {
+        deprecated: "octokit.rest.projects.update() is deprecated, see https://docs.github.com/rest/projects/projects#update-a-project"
+      }
+    ],
+    updateCard: [
+      "PATCH /projects/columns/cards/{card_id}",
+      {},
+      {
+        deprecated: "octokit.rest.projects.updateCard() is deprecated, see https://docs.github.com/rest/projects/cards#update-an-existing-project-card"
+      }
+    ],
+    updateColumn: [
+      "PATCH /projects/columns/{column_id}",
+      {},
+      {
+        deprecated: "octokit.rest.projects.updateColumn() is deprecated, see https://docs.github.com/rest/projects/columns#update-an-existing-project-column"
+      }
+    ]
   },
   pulls: {
     checkIfMerged: ["GET /repos/{owner}/{repo}/pulls/{pull_number}/merge"],
@@ -29252,6 +29491,12 @@ var Endpoints = {
     ],
     getRepoRuleSuites: ["GET /repos/{owner}/{repo}/rulesets/rule-suites"],
     getRepoRuleset: ["GET /repos/{owner}/{repo}/rulesets/{ruleset_id}"],
+    getRepoRulesetHistory: [
+      "GET /repos/{owner}/{repo}/rulesets/{ruleset_id}/history"
+    ],
+    getRepoRulesetVersion: [
+      "GET /repos/{owner}/{repo}/rulesets/{ruleset_id}/history/{version_id}"
+    ],
     getRepoRulesets: ["GET /repos/{owner}/{repo}/rulesets"],
     getStatusChecksProtection: [
       "GET /repos/{owner}/{repo}/branches/{branch}/protection/required_status_checks"
@@ -29425,7 +29670,13 @@ var Endpoints = {
   search: {
     code: ["GET /search/code"],
     commits: ["GET /search/commits"],
-    issuesAndPullRequests: ["GET /search/issues"],
+    issuesAndPullRequests: [
+      "GET /search/issues",
+      {},
+      {
+        deprecated: "octokit.rest.search.issuesAndPullRequests() is deprecated, see https://docs.github.com/rest/search/search#search-issues-and-pull-requests"
+      }
+    ],
     labels: ["GET /search/labels"],
     repos: ["GET /search/repositories"],
     topics: ["GET /search/topics"],
@@ -29480,13 +29731,35 @@ var Endpoints = {
       "PUT /orgs/{org}/teams/{team_slug}/memberships/{username}"
     ],
     addOrUpdateProjectPermissionsInOrg: [
-      "PUT /orgs/{org}/teams/{team_slug}/projects/{project_id}"
+      "PUT /orgs/{org}/teams/{team_slug}/projects/{project_id}",
+      {},
+      {
+        deprecated: "octokit.rest.teams.addOrUpdateProjectPermissionsInOrg() is deprecated, see https://docs.github.com/rest/teams/teams#add-or-update-team-project-permissions"
+      }
+    ],
+    addOrUpdateProjectPermissionsLegacy: [
+      "PUT /teams/{team_id}/projects/{project_id}",
+      {},
+      {
+        deprecated: "octokit.rest.teams.addOrUpdateProjectPermissionsLegacy() is deprecated, see https://docs.github.com/rest/teams/teams#add-or-update-team-project-permissions-legacy"
+      }
     ],
     addOrUpdateRepoPermissionsInOrg: [
       "PUT /orgs/{org}/teams/{team_slug}/repos/{owner}/{repo}"
     ],
     checkPermissionsForProjectInOrg: [
-      "GET /orgs/{org}/teams/{team_slug}/projects/{project_id}"
+      "GET /orgs/{org}/teams/{team_slug}/projects/{project_id}",
+      {},
+      {
+        deprecated: "octokit.rest.teams.checkPermissionsForProjectInOrg() is deprecated, see https://docs.github.com/rest/teams/teams#check-team-permissions-for-a-project"
+      }
+    ],
+    checkPermissionsForProjectLegacy: [
+      "GET /teams/{team_id}/projects/{project_id}",
+      {},
+      {
+        deprecated: "octokit.rest.teams.checkPermissionsForProjectLegacy() is deprecated, see https://docs.github.com/rest/teams/teams#check-team-permissions-for-a-project-legacy"
+      }
     ],
     checkPermissionsForRepoInOrg: [
       "GET /orgs/{org}/teams/{team_slug}/repos/{owner}/{repo}"
@@ -29524,13 +29797,37 @@ var Endpoints = {
     listPendingInvitationsInOrg: [
       "GET /orgs/{org}/teams/{team_slug}/invitations"
     ],
-    listProjectsInOrg: ["GET /orgs/{org}/teams/{team_slug}/projects"],
+    listProjectsInOrg: [
+      "GET /orgs/{org}/teams/{team_slug}/projects",
+      {},
+      {
+        deprecated: "octokit.rest.teams.listProjectsInOrg() is deprecated, see https://docs.github.com/rest/teams/teams#list-team-projects"
+      }
+    ],
+    listProjectsLegacy: [
+      "GET /teams/{team_id}/projects",
+      {},
+      {
+        deprecated: "octokit.rest.teams.listProjectsLegacy() is deprecated, see https://docs.github.com/rest/teams/teams#list-team-projects-legacy"
+      }
+    ],
     listReposInOrg: ["GET /orgs/{org}/teams/{team_slug}/repos"],
     removeMembershipForUserInOrg: [
       "DELETE /orgs/{org}/teams/{team_slug}/memberships/{username}"
     ],
     removeProjectInOrg: [
-      "DELETE /orgs/{org}/teams/{team_slug}/projects/{project_id}"
+      "DELETE /orgs/{org}/teams/{team_slug}/projects/{project_id}",
+      {},
+      {
+        deprecated: "octokit.rest.teams.removeProjectInOrg() is deprecated, see https://docs.github.com/rest/teams/teams#remove-a-project-from-a-team"
+      }
+    ],
+    removeProjectLegacy: [
+      "DELETE /teams/{team_id}/projects/{project_id}",
+      {},
+      {
+        deprecated: "octokit.rest.teams.removeProjectLegacy() is deprecated, see https://docs.github.com/rest/teams/teams#remove-a-project-from-a-team-legacy"
+      }
     ],
     removeRepoInOrg: [
       "DELETE /orgs/{org}/teams/{team_slug}/repos/{owner}/{repo}"
@@ -29812,7 +30109,7 @@ function legacyRestEndpointMethods(octokit) {
 legacyRestEndpointMethods.VERSION = VERSION9;
 
 // 
-var VERSION10 = "21.1.0";
+var VERSION10 = "21.1.1";
 
 // 
 var Octokit2 = Octokit.plugin(requestLog, legacyRestEndpointMethods, paginateRest).defaults(

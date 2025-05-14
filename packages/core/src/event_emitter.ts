@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {setActiveConsumer} from '@angular/core/primitives/signals';
+import {setActiveConsumer} from '../primitives/signals';
 import {PartialObserver, Subject, Subscription} from 'rxjs';
 
 import {OutputRef} from './authoring/output/output_ref';
@@ -176,9 +176,12 @@ class EventEmitter_ extends Subject<any> implements OutputRef<any> {
     return (value: unknown) => {
       const taskId = this.pendingTasks?.add();
       setTimeout(() => {
-        fn(value);
-        if (taskId !== undefined) {
-          this.pendingTasks?.remove(taskId);
+        try {
+          fn(value);
+        } finally {
+          if (taskId !== undefined) {
+            this.pendingTasks?.remove(taskId);
+          }
         }
       });
     };

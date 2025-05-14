@@ -12,23 +12,23 @@ import {
   ɵAnimationRendererFactory as AnimationRendererFactory,
 } from '@angular/animations/browser';
 import {
+  ɵAnimationRendererType as AnimationRendererType,
+  ɵChangeDetectionScheduler as ChangeDetectionScheduler,
   inject,
   Injectable,
+  InjectionToken,
+  Injector,
   NgZone,
+  ɵNotificationSource as NotificationSource,
   OnDestroy,
   Renderer2,
   RendererFactory2,
   RendererStyleFlags2,
   RendererType2,
-  ɵAnimationRendererType as AnimationRendererType,
-  ɵChangeDetectionScheduler as ChangeDetectionScheduler,
-  ɵNotificationSource as NotificationSource,
   ɵRuntimeError as RuntimeError,
-  InjectionToken,
   type ListenerOptions,
-  Injector,
 } from '@angular/core';
-import {ɵRuntimeErrorCode as RuntimeErrorCode} from '@angular/platform-browser';
+import {ɵRuntimeErrorCode as RuntimeErrorCode} from '../../../index';
 
 const ANIMATION_PREFIX = '@';
 
@@ -57,7 +57,7 @@ export class AsyncAnimationRendererFactory implements OnDestroy, RendererFactory
     }>,
   ) {}
 
-  /** @nodoc */
+  /** @docs-private */
   ngOnDestroy(): void {
     // When the root view is removed, the renderer defers the actual work to the
     // `TransitionAnimationEngine` to do this, and the `TransitionAnimationEngine` doesn't actually

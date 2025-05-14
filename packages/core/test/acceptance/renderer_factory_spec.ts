@@ -24,11 +24,10 @@ import {
   RendererStyleFlags2,
   RendererType2,
   ViewEncapsulation,
-} from '@angular/core';
-import {RElement} from '@angular/core/src/render3/interfaces/renderer_dom';
-import {ngDevModeResetPerfCounters} from '@angular/core/src/util/ng_dev_mode';
-import {NoopNgZone} from '@angular/core/src/zone/ng_zone';
-import {TestBed} from '@angular/core/testing';
+} from '../../src/core';
+import {RElement} from '../../src/render3/interfaces/renderer_dom';
+import {NoopNgZone} from '../../src/zone/ng_zone';
+import {TestBed} from '../../testing';
 import {EventManager, ɵSharedStylesHost} from '@angular/platform-browser';
 import {DomRendererFactory2} from '@angular/platform-browser/src/dom/dom_renderer';
 import {expect} from '@angular/platform-browser/testing/src/matchers';
@@ -115,6 +114,8 @@ describe('renderer factory lifecycle', () => {
       'create',
       'create',
       'begin',
+      'end',
+      'begin',
       'some_component create',
       'some_component update',
       'end',
@@ -129,12 +130,11 @@ describe('renderer factory lifecycle', () => {
       const fixture = TestBed.createComponent(SomeComponentWhichThrows);
       fixture.componentRef.changeDetectorRef.detectChanges();
     }).toThrow();
-    expect(logs).toEqual(['create', 'create', 'begin', 'end']);
+    expect(logs).toEqual(['create', 'create', 'begin', 'end', 'begin', 'end']);
   });
 
   it('should pass in the component styles directly into the underlying renderer', () => {
     @Component({
-      standalone: true,
       styles: ['.some-css-class { color: red; }'],
       template: '...',
       encapsulation: ViewEncapsulation.ShadowDom,
@@ -153,7 +153,6 @@ describe('renderer factory lifecycle', () => {
       const animB = {name: 'b'};
 
       @Component({
-        standalone: true,
         template: '',
         animations: [animA, animB],
       })
@@ -170,7 +169,6 @@ describe('renderer factory lifecycle', () => {
 
     it('should include animations in the renderType data array even if the array is empty', () => {
       @Component({
-        standalone: true,
         template: '...',
         animations: [],
       })
@@ -184,7 +182,6 @@ describe('renderer factory lifecycle', () => {
 
     it('should allow [@trigger] bindings to be picked up by the underlying renderer', () => {
       @Component({
-        standalone: true,
         template: '<div @fooAnimation></div>',
         animations: [],
       })
@@ -216,7 +213,6 @@ describe('renderer factory lifecycle', () => {
   it('should not invoke renderer destroy method for embedded views', () => {
     @Component({
       selector: 'comp',
-      standalone: true,
       imports: [CommonModule],
       template: `
         <div>Root view</div>
@@ -482,10 +478,6 @@ describe('Renderer2 destruction hooks', () => {
   }
 
   beforeEach(() => {
-    // Tests below depend on perf counters when running with Ivy. In order to have
-    // clean perf counters at the beginning of a test, we reset those here.
-    ngDevModeResetPerfCounters();
-
     TestBed.configureTestingModule({
       declarations: [SimpleApp, AppWithComponents, BasicComponent],
       providers: [
@@ -508,8 +500,6 @@ describe('Renderer2 destruction hooks', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toBe('');
-    expect(ngDevMode!.rendererDestroy).toBe(0);
-    expect(ngDevMode!.rendererDestroyNode).toBe(3);
   });
 
   it('should call renderer.destroy for each component destroyed', () => {
@@ -522,8 +512,6 @@ describe('Renderer2 destruction hooks', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toBe('');
-    expect(ngDevMode!.rendererDestroy).toBe(3);
-    expect(ngDevMode!.rendererDestroyNode).toBe(3);
   });
 });
 
@@ -574,7 +562,7 @@ class MockRenderer implements Renderer2 {
   }
   selectRootElement(selectorOrNode: string | any): RElement {
     return typeof selectorOrNode === 'string'
-      ? document.querySelector(selectorOrNode)
+      ? document.querySelector<HTMLElement>(selectorOrNode)!
       : selectorOrNode;
   }
   parentNode(node: Node): Element | null {

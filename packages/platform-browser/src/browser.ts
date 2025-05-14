@@ -183,10 +183,10 @@ export function _document(): any {
   return document;
 }
 
-export const INTERNAL_BROWSER_PLATFORM_PROVIDERS: StaticProvider[] = [
+const INTERNAL_BROWSER_PLATFORM_PROVIDERS: StaticProvider[] = [
   {provide: PLATFORM_ID, useValue: PLATFORM_BROWSER_ID},
   {provide: PLATFORM_INITIALIZER, useValue: initDomAdapter, multi: true},
-  {provide: DOCUMENT, useFactory: _document, deps: []},
+  {provide: DOCUMENT, useFactory: _document},
 ];
 
 /**
@@ -212,7 +212,6 @@ const TESTABILITY_PROVIDERS = [
   {
     provide: TESTABILITY_GETTER,
     useClass: BrowserGetTestability,
-    deps: [],
   },
   {
     provide: TESTABILITY,
@@ -228,19 +227,19 @@ const TESTABILITY_PROVIDERS = [
 
 const BROWSER_MODULE_PROVIDERS: Provider[] = [
   {provide: INJECTOR_SCOPE, useValue: 'root'},
-  {provide: ErrorHandler, useFactory: errorHandler, deps: []},
+  {provide: ErrorHandler, useFactory: errorHandler},
   {
     provide: EVENT_MANAGER_PLUGINS,
     useClass: DomEventsPlugin,
     multi: true,
-    deps: [DOCUMENT, NgZone, PLATFORM_ID],
+    deps: [DOCUMENT],
   },
   {provide: EVENT_MANAGER_PLUGINS, useClass: KeyEventsPlugin, multi: true, deps: [DOCUMENT]},
   DomRendererFactory2,
   SharedStylesHost,
   EventManager,
   {provide: RendererFactory2, useExisting: DomRendererFactory2},
-  {provide: XhrFactory, useClass: BrowserXhr, deps: []},
+  {provide: XhrFactory, useClass: BrowserXhr},
   typeof ngDevMode === 'undefined' || ngDevMode
     ? {provide: BROWSER_MODULE_PROVIDERS_MARKER, useValue: true}
     : [],

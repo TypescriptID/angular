@@ -6,12 +6,6 @@
       "schema": "./ng-generate/standalone-migration/schema.json",
       "aliases": ["standalone"]
     },
-    "control-flow-migration": {
-      "description": "Converts the entire application to block control flow syntax",
-      "factory": "./bundles/control-flow-migration#migrate",
-      "schema": "./ng-generate/control-flow-migration/schema.json",
-      "aliases": ["control-flow"]
-    },
     "inject-migration": {
       "description": "Converts usages of constructor-based injection to the inject() function",
       "factory": "./bundles/inject-migration#migrate",
@@ -51,6 +45,12 @@
       "description": "Removes unused imports from standalone components.",
       "factory": "./bundles/cleanup-unused-imports#migrate",
       "schema": "./ng-generate/cleanup-unused-imports/schema.json"
+    },
+    "self-closing-tags-migration": {
+      "description": "Updates the components templates to use self-closing tags where possible",
+      "factory": "./bundles/self-closing-tags-migration#migrate",
+      "schema": "./ng-generate/self-closing-tags-migration/schema.json",
+      "aliases": ["self-closing-tag"]
     }
   }
 }

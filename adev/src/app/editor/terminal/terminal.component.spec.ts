@@ -36,7 +36,7 @@ describe('Terminal', () => {
           useValue: fakeWindow,
         },
       ],
-    }).compileComponents();
+    });
 
     fixture = TestBed.createComponent(Terminal);
     component = fixture.componentInstance;
@@ -46,17 +46,5 @@ describe('Terminal', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
-  });
-
-  it('should register the terminal element on afterViewInit', () => {
-    const terminalDebugElement = fixture.debugElement.query(By.css('.adev-terminal-output'));
-
-    component['terminalElementRef'] = terminalDebugElement;
-    component.ngAfterViewInit();
-
-    expect(terminalHandlerSpy.registerTerminal).toHaveBeenCalledWith(
-      TerminalType.READONLY,
-      terminalDebugElement.nativeElement,
-    );
   });
 });

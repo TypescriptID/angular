@@ -10,7 +10,7 @@ import {Injector} from '../../di/injector';
 import {EnvironmentInjector} from '../../di/r3_injector';
 import {Type} from '../../interface/type';
 import {assertDefined, throwError} from '../../util/assert';
-import {assertTNode, assertTNodeForLView} from '../assert';
+import {assertTNodeForLView} from '../assert';
 import {getComponentDef} from '../def_getters';
 import {getNodeInjectorLView, getNodeInjectorTNode, NodeInjector} from '../di';
 import {TNode} from '../interfaces/node';
@@ -20,6 +20,7 @@ import {EffectRef} from '../reactivity/effect';
 import {
   InjectedService,
   InjectorCreatedInstance,
+  InjectorProfiler,
   InjectorProfilerContext,
   InjectorProfilerEvent,
   InjectorProfilerEventType,
@@ -101,12 +102,10 @@ export function getFrameworkDIDebugData(): DIDebugData {
  */
 export function setupFrameworkInjectorProfiler(): void {
   frameworkDIDebugData.reset();
-  setInjectorProfiler((injectorProfilerEvent) =>
-    handleInjectorProfilerEvent(injectorProfilerEvent),
-  );
+  setInjectorProfiler(injectorProfilerEventHandler);
 }
 
-function handleInjectorProfilerEvent(injectorProfilerEvent: InjectorProfilerEvent): void {
+function injectorProfilerEventHandler(injectorProfilerEvent: InjectorProfilerEvent): void {
   const {context, type} = injectorProfilerEvent;
 
   if (type === InjectorProfilerEventType.Inject) {
@@ -219,6 +218,12 @@ function handleInstanceCreatedByInjectorEvent(
   data: InjectorCreatedInstance,
 ): void {
   const {value} = data;
+
+  // It might happen that a DI token is requested but there is no corresponding value.
+  // The InstanceCreatedByInjectorEvent will be still emitted in this case (to mirror the InjectorToCreateInstanceEvent) but we don't want to do any particular processing for those situations.
+  if (data.value == null) {
+    return;
+  }
 
   if (getDIResolver(context.injector) === null) {
     throwError('An InjectorCreatedInstance event must be run within an injection context.');

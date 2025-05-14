@@ -15,12 +15,11 @@ import {
   consumerDestroy,
   consumerPollProducersForChange,
   isInNotificationPhase,
-} from '@angular/core/primitives/signals';
+  setActiveConsumer,
+} from '../../../primitives/signals';
 import {FLAGS, LViewFlags, LView, EFFECTS} from '../interfaces/view';
 import {markAncestorsForTraversal} from '../util/view_utils';
-import {InjectionToken} from '../../di/injection_token';
 import {inject} from '../../di/injector_compatibility';
-import {performanceMarkFeature} from '../../util/performance';
 import {Injector} from '../../di/injector';
 import {assertNotInReactiveContext} from './asserts';
 import {assertInInjectionContext} from '../../di/contextual';
@@ -33,25 +32,13 @@ import {
 } from '../../change_detection/scheduling/zoneless_scheduling';
 import {setIsRefreshingViews} from '../state';
 import {EffectScheduler, SchedulableEffect} from './root_effect_scheduler';
-import {USE_MICROTASK_EFFECT_BY_DEFAULT} from './patch';
-import {microtaskEffect} from './microtask_effect';
 
-let useMicrotaskEffectsByDefault = USE_MICROTASK_EFFECT_BY_DEFAULT;
 import {emitEffectCreatedEvent, setInjectorProfilerContext} from '../debug/injector_profiler';
-
-/**
- * Toggle the flag on whether to use microtask effects (for testing).
- */
-export function setUseMicrotaskEffectsByDefault(value: boolean): boolean {
-  const prev = useMicrotaskEffectsByDefault;
-  useMicrotaskEffectsByDefault = value;
-  return prev;
-}
 
 /**
  * A global reactive effect, which can be manually destroyed.
  *
- * @developerPreview
+ * @publicApi 20.0
  */
 export interface EffectRef {
   /**
@@ -75,7 +62,7 @@ export class EffectRefImpl implements EffectRef {
 /**
  * Options passed to the `effect` function.
  *
- * @developerPreview
+ * @publicApi 20.0
  */
 export interface CreateEffectOptions {
   /**
@@ -91,14 +78,11 @@ export interface CreateEffectOptions {
    *
    * If this is `false` (the default) the effect will automatically register itself to be cleaned up
    * with the current `DestroyRef`.
+   *
+   * If this is `true` and you want to use the effect outside an injection context, you still
+   * need to provide an `Injector` to the effect.
    */
   manualCleanup?: boolean;
-
-  /**
-   * Always create a root effect (which is scheduled as a microtask) regardless of whether `effect`
-   * is called within a component.
-   */
-  forceRoot?: true;
 
   /**
    * @deprecated no longer required, signal writes are allowed by default.
@@ -116,14 +100,14 @@ export interface CreateEffectOptions {
  * before the next effect run. The cleanup function makes it possible to "cancel" any work that the
  * previous effect run might have started.
  *
- * @developerPreview
+ * @publicApi 20.0
  */
 export type EffectCleanupFn = () => void;
 
 /**
  * A callback passed to the effect function that makes it possible to register cleanup logic.
  *
- * @developerPreview
+ * @publicApi 20.0
  */
 export type EffectCleanupRegisterFn = (cleanupFn: EffectCleanupFn) => void;
 
@@ -134,7 +118,7 @@ export type EffectCleanupRegisterFn = (cleanupFn: EffectCleanupFn) => void;
  * Angular has two different kinds of effect: component effects and root effects. Component effects
  * are created when `effect()` is called from a component, directive, or within a service of a
  * component/directive. Root effects are created when `effect()` is called from outside the
- * component tree, such as in a root service, or when the `forceRoot` option is provided.
+ * component tree, such as in a root service.
  *
  * The two effect types differ in their timing. Component effects run as a component lifecycle
  * event during Angular's synchronization (change detection) process, and can safely read input
@@ -143,21 +127,12 @@ export type EffectCleanupRegisterFn = (cleanupFn: EffectCleanupFn) => void;
  *
  * `effect()` must be run in injection context, unless the `injector` option is manually specified.
  *
- * @developerPreview
+ * @publicApi 20.0
  */
 export function effect(
   effectFn: (onCleanup: EffectCleanupRegisterFn) => void,
   options?: CreateEffectOptions,
 ): EffectRef {
-  if (useMicrotaskEffectsByDefault) {
-    if (ngDevMode && options?.forceRoot) {
-      throw new Error(`Cannot use 'forceRoot' option with microtask effects on`);
-    }
-
-    return microtaskEffect(effectFn, options);
-  }
-
-  performanceMarkFeature('NgSignals');
   ngDevMode &&
     assertNotInReactiveContext(
       effect,
@@ -180,7 +155,7 @@ export function effect(
 
   const viewContext = injector.get(ViewContext, null, {optional: true});
   const notifier = injector.get(ChangeDetectionScheduler);
-  if (viewContext !== null && !options?.forceRoot) {
+  if (viewContext !== null) {
     // This effect was created in the context of a view, and will be associated with the view.
     node = createViewEffect(viewContext.view, notifier, effectFn);
     if (destroyRef instanceof NodeInjectorDestroyRef && destroyRef._lView === viewContext.view) {
@@ -235,15 +210,6 @@ export interface RootEffectNode extends EffectNode {
   scheduler: EffectScheduler;
 }
 
-/**
- * Not public API, which guarantees `EffectScheduler` only ever comes from the application root
- * injector.
- */
-export const APP_EFFECT_SCHEDULER = /* @__PURE__ */ new InjectionToken('', {
-  providedIn: 'root',
-  factory: () => inject(EffectScheduler),
-});
-
 export const BASE_EFFECT_NODE: Omit<EffectNode, 'fn' | 'destroy' | 'injector' | 'notifier'> =
   /* @__PURE__ */ (() => ({
     ...REACTIVE_NODE,
@@ -288,6 +254,7 @@ export const BASE_EFFECT_NODE: Omit<EffectNode, 'fn' | 'destroy' | 'injector' | 
       if (!this.cleanupFns?.length) {
         return;
       }
+      const prevConsumer = setActiveConsumer(null);
       try {
         // Attempt to run the cleanup functions. Regardless of failure or success, we consider
         // cleanup "completed" and clear the list for the next run of the effect. Note that an error
@@ -297,6 +264,7 @@ export const BASE_EFFECT_NODE: Omit<EffectNode, 'fn' | 'destroy' | 'injector' | 
         }
       } finally {
         this.cleanupFns = [];
+        setActiveConsumer(prevConsumer);
       }
     },
   }))();
@@ -360,7 +328,7 @@ export function createRootEffect(
   node.scheduler = scheduler;
   node.notifier = notifier;
   node.zone = typeof Zone !== 'undefined' ? Zone.current : null;
-  node.scheduler.schedule(node);
+  node.scheduler.add(node);
   node.notifier.notify(NotificationSource.RootEffect);
   return node;
 }

@@ -16,9 +16,14 @@ import {
   producerUpdateValueVersion,
   REACTIVE_NODE,
   ReactiveNode,
+  runPostProducerCreatedFn,
   SIGNAL,
 } from './graph';
 import {signalSetFn, signalUpdateFn} from './signal';
+
+// Required as the signals library is in a separate package, so we need to explicitly ensure the
+// global `ngDevMode` type is defined.
+declare const ngDevMode: boolean | undefined;
 
 export type ComputationFn<S, D> = (source: S, previous?: {source: S; value: D}) => D;
 
@@ -86,6 +91,12 @@ export function createLinkedSignal<S, D>(
 
   const getter = linkedSignalGetter as LinkedSignalGetter<S, D>;
   getter[SIGNAL] = node;
+  if (typeof ngDevMode !== 'undefined' && ngDevMode) {
+    const debugName = node.debugName ? ' (' + node.debugName + ')' : '';
+    getter.toString = () => `[LinkedSignal${debugName}: ${node.value}]`;
+  }
+
+  runPostProducerCreatedFn(node);
 
   return getter;
 }
@@ -108,13 +119,14 @@ export function linkedSignalUpdateFn<S, D>(
 // Note: Using an IIFE here to ensure that the spread assignment is not considered
 // a side-effect, ending up preserving `LINKED_SIGNAL_NODE` and `REACTIVE_NODE`.
 // TODO: remove when https://github.com/evanw/esbuild/issues/3392 is resolved.
-export const LINKED_SIGNAL_NODE = /* @__PURE__ */ (() => {
+export const LINKED_SIGNAL_NODE: object = /* @__PURE__ */ (() => {
   return {
     ...REACTIVE_NODE,
     value: UNSET,
     dirty: true,
     error: null,
     equal: defaultEquals,
+    kind: 'linkedSignal',
 
     producerMustRecompute(node: LinkedSignalNode<unknown, unknown>): boolean {
       // Force a recomputation if there's no current value, or if the current value is in the
@@ -125,7 +137,9 @@ export const LINKED_SIGNAL_NODE = /* @__PURE__ */ (() => {
     producerRecomputeValue(node: LinkedSignalNode<unknown, unknown>): void {
       if (node.value === COMPUTING) {
         // Our computation somehow led to a cyclic read of itself.
-        throw new Error('Detected cycle in computations.');
+        throw new Error(
+          typeof ngDevMode !== 'undefined' && ngDevMode ? 'Detected cycle in computations.' : '',
+        );
       }
 
       const oldValue = node.value;

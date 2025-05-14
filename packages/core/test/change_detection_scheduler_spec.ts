@@ -10,10 +10,11 @@ import {AsyncPipe} from '@angular/common';
 import {PLATFORM_BROWSER_ID} from '@angular/common/src/platform_id';
 import {
   afterNextRender,
-  afterRender,
+  afterEveryRender,
   ApplicationRef,
   ChangeDetectorRef,
   Component,
+  ComponentRef,
   createComponent,
   destroyPlatform,
   ElementRef,
@@ -25,15 +26,15 @@ import {
   NgZone,
   Output,
   PLATFORM_ID,
-  provideExperimentalZonelessChangeDetection as provideZonelessChangeDetection,
+  provideZonelessChangeDetection as provideZonelessChangeDetection,
   provideZoneChangeDetection,
   signal,
   TemplateRef,
   Type,
   ViewChild,
   ViewContainerRef,
-} from '@angular/core';
-import {toSignal} from '@angular/core/rxjs-interop';
+} from '../src/core';
+import {toSignal} from '../rxjs-interop';
 import {
   ComponentFixture,
   ComponentFixtureAutoDetect,
@@ -41,7 +42,7 @@ import {
   fakeAsync,
   flush,
   tick,
-} from '@angular/core/testing';
+} from '../testing';
 import {bootstrapApplication} from '@angular/platform-browser';
 import {withBody} from '@angular/private/testing';
 import {BehaviorSubject, firstValueFrom} from 'rxjs';
@@ -51,6 +52,7 @@ import {RuntimeError, RuntimeErrorCode} from '../src/errors';
 import {scheduleCallbackWithRafRace} from '../src/util/callback_scheduler';
 import {ChangeDetectionSchedulerImpl} from '../src/change_detection/scheduling/zoneless_scheduling_impl';
 import {global} from '../src/util/global';
+import {provideNoopAnimations} from '@angular/platform-browser/animations';
 
 function isStable(injector = TestBed.inject(EnvironmentInjector)): boolean {
   return toSignal(injector.get(ApplicationRef).isStable, {requireSync: true, injector})();
@@ -74,7 +76,7 @@ describe('Angular with zoneless enabled', () => {
   describe('notifies scheduler', () => {
     it('contributes to application stableness', async () => {
       const val = signal('initial');
-      @Component({template: '{{val()}}', standalone: true})
+      @Component({template: '{{val()}}'})
       class TestComponent {
         val = val;
       }
@@ -92,7 +94,7 @@ describe('Angular with zoneless enabled', () => {
 
     it('when signal updates', async () => {
       const val = signal('initial');
-      @Component({template: '{{val()}}', standalone: true})
+      @Component({template: '{{val()}}'})
       class TestComponent {
         val = val;
       }
@@ -107,7 +109,7 @@ describe('Angular with zoneless enabled', () => {
     });
 
     it('when using markForCheck()', async () => {
-      @Component({template: '{{val}}', standalone: true})
+      @Component({template: '{{val}}'})
       class TestComponent {
         cdr = inject(ChangeDetectorRef);
         val = 'initial';
@@ -127,7 +129,7 @@ describe('Angular with zoneless enabled', () => {
     });
 
     it('on input binding', async () => {
-      @Component({template: '{{val}}', standalone: true})
+      @Component({template: '{{val}}'})
       class TestComponent {
         @Input() val = 'initial';
       }
@@ -142,7 +144,7 @@ describe('Angular with zoneless enabled', () => {
     });
 
     it('on event listener bound in template', async () => {
-      @Component({template: '<div (click)="updateVal()">{{val}}</div>', standalone: true})
+      @Component({template: '<div (click)="updateVal()">{{val}}</div>'})
       class TestComponent {
         val = 'initial';
 
@@ -163,7 +165,7 @@ describe('Angular with zoneless enabled', () => {
     });
 
     it('on event listener bound in host', async () => {
-      @Component({host: {'(click)': 'updateVal()'}, template: '{{val}}', standalone: true})
+      @Component({host: {'(click)': 'updateVal()'}, template: '{{val}}'})
       class TestComponent {
         val = 'initial';
 
@@ -182,7 +184,7 @@ describe('Angular with zoneless enabled', () => {
     });
 
     it('with async pipe', async () => {
-      @Component({template: '{{val | async}}', standalone: true, imports: [AsyncPipe]})
+      @Component({template: '{{val | async}}', imports: [AsyncPipe]})
       class TestComponent {
         val = new BehaviorSubject('initial');
       }
@@ -199,7 +201,6 @@ describe('Angular with zoneless enabled', () => {
     it('when creating a view', async () => {
       @Component({
         template: '<ng-template #ref>{{"binding"}}</ng-template>',
-        standalone: true,
       })
       class TestComponent {
         @ViewChild(TemplateRef) template!: TemplateRef<unknown>;
@@ -221,14 +222,12 @@ describe('Angular with zoneless enabled', () => {
     it('when inserting a view', async () => {
       @Component({
         template: '{{"binding"}}',
-        standalone: true,
       })
       class DynamicCmp {
         elementRef = inject(ElementRef);
       }
       @Component({
         template: '<ng-template #ref></ng-template>',
-        standalone: true,
       })
       class TestComponent {
         @ViewChild('ref', {read: ViewContainerRef}) viewContainer!: ViewContainerRef;
@@ -248,14 +247,12 @@ describe('Angular with zoneless enabled', () => {
     it('when destroying a view (with animations)', async () => {
       @Component({
         template: '{{"binding"}}',
-        standalone: true,
       })
       class DynamicCmp {
         elementRef = inject(ElementRef);
       }
       @Component({
         template: '<ng-template #ref></ng-template>',
-        standalone: true,
       })
       class TestComponent {
         @ViewChild('ref', {read: ViewContainerRef}) viewContainer!: ViewContainerRef;
@@ -296,7 +293,6 @@ describe('Angular with zoneless enabled', () => {
         let renderHookCalls = 0;
         @Component({
           template: '{{"binding"}}',
-          standalone: true,
         })
         class DynamicCmp {
           elementRef = inject(ElementRef);
@@ -304,11 +300,10 @@ describe('Angular with zoneless enabled', () => {
         @Component({
           selector: 'app',
           template: '<ng-template #ref></ng-template>',
-          standalone: true,
         })
         class App {
           @ViewChild('ref', {read: ViewContainerRef}) viewContainer!: ViewContainerRef;
-          unused = afterRender(() => {
+          unused = afterEveryRender(() => {
             renderHookCalls++;
           });
 
@@ -354,7 +349,6 @@ describe('Angular with zoneless enabled', () => {
       @Component({
         selector: 'dynamic-cmp',
         template: '{{"binding"}}',
-        standalone: true,
       })
       class DynamicCmp {
         elementRef = inject(ElementRef);
@@ -383,9 +377,80 @@ describe('Angular with zoneless enabled', () => {
       expect(isStable()).toBe(false);
     });
 
+    it(
+      'when attaching view to ApplicationRef with animations',
+      withBody('<app></app>', async () => {
+        destroyPlatform();
+
+        @Component({
+          standalone: true,
+          template: `<p>Component created</p>`,
+        })
+        class DynamicComponent {
+          cdr = inject(ChangeDetectorRef);
+        }
+
+        @Component({
+          selector: 'app',
+          standalone: true,
+          template: `<main #outlet></main>`,
+        })
+        class App {
+          @ViewChild('outlet') outlet!: ElementRef<HTMLElement>;
+
+          envInjector = inject(EnvironmentInjector);
+          appRef = inject(ApplicationRef);
+          elementRef = inject(ElementRef);
+
+          createComponent() {
+            const host = document.createElement('div');
+            this.outlet.nativeElement.appendChild(host);
+
+            const ref = createComponent(DynamicComponent, {
+              environmentInjector: this.envInjector,
+              hostElement: host,
+            });
+
+            this.appRef.attachView(ref.hostView);
+
+            return ref;
+          }
+        }
+
+        const applicationRef = await bootstrapApplication(App, {
+          providers: [
+            provideZonelessChangeDetection(),
+            provideNoopAnimations(),
+            {provide: PLATFORM_ID, useValue: PLATFORM_BROWSER_ID},
+          ],
+        });
+
+        const component = applicationRef.components[0] as ComponentRef<App>;
+        const appNativeElement = component.instance.elementRef.nativeElement;
+
+        await applicationRef.whenStable();
+        expect(appNativeElement.innerHTML).toEqual('<main></main>');
+
+        const ref: ComponentRef<DynamicComponent> = component.instance.createComponent();
+        await applicationRef.whenStable();
+        expect(appNativeElement.innerHTML).toContain('<p>Component created</p>');
+
+        // Similating a case where invoking destroy also schedules a CD.
+        ref.instance.cdr.markForCheck();
+        ref.destroy();
+
+        // DOM is not synchronously removed because change detection hasn't run
+        expect(appNativeElement.innerHTML).toContain('<p>Component created</p>');
+        await applicationRef.whenStable();
+
+        expect(isStable()).toBe(true);
+        expect(appNativeElement.innerHTML).toEqual('<main></main>');
+      }),
+    );
+
     it('when a stable subscription synchronously causes another notification', async () => {
       const val = signal('initial');
-      @Component({template: '{{val()}}', standalone: true})
+      @Component({template: '{{val()}}'})
       class TestComponent {
         val = val;
       }
@@ -422,7 +487,6 @@ describe('Angular with zoneless enabled', () => {
       let checks = 0;
       @Component({
         template: '',
-        standalone: true,
       })
       class Dummy {
         ngDoCheck() {
@@ -452,7 +516,7 @@ describe('Angular with zoneless enabled', () => {
   it('can recover when an error is re-thrown by the ErrorHandler', async () => {
     const val = signal('initial');
     let throwError = false;
-    @Component({template: '{{val()}}{{maybeThrow()}}', standalone: true})
+    @Component({template: '{{val()}}{{maybeThrow()}}'})
     class TestComponent {
       val = val;
       maybeThrow() {
@@ -494,7 +558,6 @@ describe('Angular with zoneless enabled', () => {
   it('change detects embedded view when attached to a host on ApplicationRef and declaration is marked for check', async () => {
     @Component({
       template: '<ng-template #template><div>{{thing}}</div></ng-template>',
-      standalone: true,
     })
     class DynamicCmp {
       @ViewChild('template') templateRef!: TemplateRef<{}>;
@@ -502,7 +565,6 @@ describe('Angular with zoneless enabled', () => {
     }
     @Component({
       template: '',
-      standalone: true,
     })
     class Host {
       readonly vcr = inject(ViewContainerRef);
@@ -527,7 +589,6 @@ describe('Angular with zoneless enabled', () => {
   it('change detects embedded view when attached directly to ApplicationRef and declaration is marked for check', async () => {
     @Component({
       template: '<ng-template #template><div>{{thing}}</div></ng-template>',
-      standalone: true,
     })
     class DynamicCmp {
       @ViewChild('template') templateRef!: TemplateRef<{}>;
@@ -549,7 +610,7 @@ describe('Angular with zoneless enabled', () => {
   });
 
   it('does not fail when global timing functions are patched and unpatched', async () => {
-    @Component({template: '', standalone: true})
+    @Component({template: ''})
     class App {
       cdr = inject(ChangeDetectorRef);
     }
@@ -578,11 +639,11 @@ describe('Angular with zoneless enabled', () => {
   it('should not run change detection twice if manual tick called when CD was scheduled', async () => {
     let changeDetectionRuns = 0;
     TestBed.runInInjectionContext(() => {
-      afterRender(() => {
+      afterEveryRender(() => {
         changeDetectionRuns++;
       });
     });
-    @Component({template: '', standalone: true})
+    @Component({template: ''})
     class MyComponent {
       cdr = inject(ChangeDetectorRef);
     }
@@ -606,7 +667,6 @@ describe('Angular with zoneless enabled', () => {
     }
     @Component({
       template: '{{thing}}',
-      standalone: true,
     })
     class App {
       thing = 'initial';
@@ -631,7 +691,6 @@ describe('Angular with zoneless enabled', () => {
     };
     @Component({
       template: '',
-      standalone: true,
     })
     class App {
       cdr = inject(ChangeDetectorRef);
@@ -654,7 +713,7 @@ describe('Angular with zoneless enabled', () => {
 
   it('runs inside fakeAsync zone', fakeAsync(() => {
     let didRun = false;
-    @Component({standalone: true, template: ''})
+    @Component({template: ''})
     class App {
       ngOnInit() {
         didRun = true;
@@ -675,7 +734,7 @@ describe('Angular with zoneless enabled', () => {
 
   it('can run inside fakeAsync zone', fakeAsync(() => {
     let didRun = false;
-    @Component({standalone: true, template: ''})
+    @Component({template: ''})
     class App {
       ngDoCheck() {
         didRun = true;
@@ -708,7 +767,7 @@ describe('Angular with scheduler and ZoneJS', () => {
     TestBed.configureTestingModule({
       providers: [provideZoneChangeDetection({ignoreChangesOutsideZone: true})],
     });
-    @Component({template: '{{thing()}}', standalone: true})
+    @Component({template: '{{thing()}}'})
     class App {
       thing = signal('initial');
     }
@@ -728,18 +787,17 @@ describe('Angular with scheduler and ZoneJS', () => {
   it('will not schedule change detection if listener callback is outside the zone', async () => {
     let renders = 0;
     TestBed.runInInjectionContext(() => {
-      afterRender(() => {
+      afterEveryRender(() => {
         renders++;
       });
     });
 
-    @Component({selector: 'component-with-output', template: '', standalone: true})
+    @Component({selector: 'component-with-output', template: ''})
     class ComponentWithOutput {
       @Output() out = new EventEmitter();
     }
     let called = false;
     @Component({
-      standalone: true,
       imports: [ComponentWithOutput],
       template: '<component-with-output (out)="onOut()" />',
     })
@@ -764,7 +822,7 @@ describe('Angular with scheduler and ZoneJS', () => {
   });
 
   it('updating signal outside of zone still schedules update when in hybrid mode', async () => {
-    @Component({template: '{{thing()}}', standalone: true})
+    @Component({template: '{{thing()}}'})
     class App {
       thing = signal('initial');
     }
@@ -782,7 +840,7 @@ describe('Angular with scheduler and ZoneJS', () => {
   });
 
   it('updating signal in another "Angular" zone schedules update when in hybrid mode', async () => {
-    @Component({template: '{{thing()}}', standalone: true})
+    @Component({template: '{{thing()}}'})
     class App {
       thing = signal('initial');
     }
@@ -801,7 +859,7 @@ describe('Angular with scheduler and ZoneJS', () => {
   });
 
   it('updating signal in a child zone of Angular does not schedule extra CD', async () => {
-    @Component({template: '{{thing()}}', standalone: true})
+    @Component({template: '{{thing()}}'})
     class App {
       thing = signal('initial');
     }
@@ -818,7 +876,7 @@ describe('Angular with scheduler and ZoneJS', () => {
   });
 
   it('updating signal in a child Angular zone of Angular does not schedule extra CD', async () => {
-    @Component({template: '{{thing()}}', standalone: true})
+    @Component({template: '{{thing()}}'})
     class App {
       thing = signal('initial');
     }
@@ -844,11 +902,11 @@ describe('Angular with scheduler and ZoneJS', () => {
 
     let changeDetectionRuns = 0;
     TestBed.runInInjectionContext(() => {
-      afterRender(() => {
+      afterEveryRender(() => {
         changeDetectionRuns++;
       });
     });
-    @Component({template: '', standalone: true})
+    @Component({template: ''})
     class MyComponent {
       cdr = inject(ChangeDetectorRef);
       ngDoCheck() {
@@ -878,7 +936,7 @@ describe('Angular with scheduler and ZoneJS', () => {
         provideZoneChangeDetection({runCoalescing: true, ignoreChangesOutsideZone: false}),
       ],
     });
-    @Component({template: '{{thing()}}', standalone: true})
+    @Component({template: '{{thing()}}'})
     class App {
       thing = signal('initial');
     }
@@ -887,7 +945,7 @@ describe('Angular with scheduler and ZoneJS', () => {
 
     let ticks = 0;
     TestBed.runInInjectionContext(() => {
-      afterRender(() => {
+      afterEveryRender(() => {
         ticks++;
       });
     });
@@ -906,7 +964,7 @@ describe('Angular with scheduler and ZoneJS', () => {
         provideZoneChangeDetection({runCoalescing: true, ignoreChangesOutsideZone: false}),
       ],
     });
-    @Component({template: '{{thing()}}', standalone: true})
+    @Component({template: '{{thing()}}'})
     class App {
       thing = signal('initial');
     }
@@ -915,7 +973,7 @@ describe('Angular with scheduler and ZoneJS', () => {
 
     let ticks = 0;
     TestBed.runInInjectionContext(() => {
-      afterRender(() => {
+      afterEveryRender(() => {
         ticks++;
       });
     });
@@ -932,7 +990,7 @@ describe('Angular with scheduler and ZoneJS', () => {
       providers: [provideZoneChangeDetection({scheduleInRootZone: false} as any)],
     });
     let didRun = false;
-    @Component({standalone: true, template: ''})
+    @Component({template: ''})
     class App {
       ngDoCheck() {
         didRun = true;

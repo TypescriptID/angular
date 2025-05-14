@@ -3,7 +3,6 @@ load("//tools:defaults.bzl", "ts_library")
 package(
     default_visibility = [
         "//packages/core/schematics:__pkg__",
-        "//packages/core/schematics/migrations/google3:__pkg__",
         "//packages/core/schematics/test:__pkg__",
     ],
 )
@@ -21,7 +20,6 @@ ts_library(
         "//packages/compiler-cli",
         "//packages/compiler-cli/private",
         "//packages/compiler-cli/src/ngtsc/core:api",
-        "//packages/compiler-cli/src/ngtsc/file_system",
         "//packages/core/schematics/utils",
         "//packages/core/schematics/utils/tsurge",
         "//packages/core/schematics/utils/tsurge/helpers/angular_devkit",

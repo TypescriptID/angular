@@ -6,9 +6,9 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {CommonModule, DOCUMENT, IMAGE_CONFIG, ImageConfig} from '@angular/common';
-import {RuntimeErrorCode} from '@angular/common/src/errors';
-import {PLATFORM_SERVER_ID} from '@angular/common/src/platform_id';
+import {CommonModule, DOCUMENT, IMAGE_CONFIG, ImageConfig} from '../../index';
+import {RuntimeErrorCode} from '../../src/errors';
+import {PLATFORM_SERVER_ID} from '../../src/platform_id';
 import {ChangeDetectionStrategy, Component, PLATFORM_ID, Provider, Type} from '@angular/core';
 import {ComponentFixture, TestBed} from '@angular/core/testing';
 import {DomSanitizer, SafeResourceUrl} from '@angular/platform-browser';
@@ -28,13 +28,14 @@ import {
   DATA_URL_ERROR_LIMIT,
   DATA_URL_WARN_LIMIT,
   NgOptimizedImage,
-  PLACEHOLDER_BLUR_AMOUNT,
   RECOMMENDED_SRCSET_DENSITY_CAP,
   resetImagePriorityCount,
 } from '../../src/directives/ng_optimized_image/ng_optimized_image';
 import {PRECONNECT_CHECK_BLOCKLIST} from '../../src/directives/ng_optimized_image/preconnect_link_checker';
 
 describe('Image directive', () => {
+  const PLACEHOLDER_BLUR_AMOUNT = 15;
+
   describe('preload <link> element on a server', () => {
     describe('server', () => {
       beforeEach(() => {
@@ -140,7 +141,7 @@ describe('Image directive', () => {
         preloadLinks[0]!.remove();
       });
 
-      it('should error when the number of preloaded images is larger than the limit', () => {
+      it('should warn when the number of preloaded images is larger than the limit', () => {
         // Only run this test in a browser since the Node-based DOM mocks don't
         // allow to override `HTMLImageElement.prototype.setAttribute` easily.
         if (!isBrowser) return;
@@ -156,22 +157,23 @@ describe('Image directive', () => {
         });
 
         const template = `
-                  <img ngSrc="preloaderror2/img.png" width="150" height="50" priority>
-                  <img ngSrc="preloaderror3/img.png" width="150" height="50" priority>
-                  <img ngSrc="preloaderro4/img.png" width="150" height="50" priority>
-                  <img ngSrc="preloaderror5/img.png" width="150" height="50" priority>
-                  <img ngSrc="preloaderror6/img.png" width="150" height="50" priority>
-                  <img ngSrc="preloaderror7/img.png" width="150" height="50" priority>
-                  <img ngSrc="preloaderror8/img.png" width="150" height="50" priority>
-                  <img ngSrc="preloaderror9/img.png" width="150" height="50" priority>
-                  <img ngSrc="preloaderror10/img.png" width="150" height="50" priority>
-                  `;
+          <img ngSrc="preloaderror2/img.png" width="150" height="50" priority>
+          <img ngSrc="preloaderror3/img.png" width="150" height="50" priority>
+          <img ngSrc="preloaderro4/img.png" width="150" height="50" priority>
+          <img ngSrc="preloaderror5/img.png" width="150" height="50" priority>
+          <img ngSrc="preloaderror6/img.png" width="150" height="50" priority>
+          <img ngSrc="preloaderror7/img.png" width="150" height="50" priority>
+          <img ngSrc="preloaderror8/img.png" width="150" height="50" priority>
+          <img ngSrc="preloaderror9/img.png" width="150" height="50" priority>
+          <img ngSrc="preloaderror10/img.png" width="150" height="50" priority>
+        `;
 
-        expect(() => {
-          const fixture = createTestComponent(template);
-          fixture.detectChanges();
-        }).toThrowError(
-          'NG02961: The `NgOptimizedImage` directive has detected that more than 5 images were marked as priority. This might negatively affect an overall performance of the page. To fix this, remove the "priority" attribute from images with less priority.',
+        const consoleWarnSpy = spyOn(console, 'warn');
+        const fixture = createTestComponent(template);
+        fixture.detectChanges();
+        expect(consoleWarnSpy.calls.count()).toBe(1);
+        expect(consoleWarnSpy.calls.argsFor(0)[0]).toMatch(
+          /NG02961: The `NgOptimizedImage` directive has detected that more than 5 images were marked as priority/,
         );
       });
     });

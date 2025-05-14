@@ -53,6 +53,8 @@ describe('CodeEditor', () => {
     await TestBed.configureTestingModule({
       imports: [CodeEditor],
       providers: [
+        // Removing the noop animations makes the test VERY flaky.
+        // TODO: understand why and fix the flakiness.
         provideNoopAnimations(),
         {
           provide: CodeMirrorEditor,
@@ -78,7 +80,7 @@ describe('CodeEditor', () => {
           },
         },
       ],
-    }).compileComponents();
+    });
 
     fixture = TestBed.createComponent(CodeEditor);
     loader = TestbedHarnessEnvironment.loader(fixture);
@@ -97,7 +99,7 @@ describe('CodeEditor', () => {
     component.ngAfterViewInit();
 
     expect(codeMirrorEditorInitSpy).toHaveBeenCalledWith(
-      component['codeEditorWrapperRef'].nativeElement,
+      component.codeEditorWrapperRef().nativeElement,
     );
   });
 

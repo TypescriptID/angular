@@ -21,7 +21,7 @@ import {
 } from '../../util/assert';
 import {assertIndexInExpandoRange, assertTIcu} from '../assert';
 import {attachPatchData} from '../context_discovery';
-import {elementPropertyInternal, setElementAttribute} from '../instructions/shared';
+import {setPropertyAndInputs, setElementAttribute} from '../instructions/shared';
 import {
   ELEMENT_MARKER,
   I18nCreateOpCode,
@@ -258,7 +258,6 @@ export function applyMutableOpCodes(
     if (typeof opCode == 'string') {
       const textNodeIndex = mutableOpCodes[++i] as number;
       if (lView[textNodeIndex] === null) {
-        ngDevMode && ngDevMode.rendererCreateTextNode++;
         ngDevMode && assertIndexInRange(lView, textNodeIndex);
         lView[textNodeIndex] = _locateOrCreateNode(lView, textNodeIndex, opCode, Node.TEXT_NODE);
       }
@@ -344,7 +343,6 @@ export function applyMutableOpCodes(
                 'string',
                 `Expected "${commentValue}" to be a comment node value`,
               );
-            ngDevMode && ngDevMode.rendererCreateComment++;
             ngDevMode && assertIndexInExpandoRange(lView, commentNodeIndex);
             const commentRNode = (lView[commentNodeIndex] = _locateOrCreateNode(
               lView,
@@ -367,7 +365,6 @@ export function applyMutableOpCodes(
                 `Expected "${tagName}" to be an element node tag name`,
               );
 
-            ngDevMode && ngDevMode.rendererCreateElement++;
             ngDevMode && assertIndexInExpandoRange(lView, elementNodeIndex);
             const elementRNode = (lView[elementNodeIndex] = _locateOrCreateNode(
               lView,
@@ -442,15 +439,13 @@ export function applyUpdateOpCodes(
                     sanitizeFn,
                   );
                 } else {
-                  elementPropertyInternal(
-                    tView,
+                  setPropertyAndInputs(
                     tNodeOrTagName,
                     lView,
                     propName,
                     value,
                     lView[RENDERER],
                     sanitizeFn,
-                    false,
                   );
                 }
                 break;
