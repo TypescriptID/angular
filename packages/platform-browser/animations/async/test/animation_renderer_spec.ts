@@ -29,6 +29,7 @@ import {
   Injectable,
   Injector,
   NgZone,
+  provideZoneChangeDetection,
   RendererFactory2,
   RendererType2,
   runInInjectionContext,
@@ -37,7 +38,7 @@ import {
 import {TestBed} from '@angular/core/testing';
 import {ɵDomRendererFactory2 as DomRendererFactory2} from '../../../index';
 import {InjectableAnimationEngine} from '../../../animations/src/providers';
-import {el} from '../../../testing/src/browser_util';
+import {el, isNode} from '@angular/private/testing';
 
 import {
   AsyncAnimationRendererFactory,
@@ -315,7 +316,10 @@ type AnimationBrowserModule = typeof import('@angular/animations/browser');
           @ViewChild('elm') public element: any;
         }
 
-        TestBed.configureTestingModule({declarations: [Cmp]});
+        TestBed.configureTestingModule({
+          declarations: [Cmp],
+          providers: [provideZoneChangeDetection()],
+        });
 
         const fixture = TestBed.createComponent(Cmp);
         const cmp = fixture.componentInstance;
@@ -361,7 +365,10 @@ type AnimationBrowserModule = typeof import('@angular/animations/browser');
           @ViewChild('elm3') public elm3: any;
         }
 
-        TestBed.configureTestingModule({declarations: [Cmp]});
+        TestBed.configureTestingModule({
+          declarations: [Cmp],
+          providers: [provideZoneChangeDetection()],
+        });
 
         const engine = TestBed.inject(AnimationEngine);
         const fixture = TestBed.createComponent(Cmp);

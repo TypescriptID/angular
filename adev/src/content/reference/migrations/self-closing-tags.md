@@ -6,21 +6,22 @@ This schematic migrates the templates in your application to use self-closing ta
 
 Run the schematic using the following command:
 
-<docs-code language="shell">
-
+```shell
 ng generate @angular/core:self-closing-tag
-
-</docs-code>
-
+```
 
 #### Before
 
-<docs-code language="angular-html">
+```angular-html
 
-<!-- Before -->
 <hello-world></hello-world>
 
-<!-- After -->
+```
+
+#### After
+
+```angular-html
+
 <hello-world />
 
-</docs-code>
+```

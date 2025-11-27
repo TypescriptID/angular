@@ -41,27 +41,29 @@ const __forward_ref__ = getClosureSafeProperty({__forward_ref__: getClosureSafeP
  * ### Circular standalone reference import example
  * ```angular-ts
  * @Component({
- *   standalone: true,
  *   imports: [ChildComponent],
  *   selector: 'app-parent',
- *   template: `<app-child [hideParent]="hideParent"></app-child>`,
+ *   template: `<app-child [hideParent]="hideParent()"></app-child>`,
  * })
  * export class ParentComponent {
- *   @Input() hideParent: boolean;
+ *    hideParent = input.required<boolean>();
  * }
  *
  *
  * @Component({
- *   standalone: true,
- *   imports: [CommonModule, forwardRef(() => ParentComponent)],
+ *   imports: [forwardRef(() => ParentComponent)],
  *   selector: 'app-child',
- *   template: `<app-parent *ngIf="!hideParent"></app-parent>`,
+ *   template: `
+ *    @if(!hideParent() {
+ *       <app-parent/>
+ *    }
+ *  `,
  * })
  * export class ChildComponent {
- *   @Input() hideParent: boolean;
+ *    hideParent = input.required<boolean>();
  * }
  * ```
- *
+ * @see [Resolve circular dependencies with a forward reference](guide/di/di-in-action#resolve-circular-dependencies-with-a-forward-reference)
  * @publicApi
  */
 export function forwardRef(forwardRefFn: ForwardRefFn): Type<any> {

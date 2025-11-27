@@ -10,7 +10,6 @@ import {ComponentRef, EnvironmentInjector, Injectable} from '@angular/core';
 
 import type {RouterOutletContract} from './directives/router_outlet';
 import {ActivatedRoute} from './router_state';
-import {getClosestRouteInjector} from './utils/config';
 
 /**
  * Store contextual information about a `RouterOutlet`
@@ -23,7 +22,7 @@ export class OutletContext {
   children: ChildrenOutletContexts;
   attachRef: ComponentRef<any> | null = null;
   get injector(): EnvironmentInjector {
-    return getClosestRouteInjector(this.route?.snapshot) ?? this.rootInjector;
+    return this.route?.snapshot._environmentInjector ?? this.rootInjector;
   }
 
   constructor(private readonly rootInjector: EnvironmentInjector) {
@@ -74,7 +73,7 @@ export class ChildrenOutletContexts {
     return contexts;
   }
 
-  onOutletReAttached(contexts: Map<string, OutletContext>) {
+  onOutletReAttached(contexts: Map<string, OutletContext>): void {
     this.contexts = contexts;
   }
 

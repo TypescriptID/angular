@@ -12,11 +12,11 @@ For components that appear in only one place, such as a page in an application, 
 
 ### CDK Installation
 
-The [Component Dev Kit (CDK)](https://material.angular.io/cdk/categories) is a set of behavior primitives for building components. To use the component harnesses, first install `@angular/cdk` from npm. You can do this from your terminal using the Angular CLI:
+The [Component Dev Kit (CDK)](https://material.angular.dev/cdk/categories) is a set of behavior primitives for building components. To use the component harnesses, first install `@angular/cdk` from npm. You can do this from your terminal using the Angular CLI:
 
-<docs-code language="shell">
-  ng add @angular/cdk
-</docs-code>
+```shell
+ng add @angular/cdk
+```
 
 ## Extending `ComponentHarness`
 
@@ -59,7 +59,7 @@ While `ComponentHarness` subclasses require only the `hostSelector` property, mo
 
 Each instance of a `ComponentHarness` subclass represents a particular instance of the corresponding component. You can access the component's host element via the `host() `method from the `ComponentHarness` base class.
 
-`ComponentHarness` also offers several methods for locating elements within the component's DOM. These methods are `locatorFor()`, `locatorForOptional()`, and `locatorForAll()`. These methods create functions that find elements, they do not directly find elements. This approach safeguards against caching references to out-of-date elements. For example, when an `ngIf` hides and then shows an element, the result is a new DOM element; using functions ensures that tests always reference the current state of the DOM.
+`ComponentHarness` also offers several methods for locating elements within the component's DOM. These methods are `locatorFor()`, `locatorForOptional()`, and `locatorForAll()`. These methods create functions that find elements, they do not directly find elements. This approach safeguards against caching references to out-of-date elements. For example, when an `@if` block hides and then shows an element, the result is a new DOM element; using functions ensures that tests always reference the current state of the DOM.
 
 See the [ComponentHarness API reference page](/api/cdk/testing/ComponentHarness) for the full list details of the different `locatorFor` methods.
 
@@ -69,10 +69,10 @@ For example, the `MyPopupHarness` example discussed above could provide methods 
 class MyPopupHarness extends ComponentHarness {
   static hostSelector = 'my-popup';
 
-/\*_ Gets the trigger element _/
+// Gets the trigger element
 getTriggerElement = this.locatorFor('button');
 
-/\*_ Gets the content element. _/
+// Gets the content element.
 getContentElement = this.locatorForOptional('.my-popup-content');
 }
 </docs-code>

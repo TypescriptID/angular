@@ -34,7 +34,8 @@ import {
   waitForAsync,
   withModule,
 } from '@angular/core/testing';
-import {expect} from '../testing/src/matchers';
+import {expect} from '@angular/private/testing/matchers';
+import {isBrowser} from '@angular/private/testing';
 
 // Services, and components for the tests.
 
@@ -1072,6 +1073,7 @@ Did you run and wait for 'resolveComponentResources()'?`);
       expect(componentFixture.nativeElement).toHaveText('MyIf()');
 
       componentFixture.componentInstance.showMore = true;
+      componentFixture.changeDetectorRef.markForCheck();
       componentFixture.detectChanges();
       expect(componentFixture.nativeElement).toHaveText('MyIf(More)');
     }));

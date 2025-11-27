@@ -7,13 +7,13 @@
  */
 
 import {absoluteFrom} from '@angular/compiler-cli';
-import {runTsurgeMigration} from '../../utils/tsurge/testing';
-import {SignalQueriesMigration} from './migration';
-import {initMockFileSystem} from '@angular/compiler-cli/src/ngtsc/file_system/testing';
-import {diffText} from '../../utils/tsurge/testing/diff';
-import {dedent} from '../../utils/tsurge/testing/dedent';
-import {setupTsurgeJasmineHelpers} from '../../utils/tsurge/testing/jasmine';
+import {initMockFileSystem} from '@angular/compiler-cli/private/testing';
 import ts from 'typescript';
+import {runTsurgeMigration} from '../../utils/tsurge/testing';
+import {dedent} from '../../utils/tsurge/testing/dedent';
+import {diffText} from '../../utils/tsurge/testing/diff';
+import {setupTsurgeJasmineHelpers} from '../../utils/tsurge/testing/jasmine';
+import {SignalQueriesMigration} from './migration';
 
 interface TestCase {
   id: string;
@@ -1586,14 +1586,14 @@ describe('signal queries migration', () => {
       ],
     );
 
-    expect(await getStatistics()).toEqual({
-      counters: {
-        queriesCount: 3,
-        multiQueries: 2,
-        incompatibleQueries: 2,
-        'incompat-field-Accessor': 1,
-        'incompat-field-WriteAssignment': 1,
-      },
+    // Cast as we dynamically add fields to the stats. This can be improved in follow-ups
+    // when stats for this migration are leveraging more complex data structures.
+    expect((await getStatistics()) as object).toEqual({
+      queriesCount: 3,
+      multiQueries: 2,
+      incompatibleQueries: 2,
+      'incompat-field-Accessor': 1,
+      'incompat-field-WriteAssignment': 1,
     });
   });
 

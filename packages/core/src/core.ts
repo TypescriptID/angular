@@ -27,7 +27,6 @@ export * from './di';
 export {
   BootstrapOptions,
   ApplicationRef,
-  NgProbeToken,
   APP_BOOTSTRAP_LISTENER,
 } from './application/application_ref';
 export {PlatformRef} from './platform/platform_ref';
@@ -38,6 +37,7 @@ export {
   destroyPlatform,
   getPlatform,
   providePlatformInitializer,
+  createOrReusePlatformInjector as ɵcreateOrReusePlatformInjector,
 } from './platform/platform';
 export {
   provideZoneChangeDetection,
@@ -49,7 +49,6 @@ export {provideCheckNoChangesConfig} from './change_detection/provide_check_no_c
 export {enableProdMode, isDevMode} from './util/is_dev_mode';
 export {
   APP_ID,
-  PACKAGE_ROOT_URL,
   PLATFORM_INITIALIZER,
   PLATFORM_ID,
   ANIMATION_MODULE_TYPE,
@@ -106,19 +105,25 @@ export {createComponent, reflectComponentType, ComponentMirror} from './render3/
 export {isStandalone} from './render3/def_getters';
 export {AfterRenderRef} from './render3/after_render/api';
 export {publishExternalGlobalUtil as ɵpublishExternalGlobalUtil} from './render3/util/global_utils';
+export {enableProfiling} from './render3/debug/chrome_dev_tools_performance';
 export {
   AfterRenderOptions,
   afterEveryRender,
   afterNextRender,
   ɵFirstAvailable,
 } from './render3/after_render/hooks';
-export {inputBinding, outputBinding, twoWayBinding} from './render3/dynamic_bindings';
+export {Binding, inputBinding, outputBinding, twoWayBinding} from './render3/dynamic_bindings';
 export {ApplicationConfig, mergeApplicationConfig} from './application/application_config';
 export {makeStateKey, StateKey, TransferState} from './transfer_state';
 export {booleanAttribute, numberAttribute} from './util/coercion';
 export {REQUEST, REQUEST_CONTEXT, RESPONSE_INIT} from './application/platform_tokens';
 export {DOCUMENT} from './document';
 export {provideNgReflectAttributes} from './ng_reflect';
+export {
+  AnimationCallbackEvent,
+  AnimationFunction,
+  MAX_ANIMATION_TIMEOUT,
+} from './animation/interfaces';
 
 import {global} from './util/global';
 if (typeof ngDevMode !== 'undefined' && ngDevMode) {

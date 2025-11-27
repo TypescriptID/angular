@@ -15,7 +15,6 @@ import {runCanMatchGuards} from '../operators/check_guards';
 import {defaultUrlMatcher, PRIMARY_OUTLET} from '../shared';
 import {UrlSegment, UrlSegmentGroup, UrlSerializer} from '../url_tree';
 
-import {last} from './collection';
 import {getOrCreateRouteInjectorIfNeeded, getOutlet} from './config';
 
 export interface MatchResult {
@@ -40,6 +39,7 @@ export function matchWithChecks(
   segments: UrlSegment[],
   injector: EnvironmentInjector,
   urlSerializer: UrlSerializer,
+  abortSignal?: AbortSignal,
 ): Observable<MatchResult> {
   const result = match(segmentGroup, route, segments);
   if (!result.matched) {
@@ -49,7 +49,7 @@ export function matchWithChecks(
   // Only create the Route's `EnvironmentInjector` if it matches the attempted
   // navigation
   injector = getOrCreateRouteInjectorIfNeeded(route, injector);
-  return runCanMatchGuards(injector, route, segments, urlSerializer).pipe(
+  return runCanMatchGuards(injector, route, segments, urlSerializer, abortSignal).pipe(
     map((v) => (v === true ? result : {...noMatch})),
   );
 }
@@ -59,10 +59,6 @@ export function match(
   route: Route,
   segments: UrlSegment[],
 ): MatchResult {
-  if (route.path === '**') {
-    return createWildcardMatchResult(segments);
-  }
-
   if (route.path === '') {
     if (route.pathMatch === 'full' && (segmentGroup.hasChildren() || segments.length > 0)) {
       return {...noMatch};
@@ -100,22 +96,15 @@ export function match(
   };
 }
 
-function createWildcardMatchResult(segments: UrlSegment[]): MatchResult {
-  return {
-    matched: true,
-    parameters: segments.length > 0 ? last(segments)!.parameters : {},
-    consumedSegments: segments,
-    remainingSegments: [],
-    positionalParamSegments: {},
-  };
-}
-
 export function split(
   segmentGroup: UrlSegmentGroup,
   consumedSegments: UrlSegment[],
   slicedSegments: UrlSegment[],
   config: Route[],
-) {
+): {
+  segmentGroup: UrlSegmentGroup;
+  slicedSegments: UrlSegment[];
+} {
   if (
     slicedSegments.length > 0 &&
     containsEmptyPathMatchesWithNamedOutlets(segmentGroup, slicedSegments, config)

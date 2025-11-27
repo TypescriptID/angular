@@ -12,16 +12,16 @@ import {afterNextRender, InjectionToken, Injector, runInInjectionContext} from '
 import {ActivatedRouteSnapshot} from '../router_state';
 
 export const CREATE_VIEW_TRANSITION = new InjectionToken<typeof createViewTransition>(
-  ngDevMode ? 'view transition helper' : '',
+  typeof ngDevMode !== undefined && ngDevMode ? 'view transition helper' : '',
 );
 export const VIEW_TRANSITION_OPTIONS = new InjectionToken<
   ViewTransitionsFeatureOptions & {skipNextTransition: boolean}
->(ngDevMode ? 'view transition options' : '');
+>(typeof ngDevMode !== undefined && ngDevMode ? 'view transition options' : '');
 
 /**
  * Options to configure the View Transitions integration in the Router.
  *
- * @experimental 17.0
+ * @developerPreview 20.0
  * @see withViewTransitions
  */
 export interface ViewTransitionsFeatureOptions {
@@ -43,7 +43,7 @@ export interface ViewTransitionsFeatureOptions {
  * The information passed to the `onViewTransitionCreated` function provided in the
  * `withViewTransitions` feature options.
  *
- * @experimental 17.0
+ * @developerPreview 20.0
  */
 export interface ViewTransitionInfo {
   /**
@@ -93,6 +93,11 @@ export function createViewTransition(
     // routes (the DOM update). This view transition waits for the next change detection to
     // complete (below), which includes the update phase of the routed components.
     return createRenderPromise(injector);
+  });
+  transition.ready.catch((error) => {
+    if (typeof ngDevMode === 'undefined' || ngDevMode) {
+      console.error(error);
+    }
   });
   const {onViewTransitionCreated} = transitionOptions;
   if (onViewTransitionCreated) {

@@ -13,19 +13,18 @@ import {
   Injectable,
   Provider,
   Type,
+  ɵConsole as Console,
+  ɵHydrationStatus as HydrationStatus,
+  ɵreadHydrationInfo as readHydrationInfo,
+  ɵSSR_CONTENT_INTEGRITY_MARKER as SSR_CONTENT_INTEGRITY_MARKER,
 } from '@angular/core';
-import {Console} from '@angular/core/src/console';
-import {
-  HydrationStatus,
-  readHydrationInfo,
-  SSR_CONTENT_INTEGRITY_MARKER,
-} from '@angular/core/src/hydration/utils';
 import {
   bootstrapApplication,
+  BootstrapContext,
   HydrationFeature,
   provideClientHydration,
+  HydrationFeatureKind,
 } from '@angular/platform-browser';
-import {HydrationFeatureKind} from '@angular/platform-browser/src/hydration';
 
 import {provideServerRendering} from '../public_api';
 import {EVENT_DISPATCH_SCRIPT_ID, renderApplication} from '../src/utils';
@@ -204,7 +203,7 @@ export function timeout(delay: number): Promise<void> {
 }
 
 export function getHydrationInfoFromTransferState(input: string): string | undefined {
-  return input.match(/<script[^>]+>(.*?)<\/script>/)?.[1];
+  return input.match(/<script.*application\/json[^>]+>(.*?)<\/script>/)?.[1];
 }
 
 export function withNoopErrorHandler() {
@@ -265,7 +264,8 @@ export async function ssr(
       enableHydration ? provideClientHydration(...hydrationFeatures()) : [],
     ];
 
-    const bootstrap = () => bootstrapApplication(component, {providers});
+    const bootstrap = (context: BootstrapContext) =>
+      bootstrapApplication(component, {providers}, context);
 
     return await renderApplication(bootstrap, {
       document: options?.doc ?? defaultHtml,

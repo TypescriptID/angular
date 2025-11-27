@@ -46,7 +46,7 @@ export type ResourceStatus = 'idle' | 'error' | 'loading' | 'reloading' | 'resol
  */
 export interface Resource<T> {
   /**
-   * The current value of the `Resource`, or `undefined` if there is no current value.
+   * The current value of the `Resource`, or throws an error if the resource is in an error state.
    */
   readonly value: Signal<T>;
 
@@ -59,7 +59,7 @@ export interface Resource<T> {
   /**
    * When in the `error` state, this returns the last known error from the `Resource`.
    */
-  readonly error: Signal<unknown>;
+  readonly error: Signal<Error | undefined>;
 
   /**
    * Whether this resource is loading a new value (or reloading the existing one).
@@ -71,7 +71,36 @@ export interface Resource<T> {
    *
    * This function is reactive.
    */
-  hasValue(): this is Resource<Exclude<T, undefined>>;
+  hasValue(this: T extends undefined ? this : never): this is Resource<Exclude<T, undefined>>;
+
+  hasValue(): boolean;
+}
+
+/**
+ * A `Resource` with a mutable value.
+ *
+ * Overwriting the value of a resource sets it to the 'local' state.
+ *
+ * @experimental
+ */
+export interface WritableResource<T> extends Resource<T> {
+  readonly value: WritableSignal<T>;
+  hasValue(
+    this: T extends undefined ? this : never,
+  ): this is WritableResource<Exclude<T, undefined>>;
+
+  hasValue(): boolean;
+
+  /**
+   * Convenience wrapper for `value.set`.
+   */
+  set(value: T): void;
+
+  /**
+   * Convenience wrapper for `value.update`.
+   */
+  update(updater: (value: T) => T): void;
+  asReadonly(): Resource<T>;
 
   /**
    * Instructs the resource to re-load any asynchronous dependency it may have.
@@ -85,36 +114,14 @@ export interface Resource<T> {
 }
 
 /**
- * A `Resource` with a mutable value.
- *
- * Overwriting the value of a resource sets it to the 'local' state.
- *
- * @experimental
- */
-export interface WritableResource<T> extends Resource<T> {
-  readonly value: WritableSignal<T>;
-  hasValue(): this is WritableResource<Exclude<T, undefined>>;
-
-  /**
-   * Convenience wrapper for `value.set`.
-   */
-  set(value: T): void;
-
-  /**
-   * Convenience wrapper for `value.update`.
-   */
-  update(updater: (value: T) => T): void;
-  asReadonly(): Resource<T>;
-}
-
-/**
  * A `WritableResource` created through the `resource` function.
  *
  * @experimental
  */
 export interface ResourceRef<T> extends WritableResource<T> {
-  hasValue(): this is ResourceRef<Exclude<T, undefined>>;
+  hasValue(this: T extends undefined ? this : never): this is ResourceRef<Exclude<T, undefined>>;
 
+  hasValue(): boolean;
   /**
    * Manually destroy the resource, which cancels pending requests and returns it to `idle` state.
    */
@@ -161,13 +168,13 @@ export interface BaseResourceOptions<T, R> {
    * A reactive function which determines the request to be made. Whenever the request changes, the
    * loader will be triggered to fetch a new value for the resource.
    *
-   * If a request function isn't provided, the loader won't rerun unless the resource is reloaded.
+   * If a params function isn't provided, the loader won't rerun unless the resource is reloaded.
    */
   params?: () => R;
 
   /**
    * The value which will be returned from the resource when a server value is unavailable, such as
-   * when the resource is still loading, or in an error state.
+   * when the resource is still loading.
    */
   defaultValue?: NoInfer<T>;
 
@@ -220,9 +227,17 @@ export interface StreamingResourceOptions<T, R> extends BaseResourceOptions<T, R
 /**
  * @experimental
  */
-export type ResourceOptions<T, R> = PromiseResourceOptions<T, R> | StreamingResourceOptions<T, R>;
+export type ResourceOptions<T, R> = (
+  | PromiseResourceOptions<T, R>
+  | StreamingResourceOptions<T, R>
+) & {
+  /**
+   * A debug name for the reactive node. Used in Angular DevTools to identify the node.
+   */
+  debugName?: string;
+};
 
 /**
  * @experimental
  */
-export type ResourceStreamItem<T> = {value: T} | {error: unknown};
+export type ResourceStreamItem<T> = {value: T} | {error: Error};

@@ -8,7 +8,7 @@ Deferrable views let you define content to be shown in different loading states.
       <td><code>@placeholder</code></td>
       <td>
         By default, defer blocks do not render any content before they are triggered. The <code>@placeholder</code> is an optional block that declares content to show before the deferred content loads. Angular replaces the placeholder with the deferred content after loading completes. While this block is optional, the Angular team recommends always including a placeholder.
-        <a href="https://angular.dev/guide/defer#triggers" target="_blank">
+        <a href="https://angular.dev/guide/templates/defer#triggers" target="_blank">
           Learn more in the full deferrable views documentation
         </a>
       </td>
@@ -37,7 +37,7 @@ In this activity, you'll learn how to use the `@loading`, `@error` and `@placeho
 <docs-workflow>
 
 <docs-step title="Add `@placeholder` block">
-In your `app.component.ts`, add a `@placeholder` block to the `@defer` block.
+In your `app.ts`, add a `@placeholder` block to the `@defer` block.
 
 <docs-code language="angular-html" highlight="[3,4,5]">
 @defer {
@@ -65,12 +65,12 @@ Next add a `@loading` block to the component template.
 
 The `@loading` block accepts two optional parameters:
 
-* `minimum`: the amount of time that this block should be shown
-* `after`: the amount of time to wait after loading begins before showing the loading template
+- `minimum`: the amount of time that this block should be shown
+- `after`: the amount of time to wait after loading begins before showing the loading template
 
 Both parameters are specified in time increments of milliseconds (ms) or seconds (s).
 
-Update `app.component.ts` to include a `@loading` block with a minimum parameter of `1s` as well as an after parameter with the value 500ms  to the @loading block.
+Update `app.ts` to include a `@loading` block with a minimum parameter of `1s` as well as an after parameter with the value 500ms to the @loading block.
 
 <docs-code language="angular-html" highlight="[5,6,7]">
 @defer {

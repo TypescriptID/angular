@@ -7,49 +7,84 @@
  */
 
 import {Rule, SchematicContext, SchematicsException, Tree} from '@angular-devkit/schematics';
-import {relative} from 'path';
+import {join, relative} from 'path';
+import ts from 'typescript';
 
 import {canMigrateFile, createMigrationProgram} from '../../utils/typescript/compiler_host';
 
 import {migrateTemplate} from './migration';
-import {AnalyzedFile, MigrateError} from './types';
+import {AnalyzedFile} from './types';
 import {analyze} from './util';
 import {getProjectTsConfigPaths} from '../../utils/project_tsconfig_paths';
+import {normalizePath} from '../../utils/change_tracker';
+import {MigrateError} from '../../utils/parse_html';
 
-export function migrate(): Rule {
+interface Options {
+  path?: string;
+  format: boolean;
+}
+
+export function migrate(options: Options): Rule {
   return async (tree: Tree, context: SchematicContext) => {
-    const {buildPaths, testPaths} = await getProjectTsConfigPaths(tree);
+    let allPaths = [];
     const basePath = process.cwd();
-    const allPaths = [...buildPaths, ...testPaths];
+    let pathToMigrate: string | undefined;
+    if (options.path) {
+      if (options.path.startsWith('..')) {
+        throw new SchematicsException(
+          'Cannot run control flow migration outside of the current project.',
+        );
+      }
+
+      pathToMigrate = normalizePath(join(basePath, options.path));
+      if (pathToMigrate.trim() !== '') {
+        allPaths.push(pathToMigrate);
+      }
+    } else {
+      const {buildPaths, testPaths} = await getProjectTsConfigPaths(tree);
+      allPaths = [...buildPaths, ...testPaths];
+    }
 
     if (!allPaths.length) {
-      throw new SchematicsException(
-        'Could not find any tsconfig file. Cannot run the http providers migration.',
+      context.logger.warn(
+        'Could not find any tsconfig file. Cannot run the control flow migration.',
       );
+      return;
     }
 
     let errors: string[] = [];
+    let sourceFilesCount = 0;
 
     for (const tsconfigPath of allPaths) {
-      const migrateErrors = runControlFlowMigration(tree, tsconfigPath, basePath);
+      const program = createMigrationProgram(tree, tsconfigPath, basePath);
+      const sourceFiles = program
+        .getSourceFiles()
+        .filter(
+          (sourceFile) =>
+            (pathToMigrate ? sourceFile.fileName.startsWith(pathToMigrate) : true) &&
+            canMigrateFile(basePath, sourceFile, program),
+        );
+
+      const migrateErrors = runControlFlowMigration(tree, sourceFiles, basePath, options);
       errors = [...errors, ...migrateErrors];
+      sourceFilesCount += sourceFiles.length;
     }
 
     if (errors.length > 0) {
       context.logger.warn(`WARNING: ${errors.length} errors occurred during your migration:\n`);
-      errors.forEach((err: string) => {
-        context.logger.warn(err);
-      });
+      errors.forEach((err) => context.logger.warn(err));
+    } else if (sourceFilesCount === 0) {
+      context.logger.warn('Control flow migration did not find any files to migrate');
     }
   };
 }
 
-function runControlFlowMigration(tree: Tree, tsconfigPath: string, basePath: string): string[] {
-  const program = createMigrationProgram(tree, tsconfigPath, basePath);
-  const sourceFiles = program
-    .getSourceFiles()
-    .filter((sourceFile) => canMigrateFile(basePath, sourceFile, program));
-
+function runControlFlowMigration(
+  tree: Tree,
+  sourceFiles: ts.SourceFile[],
+  basePath: string,
+  schematicOptions?: Options,
+): string[] {
   const analysis = new Map<string, AnalyzedFile>();
   const migrateErrors = new Map<string, MigrateError[]>();
 
@@ -72,7 +107,14 @@ function runControlFlowMigration(tree: Tree, tsconfigPath: string, basePath: str
       const template = content.slice(start, end);
       const length = (end ?? content.length) - start;
 
-      const {migrated, errors} = migrateTemplate(template, type, node, file, true, analysis);
+      const {migrated, errors} = migrateTemplate(
+        template,
+        type,
+        node,
+        file,
+        schematicOptions?.format ?? true,
+        analysis,
+      );
 
       if (migrated !== null) {
         update.remove(start, length);

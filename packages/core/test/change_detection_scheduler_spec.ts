@@ -6,11 +6,14 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {AsyncPipe} from '@angular/common';
-import {PLATFORM_BROWSER_ID} from '@angular/common/src/platform_id';
+import {AsyncPipe, ɵPLATFORM_BROWSER_ID as PLATFORM_BROWSER_ID} from '@angular/common';
+import {bootstrapApplication} from '@angular/platform-browser';
+import {BehaviorSubject} from 'rxjs';
+import {filter, take, tap} from 'rxjs/operators';
+import {toSignal} from '../rxjs-interop';
 import {
-  afterNextRender,
   afterEveryRender,
+  afterNextRender,
   ApplicationRef,
   ChangeDetectorRef,
   Component,
@@ -26,33 +29,29 @@ import {
   NgZone,
   Output,
   PLATFORM_ID,
-  provideZonelessChangeDetection as provideZonelessChangeDetection,
   provideZoneChangeDetection,
+  provideZonelessChangeDetection,
   signal,
   TemplateRef,
   Type,
   ViewChild,
   ViewContainerRef,
 } from '../src/core';
-import {toSignal} from '../rxjs-interop';
 import {
   ComponentFixture,
   ComponentFixtureAutoDetect,
-  TestBed,
   fakeAsync,
   flush,
+  TestBed,
   tick,
 } from '../testing';
-import {bootstrapApplication} from '@angular/platform-browser';
-import {withBody} from '@angular/private/testing';
-import {BehaviorSubject, firstValueFrom} from 'rxjs';
-import {filter, take, tap} from 'rxjs/operators';
 
+import {provideNoopAnimations} from '@angular/platform-browser/animations';
+import {isBrowser, isNode, withBody} from '@angular/private/testing';
+import {ChangeDetectionSchedulerImpl} from '../src/change_detection/scheduling/zoneless_scheduling_impl';
 import {RuntimeError, RuntimeErrorCode} from '../src/errors';
 import {scheduleCallbackWithRafRace} from '../src/util/callback_scheduler';
-import {ChangeDetectionSchedulerImpl} from '../src/change_detection/scheduling/zoneless_scheduling_impl';
 import {global} from '../src/util/global';
-import {provideNoopAnimations} from '@angular/platform-browser/animations';
 
 function isStable(injector = TestBed.inject(EnvironmentInjector)): boolean {
   return toSignal(injector.get(ApplicationRef).isStable, {requireSync: true, injector})();
@@ -383,7 +382,6 @@ describe('Angular with zoneless enabled', () => {
         destroyPlatform();
 
         @Component({
-          standalone: true,
           template: `<p>Component created</p>`,
         })
         class DynamicComponent {
@@ -392,7 +390,6 @@ describe('Angular with zoneless enabled', () => {
 
         @Component({
           selector: 'app',
-          standalone: true,
           template: `<main #outlet></main>`,
         })
         class App {
@@ -757,31 +754,11 @@ describe('Angular with scheduler and ZoneJS', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       providers: [
+        provideZoneChangeDetection(),
         {provide: ComponentFixtureAutoDetect, useValue: true},
         {provide: PLATFORM_ID, useValue: PLATFORM_BROWSER_ID},
       ],
     });
-  });
-
-  it('requires updates inside Angular zone when using ngZoneOnly', async () => {
-    TestBed.configureTestingModule({
-      providers: [provideZoneChangeDetection({ignoreChangesOutsideZone: true})],
-    });
-    @Component({template: '{{thing()}}'})
-    class App {
-      thing = signal('initial');
-    }
-
-    const fixture = TestBed.createComponent(App);
-    await fixture.whenStable();
-    expect(fixture.nativeElement.innerText).toContain('initial');
-
-    TestBed.inject(NgZone).runOutsideAngular(() => {
-      fixture.componentInstance.thing.set('new');
-    });
-    expect(fixture.isStable()).toBe(true);
-    await fixture.whenStable();
-    expect(fixture.nativeElement.innerText).toContain('initial');
   });
 
   it('will not schedule change detection if listener callback is outside the zone', async () => {
@@ -895,7 +872,7 @@ describe('Angular with scheduler and ZoneJS', () => {
   it('should not run change detection twice if notified during AppRef.tick', async () => {
     TestBed.configureTestingModule({
       providers: [
-        provideZoneChangeDetection({ignoreChangesOutsideZone: false}),
+        provideZoneChangeDetection(),
         {provide: PLATFORM_ID, useValue: PLATFORM_BROWSER_ID},
       ],
     });
@@ -932,9 +909,7 @@ describe('Angular with scheduler and ZoneJS', () => {
     }
 
     TestBed.configureTestingModule({
-      providers: [
-        provideZoneChangeDetection({runCoalescing: true, ignoreChangesOutsideZone: false}),
-      ],
+      providers: [provideZoneChangeDetection({runCoalescing: true})],
     });
     @Component({template: '{{thing()}}'})
     class App {
@@ -960,9 +935,7 @@ describe('Angular with scheduler and ZoneJS', () => {
     }
 
     TestBed.configureTestingModule({
-      providers: [
-        provideZoneChangeDetection({runCoalescing: true, ignoreChangesOutsideZone: false}),
-      ],
+      providers: [provideZoneChangeDetection({runCoalescing: true})],
     });
     @Component({template: '{{thing()}}'})
     class App {

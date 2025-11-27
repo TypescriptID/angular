@@ -5,7 +5,7 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.dev/license
  */
-import {By} from '@angular/platform-browser/src/dom/debug/by';
+import {By} from '@angular/platform-browser';
 import {LocationStrategy, HashLocationStrategy, Location} from '@angular/common';
 import {
   inject,
@@ -17,7 +17,7 @@ import {
   QueryList,
 } from '@angular/core';
 import {TestBed} from '@angular/core/testing';
-import {expect} from '@angular/platform-browser/testing/src/matchers';
+import {expect} from '@angular/private/testing/matchers';
 import {
   Router,
   Event,
@@ -56,9 +56,12 @@ import {
   expectEvents,
   createRoot,
   advance,
+  simulateLocationChange,
 } from './integration_helpers';
+import {getLoadedComponent} from '../../src/utils/config';
+import {of, delay} from 'rxjs';
 
-export function lazyLoadingIntegrationSuite() {
+export function lazyLoadingIntegrationSuite(browserAPI: 'navigation' | 'history') {
   describe('lazy loading', () => {
     it('works', async () => {
       const router = TestBed.inject(Router);
@@ -760,6 +763,12 @@ export function lazyLoadingIntegrationSuite() {
       })
       class LazyLoadedComponent {}
 
+      @Component({
+        selector: 'lazy',
+        template: 'LazyLoadedStandaloneComponent',
+      })
+      class LazyLoadedStandaloneComponent {}
+
       @NgModule({
         declarations: [LazyLoadedComponent],
         imports: [RouterModule.forChild([{path: 'LoadedModule2', component: LazyLoadedComponent}])],
@@ -806,6 +815,33 @@ export function lazyLoadingIntegrationSuite() {
         const secondRoutes = getLoadedRoutes(firstRoutes[0])!;
         expect(secondRoutes).toBeDefined();
         expect(secondRoutes[0].path).toEqual('LoadedModule2');
+      });
+
+      it('should activate preloaded component', async () => {
+        const router = TestBed.inject(Router);
+        const routerPreloader = TestBed.inject(RouterPreloader);
+        const fixture = await createRoot(router, RootCmp);
+
+        router.resetConfig([
+          {path: 'blank', component: BlankCmp},
+          {
+            path: 'lazy',
+            loadComponent: () => of(LazyLoadedStandaloneComponent).pipe(delay(10)),
+            canActivate: [() => of(true).pipe(delay(20))],
+          },
+        ]);
+
+        router.navigateByUrl('/blank');
+
+        await advance(fixture);
+
+        routerPreloader.preload();
+
+        router.navigateByUrl('/lazy');
+
+        await advance(fixture, 40);
+
+        expect(fixture.nativeElement).toHaveText('LazyLoadedStandaloneComponent');
       });
 
       it('should not preload when canLoad is present and does not execute guard', async () => {
@@ -944,8 +980,7 @@ export function lazyLoadingIntegrationSuite() {
         events.splice(0);
 
         // another unsupported URL
-        location.go('/exclude/two');
-        location.historyGo(0);
+        simulateLocationChange('/exclude/two', browserAPI);
         await advance(fixture);
 
         expect(location.path()).toEqual('/exclude/two');
@@ -953,8 +988,7 @@ export function lazyLoadingIntegrationSuite() {
         events.splice(0);
 
         // back to a supported URL
-        location.go('/include/simple');
-        location.historyGo(0);
+        simulateLocationChange('/include/simple', browserAPI);
         await advance(fixture);
 
         expect(location.path()).toEqual('/include/simple');
@@ -991,8 +1025,7 @@ export function lazyLoadingIntegrationSuite() {
         const events: Event[] = [];
         router.events.subscribe((e) => e instanceof RouterEvent && events.push(e));
 
-        location.go('/include/user/kate(aux:excluded)');
-        location.historyGo(0);
+        simulateLocationChange('/include/user/kate(aux:excluded)', browserAPI);
         await advance(fixture);
 
         expect(location.path()).toEqual('/include/user/kate(aux:excluded)');
@@ -1007,8 +1040,7 @@ export function lazyLoadingIntegrationSuite() {
         ]);
         events.splice(0);
 
-        location.go('/include/user/kate(aux:excluded2)');
-        location.historyGo(0);
+        simulateLocationChange('/include/user/kate(aux:excluded2)', browserAPI);
         await advance(fixture);
         expectEvents(events, [[NavigationSkipped, '/include/user/kate(aux:excluded2)']]);
         events.splice(0);
@@ -1044,8 +1076,7 @@ export function lazyLoadingIntegrationSuite() {
           },
         ]);
 
-        location.go('/include/user/kate(aux:excluded)');
-        location.historyGo(0);
+        simulateLocationChange('/include/user/kate(aux:excluded)', browserAPI);
         await advance(fixture);
 
         expect(location.path()).toEqual('/include/user/kate(aux:excluded)');

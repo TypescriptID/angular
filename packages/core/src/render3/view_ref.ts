@@ -34,7 +34,6 @@ import {
   TVIEW,
 } from './interfaces/view';
 import {destroyLView, detachMovedView, detachViewFromDOM} from './node_manipulation';
-import {CheckNoChangesMode} from './state';
 import {
   markViewForRefresh,
   storeLViewOnDestroy,
@@ -200,7 +199,9 @@ export class ViewRef<T> implements EmbeddedViewRef<T>, ChangeDetectorRefInterfac
    * @Component({
    *   selector: 'giant-list',
    *   template: `
-   *     <li *ngFor="let d of dataProvider.data">Data {{d}}</li>
+   *     @for(d of dataProvider.data; track $index) {
+   *        <li>Data {{d}}</li>
+   *     }
    *   `,
    * })
    * class GiantList {
@@ -326,17 +327,22 @@ export class ViewRef<T> implements EmbeddedViewRef<T>, ChangeDetectorRefInterfac
    * introduce other changes.
    */
   checkNoChanges(): void {
-    if (!ngDevMode) return;
-
-    try {
-      this.exhaustive ??= this._lView[INJECTOR].get(
-        UseExhaustiveCheckNoChanges,
-        USE_EXHAUSTIVE_CHECK_NO_CHANGES_DEFAULT,
-      );
-    } catch {
-      this.exhaustive = USE_EXHAUSTIVE_CHECK_NO_CHANGES_DEFAULT;
+    // Note: we use `if (ngDevMode) { ... }` instead of an early return.
+    // ESBuild is conservative about removing dead code that follows `return;`
+    // inside a function body, so the block may remain in the bundle.
+    // Using a conditional ensures the dev-only logic is reliably tree-shaken
+    // in production builds.
+    if (ngDevMode) {
+      try {
+        this.exhaustive ??= this._lView[INJECTOR].get(
+          UseExhaustiveCheckNoChanges,
+          USE_EXHAUSTIVE_CHECK_NO_CHANGES_DEFAULT,
+        );
+      } catch {
+        this.exhaustive = USE_EXHAUSTIVE_CHECK_NO_CHANGES_DEFAULT;
+      }
+      checkNoChangesInternal(this._lView, this.exhaustive);
     }
-    checkNoChangesInternal(this._lView, this.exhaustive);
   }
 
   attachToViewContainerRef() {
@@ -384,5 +390,6 @@ export function isViewDirty(view: ViewRef<unknown>): boolean {
 }
 
 export function markForRefresh(view: ViewRef<unknown>): void {
-  markViewForRefresh(view['_cdRefInjectingView'] || view._lView);
+  // This function is only used by elements where _cdRefInjectingView is the same as _lView
+  markViewForRefresh(view._lView);
 }

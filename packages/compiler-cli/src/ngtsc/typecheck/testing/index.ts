@@ -7,13 +7,13 @@
  */
 
 import {
+  AST,
   BindingPipe,
   CssSelector,
   ParseSourceFile,
   parseTemplate,
   ParseTemplateOptions,
   PropertyRead,
-  PropertyWrite,
   R3TargetBinder,
   SelectorlessMatcher,
   SelectorMatcher,
@@ -22,8 +22,11 @@ import {
   TmplAstComponent,
   TmplAstDirective,
   TmplAstElement,
+  TmplAstHoverDeferredTrigger,
+  TmplAstInteractionDeferredTrigger,
   TmplAstLetDeclaration,
   TmplAstTextAttribute,
+  TmplAstViewportDeferredTrigger,
 } from '@angular/compiler';
 import {readFileSync} from 'fs';
 import path from 'path';
@@ -44,6 +47,7 @@ import {
   LocalIdentifierStrategy,
   LogicalProjectStrategy,
   ModuleResolver,
+  OwningModule,
   Reference,
   ReferenceEmitter,
   RelativePathStrategy,
@@ -65,6 +69,7 @@ import {
 import {NOOP_PERF_RECORDER} from '../../perf';
 import {TsCreateProgramDriver} from '../../program_driver';
 import {
+  AmbientImport,
   ClassDeclaration,
   isNamedClassDeclaration,
   TypeScriptReflectionHost,
@@ -96,10 +101,10 @@ import {TemplateTypeCheckerImpl} from '../src/checker';
 import {DomSchemaChecker} from '../src/dom';
 import {OutOfBandDiagnosticRecorder} from '../src/oob';
 import {TypeCheckShimGenerator} from '../src/shim';
-import {TcbGenericContextBehavior} from '../src/type_check_block';
 import {TypeCheckFile} from '../src/type_check_file';
 import {sfExtensionData} from '../../shims';
 import {freshCompilationTicket, NgCompiler, NgCompilerHost} from '../../core';
+import {TcbGenericContextBehavior} from '../src/ops/context';
 
 export function typescriptLibDts(): TestFile {
   return {
@@ -167,10 +172,10 @@ export function angularCoreDtsFiles(): TestFile[] {
     return _angularCoreDts;
   }
 
-  const directory = resolveFromRunfiles('angular/packages/core/npm_package');
+  const directory = resolveFromRunfiles('_main/packages/core/npm_package');
   const dtsFiles = globSync('**/*.d.ts', {cwd: directory});
 
-  return (_angularCoreDts = dtsFiles.map((fileName) => ({
+  return (_angularCoreDts = ['package.json', ...dtsFiles].map((fileName) => ({
     name: absoluteFrom(`/node_modules/@angular/core/${fileName}`),
     contents: readFileSync(path.join(directory, fileName), 'utf8'),
   })));
@@ -288,6 +293,7 @@ export const ALL_ENABLED_CONFIG: Readonly<TypeCheckingConfig> = {
   unusedStandaloneImports: 'warning',
   allowSignalsInTwoWayBindings: true,
   checkTwoWayBoundEvents: true,
+  allowDomEventAssertion: true,
 };
 
 // Remove 'ref' from TypeCheckableDirectiveMeta and add a 'selector' instead.
@@ -302,6 +308,7 @@ export interface TestDirective
         | 'restrictedInputFields'
         | 'stringLiteralInputFields'
         | 'undeclaredInputFields'
+        | 'publicMethods'
         | 'inputs'
         | 'outputs'
         | 'hostDirectives'
@@ -328,6 +335,7 @@ export interface TestDirective
   restrictedInputFields?: string[];
   stringLiteralInputFields?: string[];
   undeclaredInputFields?: string[];
+  publicMethods?: string[];
   isGeneric?: boolean;
   code?: string;
   ngContentSelectors?: string[] | null;
@@ -337,6 +345,7 @@ export interface TestDirective
     inputs?: string[];
     outputs?: string[];
   }[];
+  bestGuessOwningModule?: OwningModule | AmbientImport;
 }
 
 export interface TestPipe {
@@ -346,6 +355,7 @@ export interface TestPipe {
   pipeName: string;
   type: 'pipe';
   code?: string;
+  bestGuessOwningModule?: OwningModule | AmbientImport;
 }
 
 export type TestDeclaration = TestDirective | TestPipe;
@@ -430,6 +440,7 @@ export function tcb(
     suggestionsForSuboptimalTypeInference: false,
     allowSignalsInTwoWayBindings: true,
     checkTwoWayBoundEvents: true,
+    allowDomEventAssertion: true,
     ...config,
   };
   options = options || {emitSpans: false};
@@ -812,7 +823,7 @@ function prepareDeclarations(
     } else if (decl.type === 'pipe') {
       pipes.set(decl.pipeName, {
         kind: MetaKind.Pipe,
-        ref: new Reference(resolveDeclaration(decl)),
+        ref: new Reference(resolveDeclaration(decl), decl.bestGuessOwningModule),
         name: decl.pipeName,
         nameExpr: null,
         isStandalone: false,
@@ -859,7 +870,7 @@ function getDirectiveMetaFromDeclaration(
 ) {
   return {
     name: decl.name,
-    ref: new Reference(resolveDeclaration(decl)),
+    ref: new Reference(resolveDeclaration(decl), decl.bestGuessOwningModule),
     exportAs: decl.exportAs || null,
     selector: decl.selector || null,
     hasNgTemplateContextGuard: decl.hasNgTemplateContextGuard || false,
@@ -870,6 +881,7 @@ function getDirectiveMetaFromDeclaration(
     restrictedInputFields: new Set<string>(decl.restrictedInputFields || []),
     stringLiteralInputFields: new Set<string>(decl.stringLiteralInputFields || []),
     undeclaredInputFields: new Set<string>(decl.undeclaredInputFields || []),
+    publicMethods: new Set<string>(decl.publicMethods || []),
     isGeneric: decl.isGeneric ?? false,
     outputs: ClassPropertyMapping.fromMappedObject(decl.outputs || {}),
     queries: decl.queries || [],
@@ -929,6 +941,7 @@ function makeScope(program: ts.Program, sf: ts.SourceFile, decls: TestDeclaratio
         restrictedInputFields: new Set<string>(decl.restrictedInputFields ?? []),
         stringLiteralInputFields: new Set<string>(decl.stringLiteralInputFields ?? []),
         undeclaredInputFields: new Set<string>(decl.undeclaredInputFields ?? []),
+        publicMethods: new Set<string>(decl.publicMethods ?? []),
         isGeneric: decl.isGeneric ?? false,
         isPoisoned: false,
         isStructural: false,
@@ -1024,11 +1037,8 @@ export class NoopOobRecorder implements OutOfBandDiagnosticRecorder {
   illegalForLoopTrackAccess(): void {}
   inaccessibleDeferredTriggerElement(): void {}
   controlFlowPreventingContentProjection(): void {}
-  illegalWriteToLetDeclaration(
-    id: TypeCheckId,
-    node: PropertyWrite,
-    target: TmplAstLetDeclaration,
-  ): void {}
+  formFieldUnsupportedBinding(): void {}
+  illegalWriteToLetDeclaration(id: TypeCheckId, node: AST, target: TmplAstLetDeclaration): void {}
   letUsedBeforeDefinition(
     id: TypeCheckId,
     node: PropertyRead,
@@ -1047,6 +1057,20 @@ export class NoopOobRecorder implements OutOfBandDiagnosticRecorder {
   incorrectTemplateDependencyType(
     id: TypeCheckId,
     node: TmplAstComponent | TmplAstDirective,
+  ): void {}
+  deferImplicitTriggerMissingPlaceholder(
+    id: TypeCheckId,
+    trigger:
+      | TmplAstHoverDeferredTrigger
+      | TmplAstInteractionDeferredTrigger
+      | TmplAstViewportDeferredTrigger,
+  ): void {}
+  deferImplicitTriggerInvalidPlaceholder(
+    id: TypeCheckId,
+    trigger:
+      | TmplAstHoverDeferredTrigger
+      | TmplAstInteractionDeferredTrigger
+      | TmplAstViewportDeferredTrigger,
   ): void {}
 }
 

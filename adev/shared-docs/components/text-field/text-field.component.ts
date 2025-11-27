@@ -17,14 +17,13 @@ import {
   model,
   viewChild,
 } from '@angular/core';
-import {CommonModule} from '@angular/common';
 import {ControlValueAccessor, FormsModule, NG_VALUE_ACCESSOR} from '@angular/forms';
 import {IconComponent} from '../icon/icon.component';
 
 @Component({
   selector: 'docs-text-field',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, IconComponent],
+  imports: [FormsModule, IconComponent],
   templateUrl: './text-field.component.html',
   styleUrls: ['./text-field.component.scss'],
   providers: [
@@ -63,8 +62,8 @@ export class TextField implements ControlValueAccessor {
   }
 
   // Implemented as part of ControlValueAccessor.
-  writeValue(value: string): void {
-    this.value.set(value);
+  writeValue(value: unknown): void {
+    this.value.set(typeof value === 'string' ? value : null);
   }
 
   // Implemented as part of ControlValueAccessor.

@@ -1,10 +1,8 @@
-load("@io_bazel_rules_sass//:defs.bzl", "sass_binary")
-load("//tools:defaults.bzl", "karma_web_test_suite", "ng_module")
-load("//tools:defaults2.bzl", "ts_project")
+load("//adev/shared-docs:defaults.bzl", "ng_project", "sass_binary", "ts_project", "zoneless_web_test_suite")
 
 package(default_visibility = ["//visibility:private"])
 
-ng_module(
+ng_project(
     name = "viewers",
     srcs = [
         "docs-viewer/docs-viewer.component.ts",
@@ -19,16 +17,22 @@ ng_module(
         "//adev/shared-docs/components:__pkg__",
     ],
     deps = [
+        "//adev:node_modules/@angular/cdk",
+        "//adev:node_modules/@angular/common",
+        "//adev:node_modules/@angular/core",
+        "//adev:node_modules/@angular/material",
+        "//adev:node_modules/@angular/platform-browser",
+        "//adev:node_modules/@angular/router",
+        "//adev:node_modules/rxjs",
         "//adev/shared-docs/components/breadcrumb",
         "//adev/shared-docs/components/copy-source-code-button",
+        "//adev/shared-docs/components/icon",
+        "//adev/shared-docs/components/tab-group",
         "//adev/shared-docs/components/table-of-contents",
         "//adev/shared-docs/interfaces",
         "//adev/shared-docs/providers",
-        "//packages/common",
-        "//packages/core",
-        "//packages/router",
-        "@npm//@angular/cdk",
-        "@npm//@angular/material",
+        "//adev/shared-docs/services",
+        "//adev/shared-docs/utils",
     ],
 )
 
@@ -51,8 +55,13 @@ ts_project(
     srcs = glob(
         ["**/*.spec.ts"],
     ),
-    interop_deps = [
+    deps = [
         ":viewers",
+        "//adev:node_modules/@angular/cdk",
+        "//adev:node_modules/@angular/core",
+        "//adev:node_modules/@angular/material",
+        "//adev:node_modules/@angular/platform-browser",
+        "//adev:node_modules/@angular/router",
         "//adev/shared-docs/components/breadcrumb",
         "//adev/shared-docs/components/copy-source-code-button",
         "//adev/shared-docs/components/icon",
@@ -60,21 +69,10 @@ ts_project(
         "//adev/shared-docs/interfaces",
         "//adev/shared-docs/providers",
         "//adev/shared-docs/services",
-        "//packages/core",
-        "//packages/core/testing",
-        "//packages/platform-browser",
-        "//packages/platform-browser/animations",
-        "//packages/router",
-        "//packages/router/testing",
-    ],
-    tsconfig = "//adev/shared-docs:tsconfig_test",
-    deps = [
-        "//:node_modules/@angular/cdk",
-        "//:node_modules/@angular/material",
     ],
 )
 
-karma_web_test_suite(
+zoneless_web_test_suite(
     name = "test",
     deps = [":test_lib"],
 )

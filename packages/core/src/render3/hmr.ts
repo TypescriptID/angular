@@ -53,6 +53,19 @@ type ImportMetaExtended = ImportMeta & {
 };
 
 /**
+ * Gets the URL from which the client will fetch a new version of a component's metadata so it
+ * can be replaced during hot module reloading.
+ * @param id Unique ID for the component, generated during compile time.
+ * @param timestamp Time at which the request happened.
+ * @param base Base URL against which to resolve relative paths.
+ * @codeGenApi
+ */
+export function ɵɵgetReplaceMetadataURL(id: string, timestamp: string, base: string): string {
+  const url = `./@ng/component?c=${id}&t=${encodeURIComponent(timestamp)}`;
+  return new URL(url, base).href;
+}
+
+/**
  * Replaces the metadata of a component type and re-renders all live instances of the component.
  * @param type Class whose metadata will be replaced.
  * @param applyMetadata Callback that will apply a new set of metadata on the `type` when invoked.
@@ -232,7 +245,10 @@ function recreateLView(
     // shadow root. The browser will throw if we attempt to attach another one and there's no way
     // to detach it. Our only option is to make a clone only of the root node, replace the node
     // with the clone and use it for the newly-created LView.
-    if (oldDef.encapsulation === ViewEncapsulation.ShadowDom) {
+    if (
+      oldDef.encapsulation === ViewEncapsulation.ShadowDom ||
+      oldDef.encapsulation === ViewEncapsulation.ExperimentalIsolatedShadowDom
+    ) {
       const newHost = host.cloneNode(false) as HTMLElement;
       host.replaceWith(newHost);
       host = newHost;

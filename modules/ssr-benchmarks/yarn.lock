@@ -110,11 +110,6 @@
     ora "5.4.1"
     rxjs "7.8.1"
 
-"@angular/animations@file:../../dist/packages-dist/animations":
-  version "19.1.0-next.0"
-  dependencies:
-    tslib "^2.3.0"
-
 "@angular/build@19.0.0":
   version "19.0.0"
   resolved "https://registry.yarnpkg.com/@angular/build/-/build-19.0.0.tgz#d3ce049930646748659e9c2b8a2dbe3808d01590"
@@ -192,11 +187,6 @@
     tslib "^2.3.0"
 
 "@angular/core@file:../../dist/packages-dist/core":
-  version "19.1.0-next.0"
-  dependencies:
-    tslib "^2.3.0"
-
-"@angular/platform-browser-dynamic@file:../../dist/packages-dist/platform-browser-dynamic":
   version "19.1.0-next.0"
   dependencies:
     tslib "^2.3.0"
@@ -5229,24 +5219,6 @@ parseurl@~1.3.2, parseurl@~1.3.3:
   version "1.3.3"
   resolved "https://registry.yarnpkg.com/parseurl/-/parseurl-1.3.3.tgz#9da19e7bee8d12dff0513ed5b76957793bc2e8d4"
   integrity sha512-CiyeOxFT/JZyN5m0z9PfXw4SCBJ6Sygz1Dpl0wqjlhDEGGBP1GnsUVEL0p63hoG1fcj3fHynXi9NYO4nWOL+qQ==
-
-"patch-package@file:../../node_modules/patch-package":
-  version "7.0.2"
-  dependencies:
-    "@yarnpkg/lockfile" "^1.1.0"
-    chalk "^4.1.2"
-    ci-info "^3.7.0"
-    cross-spawn "^7.0.3"
-    find-yarn-workspace-root "^2.0.0"
-    fs-extra "^9.0.0"
-    klaw-sync "^6.0.0"
-    minimist "^1.2.6"
-    open "^7.4.2"
-    rimraf "^2.6.3"
-    semver "^7.5.3"
-    slash "^2.0.0"
-    tmp "^0.0.33"
-    yaml "^2.2.2"
 
 path-exists@^5.0.0:
   version "5.0.0"

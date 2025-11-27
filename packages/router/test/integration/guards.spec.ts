@@ -17,7 +17,7 @@ import {
   EnvironmentInjector,
 } from '@angular/core';
 import {TestBed, ComponentFixture} from '@angular/core/testing';
-import {Subject, Observable, of, concat} from 'rxjs';
+import {Subject, Observable, of, concat, EMPTY} from 'rxjs';
 import {tap, mapTo, first, takeWhile, last, switchMap} from 'rxjs/operators';
 import {
   ActivatedRouteSnapshot,
@@ -53,7 +53,7 @@ import {
 } from '../../src';
 import {wrapIntoObservable} from '../../src/utils/collection';
 import {RouterTestingHarness} from '../../testing';
-import {expect} from '@angular/platform-browser/testing/src/matchers';
+import {expect} from '@angular/private/testing/matchers';
 import {
   TeamCmp,
   RootCmp,
@@ -1835,14 +1835,10 @@ export function guardsIntegrationSuite() {
 
       let log: string[];
       const guard1 = () => {
-        return delayObservable(5).pipe(tap({next: () => log.push('guard1')}));
+        return delayObservable(15).pipe(tap({next: () => log.push('guard1')}));
       };
       const guard2 = () => {
         return delayObservable(0).pipe(tap({next: () => log.push('guard2')}));
-      };
-      const returnFalse = () => {
-        log.push('returnFalse');
-        return false;
       };
       const returnFalseAndNavigate = () => {
         log.push('returnFalseAndNavigate');
@@ -1851,7 +1847,7 @@ export function guardsIntegrationSuite() {
       };
       const returnUrlTree = () => {
         const router = inject(Router);
-        return delayObservable(14).pipe(
+        return delayObservable(30).pipe(
           mapTo(router.parseUrl('/redirected')),
           tap({next: () => log.push('returnUrlTree')}),
         );
@@ -2042,6 +2038,22 @@ export function guardsIntegrationSuite() {
           {
             path: 'a',
             canMatch: [() => inject(ConfigurableGuard).canMatch()],
+            component: BlankCmp,
+          },
+          {path: 'a', component: SimpleCmp},
+        ]);
+        const fixture = await createRoot(router, RootCmp);
+
+        router.navigateByUrl('/a');
+        await advance(fixture);
+        expect(fixture.nativeElement.innerHTML).toContain('simple');
+      });
+      it('falls back to second route when canMatch returns EMPTY', async () => {
+        const router = TestBed.inject(Router);
+        router.resetConfig([
+          {
+            path: 'a',
+            canMatch: [() => EMPTY],
             component: BlankCmp,
           },
           {path: 'a', component: SimpleCmp},
@@ -2382,6 +2394,41 @@ export function guardsIntegrationSuite() {
       ]);
       await router.navigateByUrl('');
       expect(guardDone).toEqual(['guard1', 'guard2', 'guard3', 'guard4']);
+    });
+
+    it('should run in injection context', async () => {
+      @Injectable({providedIn: 'root'})
+      class MyService {
+        canRun = false;
+      }
+
+      let resolveCount = 0;
+      const routes = [
+        {
+          path: 'a',
+          children: [],
+          resolve: {
+            x: () => ++resolveCount,
+          },
+          runGuardsAndResolvers: () => inject(MyService).canRun,
+        },
+      ];
+      const router = TestBed.inject(Router);
+      router.resetConfig(routes);
+      const service = TestBed.inject(MyService);
+
+      await router.navigateByUrl('/a');
+      expect(router.url).toEqual('/a');
+      // Always run on activation
+      expect(resolveCount).toBe(1);
+
+      service.canRun = false;
+      await router.navigateByUrl('/a?q=1');
+      expect(resolveCount).toBe(1);
+
+      service.canRun = true;
+      await router.navigateByUrl('/a?q=2');
+      expect(resolveCount).toBe(2);
     });
   });
 }

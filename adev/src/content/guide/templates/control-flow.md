@@ -2,8 +2,6 @@
 
 Angular templates support control flow blocks that let you conditionally show, hide, and repeat elements.
 
-NOTE: This was previously accomplished with the *ngIf, *ngFor, and \*ngSwitch directives.
-
 ## Conditionally display content with `@if`, `@else-if` and `@else`
 
 The `@if` block conditionally displays its content when its condition expression is truthy:
@@ -95,7 +93,7 @@ You can optionally include an `@empty` section immediately after the `@for` bloc
 @for (item of items; track item.name) {
   <li> {{ item.name }}</li>
 } @empty {
-  <li aria-hidden="true"> There are no items. </li>
+  <li> There are no items. </li>
 }
 ```
 

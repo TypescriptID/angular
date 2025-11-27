@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {InputFlags} from '@angular/compiler/src/core';
+import {core} from '@angular/compiler';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -70,8 +70,8 @@ describe('component declaration jit compilation', () => {
 
     expectComponentDef(def, {
       inputs: {
-        'property': ['minifiedProperty', InputFlags.None, null],
-        'bindingName': ['minifiedClassProperty', InputFlags.None, null],
+        'property': ['minifiedProperty', core.InputFlags.None, null],
+        'bindingName': ['minifiedClassProperty', core.InputFlags.None, null],
       },
       declaredInputs: {
         'property': 'property',
@@ -98,7 +98,7 @@ describe('component declaration jit compilation', () => {
       inputs: {
         'bindingName': [
           'minifiedClassProperty',
-          InputFlags.HasDecoratorInputTransform,
+          core.InputFlags.HasDecoratorInputTransform,
           transformFn,
         ],
       },
@@ -374,16 +374,32 @@ describe('component declaration jit compilation', () => {
     });
   });
 
-  it('should honor custom interpolation config', () => {
+  it('should bind directive inputs as regular property (not DOM property) in the presence of pipes', () => {
+    // https://github.com/angular/angular/issues/62573
     const def = ɵɵngDeclareComponent({
       version: '18.0.0',
       type: TestClass,
-      template: '{% foo %}',
-      interpolation: ['{%', '%}'],
+      isStandalone: true,
+      dependencies: [
+        {
+          kind: 'directive',
+          type: TestDir,
+          selector: '[dir]',
+          inputs: ['dir'],
+        },
+        {
+          kind: 'pipe',
+          type: TestPipe,
+          name: 'test',
+        },
+      ],
+      template: `<div [dir]="'test' | test"></div>`,
     }) as ComponentDef<TestClass>;
 
     expectComponentDef(def, {
-      template: functionContaining([/textInterpolate[^(]*\(ctx.foo\)/]),
+      template: functionContaining([/property[^(]*\('dir',/]),
+      directives: [TestDir],
+      pipes: [TestPipe],
     });
   });
 

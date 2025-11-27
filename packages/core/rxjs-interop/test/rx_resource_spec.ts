@@ -74,7 +74,19 @@ describe('rxResource()', () => {
     expect(res.value()).toBe(3);
 
     response.error('fail');
-    expect(res.error()).toBe('fail');
+    expect(res.error()).toEqual(jasmine.objectContaining({cause: 'fail'}));
+    expect(res.error()!.message).toContain('Resource');
+  });
+
+  it('should cleanup without error when the stream function threw an error', async () => {
+    const appRef = TestBed.inject(ApplicationRef);
+    const res = rxResource({
+      stream: () => {
+        throw 'oh no';
+      },
+      injector: appRef.injector,
+    });
+    await appRef.whenStable();
   });
 });
 

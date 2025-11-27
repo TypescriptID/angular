@@ -22,6 +22,7 @@ import {Component, CUSTOM_ELEMENTS_SCHEMA, output, input} from '@angular/core';
 import {ElementPropertyResolver, FlatNode} from './property-resolver/element-property-resolver';
 import {BreadcrumbsComponent} from './directive-forest/breadcrumbs/breadcrumbs.component';
 import {PropertyTabComponent} from './property-tab/property-tab.component';
+import {SignalGraphManager} from './signal-graph/signal-graph-manager';
 
 @Component({
   selector: 'ng-directive-forest',
@@ -107,9 +108,21 @@ describe('DirectiveExplorerComponent', () => {
     });
 
     fixture = TestBed.overrideComponent(DirectiveExplorerComponent, {
-      remove: {imports: [DirectiveForestComponent, BreadcrumbsComponent, PropertyTabComponent]},
+      remove: {
+        imports: [DirectiveForestComponent, BreadcrumbsComponent, PropertyTabComponent],
+        providers: [SignalGraphManager],
+      },
       add: {
         imports: [MockDirectiveForestComponent, MockBreadcrumbsComponent, MockPropertyTabComponent],
+        providers: [
+          {
+            provide: SignalGraphManager,
+            useValue: {
+              listen: () => {},
+              destroy: () => {},
+            },
+          },
+        ],
       },
     }).createComponent(DirectiveExplorerComponent);
     comp = fixture.componentInstance;
@@ -194,15 +207,15 @@ describe('DirectiveExplorerComponent', () => {
       expect(messageBusMock.emit).toHaveBeenCalledWith('removeHydrationOverlay');
     });
 
-    it('should show hydration slide toggle', () => {
+    it('should show hydration checkbox toggle', () => {
       fixture.componentRef.setInput('isHydrationEnabled', true);
       fixture.detectChanges();
-      const toggle = fixture.debugElement.query(By.css('mat-slide-toggle'));
+      const toggle = fixture.debugElement.query(By.css('#show-hydration-overlays'));
       expect(toggle).toBeTruthy();
 
       fixture.componentRef.setInput('isHydrationEnabled', false);
       fixture.detectChanges();
-      const toggle2 = fixture.debugElement.query(By.css('mat-slide-toggle'));
+      const toggle2 = fixture.debugElement.query(By.css('#show-hydration-overlays'));
       expect(toggle2).toBeFalsy();
     });
   });

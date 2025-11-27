@@ -16,10 +16,13 @@ import {
 export async function generatePlaygroundRoutes(
   configs: Record<string, TutorialConfig>,
 ): Promise<PlaygroundRouteData> {
-  const templates = Object.entries(configs).map(([path, config]) => ({
-    path: `playground/${path}`,
-    label: config.title,
-  }));
+  const templates = Object.entries(configs)
+    .map(([path, config]) => ({
+      path: `playground/${path}`,
+      label: config.title,
+      id: path,
+    }))
+    .sort((a, b) => a.id.localeCompare(b.id));
 
   return {
     templates,
@@ -47,6 +50,7 @@ export async function generateTutorialRoutes(
           title: config.title,
           type: config.type,
           step: idx + 1,
+          restrictedMode: true,
         },
       };
     });
@@ -75,6 +79,7 @@ export async function generateTutorialRoutes(
       title: introConfig.title,
       type: introConfig.type,
       nextStep: children[0].path,
+      restrictedMode: children[0].tutorialData.restrictedMode,
     },
     children: children,
   };

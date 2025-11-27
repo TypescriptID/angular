@@ -60,7 +60,7 @@ You can then reference this fragment anywhere else in the template via the `myFr
 
 You can get a reference to a template fragment using any [component or directive query API](/guide/components/queries).
 
-For example, if your template has exactly one template fragment, you can query directly for the `TemplateRef` object with a `@ViewChild` query:
+You can query the `TemplateRef` object directly using a `viewChild` query.
 
 ```angular-ts
 @Component({
@@ -74,7 +74,7 @@ For example, if your template has exactly one template fragment, you can query d
   `,
 })
 export class ComponentWithFragment {
-  @ViewChild(TemplateRef) myFragment: TemplateRef<unknown> | undefined;
+  templateRef = viewChild<TemplateRef<unknown>>(TemplateRef);
 }
 ```
 
@@ -98,10 +98,8 @@ If a template contains multiple fragments, you can assign a name to each fragmen
   `,
 })
 export class ComponentWithFragment {
-  // When querying by name, you can use the `read` option to specify that you want to get the
-  // TemplateRef object associated with the element.
-  @ViewChild('fragmentOne', {read: TemplateRef}) fragmentOne: TemplateRef<unknown> | undefined;
-  @ViewChild('fragmentTwo', {read: TemplateRef}) fragmentTwo: TemplateRef<unknown> | undefined;
+    fragmentOne = viewChild<TemplateRef<unknown>>('fragmentOne');
+    fragmentTwo = viewChild<TemplateRef<unknown>>('fragmentTwo');
 }
 ```
 
@@ -137,6 +135,7 @@ Once you have a reference to a template fragment's `TemplateRef` object, you can
 The `NgTemplateOutlet` directive from `@angular/common` accepts a `TemplateRef` and renders the fragment as a **sibling** to the element with the outlet. You should generally use `NgTemplateOutlet` on an [`<ng-container>` element](/guide/templates/ng-container).
 
 First, import `NgTemplateOutlet`:
+
 ```typescript
 import { NgTemplateOutlet } from '@angular/common';
 ```
@@ -189,11 +188,11 @@ export class ComponentWithFragment { }
 })
 export class MyOutlet {
   private viewContainer = inject(ViewContainerRef);
-  @Input() fragment: TemplateRef<unknown> | undefined;
+  fragment = input<TemplateRef<unknown> | undefined>();
 
   showFragment() {
-    if (this.fragment) {
-      this.viewContainer.createEmbeddedView(this.fragment);
+    if (this.fragment()) {
+      this.viewContainer.createEmbeddedView(this.fragment());
     }
   }
 }
@@ -279,5 +278,5 @@ For more details, see [Structural Directives](/guide/directives/structural-direc
 
 For examples of how `ng-template` is used in other libraries, check out:
 
-- [Tabs from Angular Material](https://material.angular.io/components/tabs/overview) - nothing gets rendered into the DOM until the tab is activated
-- [Table from Angular Material](https://material.angular.io/components/table/overview) - allows developers to define different ways to render data
+- [Tabs from Angular Material](https://material.angular.dev/components/tabs/overview) - nothing gets rendered into the DOM until the tab is activated
+- [Table from Angular Material](https://material.angular.dev/components/table/overview) - allows developers to define different ways to render data

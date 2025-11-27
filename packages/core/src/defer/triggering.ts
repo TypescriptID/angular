@@ -21,7 +21,8 @@ import {
   getParentBlockHydrationQueue,
   isIncrementalHydrationEnabled,
 } from '../hydration/utils';
-import {PendingTasks, PendingTasksInternal} from '../pending_tasks';
+import {PendingTasks} from '../pending_tasks';
+import {PendingTasksInternal} from '../pending_tasks_internal';
 import {assertLContainer} from '../render3/assert';
 import {getComponentDef, getDirectiveDef, getPipeDef} from '../render3/def_getters';
 import {getTemplateLocationDetails} from '../render3/instructions/element_validation';
@@ -36,7 +37,7 @@ import {
   invokeTriggerCleanupFns,
   storeTriggerCleanupFn,
 } from './cleanup';
-import {onViewport} from './dom_triggers';
+import {onViewportWrapper} from './dom_triggers';
 import {onIdle} from './idle_scheduler';
 import {
   DEFER_BLOCK_STATE,
@@ -70,7 +71,7 @@ import {
   getTDeferBlockDetails,
 } from './utils';
 import {ApplicationRef} from '../application/application_ref';
-import {DEHYDRATED_VIEWS} from '../render3/interfaces/container';
+import {promiseWithResolvers} from '../util/promise_with_resolvers';
 
 /**
  * Schedules triggering of a defer block for `on idle` and `on timer` conditions.
@@ -105,7 +106,6 @@ export function scheduleDelayedTrigger(
  */
 export function scheduleDelayedPrefetching(
   scheduleFn: (callback: VoidFunction, injector: Injector) => VoidFunction,
-  trigger: DeferBlockTrigger,
 ) {
   if (typeof ngServerMode !== 'undefined' && ngServerMode) return;
 
@@ -549,7 +549,7 @@ function cleanupRemainingHydrationQueue(
  */
 function populateHydratingStateForQueue(registry: DehydratedBlockRegistry, queue: string[]) {
   for (let blockId of queue) {
-    registry.hydrating.set(blockId, Promise.withResolvers());
+    registry.hydrating.set(blockId, promiseWithResolvers<void>());
   }
 }
 
@@ -595,6 +595,14 @@ export function shouldAttachTrigger(triggerType: TriggerType, lView: LView, tNod
   return !(typeof ngServerMode !== 'undefined' && ngServerMode);
 }
 
+/** Whether a given defer block has `hydrate` triggers. */
+export function hasHydrateTriggers(flags: TDeferDetailsFlags | null | undefined): boolean {
+  return (
+    flags != null &&
+    (flags & TDeferDetailsFlags.HasHydrateTriggers) === TDeferDetailsFlags.HasHydrateTriggers
+  );
+}
+
 /**
  * Defines whether a regular trigger logic (e.g. "on viewport") should be attached
  * to a defer block. This function defines a condition, which mutually excludes
@@ -606,24 +614,21 @@ function shouldAttachRegularTrigger(lView: LView, tNode: TNode): boolean {
 
   const tDetails = getTDeferBlockDetails(lView[TVIEW], tNode);
   const incrementalHydrationEnabled = isIncrementalHydrationEnabled(injector);
-  const hasHydrateTriggers =
-    tDetails.flags !== null &&
-    (tDetails.flags & TDeferDetailsFlags.HasHydrateTriggers) ===
-      TDeferDetailsFlags.HasHydrateTriggers;
+  const _hasHydrateTriggers = hasHydrateTriggers(tDetails.flags);
 
   // On the server:
   if (typeof ngServerMode !== 'undefined' && ngServerMode) {
     // Regular triggers are activated on the server when:
     //  - Either Incremental Hydration is *not* enabled
     //  - Or Incremental Hydration is enabled, but a given block doesn't have "hydrate" triggers
-    return !incrementalHydrationEnabled || !hasHydrateTriggers;
+    return !incrementalHydrationEnabled || !_hasHydrateTriggers;
   }
 
   // On the client:
   const lDetails = getLDeferBlockDetails(lView, tNode);
   const wasServerSideRendered = lDetails[SSR_UNIQUE_ID] !== null;
 
-  if (hasHydrateTriggers && wasServerSideRendered && incrementalHydrationEnabled) {
+  if (_hasHydrateTriggers && wasServerSideRendered && incrementalHydrationEnabled) {
     return false;
   }
   return true;
@@ -676,6 +681,9 @@ export function processAndInitTriggers(
           timerElements.push(elementTrigger);
         }
         if (blockSummary.hydrate.viewport) {
+          if (typeof blockSummary.hydrate.viewport !== 'boolean') {
+            elementTrigger.intersectionObserverOptions = blockSummary.hydrate.viewport;
+          }
           viewportElements.push(elementTrigger);
         }
       }
@@ -701,10 +709,11 @@ function setViewportTriggers(injector: Injector, elementTriggers: ElementTrigger
   if (elementTriggers.length > 0) {
     const registry = injector.get(DEHYDRATED_BLOCK_REGISTRY);
     for (let elementTrigger of elementTriggers) {
-      const cleanupFn = onViewport(
+      const cleanupFn = onViewportWrapper(
         elementTrigger.el,
         () => triggerHydrationFromBlockName(injector, elementTrigger.blockName),
         injector,
+        elementTrigger.intersectionObserverOptions,
       );
       registry.addCleanupFn(elementTrigger.blockName, cleanupFn);
     }

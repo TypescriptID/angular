@@ -35,6 +35,9 @@ export class SwUpdate {
    *
    * Emits a `VersionReadyEvent` event whenever a new version has been downloaded and is ready for
    * activation.
+   *
+   * @see [Version updates](ecosystem/service-workers/communications#version-updates)
+   *
    */
   readonly versionUpdates: Observable<VersionEvent>;
 
@@ -52,6 +55,8 @@ export class SwUpdate {
   get isEnabled(): boolean {
     return this.sw.isEnabled;
   }
+
+  private ongoingCheckForUpdate: Promise<boolean> | null = null;
 
   constructor(private sw: NgswCommChannel) {
     if (!sw.isEnabled) {
@@ -81,8 +86,16 @@ export class SwUpdate {
     if (!this.sw.isEnabled) {
       return Promise.reject(new Error(ERR_SW_NOT_SUPPORTED));
     }
+    if (this.ongoingCheckForUpdate) {
+      return this.ongoingCheckForUpdate;
+    }
     const nonce = this.sw.generateNonce();
-    return this.sw.postMessageWithOperation('CHECK_FOR_UPDATES', {nonce}, nonce);
+    this.ongoingCheckForUpdate = this.sw
+      .postMessageWithOperation('CHECK_FOR_UPDATES', {nonce}, nonce)
+      .finally(() => {
+        this.ongoingCheckForUpdate = null;
+      });
+    return this.ongoingCheckForUpdate;
   }
 
   /**

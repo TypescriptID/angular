@@ -26,7 +26,7 @@ See more details in the section [below](#vscode-extension).
 
 **Before**
 
-```typescript
+```angular-ts
 import {Component, ContentChild} from '@angular/core';
 
 @Component({
@@ -35,7 +35,7 @@ import {Component, ContentChild} from '@angular/core';
 export class MyComponent {
   @ContentChild('someRef') ref: ElementRef|undefined = undefined;
 
-  someMethod() {
+  someMethod(): void {
     if (this.ref) {
       this.ref.nativeElement;
     }
@@ -45,7 +45,7 @@ export class MyComponent {
 
 **After**
 
-```typescript
+```angular-ts
 import {Component, contentChild} from '@angular/core';
 
 @Component({
@@ -54,7 +54,7 @@ import {Component, contentChild} from '@angular/core';
 export class MyComponent {
   readonly ref = contentChild<ElementRef>('someRef');
 
-  someMethod() {
+  someMethod(): void {
     const ref = this.ref();
     if (ref) {
       ref.nativeElement;
@@ -102,7 +102,7 @@ references outside this directory are silently skipped, potentially breaking you
 
 ## VSCode extension
 
-![Screenshot of the VSCode extension and clicking on an `@ViewChild` field](assets/images/migrations/signal-queries-vscode.png "Screenshot of the VSCode extension and clicking on an `@ViewChild` field.")
+![Screenshot of the VSCode extension and clicking on an `@ViewChild` field](assets/images/migrations/signal-queries-vscode.png 'Screenshot of the VSCode extension and clicking on an `@ViewChild` field.')
 
 The migration is available as a [code refactor action](https://code.visualstudio.com/docs/typescript/typescript-refactoring#_refactoring) in VSCode.
 

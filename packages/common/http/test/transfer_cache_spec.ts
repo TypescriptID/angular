@@ -7,8 +7,14 @@
  */
 
 import {DOCUMENT} from '../../index';
-import {ApplicationRef, Component, Injectable, PLATFORM_ID} from '@angular/core';
-import {makeStateKey, TransferState} from '@angular/core/src/transfer_state';
+import {
+  ApplicationRef,
+  Component,
+  Injectable,
+  PLATFORM_ID,
+  TransferState,
+  makeStateKey,
+} from '@angular/core';
 import {fakeAsync, flush, TestBed} from '@angular/core/testing';
 import {withBody} from '@angular/private/testing';
 import {BehaviorSubject} from 'rxjs';
@@ -266,7 +272,6 @@ describe('TransferCache', () => {
       makeRequestAndExpectOne('/test-1?foo=1', 'foo', {method: 'POST'});
     });
 
-    // TODO: Investigate why this test is flaky
     it('should cache POST with the transferCache option', () => {
       makeRequestAndExpectOne('/test-1?foo=1', 'foo', {method: 'POST', transferCache: true});
       makeRequestAndExpectNone('/test-1?foo=1', 'POST', {transferCache: true});

@@ -11,7 +11,9 @@ import { Subscription } from 'rxjs';
 // @public
 export class ComponentFixture<T> {
     constructor(componentRef: ComponentRef<T>);
-    autoDetectChanges(autoDetect?: boolean): void;
+    // @deprecated
+    autoDetectChanges(autoDetect: boolean): void;
+    autoDetectChanges(): void;
     changeDetectorRef: ChangeDetectorRef;
     checkNoChanges(): void;
     componentInstance: T;
@@ -112,9 +114,11 @@ export interface TestBed {
     // (undocumented)
     configureTestingModule(moduleDef: TestModuleMetadata): TestBed;
     // (undocumented)
-    createComponent<T>(component: Type<T>): ComponentFixture<T>;
+    createComponent<T>(component: Type<T>, options?: TestComponentOptions): ComponentFixture<T>;
     // (undocumented)
     execute(tokens: any[], fn: Function, context?: any): any;
+    // @deprecated
+    flushEffects(): void;
     initTestEnvironment(ngModule: Type<any> | Type<any>[], platform: PlatformRef, options?: TestEnvironmentOptions): void;
     // (undocumented)
     inject<T>(token: ProviderToken<T>, notFoundValue: undefined, options: InjectOptions & {
@@ -174,9 +178,15 @@ export interface TestBedStatic extends TestBed {
 }
 
 // @public
+export interface TestComponentOptions {
+    bindings?: Binding[];
+    inferTagName?: boolean;
+}
+
+// @public
 export class TestComponentRenderer {
     // (undocumented)
-    insertRootElement(rootElementId: string): void;
+    insertRootElement(rootElementId: string, tagName?: string): void;
     // (undocumented)
     removeAllRootElements?(): void;
 }
@@ -190,6 +200,7 @@ export interface TestEnvironmentOptions {
 
 // @public (undocumented)
 export interface TestModuleMetadata {
+    animationsEnabled?: boolean;
     // (undocumented)
     declarations?: any[];
     deferBlockBehavior?: DeferBlockBehavior;
@@ -197,6 +208,7 @@ export interface TestModuleMetadata {
     errorOnUnknownProperties?: boolean;
     // (undocumented)
     imports?: any[];
+    inferTagName?: boolean;
     // (undocumented)
     providers?: any[];
     rethrowApplicationErrors?: boolean;

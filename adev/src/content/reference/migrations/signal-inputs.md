@@ -25,7 +25,7 @@ See more details in the section [below](#vscode-extension).
 
 **Before**
 
-```typescript
+```angular-ts
 import {Component, Input} from '@angular/core';
 
 @Component({
@@ -45,7 +45,7 @@ export class MyComponent {
 
 **After**
 
-<docs-code language="angular-ts" highlight="[[4],[7], [10,12]]">
+```angular-ts {[[4],[7], [10,12]]}
 import {Component, input} from '@angular/core';
 
 @Component({
@@ -61,8 +61,9 @@ export class MyComponent {
     }
     return -1;
   }
+
 }
-</docs-code>
+```
 
 ## Configuration options
 
@@ -103,7 +104,7 @@ references outside this directory are silently skipped, potentially breaking you
 
 ## VSCode extension
 
-![Screenshot of the VSCode extension and clicking on an `@Input` field](assets/images/migrations/signal-inputs-vscode.png "Screenshot of the VSCode extension and clicking on an `@Input` field.")
+![Screenshot of the VSCode extension and clicking on an `@Input` field](assets/images/migrations/signal-inputs-vscode.png 'Screenshot of the VSCode extension and clicking on an `@Input` field.')
 
 The migration is available as a [code refactor action](https://code.visualstudio.com/docs/typescript/typescript-refactoring#_refactoring) in VSCode.
 

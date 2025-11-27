@@ -8,9 +8,17 @@
 import {LocationStrategy, Location, HashLocationStrategy} from '@angular/common';
 import {TestBed} from '@angular/core/testing';
 import {Router, NavigationStart, RoutesRecognized} from '../../src';
-import {createRoot, RootCmp, BlankCmp, TeamCmp, advance} from './integration_helpers';
+import {
+  createRoot,
+  RootCmp,
+  BlankCmp,
+  TeamCmp,
+  advance,
+  simulateLocationChange,
+} from './integration_helpers';
+import {childNodesAsList} from '@angular/private/testing';
 
-export function redirectsIntegrationSuite() {
+export function redirectsIntegrationSuite(browserAPI: 'history' | 'navigation') {
   describe('redirects', () => {
     it('should work', async () => {
       const router = TestBed.inject(Router);
@@ -25,6 +33,24 @@ export function redirectsIntegrationSuite() {
       await router.navigateByUrl('old/team/22');
 
       expect(location.path()).toEqual('/team/22');
+    });
+
+    it('empty path child redirecting to no match', async () => {
+      const router = TestBed.inject(Router);
+      router.resetConfig([
+        {
+          path: 'test',
+          children: [
+            // Redirect will fail to match but does not cause navigation to fail.
+            // Either outcome could really be defended as correct, but this is what we have
+            // so this test ensures we don't unintentionally change it.
+            {path: '', redirectTo: 'no-match', pathMatch: 'full'},
+          ],
+        },
+      ]);
+
+      await router.navigateByUrl('/test');
+      expect(router.url).toEqual('/test');
     });
 
     it('can redirect from componentless named outlets', async () => {
@@ -98,8 +124,7 @@ export function redirectsIntegrationSuite() {
       expect(location.path()).toEqual('/initial');
 
       // location change
-      location.go('/old/team/33');
-      location.historyGo(0);
+      simulateLocationChange('/old/team/33', browserAPI);
 
       await advance(fixture);
       expect(location.path()).toEqual('/team/33');

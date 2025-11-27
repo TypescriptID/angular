@@ -7,19 +7,7 @@
  */
 
 import {SecurityContext} from '../core';
-import {ParseSourceSpan} from '../parse_util';
-
-export class ParserError {
-  public message: string;
-  constructor(
-    message: string,
-    public input: string,
-    public errLocation: string,
-    public ctxLocation?: any,
-  ) {
-    this.message = `Parser Error: ${message} ${errLocation} [${input}] in ${ctxLocation}`;
-  }
-}
+import {ParseError, ParseSourceSpan} from '../parse_util';
 
 export class ParseSpan {
   constructor(
@@ -129,22 +117,6 @@ export class PropertyRead extends ASTWithName {
   }
 }
 
-export class PropertyWrite extends ASTWithName {
-  constructor(
-    span: ParseSpan,
-    sourceSpan: AbsoluteSourceSpan,
-    nameSpan: AbsoluteSourceSpan,
-    public receiver: AST,
-    public name: string,
-    public value: AST,
-  ) {
-    super(span, sourceSpan, nameSpan);
-  }
-  override visit(visitor: AstVisitor, context: any = null): any {
-    return visitor.visitPropertyWrite(this, context);
-  }
-}
-
 export class SafePropertyRead extends ASTWithName {
   constructor(
     span: ParseSpan,
@@ -185,21 +157,6 @@ export class SafeKeyedRead extends AST {
   }
   override visit(visitor: AstVisitor, context: any = null): any {
     return visitor.visitSafeKeyedRead(this, context);
-  }
-}
-
-export class KeyedWrite extends AST {
-  constructor(
-    span: ParseSpan,
-    sourceSpan: AbsoluteSourceSpan,
-    public receiver: AST,
-    public key: AST,
-    public value: AST,
-  ) {
-    super(span, sourceSpan);
-  }
-  override visit(visitor: AstVisitor, context: any = null): any {
-    return visitor.visitKeyedWrite(this, context);
   }
 }
 
@@ -307,6 +264,21 @@ export class Binary extends AST {
   }
   override visit(visitor: AstVisitor, context: any = null): any {
     return visitor.visitBinary(this, context);
+  }
+
+  static isAssignmentOperation(op: string): boolean {
+    return (
+      op === '=' ||
+      op === '+=' ||
+      op === '-=' ||
+      op === '*=' ||
+      op === '/=' ||
+      op === '%=' ||
+      op === '**=' ||
+      op === '&&=' ||
+      op === '||=' ||
+      op === '??='
+    );
   }
 }
 
@@ -516,6 +488,21 @@ export class ParenthesizedExpression extends AST {
   }
 }
 
+export class RegularExpressionLiteral extends AST {
+  constructor(
+    span: ParseSpan,
+    sourceSpan: AbsoluteSourceSpan,
+    readonly body: string,
+    readonly flags: string | null,
+  ) {
+    super(span, sourceSpan);
+  }
+
+  override visit(visitor: AstVisitor, context?: any) {
+    return visitor.visitRegularExpressionLiteral(this, context);
+  }
+}
+
 /**
  * Records the absolute position of a text span in a source file, where `start` and `end` are the
  * starting and ending byte offsets, respectively, of the text span in a source file.
@@ -533,7 +520,7 @@ export class ASTWithSource<T extends AST = AST> extends AST {
     public source: string | null,
     public location: string,
     absoluteOffset: number,
-    public errors: ParserError[],
+    public errors: ParseError[],
   ) {
     super(
       new ParseSpan(0, source === null ? 0 : source.length),
@@ -628,7 +615,6 @@ export interface AstVisitor {
   visitImplicitReceiver(ast: ImplicitReceiver, context: any): any;
   visitInterpolation(ast: Interpolation, context: any): any;
   visitKeyedRead(ast: KeyedRead, context: any): any;
-  visitKeyedWrite(ast: KeyedWrite, context: any): any;
   visitLiteralArray(ast: LiteralArray, context: any): any;
   visitLiteralMap(ast: LiteralMap, context: any): any;
   visitLiteralPrimitive(ast: LiteralPrimitive, context: any): any;
@@ -638,7 +624,6 @@ export interface AstVisitor {
   visitVoidExpression(ast: TypeofExpression, context: any): any;
   visitNonNullAssert(ast: NonNullAssert, context: any): any;
   visitPropertyRead(ast: PropertyRead, context: any): any;
-  visitPropertyWrite(ast: PropertyWrite, context: any): any;
   visitSafePropertyRead(ast: SafePropertyRead, context: any): any;
   visitSafeKeyedRead(ast: SafeKeyedRead, context: any): any;
   visitCall(ast: Call, context: any): any;
@@ -647,6 +632,7 @@ export interface AstVisitor {
   visitTemplateLiteralElement(ast: TemplateLiteralElement, context: any): any;
   visitTaggedTemplateLiteral(ast: TaggedTemplateLiteral, context: any): any;
   visitParenthesizedExpression(ast: ParenthesizedExpression, context: any): any;
+  visitRegularExpressionLiteral(ast: RegularExpressionLiteral, context: any): any;
   visitASTWithSource?(ast: ASTWithSource, context: any): any;
   /**
    * This function is optionally defined to allow classes that implement this
@@ -692,11 +678,6 @@ export class RecursiveAstVisitor implements AstVisitor {
     this.visit(ast.receiver, context);
     this.visit(ast.key, context);
   }
-  visitKeyedWrite(ast: KeyedWrite, context: any): any {
-    this.visit(ast.receiver, context);
-    this.visit(ast.key, context);
-    this.visit(ast.value, context);
-  }
   visitLiteralArray(ast: LiteralArray, context: any): any {
     this.visitAll(ast.expressions, context);
   }
@@ -718,10 +699,6 @@ export class RecursiveAstVisitor implements AstVisitor {
   }
   visitPropertyRead(ast: PropertyRead, context: any): any {
     this.visit(ast.receiver, context);
-  }
-  visitPropertyWrite(ast: PropertyWrite, context: any): any {
-    this.visit(ast.receiver, context);
-    this.visit(ast.value, context);
   }
   visitSafePropertyRead(ast: SafePropertyRead, context: any): any {
     this.visit(ast.receiver, context);
@@ -758,6 +735,7 @@ export class RecursiveAstVisitor implements AstVisitor {
   visitParenthesizedExpression(ast: ParenthesizedExpression, context: any) {
     this.visit(ast.expression, context);
   }
+  visitRegularExpressionLiteral(ast: RegularExpressionLiteral, context: any) {}
   // This is not part of the AstVisitor interface, just a helper method
   visitAll(asts: AST[], context: any): any {
     for (const ast of asts) {
@@ -770,6 +748,7 @@ export class RecursiveAstVisitor implements AstVisitor {
 
 export class ParsedProperty {
   public readonly isLiteral: boolean;
+  public readonly isLegacyAnimation: boolean;
   public readonly isAnimation: boolean;
 
   constructor(
@@ -781,6 +760,7 @@ export class ParsedProperty {
     public valueSpan: ParseSourceSpan | undefined,
   ) {
     this.isLiteral = this.type === ParsedPropertyType.LITERAL_ATTR;
+    this.isLegacyAnimation = this.type === ParsedPropertyType.LEGACY_ANIMATION;
     this.isAnimation = this.type === ParsedPropertyType.ANIMATION;
   }
 }
@@ -788,22 +768,25 @@ export class ParsedProperty {
 export enum ParsedPropertyType {
   DEFAULT,
   LITERAL_ATTR,
-  ANIMATION,
+  LEGACY_ANIMATION,
   TWO_WAY,
+  ANIMATION,
 }
 
 export enum ParsedEventType {
   // DOM or Directive event
   Regular,
-  // Animation specific event
-  Animation,
+  // Legacy animation specific event
+  LegacyAnimation,
   // Event side of a two-way binding (e.g. `[(property)]="expression"`).
   TwoWay,
+  // Animation specific event
+  Animation,
 }
 
 export class ParsedEvent {
   // Regular events have a target
-  // Animation events have a phase
+  // Legacy Animation events have a phase
   constructor(
     name: string,
     targetOrPhase: string | null,
@@ -857,10 +840,12 @@ export enum BindingType {
   Class,
   // A binding to a style rule (e.g. `[style.rule]="expression"`).
   Style,
-  // A binding to an animation reference (e.g. `[animate.key]="expression"`).
-  Animation,
+  // A binding to a legacy animation reference (e.g. `[animate.key]="expression"`).
+  LegacyAnimation,
   // Property side of a two-way binding (e.g. `[(property)]="expression"`).
   TwoWay,
+  // A binding to an animation CSS class or function (e.g. `[animate.leave]="expression"`).
+  Animation,
 }
 
 export class BoundElementProperty {

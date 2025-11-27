@@ -6,10 +6,9 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {ChangeDetectionStrategy, Component} from '@angular/core';
+import {ChangeDetectionStrategy, Component, provideZonelessChangeDetection} from '@angular/core';
 import {FormControl, FormsModule, ReactiveFormsModule, Validators} from '../public_api';
 import {TestBed} from '@angular/core/testing';
-import {provideZonelessChangeDetection} from '@angular/core/src/change_detection/scheduling/zoneless_scheduling_impl';
 
 describe('status host binding classes', () => {
   beforeEach(() => {
@@ -20,7 +19,6 @@ describe('status host binding classes', () => {
     @Component({
       selector: 'test-cmp',
       template: `<input type="text" [formControl]="control">`,
-      standalone: true,
       imports: [FormsModule, ReactiveFormsModule],
       changeDetection: ChangeDetectionStrategy.OnPush,
     })

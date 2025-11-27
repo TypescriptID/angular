@@ -6,7 +6,10 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {PLATFORM_BROWSER_ID, PLATFORM_SERVER_ID} from '@angular/common/src/platform_id';
+import {
+  ɵPLATFORM_BROWSER_ID as PLATFORM_BROWSER_ID,
+  ɵPLATFORM_SERVER_ID as PLATFORM_SERVER_ID,
+} from '@angular/common';
 import {
   AfterRenderRef,
   ApplicationRef,
@@ -26,6 +29,7 @@ import {
   effect,
   inject,
   signal,
+  provideZoneChangeDetection,
 } from '../../src/core';
 import {NoopNgZone} from '../../src/zone/ng_zone';
 import {TestBed} from '../../testing';
@@ -43,6 +47,11 @@ function createAndAttachComponent<T>(component: Type<T>) {
 }
 
 describe('after render hooks', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideZoneChangeDetection()],
+    });
+  });
   let prev: boolean;
 
   describe('browser', () => {

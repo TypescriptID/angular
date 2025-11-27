@@ -1,5 +1,5 @@
-load("@npm//@bazel/esbuild:index.bzl", "esbuild")
-load("//tools:defaults2.bzl", "ts_project")
+load("@aspect_rules_esbuild//esbuild:defs.bzl", "esbuild")
+load("//tools:defaults.bzl", "ts_project")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -14,15 +14,12 @@ ts_project(
             "main.ts",
         ],
     ),
-    tsconfig = "//packages/service-worker:tsconfig_build",
-    deps = ["//:node_modules/@types/node"],
 )
 
 ts_project(
     name = "main",
     srcs = ["main.ts"],
-    tsconfig = "//packages/service-worker:tsconfig_build",
-    deps = [":worker_rjs"],
+    deps = [":worker"],
 )
 
 esbuild(
@@ -35,6 +32,6 @@ esbuild(
     # features that are unavailable in some supported browsers. This is risky though, so we keep ES2017.
     target = "es2017",
     deps = [
-        ":main_rjs",
+        ":main",
     ],
 )

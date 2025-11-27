@@ -45,11 +45,15 @@ import {
   inject,
   getPlatform,
   provideNgReflectAttributes,
+  ɵSSR_CONTENT_INTEGRITY_MARKER as SSR_CONTENT_INTEGRITY_MARKER,
+  provideZoneChangeDetection,
+  signal,
 } from '@angular/core';
-import {SSR_CONTENT_INTEGRITY_MARKER} from '@angular/core/src/hydration/utils';
 import {TestBed} from '@angular/core/testing';
 import {
   bootstrapApplication,
+  createApplication,
+  BootstrapContext,
   BrowserModule,
   provideClientHydration,
   Title,
@@ -76,11 +80,12 @@ const APP_CONFIG: ApplicationConfig = {
 function getStandaloneBootstrapFn(
   component: Type<unknown>,
   providers: Array<Provider | EnvironmentProviders> = [],
-): () => Promise<ApplicationRef> {
-  return () =>
+): (context: BootstrapContext) => Promise<ApplicationRef> {
+  return (context: BootstrapContext) =>
     bootstrapApplication(
       component,
       mergeApplicationConfig(APP_CONFIG, {providers: [...providers, provideNgReflectAttributes()]}),
+      context,
     );
 }
 
@@ -134,6 +139,7 @@ const PendingTasksAppStandalone = createAppWithPendingTask(true);
   exports: [PendingTasksApp],
   imports: [ServerModule],
   bootstrap: [PendingTasksApp],
+  providers: [provideZoneChangeDetection()],
 })
 export class PendingTasksAppModule {}
 
@@ -330,12 +336,15 @@ function createMyAsyncServerApp(standalone: boolean) {
 }
 
 const MyAsyncServerApp = createMyAsyncServerApp(false);
-const MyAsyncServerAppStandalone = getStandaloneBootstrapFn(createMyAsyncServerApp(true));
+const MyAsyncServerAppStandalone = getStandaloneBootstrapFn(createMyAsyncServerApp(true), [
+  provideZoneChangeDetection(),
+]);
 
 @NgModule({
   declarations: [MyAsyncServerApp],
   imports: [BrowserModule, ServerModule],
   bootstrap: [MyAsyncServerApp],
+  providers: [provideZoneChangeDetection()],
 })
 class AsyncServerModule {}
 
@@ -745,108 +754,6 @@ class HiddenModule {}
       expect(img.attributes['src'].value).toEqual('link');
     });
 
-    describe('PlatformLocation', () => {
-      it('is injectable', async () => {
-        const platform = platformServer([
-          {provide: INITIAL_CONFIG, useValue: {document: '<app></app>'}},
-        ]);
-        const appRef = await platform.bootstrapModule(ExampleModule);
-        const location = appRef.injector.get(PlatformLocation);
-        expect(location.pathname).toBe('/');
-        platform.destroy();
-      });
-      it('is configurable via INITIAL_CONFIG', async () => {
-        const platform = platformServer([
-          {
-            provide: INITIAL_CONFIG,
-            useValue: {
-              document: '<app></app>',
-              url: 'http://test.com/deep/path?query#hash',
-            },
-          },
-        ]);
-
-        const appRef = await platform.bootstrapModule(ExampleModule);
-
-        const location = appRef.injector.get(PlatformLocation);
-        expect(location.pathname).toBe('/deep/path');
-        expect(location.search).toBe('?query');
-        expect(location.hash).toBe('#hash');
-      });
-
-      it('parses component pieces of a URL', async () => {
-        const platform = platformServer([
-          {
-            provide: INITIAL_CONFIG,
-            useValue: {
-              document: '<app></app>',
-              url: 'http://test.com:80/deep/path?query#hash',
-            },
-          },
-        ]);
-
-        const appRef = await platform.bootstrapModule(ExampleModule);
-
-        const location = appRef.injector.get(PlatformLocation);
-        expect(location.hostname).toBe('test.com');
-        expect(location.protocol).toBe('http:');
-        expect(location.port).toBe('');
-        expect(location.pathname).toBe('/deep/path');
-        expect(location.search).toBe('?query');
-        expect(location.hash).toBe('#hash');
-      });
-
-      it('handles empty search and hash portions of the url', async () => {
-        const platform = platformServer([
-          {
-            provide: INITIAL_CONFIG,
-            useValue: {
-              document: '<app></app>',
-              url: 'http://test.com/deep/path',
-            },
-          },
-        ]);
-
-        const appRef = await platform.bootstrapModule(ExampleModule);
-
-        const location = appRef.injector.get(PlatformLocation);
-        expect(location.pathname).toBe('/deep/path');
-        expect(location.search).toBe('');
-        expect(location.hash).toBe('');
-      });
-
-      it('pushState causes the URL to update', async () => {
-        const platform = platformServer([
-          {provide: INITIAL_CONFIG, useValue: {document: '<app></app>'}},
-        ]);
-
-        const appRef = await platform.bootstrapModule(ExampleModule);
-        const location = appRef.injector.get(PlatformLocation);
-        location.pushState(null, 'Test', '/foo#bar');
-        expect(location.pathname).toBe('/foo');
-        expect(location.hash).toBe('#bar');
-        platform.destroy();
-      });
-
-      it('allows subscription to the hash state', (done) => {
-        const platform = platformServer([
-          {provide: INITIAL_CONFIG, useValue: {document: '<app></app>'}},
-        ]);
-        platform.bootstrapModule(ExampleModule).then((appRef) => {
-          const location: PlatformLocation = appRef.injector.get(PlatformLocation);
-          expect(location.pathname).toBe('/');
-          location.onHashChange((e: any) => {
-            expect(e.type).toBe('hashchange');
-            expect(e.oldUrl).toBe('/');
-            expect(e.newUrl).toBe('/foo#bar');
-            platform.destroy();
-            done();
-          });
-          location.pushState(null, 'Test', '/foo#bar');
-        });
-      });
-    });
-
     describe('render', () => {
       let doc: string;
       let expectedOutput =
@@ -860,6 +767,24 @@ class HiddenModule {}
       afterEach(() => {
         doc = '<html><head></head><body><app></app></body></html>';
         TestBed.resetTestingModule();
+      });
+
+      it('should render with `createApplication`', async () => {
+        const output = await renderApplication(
+          async (context) => {
+            const appRef = await createApplication(
+              {
+                providers: [provideZoneChangeDetection()],
+              },
+              context,
+            );
+            appRef.bootstrap(createMyAsyncServerApp(true));
+            return appRef;
+          },
+          {document: doc},
+        );
+
+        expect(output).toBe(expectedOutput);
       });
 
       it('using long form should work', async () => {
@@ -1053,7 +978,6 @@ class HiddenModule {}
 
         it('appends SSR integrity marker comment when hydration is enabled', async () => {
           @Component({
-            standalone: true,
             selector: 'app',
             template: ``,
           })
@@ -1194,7 +1118,12 @@ class HiddenModule {}
           async () => {
             const options = {document: doc};
             const bootstrap = isStandalone
-              ? renderApplication(getStandaloneBootstrapFn(PendingTasksAppStandalone), options)
+              ? renderApplication(
+                  getStandaloneBootstrapFn(PendingTasksAppStandalone, [
+                    provideZoneChangeDetection(),
+                  ]),
+                  options,
+                )
               : renderModule(PendingTasksAppModule, options);
             const output = await bootstrap;
             expect(output).toBe(
@@ -1219,6 +1148,7 @@ class HiddenModule {}
             }
 
             const SuccessfulAppInitializerProviders = [
+              provideZoneChangeDetection(),
               {
                 provide: APP_INITIALIZER,
                 useFactory: () => {
@@ -1359,7 +1289,6 @@ class HiddenModule {}
         const ngZone = TestBed.inject(NgZone);
 
         @Component({
-          standalone: true,
           selector: 'lazy',
           template: `LazyCmp content`,
         })
@@ -1424,7 +1353,6 @@ class HiddenModule {}
           const http = ref.injector.get(HttpClient);
           ref.injector.get<NgZone>(NgZone).run(() => {
             http.get<string>('http://localhost/testing').subscribe((body: string) => {
-              NgZone.assertInAngularZone();
               expect(body).toEqual('success!');
             });
             mock.expectOne('http://localhost/testing').flush('success!');
@@ -1441,7 +1369,6 @@ class HiddenModule {}
           const http = ref.injector.get(HttpClient);
           ref.injector.get(NgZone).run(() => {
             http.get<string>('http://localhost/testing').subscribe((body: string) => {
-              NgZone.assertInAngularZone();
               expect(body).toEqual('success!');
             });
             mock.expectOne('http://localhost/testing').flush('success!');
@@ -1512,7 +1439,6 @@ class HiddenModule {}
         it('should resolve relative request URLs to absolute', async () => {
           ref.injector.get(NgZone).run(() => {
             http.get('/testing').subscribe((body) => {
-              NgZone.assertInAngularZone();
               expect(body).toEqual('success!');
             });
             mock.expectOne('http://localhost:4000/testing').flush('success!');
@@ -1522,7 +1448,6 @@ class HiddenModule {}
         it(`should not replace the baseUrl of a request when it's absolute`, async () => {
           ref.injector.get(NgZone).run(() => {
             http.get('http://localhost/testing').subscribe((body) => {
-              NgZone.assertInAngularZone();
               expect(body).toEqual('success!');
             });
             mock.expectOne('http://localhost/testing').flush('success!');

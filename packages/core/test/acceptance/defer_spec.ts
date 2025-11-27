@@ -34,6 +34,7 @@ import {
   Injector,
   ElementRef,
   ViewChild,
+  provideZoneChangeDetection,
 } from '../../src/core';
 import {getComponentDef} from '../../src/render3/def_getters';
 import {ComponentFixture, DeferBlockBehavior, fakeAsync, flush, TestBed, tick} from '../../testing';
@@ -41,10 +42,11 @@ import {getInjectorResolutionPath} from '../../src/render3/util/injector_discove
 import {ActivatedRoute, provideRouter, Router, RouterOutlet} from '@angular/router';
 import {ChainedInjector} from '../../src/render3/chained_injector';
 import {global} from '../../src/util/global';
-import {TimerScheduler} from '@angular/core/src/defer/timer_scheduler';
+import {TimerScheduler} from '../../src/defer/timer_scheduler';
 import {Console} from '../../src/console';
 import {formatRuntimeErrorCode, RuntimeErrorCode} from '../../src/errors';
 import {provideNgReflectAttributes} from '../../src/ng_reflect';
+import {isBrowser} from '@angular/private/testing';
 
 /**
  * Clears all associated directive defs from a given component class.
@@ -220,6 +222,11 @@ const COMMON_PROVIDERS = [
 ];
 
 describe('@defer', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideZoneChangeDetection()],
+    });
+  });
   beforeEach(() => {
     TestBed.configureTestingModule({providers: COMMON_PROVIDERS});
   });
@@ -2340,8 +2347,6 @@ describe('@defer', () => {
         isVisible = false;
       }
 
-      TestBed.configureTestingModule({});
-
       clearDirectiveDefs(RootCmp);
 
       const fixture = TestBed.createComponent(RootCmp);
@@ -2806,7 +2811,6 @@ describe('@defer', () => {
          `,
       })
       class MyCmp {}
-      TestBed.configureTestingModule({});
 
       const appRef = TestBed.inject(ApplicationRef);
       const zone = TestBed.inject(NgZone);
@@ -3452,8 +3456,6 @@ describe('@defer', () => {
         isVisible = false;
       }
 
-      TestBed.configureTestingModule({});
-
       clearDirectiveDefs(RootCmp);
 
       const fixture = TestBed.createComponent(RootCmp);
@@ -3497,7 +3499,10 @@ describe('@defer', () => {
       observedElements = new Set<Element>();
       private elementsInView = new Set<Element>();
 
-      constructor(private callback: IntersectionObserverCallback) {
+      constructor(
+        private callback: IntersectionObserverCallback,
+        readonly options: IntersectionObserverInit | null = null,
+      ) {
         activeObservers.push(this);
       }
 
@@ -3774,16 +3779,16 @@ describe('@defer', () => {
     it('should disconnect the intersection observer once all deferred blocks have been loaded', fakeAsync(() => {
       @Component({
         template: `
-            <button #triggerOne></button>
-            @defer (on viewport(triggerOne)) {
-              One
-            }
+          <button #triggerOne></button>
+          @defer (on viewport(triggerOne)) {
+            One
+          }
 
-            <button #triggerTwo></button>
-            @defer (on viewport(triggerTwo)) {
-              Two
-            }
-          `,
+          <button #triggerTwo></button>
+          @defer (on viewport(triggerTwo)) {
+            Two
+          }
+        `,
       })
       class MyCmp {}
 
@@ -3939,6 +3944,76 @@ describe('@defer', () => {
         flush();
       }
       expect(fixture.nativeElement.textContent.trim()).toBe('d1 d2 d3 d4 d5 d6');
+    }));
+
+    it('should take the `on viewport` options into account when creating IntersectionObserver', fakeAsync(() => {
+      @Component({
+        template: `
+          @defer (on viewport({trigger, rootMargin: '123px', threshold: 0.5})) {Hello}
+          <button #trigger></button>
+        `,
+      })
+      class MyCmp {}
+
+      const fixture = TestBed.createComponent(MyCmp);
+      fixture.detectChanges();
+
+      const button: HTMLButtonElement = fixture.nativeElement.querySelector('button');
+      expect(activeObservers.length).toBe(1);
+      expect(activeObservers[0].observedElements.size).toBe(1);
+      expect(activeObservers[0].observedElements.has(button)).toBe(true);
+      expect(activeObservers[0].options).toEqual({rootMargin: '123px', threshold: 0.5});
+    }));
+
+    it('should take the `prefetch on viewport` options into account when creating IntersectionObserver', fakeAsync(() => {
+      @Component({
+        template: `
+          @defer (prefetch on viewport({trigger, rootMargin: '123px', threshold: 0.5})) {Hello}
+          <button #trigger></button>
+        `,
+      })
+      class MyCmp {}
+
+      const fixture = TestBed.createComponent(MyCmp);
+      fixture.detectChanges();
+
+      const button: HTMLButtonElement = fixture.nativeElement.querySelector('button');
+      expect(activeObservers.length).toBe(1);
+      expect(activeObservers[0].observedElements.size).toBe(1);
+      expect(activeObservers[0].observedElements.has(button)).toBe(true);
+      expect(activeObservers[0].options).toEqual({rootMargin: '123px', threshold: 0.5});
+    }));
+
+    it('should create different intersection observers depending on their options', fakeAsync(() => {
+      @Component({
+        template: `
+          @defer (on viewport(trigger)) {One}
+          @defer (on viewport({trigger, rootMargin: '123px'})) {Two}
+          @defer (on viewport({trigger, rootMargin: '1vh'})) {Three}
+          @defer (on viewport(trigger)) {One Duplicate}
+          @defer (on viewport({trigger, rootMargin: '123px'})) {Two Duplicate}
+
+          <button #trigger></button>
+        `,
+      })
+      class MyCmp {}
+
+      const fixture = TestBed.createComponent(MyCmp);
+      fixture.detectChanges();
+
+      const button: HTMLButtonElement = fixture.nativeElement.querySelector('button');
+      expect(activeObservers.length).toBe(3);
+      expect(activeObservers[0].observedElements.size).toBe(1);
+      expect(activeObservers[0].observedElements.has(button)).toBe(true);
+      expect(activeObservers[0].options).toBe(null);
+
+      expect(activeObservers[1].observedElements.size).toBe(1);
+      expect(activeObservers[1].observedElements.has(button)).toBe(true);
+      expect(activeObservers[1].options).toEqual({rootMargin: '123px'});
+
+      expect(activeObservers[2].observedElements.size).toBe(1);
+      expect(activeObservers[2].observedElements.has(button)).toBe(true);
+      expect(activeObservers[2].options).toEqual({rootMargin: '1vh'});
     }));
   });
 

@@ -6,7 +6,20 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {Component, computed, effect, inject, Injectable, signal} from '../../src/core';
+import {NodeInjector} from '../../../core/src/render3/di';
+import {getDirectives} from '../../../core/src/render3/util/discovery_utils';
+import {
+  Component,
+  Directive,
+  computed,
+  effect,
+  inject,
+  Injectable,
+  signal,
+  Injector,
+  ApplicationRef,
+  afterRenderEffect,
+} from '../../src/core';
 import {
   getFrameworkDIDebugData,
   setupFrameworkInjectorProfiler,
@@ -302,4 +315,170 @@ describe('getSignalGraph', () => {
       producer: fourFiveSixNode,
     });
   }));
+
+  it('should capture signals created in directives in the signal graph', () => {
+    @Directive({
+      selector: '[myDirective]',
+    })
+    class MyDirective {
+      injector = inject(Injector);
+      readonly fooSignal = signal('foo', {debugName: 'fooSignal'});
+      readonly barEffect = effect(
+        () => {
+          this.fooSignal();
+        },
+        {debugName: 'barEffect'},
+      );
+    }
+
+    @Component({
+      selector: 'component-with-directive',
+      template: `<div id="element-with-directive" myDirective></div>`,
+      imports: [MyDirective],
+    })
+    class WithDirective {}
+
+    TestBed.configureTestingModule({imports: [WithDirective]});
+    const fixture = TestBed.createComponent(WithDirective);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement.querySelector('#element-with-directive');
+    // get the directive instance
+    const directiveInstances = getDirectives(element);
+    expect(directiveInstances.length).toBe(1);
+    const directiveInstance = directiveInstances[0];
+    expect(directiveInstance).toBeInstanceOf(MyDirective);
+    const injector = (directiveInstance as MyDirective).injector;
+    expect(injector).toBeInstanceOf(NodeInjector);
+    const signalGraph = getSignalGraph(injector);
+    expect(signalGraph).toBeDefined();
+
+    const {nodes, edges} = signalGraph;
+    expect(nodes.length).toBe(2);
+    expect(edges.length).toBe(1);
+
+    const fooNode = nodes.find((node) => node.label === 'fooSignal');
+    expect(fooNode).toBeDefined();
+    expect(fooNode!.value).toBe('foo');
+
+    const barNode = nodes.find((node) => node.label === 'barEffect');
+    expect(barNode).toBeDefined();
+    expect(barNode!.kind).toBe('effect');
+
+    const edgesWithNodes = mapEdgeIndicesIntoNodes(edges, nodes);
+    expect(edgesWithNodes).toContain({consumer: barNode!, producer: fooNode!});
+  });
+
+  it('should capture signals created in different directives in the signal graph', () => {
+    @Directive({
+      selector: '[myDirectiveA]',
+    })
+    class MyDirectiveA {
+      injector = inject(Injector);
+      readonly signalA = signal('A', {debugName: 'signalA'});
+      readonly effectB = effect(
+        () => {
+          this.signalA();
+        },
+        {debugName: 'effectB'},
+      );
+    }
+
+    @Directive({
+      selector: '[myDirectiveB]',
+    })
+    class MyDirectiveB {
+      injector = inject(Injector);
+      readonly signalC = signal('C', {debugName: 'signalC'});
+      readonly effectD = effect(
+        () => {
+          this.signalC();
+        },
+        {debugName: 'effectD'},
+      );
+    }
+
+    @Component({
+      selector: 'component-with-multiple-directives',
+      template: `<div id="element-with-directives" myDirectiveA myDirectiveB></div>`,
+      imports: [MyDirectiveA, MyDirectiveB],
+    })
+    class WithMultipleDirectives {}
+
+    TestBed.configureTestingModule({imports: [WithMultipleDirectives]});
+    const fixture = TestBed.createComponent(WithMultipleDirectives);
+    fixture.detectChanges();
+    const element = fixture.nativeElement.querySelector('#element-with-directives');
+    // get the directive instances
+    const directiveInstances = getDirectives(element);
+    expect(directiveInstances.length).toBe(2);
+    const directiveInstanceA = directiveInstances[0];
+    const directiveInstanceB = directiveInstances[1];
+    expect(directiveInstanceA).toBeInstanceOf(MyDirectiveA);
+    expect(directiveInstanceB).toBeInstanceOf(MyDirectiveB);
+    const injector = (directiveInstanceA as MyDirectiveA).injector;
+    expect(injector).toBeInstanceOf(NodeInjector);
+
+    const signalGraph = getSignalGraph(injector);
+    expect(signalGraph).toBeDefined();
+    const {nodes, edges} = signalGraph;
+    expect(nodes.length).toBe(4);
+    expect(edges.length).toBe(2);
+
+    const signalANode = nodes.find((node) => node.label === 'signalA');
+    expect(signalANode).toBeDefined();
+    expect(signalANode!.kind).toBe('signal');
+    expect(signalANode!.value).toBe('A');
+
+    const effectBNode = nodes.find((node) => node.label === 'effectB');
+    expect(effectBNode).toBeDefined();
+    expect(effectBNode!.kind).toBe('effect');
+
+    const signalCNode = nodes.find((node) => node.label === 'signalC');
+    expect(signalCNode).toBeDefined();
+    expect(signalCNode!.kind).toBe('signal');
+    expect(signalCNode!.value).toBe('C');
+
+    const effectDNode = nodes.find((node) => node.label === 'effectD');
+    expect(effectDNode).toBeDefined();
+    expect(effectDNode!.kind).toBe('effect');
+
+    const edgesWithNodes = mapEdgeIndicesIntoNodes(edges, nodes);
+    expect(edgesWithNodes).toContain({consumer: effectBNode!, producer: signalANode!});
+    expect(edgesWithNodes).toContain({consumer: effectDNode!, producer: signalCNode!});
+  });
+
+  it('should stop tracking effect when ref is destroyed', () => {
+    @Component({template: ''})
+    class App {}
+
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+
+    const injector = TestBed.inject(ApplicationRef).injector;
+    expect(getFrameworkDIDebugData().resolverToEffects.has(injector)).toBe(false);
+
+    const ref = effect(() => {}, {injector});
+    expect(getFrameworkDIDebugData().resolverToEffects.get(injector)?.length).toBe(1);
+
+    ref.destroy();
+    expect(getFrameworkDIDebugData().resolverToEffects.get(injector)?.length).toBe(0);
+  });
+
+  it('should stop tracking afterRenderEffect when ref is destroyed', () => {
+    @Component({template: ''})
+    class App {}
+
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+
+    const injector = TestBed.inject(ApplicationRef).injector;
+    expect(getFrameworkDIDebugData().resolverToEffects.has(injector)).toBe(false);
+
+    const ref = afterRenderEffect(() => {}, {injector});
+    expect(getFrameworkDIDebugData().resolverToEffects.get(injector)?.length).toBe(1);
+
+    ref.destroy();
+    expect(getFrameworkDIDebugData().resolverToEffects.get(injector)?.length).toBe(0);
+  });
 });

@@ -21,8 +21,7 @@ const browserDistFolder = resolve(serverDistFolder, '../browser');
 const indexHtml = readFileSync(join(browserDistFolder, 'index.csr.html'), 'utf-8');
 
 // Serve static files from /browser
-app.get(
-  '*.*',
+app.use(
   express.static(browserDistFolder, {
     maxAge: '1y',
   }),
@@ -38,7 +37,7 @@ app.get('/api-2', (req, res) => {
 });
 
 // All regular routes use the Universal engine
-app.get('*', (req, res) => {
+app.use((req, res) => {
   const {protocol, originalUrl, baseUrl, headers} = req;
 
   renderApplication(bootstrap, {
@@ -50,6 +49,6 @@ app.get('*', (req, res) => {
   });
 });
 
-app.listen(4206, () => {
-  console.log('Server listening on port 4206!');
+app.listen(4209, () => {
+  console.log('Server listening on port 4209!');
 });

@@ -6,6 +6,8 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
+/// <reference path="../../../goog.d.ts" />
+
 import {InjectionToken} from '../di/injection_token';
 import {inject} from '../di/injector_compatibility';
 
@@ -76,10 +78,12 @@ export function getGlobalLocale(): string {
  *
  * @publicApi
  */
-export const LOCALE_ID: InjectionToken<string> = new InjectionToken(ngDevMode ? 'LocaleId' : '', {
-  providedIn: 'root',
-  factory: () => inject(LOCALE_ID, {optional: true, skipSelf: true}) || getGlobalLocale(),
-});
+export const LOCALE_ID: InjectionToken<string> = new InjectionToken(
+  typeof ngDevMode !== undefined && ngDevMode ? 'LocaleId' : '',
+  {
+    factory: () => inject(LOCALE_ID, {optional: true, skipSelf: true}) || getGlobalLocale(),
+  },
+);
 
 /**
  * Provide this token to set the default currency code your application uses for
@@ -106,7 +110,6 @@ export const LOCALE_ID: InjectionToken<string> = new InjectionToken(ngDevMode ? 
  * In standalone apps:
  * ```ts
  * import { LOCALE_ID, ApplicationConfig } from '@angular/core';
- * import { AppModule } from './app/app.module';
  *
  * const appConfig: ApplicationConfig = {
  *   providers: [{provide: DEFAULT_CURRENCY_CODE, useValue: 'EUR' }]
@@ -126,9 +129,8 @@ export const LOCALE_ID: InjectionToken<string> = new InjectionToken(ngDevMode ? 
  * @publicApi
  */
 export const DEFAULT_CURRENCY_CODE = new InjectionToken<string>(
-  ngDevMode ? 'DefaultCurrencyCode' : '',
+  typeof ngDevMode !== undefined && ngDevMode ? 'DefaultCurrencyCode' : '',
   {
-    providedIn: 'root',
     factory: () => USD_CURRENCY_CODE,
   },
 );
@@ -144,7 +146,6 @@ export const DEFAULT_CURRENCY_CODE = new InjectionToken<string>(
  * In standalone apps:
  * ```ts
  * import { LOCALE_ID, ApplicationConfig } from '@angular/core';
- * import { AppModule } from './app/app.module';
  *
  * const appConfig: ApplicationConfig = {
  *   providers: [{provide: TRANSLATIONS, useValue: translations }]
@@ -167,7 +168,9 @@ export const DEFAULT_CURRENCY_CODE = new InjectionToken<string>(
  *
  * @publicApi
  */
-export const TRANSLATIONS = new InjectionToken<string>(ngDevMode ? 'Translations' : '');
+export const TRANSLATIONS = new InjectionToken<string>(
+  typeof ngDevMode !== undefined && ngDevMode ? 'Translations' : '',
+);
 
 /**
  * Provide this token at bootstrap to set the format of your {@link TRANSLATIONS}: `xtb`,
@@ -180,7 +183,6 @@ export const TRANSLATIONS = new InjectionToken<string>(ngDevMode ? 'Translations
  * In standalone apps:
  * ```ts
  * import { LOCALE_ID, ApplicationConfig } from '@angular/core';
- * import { AppModule } from './app/app.module';
  *
  * const appConfig: ApplicationConfig = {
  *   providers: [{provide: TRANSLATIONS_FORMAT, useValue: 'xlf' }]
@@ -201,7 +203,7 @@ export const TRANSLATIONS = new InjectionToken<string>(ngDevMode ? 'Translations
  * @publicApi
  */
 export const TRANSLATIONS_FORMAT = new InjectionToken<string>(
-  ngDevMode ? 'TranslationsFormat' : '',
+  typeof ngDevMode !== undefined && ngDevMode ? 'TranslationsFormat' : '',
 );
 
 /**

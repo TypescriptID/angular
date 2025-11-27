@@ -9,7 +9,6 @@
 import ts from 'typescript';
 import {
   confirmAsSerializable,
-  MigrationStats,
   ProgramInfo,
   projectFile,
   ProjectFile,
@@ -20,9 +19,11 @@ import {
   TsurgeFunnelMigration,
 } from '../../utils/tsurge';
 
-import {DtsMetadataReader} from '@angular/compiler-cli/src/ngtsc/metadata';
-import {TypeScriptReflectionHost} from '@angular/compiler-cli/src/ngtsc/reflection';
-import {PartialEvaluator} from '@angular/compiler-cli/private/migrations';
+import {
+  DtsMetadataReader,
+  TypeScriptReflectionHost,
+  PartialEvaluator,
+} from '@angular/compiler-cli/private/migrations';
 import {
   getUniqueIdForProperty,
   isTargetOutputDeclaration,
@@ -384,7 +385,7 @@ export class OutputMigration extends TsurgeFunnelMigration<
     return confirmAsSerializable(combinedData);
   }
 
-  override async stats(globalMetadata: CompilationUnitData): Promise<MigrationStats> {
+  override async stats(globalMetadata: CompilationUnitData) {
     const detectedOutputs =
       new Set(Object.keys(globalMetadata.outputFields)).size +
       globalMetadata.problematicDeclarationCount;
@@ -395,13 +396,11 @@ export class OutputMigration extends TsurgeFunnelMigration<
     const successRate =
       detectedOutputs > 0 ? (detectedOutputs - problematicOutputs) / detectedOutputs : 1;
 
-    return {
-      counters: {
-        detectedOutputs,
-        problematicOutputs,
-        successRate,
-      },
-    };
+    return confirmAsSerializable({
+      detectedOutputs,
+      problematicOutputs,
+      successRate,
+    });
   }
 
   override async migrate(globalData: CompilationUnitData) {

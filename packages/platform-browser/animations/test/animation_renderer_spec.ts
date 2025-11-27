@@ -25,22 +25,20 @@ import {
   Injectable,
   NgModule,
   NgZone,
+  provideZoneChangeDetection,
   RendererFactory2,
   RendererType2,
   ViewChild,
 } from '@angular/core';
 import {TestBed} from '@angular/core/testing';
-import {bootstrapApplication} from '../../index';
-import {platformBrowserDynamic} from '@angular/platform-browser-dynamic';
+import {bootstrapApplication, platformBrowser} from '../../index';
 import {
   BrowserAnimationsModule,
   ɵInjectableAnimationEngine as InjectableAnimationEngine,
 } from '../index';
 import {provideAnimationsAsync} from '../async';
 import {DomRendererFactory2} from '../../src/dom/dom_renderer';
-import {withBody} from '@angular/private/testing';
-
-import {el} from '../../testing/src/browser_util';
+import {withBody, isNode, el} from '@angular/private/testing';
 
 (function () {
   if (isNode) return;
@@ -223,7 +221,10 @@ import {el} from '../../testing/src/browser_util';
         }
 
         TestBed.configureTestingModule({
-          providers: [{provide: AnimationEngine, useClass: InjectableAnimationEngine}],
+          providers: [
+            {provide: AnimationEngine, useClass: InjectableAnimationEngine},
+            provideZoneChangeDetection(),
+          ],
           declarations: [Cmp],
         });
 
@@ -272,7 +273,10 @@ import {el} from '../../testing/src/browser_util';
         }
 
         TestBed.configureTestingModule({
-          providers: [{provide: AnimationEngine, useClass: InjectableAnimationEngine}],
+          providers: [
+            {provide: AnimationEngine, useClass: InjectableAnimationEngine},
+            provideZoneChangeDetection(),
+          ],
           declarations: [Cmp],
         });
 
@@ -385,7 +389,7 @@ import {el} from '../../testing/src/browser_util';
         })
         class AppModule {}
 
-        const ngModuleRef = await platformBrowserDynamic().bootstrapModule(AppModule);
+        const ngModuleRef = await platformBrowser().bootstrapModule(AppModule);
 
         const root = document.body.querySelector('app-root')!;
         expect(root.textContent).toEqual('app-root content');
@@ -439,7 +443,7 @@ import {el} from '../../testing/src/browser_util';
         })
         class AppModule {}
 
-        const ngModuleRef = await platformBrowserDynamic().bootstrapModule(AppModule);
+        const ngModuleRef = await platformBrowser().bootstrapModule(AppModule);
 
         const root = document.body.querySelector('app-root')!;
         expect(root.textContent).toEqual('app-root content');
@@ -468,7 +472,7 @@ import {el} from '../../testing/src/browser_util';
           constructor(rendererFactory: RendererFactory2) {}
         }
 
-        @Component({selector: 'app-root', template: 'app-root content', standalone: true})
+        @Component({selector: 'app-root', template: 'app-root content'})
         class AppComponent {}
 
         const appRef = await bootstrapApplication(AppComponent, {
@@ -500,7 +504,7 @@ import {el} from '../../testing/src/browser_util';
     it(
       'should clear bootstrapped component contents when async animations are used',
       withBody('<div>before</div><app-root></app-root><div>after</div>', async () => {
-        @Component({selector: 'app-root', template: 'app-root content', standalone: true})
+        @Component({selector: 'app-root', template: 'app-root content'})
         class AppComponent {}
 
         const appRef = await bootstrapApplication(AppComponent, {

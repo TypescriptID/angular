@@ -15,6 +15,7 @@ import {
   Input,
   NgZone,
   createComponent,
+  provideZoneChangeDetection,
   provideZonelessChangeDetection,
   signal,
 } from '../src/core';
@@ -27,8 +28,8 @@ import {
   waitForAsync,
   withModule,
 } from '../testing';
-import {dispatchEvent} from '@angular/platform-browser/testing/src/browser_util';
-import {expect} from '@angular/platform-browser/testing/src/matchers';
+import {dispatchEvent, isNode} from '@angular/private/testing';
+import {expect} from '@angular/private/testing/matchers';
 
 @Component({
   selector: 'simple-comp',
@@ -155,8 +156,17 @@ class NestedAsyncTimeoutComp {
 }
 
 describe('ComponentFixture', () => {
+  beforeEach(() => {
+    globalThis['ngServerMode'] = isNode;
+  });
+
+  afterEach(() => {
+    globalThis['ngServerMode'] = undefined;
+  });
+
   beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
+      providers: [provideZoneChangeDetection()],
       declarations: [
         AutoDetectComp,
         AsyncComp,
@@ -420,6 +430,7 @@ describe('ComponentFixture', () => {
     class Blank {}
 
     it('rejects whenStable promise when errors happen during appRef.tick', async () => {
+      TestBed.configureTestingModule({providers: [provideZoneChangeDetection()]});
       const fixture = TestBed.createComponent(Blank);
       const throwingThing = createComponent(ThrowingThing, {
         environmentInjector: TestBed.inject(EnvironmentInjector),
@@ -634,7 +645,7 @@ describe('ComponentFixture with zoneless', () => {
     expect(() => fixture.detectChanges()).toThrowError(/ExpressionChanged/);
   });
 
-  it('runs change detection when autoDetect is false', () => {
+  it('disallows autoDetect: false', () => {
     @Component({
       template: '{{thing()}}',
     })
@@ -643,9 +654,6 @@ describe('ComponentFixture with zoneless', () => {
     }
 
     const fixture = TestBed.createComponent(App);
-    fixture.autoDetectChanges(false);
-    fixture.componentInstance.thing.set(2);
-    fixture.detectChanges();
-    expect(fixture.nativeElement.innerText).toBe('2');
+    expect(() => fixture.autoDetectChanges(false)).toThrow();
   });
 });

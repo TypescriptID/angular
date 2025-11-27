@@ -9,12 +9,19 @@
 import {DOCUMENT, ɵgetDOM as getDOM} from '@angular/common';
 import {ResourceLoader} from '@angular/compiler';
 import {
+  BrowserModule,
+  ɵDomRendererFactory2 as DomRendererFactory2,
+} from '@angular/platform-browser';
+import type {ServerModule} from '@angular/platform-server';
+import {createTemplate, dispatchEvent, getContent, isNode} from '@angular/private/testing';
+import {expect} from '@angular/private/testing/matchers';
+import {
   APP_BOOTSTRAP_LISTENER,
   APP_INITIALIZER,
   ChangeDetectionStrategy,
   Compiler,
-  CompilerFactory,
   Component,
+  DestroyRef,
   EnvironmentInjector,
   InjectionToken,
   Injector,
@@ -22,31 +29,22 @@ import {
   NgModule,
   NgZone,
   PlatformRef,
-  provideZoneChangeDetection,
   RendererFactory2,
   TemplateRef,
   Type,
   ViewChild,
   ViewContainerRef,
+  provideZoneChangeDetection,
 } from '../src/core';
 import {ErrorHandler} from '../src/error_handler';
 import {ComponentRef} from '../src/linker/component_factory';
 import {createEnvironmentInjector, getLocaleId} from '../src/render3';
-import {BrowserModule} from '@angular/platform-browser';
-import {DomRendererFactory2} from '@angular/platform-browser/src/dom/dom_renderer';
-import {
-  createTemplate,
-  dispatchEvent,
-  getContent,
-} from '@angular/platform-browser/testing/src/browser_util';
-import {expect} from '@angular/platform-browser/testing/src/matchers';
-import type {ServerModule} from '@angular/platform-server';
 
+import {take} from 'rxjs/operators';
+import {compileNgModuleFactory} from '../src/application/application_ngmodule_factory_compiler';
 import {ApplicationRef} from '../src/application/application_ref';
 import {NoopNgZone} from '../src/zone/ng_zone';
 import {ComponentFixtureNoNgZone, inject, TestBed, waitForAsync, withModule} from '../testing';
-import {take} from 'rxjs/operators';
-import {compileNgModuleFactory} from '../src/application/application_ngmodule_factory_compiler';
 
 let serverPlatformModule: Promise<Type<ServerModule>> | null = null;
 if (isNode) {
@@ -175,7 +173,10 @@ describe('bootstrap', () => {
 
   describe('ApplicationRef', () => {
     beforeEach(async () => {
-      TestBed.configureTestingModule({imports: [await createModule()]});
+      TestBed.configureTestingModule({
+        imports: [await createModule()],
+        providers: [provideZoneChangeDetection()],
+      });
     });
 
     it('should throw when reentering tick', () => {
@@ -746,7 +747,10 @@ describe('bootstrap', () => {
     beforeEach(() => {
       TestBed.configureTestingModule({
         declarations: [MyComp, ContainerComp, EmbeddedViewComp],
-        providers: [{provide: ComponentFixtureNoNgZone, useValue: true}],
+        providers: [
+          {provide: ComponentFixtureNoNgZone, useValue: true},
+          provideZoneChangeDetection(),
+        ],
       });
     });
 
@@ -943,7 +947,7 @@ describe('AppRef', () => {
     beforeEach(() => {
       stableCalled = false;
       TestBed.configureTestingModule({
-        providers: [provideZoneChangeDetection({ignoreChangesOutsideZone: true})],
+        providers: [provideZoneChangeDetection()],
         declarations: [
           SyncComp,
           MicroTaskComp,
@@ -967,7 +971,7 @@ describe('AppRef', () => {
       zone.run(() => appRef.tick());
 
       let i = 0;
-      appRef.isStable.subscribe({
+      const sub = appRef.isStable.subscribe({
         next: (stable: boolean) => {
           if (stable) {
             expect(i).toBeLessThan(expected.length);
@@ -976,6 +980,7 @@ describe('AppRef', () => {
           }
         },
       });
+      fixture.debugElement.injector.get(DestroyRef).onDestroy(() => sub.unsubscribe());
     }
 
     it('isStable should fire on synchronous component loading', waitForAsync(() => {
@@ -1009,8 +1014,16 @@ describe('AppRef', () => {
     describe('unstable', () => {
       let unstableCalled = false;
 
+      beforeEach(() => {
+        globalThis['ngServerMode'] = isNode;
+      });
+
       afterEach(() => {
         expect(unstableCalled).toBe(true, 'isStable did not emit false on unstable');
+      });
+
+      afterEach(() => {
+        globalThis['ngServerMode'] = undefined;
       });
 
       function expectUnstable(appRef: ApplicationRef) {

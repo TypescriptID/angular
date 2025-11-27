@@ -1,25 +1,26 @@
 # Server and hybrid rendering
 
+Angular ships all applications as client-side rendered (CSR) by default. While this approach delivers an initial payload that's lightweight, it introduces trade-offs including slower load times, degraded performance metrics, and higher resource demands since the user's device performs most of the computations. As a result, many applications achieve significant performance improvements by integrating server-side rendering (SSR) into a hybrid rendering strategy.
+
 ## What is hybrid rendering?
 
-Hybrid rendering combines the benefits of server-side rendering (SSR), pre-rendering (also known as "static site generation" or SSG) and client-side rendering (CSR) to optimize your Angular application. It allows you to render different parts of your application using different strategies, giving you fine-grained control over how your app is delivered to users.
+Hybrid rendering allows developers to leverage the benefits of server-side rendering (SSR), pre-rendering (also known as "static site generation" or SSG) and client-side rendering (CSR) to optimize your Angular application. It gives you fine-grained control over how the different parts of your app are rendered to give your users the best experience possible.
 
 ## Setting up hybrid rendering
 
-You can create a **new** project with server-side rendering with the Angular CLI:
+You can create a **new** project with hybrid rendering by using the server-side rendering flag (i.e., `--ssr`) with the Angular CLI `ng new` command:
 
 ```shell
 ng new --ssr
 ```
 
-You can also add server-side rendering to an existing project with the `ng add` command:
+You can also enable hybrid rendering by adding server-side rendering to an existing project with the `ng add` command:
 
 ```shell
 ng add @angular/ssr
 ```
 
-NOTE: By default, Angular prerenders your entire application and generates a server file. To disable this and create a fully static app, set `outputMode` to `static`. To enable SSR, update the server routes to use `RenderMode.Server`.
-For more details, see [`Server routing`](#server-routing) and [`Generate a fully static application`](#generate-a-fully-static-application).
+NOTE: By default, Angular prerenders your entire application and generates a server file. To disable this and create a fully static app, set `outputMode` to `static`. To enable SSR, update the server routes to use `RenderMode.Server`. For more details, see [`Server routing`](#server-routing) and [`Generate a fully static application`](#generate-a-fully-static-application).
 
 ## Server routing
 
@@ -66,7 +67,7 @@ const serverConfig: ApplicationConfig = {
 };
 ```
 
-When using the [App shell pattern](ecosystem/service-workers/app-shell), you must specify the component to be used as the app shell for client-side rendered routes. To do this, use the [`withAppShell`](api/ssr/withAppShell 'API reference') fetaure:
+When using the [App shell pattern](ecosystem/service-workers/app-shell), you must specify the component to be used as the app shell for client-side rendered routes. To do this, use the [`withAppShell`](api/ssr/withAppShell 'API reference') feature:
 
 ```typescript
 import { provideServerRendering, withRoutes, withAppShell } from '@angular/ssr';
@@ -97,7 +98,7 @@ The server routing configuration lets you specify how each route in your applica
 
 Each rendering mode has different benefits and drawbacks. You can choose rendering modes based on the specific needs of your application.
 
-##### Client-side rendering
+##### Client-side rendering (CSR)
 
 Client-side rendering has the simplest development model, as you can write code that assumes it always runs in a web browser. This lets you use a wide range of client-side libraries that also assume they run in a browser.
 
@@ -109,7 +110,7 @@ When client-side rendering, the server does not need to do any work to render a 
 
 Applications that support installable, offline experiences with [service workers](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API) can rely on client-side rendering without needing to communicate with a server.
 
-##### Server-side rendering
+##### Server-side rendering (SSR)
 
 Server-side rendering offers faster page loads than client-side rendering. Instead of waiting for JavaScript to download and run, the server directly renders an HTML document upon receiving a request from the browser. The user experiences only the latency necessary for the server to fetch data and render the requested page. This mode also eliminates the need for additional network requests from the browser, as your code can fetch data during rendering on the server.
 
@@ -210,7 +211,7 @@ export const serverRoutes: ServerRoute[] = [
 
 Because [`getPrerenderParams`](api/ssr/ServerRoutePrerenderWithParams#getPrerenderParams 'API reference') exclusively applies to [`RenderMode.Prerender`](api/ssr/RenderMode#Prerender 'API reference'), this function always runs at _build-time_. `getPrerenderParams` must not rely on any browser-specific or server-specific APIs for data.
 
-IMPORTANT: When using [`inject`](api/core/inject 'API reference') inside `getPrerenderParams`, please remember that `inject` must be used synchronously. It cannot be invoked within asynchronous callbacks or following any `await` statements. For more information, refer to [`runInInjectionContext`](api/core/runInInjectionContext).
+IMPORTANT: When using [`inject`](api/core/inject 'API reference') inside `getPrerenderParams`, please remember that `inject` must be used synchronously. It cannot be invoked within asynchronous callbacks or following any `await` statements. For more information, refer to `runInInjectionContext`.
 
 #### Fallback strategies
 
@@ -222,7 +223,7 @@ The available fallback strategies are:
 - **Client:** Falls back to client-side rendering.
 - **None:** No fallback. Angular will not handle requests for paths that are not prerendered.
 
-```typescript
+```ts
 // app.routes.server.ts
 import { RenderMode, PrerenderFallback, ServerRoute } from '@angular/ssr';
 
@@ -240,6 +241,63 @@ export const serverRoutes: ServerRoute[] = [
   },
 ];
 ```
+
+## Authoring server-compatible components
+
+Some common browser APIs and capabilities might not be available on the server. Applications cannot make use of browser-specific global objects like `window`, `document`, `navigator`, or `location` as well as certain properties of `HTMLElement`.
+
+In general, code which relies on browser-specific symbols should only be executed in the browser, not on the server. This can be enforced through the `afterEveryRender` and `afterNextRender` lifecycle hooks. These are only executed on the browser and skipped on the server.
+
+```angular-ts
+import { Component, viewChild, afterNextRender } from '@angular/core';
+
+@Component({
+  selector: 'my-cmp',
+  template: `<span #content>{{ ... }}</span>`,
+})
+export class MyComponent {
+  contentRef = viewChild.required<ElementRef>('content');
+
+  constructor() {
+    afterNextRender(() => {
+      // Safe to check `scrollHeight` because this will only run in the browser, not the server.
+      console.log('content height: ' + this.contentRef().nativeElement.scrollHeight);
+    });
+  }
+}
+```
+
+## Setting providers on the server
+
+On the server side, top level provider values are set once when the application code is initially parsed and evaluated.
+This means that providers configured with `useValue` will keep their value across multiple requests, until the server application is restarted.
+
+If you want to generate a new value for each request, use a factory provider with `useFactory`. The factory function will run for every incoming request, ensuring that a new value is created and assigned to the token each time.
+
+## Accessing Document via DI
+
+When working with server-side rendering, you should avoid directly referencing browser-specific globals like `document`. Instead, use the [`DOCUMENT`](api/core/DOCUMENT) token to access the document object in a platform-agnostic way.
+
+```ts
+import { Injectable, inject, DOCUMENT } from '@angular/core';
+
+@Injectable({ providedIn: 'root' })
+export class CanonicalLinkService {
+  private readonly document = inject(DOCUMENT);
+
+  // During server rendering, inject a <link rel="canonical"> tag
+  // so the generated HTML includes the correct canonical URL
+  setCanonical(href: string): void {
+    const link = this.document.createElement('link');
+    link.rel = 'canonical';
+    link.href = href;
+    this.document.head.appendChild(link);
+  }
+}
+
+```
+
+HELPFUL: For managing meta tags, Angular provides the `Meta` service.
 
 ## Accessing Request and Response via DI
 
@@ -265,10 +323,162 @@ export class MyComponent {
 ```
 
 IMPORTANT: The above tokens will be `null` in the following scenarios:
+
 - During the build processes.
 - When the application is rendered in the browser (CSR).
 - When performing static site generation (SSG).
 - During route extraction in development (at the time of the request).
+
+## Generate a fully static application
+
+By default, Angular prerenders your entire application and generates a server file for handling requests. This allows your app to serve pre-rendered content to users. However, if you prefer a fully static site without a server, you can opt out of this behavior by setting the `outputMode` to `static` in your `angular.json` configuration file.
+
+When `outputMode` is set to `static`, Angular generates pre-rendered HTML files for each route at build time, but it does not generate a server file or require a Node.js server to serve the app. This is useful for deploying to static hosting providers where a backend server is not needed.
+
+To configure this, update your `angular.json` file as follows:
+
+```json
+{
+  "projects": {
+    "your-app": {
+      "architect": {
+        "build": {
+          "options": {
+            "outputMode": "static"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Caching data when using HttpClient
+
+`HttpClient` caches outgoing network requests when running on the server. This information is serialized and transferred to the browser as part of the initial HTML sent from the server. In the browser, `HttpClient` checks whether it has data in the cache and if so, reuses it instead of making a new HTTP request during initial application rendering. `HttpClient` stops using the cache once an application becomes [stable](api/core/ApplicationRef#isStable) while running in a browser.
+
+### Configuring the caching options
+
+You can customize how Angular caches HTTP responses during server‑side rendering (SSR) and reuses them during hydration by configuring `HttpTransferCacheOptions`.  
+This configuration is provided globally using `withHttpTransferCacheOptions` inside `provideClientHydration()`.
+
+By default, `HttpClient` caches all `HEAD` and `GET` requests which don't contain `Authorization` or `Proxy-Authorization` headers. You can override those settings by using `withHttpTransferCacheOptions` to the hydration configuration.
+
+```ts
+import { bootstrapApplication } from '@angular/platform-browser';
+import { provideClientHydration, withHttpTransferCacheOptions } from '@angular/platform-browser';
+
+bootstrapApplication(AppComponent, {
+  providers: [
+    provideClientHydration(
+      withHttpTransferCacheOptions({
+        includeHeaders: ['ETag', 'Cache-Control'],
+        filter: (req) => !req.url.includes('/api/profile'),
+        includePostRequests: true,
+        includeRequestsWithAuthHeaders: false,
+      }),
+    ),
+  ],
+});
+```
+
+---
+
+### `includeHeaders`
+
+Specifies which headers from the server response should be included in cached entries.  
+No headers are included by default.
+
+```ts
+withHttpTransferCacheOptions({
+  includeHeaders: ['ETag', 'Cache-Control'],
+});
+```
+
+IMPORTANT: Avoid including sensitive headers like authentication tokens. These can leak user‑specific data between requests.
+
+---
+
+### `includePostRequests`
+
+By default, only `GET` and `HEAD` requests are cached.  
+You can enable caching for `POST` requests when they are used as read operations such as GraphQL queries.
+
+```ts
+withHttpTransferCacheOptions({
+  includePostRequests: true,
+});
+```
+
+Use this only when `POST` requests are **idempotent** and safe to reuse between server and client renders.
+
+---
+
+### `includeRequestsWithAuthHeaders`
+
+Determines whether requests containing `Authorization` or `Proxy‑Authorization` headers are eligible for caching.  
+By default, these are excluded to prevent caching user‑specific responses.
+
+```ts
+withHttpTransferCacheOptions({
+  includeRequestsWithAuthHeaders: true,
+});
+```
+
+Enable only when authentication headers do **not** affect the response content (for example, public tokens for analytics APIs).
+
+### Per‑request overrides
+
+You can override caching behavior for a specific request using the `transferCache` request option.
+
+```ts
+// Include specific headers for this request
+http.get('/api/profile', { transferCache: { includeHeaders: ['CustomHeader'] } });
+```
+
+### Disabling caching
+
+You can disable HTTP caching of requests sent from the server either globally or individually.
+
+#### Globally
+
+To disable caching for all requests in your application, use the `withNoHttpTransferCache` feature:
+
+```ts
+import { bootstrapApplication, provideClientHydration, withNoHttpTransferCache } from '@angular/platform-browser';
+
+bootstrapApplication(AppComponent, {
+  providers: [
+    provideClientHydration(withNoHttpTransferCache())
+  ]
+});
+```
+
+#### `filter`
+
+You can also selectively disable caching for certain requests using the [`filter`](api/common/http/HttpTransferCacheOptions) option in `withHttpTransferCacheOptions`. For example, you can disable caching for a specific API endpoint:
+
+```ts
+import { bootstrapApplication, provideClientHydration, withHttpTransferCacheOptions } from '@angular/platform-browser';
+
+bootstrapApplication(AppComponent, {
+  providers: [
+    provideClientHydration(withHttpTransferCacheOptions({
+      filter: (req) => !req.url.includes('/api/sensitive-data')
+    }))
+  ]
+});
+```
+
+Use this option to exclude endpoints with user‑specific or dynamic data (for example `/api/profile`).
+
+#### Individually
+
+To disable caching for an individual request, you can specify the [`transferCache`](api/common/http/HttpRequest#transferCache) option in an `HttpRequest`.
+
+```ts
+httpClient.get('/api/sensitive-data', { transferCache: false });
+```
 
 ## Configuring a server
 
@@ -276,7 +486,7 @@ IMPORTANT: The above tokens will be `null` in the following scenarios:
 
 The `@angular/ssr/node` extends `@angular/ssr` specifically for Node.js environments. It provides APIs that make it easier to implement server-side rendering within your Node.js application. For a complete list of functions and usage examples, refer to the [`@angular/ssr/node` API reference](api/ssr/node/AngularNodeAppEngine) API reference.
 
-```typescript
+```ts
 // server.ts
 import { AngularNodeAppEngine, createNodeRequestHandler, writeResponseToNodeResponse } from '@angular/ssr/node';
 import express from 'express';
@@ -307,7 +517,7 @@ export const reqHandler = createNodeRequestHandler(app);
 
 The `@angular/ssr` provides essential APIs for server-side rendering your Angular application on platforms other than Node.js. It leverages the standard [`Request`](https://developer.mozilla.org/en-US/docs/Web/API/Request) and [`Response`](https://developer.mozilla.org/en-US/docs/Web/API/Response) objects from the Web API, enabling you to integrate Angular SSR into various server environments. For detailed information and examples, refer to the [`@angular/ssr` API reference](api/ssr/AngularAppEngine).
 
-```typescript
+```ts
 // server.ts
 import { AngularAppEngine, createRequestHandler } from '@angular/ssr';
 
@@ -321,69 +531,4 @@ export const reqHandler = createRequestHandler(async (req: Request) => {
 
   // ...
 });
-```
-
-## Generate a fully static application
-
-By default, Angular prerenders your entire application and generates a server file for handling requests. This allows your app to serve pre-rendered content to users. However, if you prefer a fully static site without a server, you can opt out of this behavior by setting the `outputMode` to `static` in your `angular.json` configuration file.
-
-When `outputMode` is set to `static`, Angular generates pre-rendered HTML files for each route at build time, but it does not generate a server file or require a Node.js server to serve the app. This is useful for deploying to static hosting providers where a backend server is not needed.
-
-To configure this, update your `angular.json` file as follows:
-
-```json
-{
-  "projects": {
-    "your-app": {
-      "architect": {
-        "build": {
-          "options": {
-            "outputMode": "static"
-          }
-        }
-      }
-    }
-  }
-}
-```
-
-## Caching data when using HttpClient
-
-[`HttpClient`](api/common/http/HttpClient) cached outgoing network requests when running on the server. This information is serialized and transferred to the browser as part of the initial HTML sent from the server. In the browser, `HttpClient` checks whether it has data in the cache and if so, reuses it instead of making a new HTTP request during initial application rendering. `HttpClient` stops using the cache once an application becomes [stable](api/core/ApplicationRef#isStable) while running in a browser.
-
-By default, `HttpClient` caches all `HEAD` and `GET` requests which don't contain `Authorization` or `Proxy-Authorization` headers. You can override those settings by using [`withHttpTransferCacheOptions`](api/platform-browser/withHttpTransferCacheOptions) when providing hydration.
-
-```typescript
-bootstrapApplication(AppComponent, {
-  providers: [
-    provideClientHydration(withHttpTransferCacheOptions({
-      includePostRequests: true
-    }))
-  ]
-});
-```
-
-## Authoring server-compatible components
-
-Some common browser APIs and capabilities might not be available on the server. Applications cannot make use of browser-specific global objects like `window`, `document`, `navigator`, or `location` as well as certain properties of `HTMLElement`.
-
-In general, code which relies on browser-specific symbols should only be executed in the browser, not on the server. This can be enforced through the [`afterEveryRender`](api/core/afterEveryRender) and [`afterNextRender`](api/core/afterNextRender) lifecycle hooks. These are only executed on the browser and skipped on the server.
-
-```angular-ts
-import { Component, ViewChild, afterNextRender } from '@angular/core';
-
-@Component({
-  selector: 'my-cmp',
-  template: `<span #content>{{ ... }}</span>`,
-})
-export class MyComponent {
-  @ViewChild('content') contentRef: ElementRef;
-
-  constructor() {
-    afterNextRender(() => {
-      // Safe to check `scrollHeight` because this will only run in the browser, not the server.
-      console.log('content height: ' + this.contentRef.nativeElement.scrollHeight);
-    });
-  }
-}
 ```

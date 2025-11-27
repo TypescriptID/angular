@@ -9,7 +9,7 @@
 import {CommonModule, NgSwitch, NgSwitchCase, NgSwitchDefault} from '../../index';
 import {Attribute, Component, Directive, TemplateRef, ViewChild} from '@angular/core';
 import {ComponentFixture, TestBed, waitForAsync} from '@angular/core/testing';
-import {expect} from '@angular/platform-browser/testing/src/matchers';
+import {expect} from '@angular/private/testing/matchers';
 
 describe('NgSwitch', () => {
   let fixture: ComponentFixture<any>;
@@ -19,6 +19,7 @@ describe('NgSwitch', () => {
   }
 
   function detectChangesAndExpectText(text: string): void {
+    fixture.changeDetectorRef.markForCheck();
     fixture.detectChanges();
     expect(fixture.nativeElement).toHaveText(text);
   }
@@ -160,10 +161,12 @@ describe('NgSwitch', () => {
     expect(fixture.nativeElement).toHaveText('when a');
 
     fixture.componentInstance.switchValue = 'b';
+    fixture.changeDetectorRef.markForCheck();
     fixture.detectChanges();
     expect(fixture.nativeElement).toHaveText('when default');
 
     fixture.componentInstance.switchValue = 'c';
+    fixture.changeDetectorRef.markForCheck();
     fixture.detectChanges();
     expect(fixture.nativeElement).toHaveText('when default');
   });

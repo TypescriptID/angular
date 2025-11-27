@@ -6,6 +6,9 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
+// Needed for the global `Zone` ambient types to be available.
+import type {} from 'zone.js';
+
 import {AsyncPipe} from '@angular/common';
 import {
   AfterViewInit,
@@ -263,7 +266,6 @@ describe('reactivity', () => {
     });
 
     it('should create root effects when outside of a component, using injection context', () => {
-      TestBed.configureTestingModule({});
       const counter = signal(0);
       const log: number[] = [];
       TestBed.runInInjectionContext(() => effect(() => log.push(counter())));
@@ -277,7 +279,6 @@ describe('reactivity', () => {
     });
 
     it('should create root effects when outside of a component, using an injector', () => {
-      TestBed.configureTestingModule({});
       const counter = signal(0);
       const log: number[] = [];
       effect(() => log.push(counter()), {injector: TestBed.inject(Injector)});
@@ -291,7 +292,6 @@ describe('reactivity', () => {
     });
 
     it('should cleanup effect when manualCleanup is enabled and an injector is provided', () => {
-      TestBed.configureTestingModule({});
       const counter = signal(0);
       const log: number[] = [];
       // It needs the injector to be able to inject the other deps (and not just the DestroyRef).
@@ -803,10 +803,8 @@ describe('reactivity', () => {
           }
         }
 
-        const fixture = TestBed.createComponent(TestCmp);
+        TestBed.createComponent(TestCmp);
         TestBed.tick();
-        expect(log).toEqual([]);
-        fixture.detectChanges();
         expect(log).toEqual(['init', 'effect']);
       });
 
@@ -847,6 +845,7 @@ describe('reactivity', () => {
 
         // Toggle the @if, which should create and run the effect.
         fixture.componentInstance.cond = true;
+        fixture.changeDetectorRef.markForCheck();
         fixture.detectChanges();
         expect(log).toEqual(['init', 'effect']);
       });
@@ -876,17 +875,17 @@ describe('reactivity', () => {
           vcr = inject(ViewContainerRef);
         }
 
-        const fixture = TestBed.createComponent(DriverCmp);
-        fixture.detectChanges();
+        const componentRef = createComponent(DriverCmp, {
+          environmentInjector: TestBed.inject(EnvironmentInjector),
+        });
+        componentRef.changeDetectorRef.detectChanges();
 
-        fixture.componentInstance.vcr.createComponent(TestCmp);
+        componentRef.instance.vcr.createComponent(TestCmp);
 
         // Verify that simply creating the component didn't schedule the effect.
-        TestBed.tick();
+        TestBed.inject(ApplicationRef).tick();
         expect(log).toEqual([]);
-
-        // Running change detection should schedule and run the effect.
-        fixture.detectChanges();
+        componentRef.changeDetectorRef.detectChanges();
         expect(log).toEqual(['init', 'effect']);
       });
 
@@ -915,8 +914,6 @@ describe('reactivity', () => {
 
         const fixture = TestBed.createComponent(TestCmp);
         TestBed.tick();
-        expect(log).toEqual([]);
-        fixture.detectChanges();
         expect(log).toEqual(['init', 'effect']);
       });
 

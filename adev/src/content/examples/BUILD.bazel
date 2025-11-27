@@ -1,3 +1,5 @@
+load("//adev/shared-docs:defaults.bzl", "copy_to_bin")
+
 # All example files.
 filegroup(
     name = "examples",
@@ -6,10 +8,10 @@ filegroup(
 )
 
 # Example files that can be embedded as preview components.
-filegroup(
+copy_to_bin(
     name = "embeddable",
     srcs = glob(
-        ["*/src/app/**"],
+        ["**/app/**"],
         exclude = [
             "testing/**",  # Can't embed test code
             "i18n/**",  # @angular/localize/init not available in docs app

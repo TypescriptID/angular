@@ -11,15 +11,19 @@ import {
   afterRenderEffect,
   ElementRef,
   inject,
-  Input,
   input,
   output,
   signal,
   viewChild,
+  ChangeDetectionStrategy,
+  computed,
+  linkedSignal,
+  DestroyRef,
 } from '@angular/core';
 import {
   ComponentExplorerView,
   ComponentExplorerViewQuery,
+  DebugSignalGraphNode,
   DevToolsNode,
   DirectivePosition,
   ElementPosition,
@@ -29,7 +33,6 @@ import {
   PropertyQueryTypes,
 } from '../../../../../protocol';
 
-import {SplitComponent} from '../../../lib/vendor/angular-split/public_api';
 import {ApplicationOperations} from '../../application-operations/index';
 import {FrameManager} from '../../application-services/frame_manager';
 
@@ -43,11 +46,23 @@ import {
   FlatNode as PropertyFlatNode,
 } from './property-resolver/element-property-resolver';
 import {PropertyTabComponent} from './property-tab/property-tab.component';
-import {SplitAreaDirective} from '../../vendor/angular-split/lib/component/splitArea.directive';
-import {MatSlideToggle} from '@angular/material/slide-toggle';
 import {FormsModule} from '@angular/forms';
 import {Platform} from '@angular/cdk/platform';
 import {MatSnackBarModule, MatSnackBar} from '@angular/material/snack-bar';
+import {SignalsTabComponent} from './signals-view/signals-tab.component';
+import {
+  ResponsiveSplitConfig,
+  ResponsiveSplitDirective,
+} from '../../shared/split/responsive-split.directive';
+import {SplitAreaDirective} from '../../shared/split/splitArea.directive';
+import {SplitComponent} from '../../shared/split/split.component';
+import {Direction} from '../../shared/split/interface';
+import {SignalGraphManager} from './signal-graph/signal-graph-manager';
+
+const FOREST_VER_SPLIT_SIZE = 30;
+const SIGNAL_GRAPH_VER_SPLIT_SIZE = 70;
+
+const HOR_SPLIT_SIZE = 50;
 
 const sameDirectives = (a: IndexedNode, b: IndexedNode) => {
   if ((a.component && !b.component) || (!a.component && b.component)) {
@@ -74,6 +89,7 @@ const sameDirectives = (a: IndexedNode, b: IndexedNode) => {
       provide: ElementPropertyResolver,
       useClass: ElementPropertyResolver,
     },
+    SignalGraphManager,
   ],
   imports: [
     SplitComponent,
@@ -81,14 +97,16 @@ const sameDirectives = (a: IndexedNode, b: IndexedNode) => {
     DirectiveForestComponent,
     BreadcrumbsComponent,
     PropertyTabComponent,
-    MatSlideToggle,
     FormsModule,
     MatSnackBarModule,
+    SignalsTabComponent,
+    ResponsiveSplitDirective,
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DirectiveExplorerComponent {
   readonly showCommentNodes = input(false);
-  @Input() isHydrationEnabled = false;
+  readonly isHydrationEnabled = input(false);
   readonly toggleInspector = output<void>();
 
   readonly directiveForest = viewChild.required(DirectiveForestComponent);
@@ -101,10 +119,12 @@ export class DirectiveExplorerComponent {
   readonly forest = signal<DevToolsNode[]>([]);
   readonly splitDirection = signal<'horizontal' | 'vertical'>('horizontal');
   readonly parents = signal<FlatNode[] | null>(null);
-  readonly showHydrationNodeHighlights = signal(false);
+
+  readonly signalsOpen = signal(false);
 
   private _clickedElement: IndexedNode | null = null;
   private _refreshRetryTimeout: null | ReturnType<typeof setTimeout> = null;
+  private showHydrationNodeHighlights = false;
 
   private readonly _appOperations = inject(ApplicationOperations);
   private readonly _messageBus = inject<MessageBus<Events>>(MessageBus);
@@ -112,8 +132,24 @@ export class DirectiveExplorerComponent {
   private readonly _frameManager = inject(FrameManager);
 
   private readonly platform = inject(Platform);
-
   private readonly snackBar = inject(MatSnackBar);
+  protected readonly signalGraph = inject(SignalGraphManager);
+
+  protected readonly preselectedSignalNodeId = linkedSignal<IndexedNode | null, string | null>({
+    source: this.currentSelectedElement,
+    computation: () => null,
+  });
+
+  protected readonly responsiveSplitConfig: ResponsiveSplitConfig = {
+    defaultDirection: 'vertical',
+    aspectRatioBreakpoint: 1.5,
+    breakpointDirection: 'horizontal',
+  };
+
+  protected readonly forestSplitSize = signal<number>(FOREST_VER_SPLIT_SIZE);
+  protected readonly signalGraphSplitSize = signal<number>(SIGNAL_GRAPH_VER_SPLIT_SIZE);
+
+  private readonly currentElementPos = computed(() => this.currentSelectedElement()?.position);
 
   constructor() {
     afterRenderEffect((cleanup) => {
@@ -139,6 +175,11 @@ export class DirectiveExplorerComponent {
 
     this.subscribeToBackendEvents();
     this.refresh();
+    this.signalGraph.listen(this.currentElementPos);
+
+    inject(DestroyRef).onDestroy(() => {
+      this.signalGraph.destroy();
+    });
   }
 
   private isNonTopLevelFirefoxFrame() {
@@ -325,6 +366,15 @@ export class DirectiveExplorerComponent {
     }
   }
 
+  toggleHydrationNodesHighlights(toggle: boolean) {
+    if (toggle) {
+      this.hightlightHydrationNodes();
+    } else {
+      this.removeHydrationNodesHightlights();
+    }
+    this.showHydrationNodeHighlights = toggle;
+  }
+
   hightlightHydrationNodes() {
     this._messageBus.emit('createHydrationOverlay');
   }
@@ -333,10 +383,27 @@ export class DirectiveExplorerComponent {
     this._messageBus.emit('removeHydrationOverlay');
   }
 
-  refreshHydrationNodeHighlightsIfNeeded() {
-    if (this.showHydrationNodeHighlights()) {
+  private refreshHydrationNodeHighlightsIfNeeded() {
+    if (this.showHydrationNodeHighlights) {
       this.removeHydrationNodesHightlights();
       this.hightlightHydrationNodes();
+    }
+  }
+
+  showSignalGraph(node: DebugSignalGraphNode | null) {
+    if (node) {
+      this.preselectedSignalNodeId.set(node.id);
+    }
+    this.signalsOpen.set(true);
+  }
+
+  onResponsiveSplitDirChange(direction: Direction) {
+    if (direction === 'vertical') {
+      this.forestSplitSize.set(FOREST_VER_SPLIT_SIZE);
+      this.signalGraphSplitSize.set(SIGNAL_GRAPH_VER_SPLIT_SIZE);
+    } else {
+      this.forestSplitSize.set(HOR_SPLIT_SIZE);
+      this.signalGraphSplitSize.set(HOR_SPLIT_SIZE);
     }
   }
 }

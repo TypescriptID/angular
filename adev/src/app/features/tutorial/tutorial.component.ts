@@ -39,7 +39,6 @@ import {ActivatedRoute, RouterLink} from '@angular/router';
 import {from} from 'rxjs';
 import {filter} from 'rxjs/operators';
 
-import {PagePrefix} from '../../core/enums/pages';
 import {
   EmbeddedTutorialManager,
   LoadingStep,
@@ -48,6 +47,8 @@ import {
   injectNodeRuntimeSandbox,
 } from '../../editor/index';
 import {SplitResizerHandler} from './split-resizer-handler.service';
+import {PAGE_PREFIX} from '../../core/constants/pages';
+import {TutorialNavigationList} from './tutorial-navigation-list';
 
 const INTRODUCTION_LABEL = 'Introduction';
 
@@ -57,17 +58,13 @@ const INTRODUCTION_LABEL = 'Introduction';
     NgComponentOutlet,
     NgTemplateOutlet,
     DocViewer,
-    NavigationList,
+    TutorialNavigationList,
     ClickOutside,
     RouterLink,
     IconComponent,
   ],
   templateUrl: './tutorial.component.html',
-  styleUrls: [
-    './tutorial.component.scss',
-    './tutorial-navigation.scss',
-    './tutorial-navigation-list.scss',
-  ],
+  styleUrls: ['./tutorial.component.scss', './tutorial-navigation.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [SplitResizerHandler],
 })
@@ -98,6 +95,7 @@ export default class Tutorial {
   readonly shouldRenderContent = signal<boolean>(false);
   readonly shouldRenderEmbeddedEditor = signal<boolean>(false);
   readonly shouldRenderRevealAnswer = signal<boolean>(false);
+  readonly restrictedMode = signal<boolean>(false);
 
   nextStepPath: string | undefined;
   previousStepPath: string | undefined;
@@ -111,7 +109,7 @@ export default class Tutorial {
     this.route.data
       .pipe(
         filter(() =>
-          Boolean(this.route?.routeConfig?.path?.startsWith(`${PagePrefix.TUTORIALS}/`)),
+          Boolean(this.route?.routeConfig?.path?.startsWith(`${PAGE_PREFIX.TUTORIALS}/`)),
         ),
         takeUntilDestroyed(),
       )
@@ -188,6 +186,7 @@ export default class Tutorial {
   private async setTutorialData(tutorialNavigationItem: TutorialNavigationItem): Promise<void> {
     this.showNavigationDropdown.set(false);
     this.answerRevealed.set(false);
+    this.restrictedMode.set(tutorialNavigationItem.tutorialData.restrictedMode);
 
     this.setRouteData(tutorialNavigationItem);
 
@@ -195,9 +194,12 @@ export default class Tutorial {
 
     if (routeData.type === TutorialType.LOCAL) {
       this.setLocalTutorialData(routeData);
-    } else if (routeData.type === TutorialType.EDITOR && this.isBrowser) {
+    } else if (
+      (routeData.type === TutorialType.EDITOR || routeData.type === TutorialType.CLI) &&
+      this.isBrowser
+    ) {
       await this.setEditorTutorialData(
-        tutorialNavigationItem.path.replace(`${PagePrefix.TUTORIALS}/`, ''),
+        tutorialNavigationItem.path.replace(`${PAGE_PREFIX.TUTORIALS}/`, ''),
       );
     }
   }
@@ -247,7 +249,7 @@ export default class Tutorial {
   private async setEditorTutorialData(tutorialPath: string) {
     this.shouldRenderEmbeddedEditor.set(true);
 
-    const currentTutorial = tutorialPath.replace(`${PagePrefix.TUTORIALS}/`, '');
+    const currentTutorial = tutorialPath.replace(`${PAGE_PREFIX.TUTORIALS}/`, '');
 
     await this.embeddedTutorialManager.fetchAndSetTutorialFiles(currentTutorial);
 

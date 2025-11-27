@@ -7,7 +7,7 @@
  */
 
 import {
-  AnimationTriggerNames,
+  LegacyAnimationTriggerNames,
   DeclarationListEmitMode,
   DeferBlockDepsEmitMode,
   R3ClassDebugInfo,
@@ -29,7 +29,7 @@ import {
   HostDirectiveMeta,
   InputMapping,
 } from '../../../metadata';
-import {ClassDeclaration} from '../../../reflection';
+import {ClassDeclaration, Import} from '../../../reflection';
 import {SubsetOfKeys} from '../../../util/src/typescript';
 
 import {ParsedTemplateWithSource, StyleUrlMeta} from './resources';
@@ -43,7 +43,7 @@ import {HostBindingNodes} from '../../directive';
  */
 export type ComponentMetadataResolvedFields = SubsetOfKeys<
   R3ComponentMetadata<R3TemplateDependencyMetadata>,
-  'declarations' | 'declarationListEmitMode' | 'defer'
+  'declarations' | 'declarationListEmitMode' | 'defer' | 'hasDirectiveDependencies'
 >;
 
 export interface ComponentAnalysisData {
@@ -88,7 +88,7 @@ export interface ComponentAnalysisData {
   inlineStyles: string[] | null;
 
   isPoisoned: boolean;
-  animationTriggerNames: AnimationTriggerNames | null;
+  legacyAnimationTriggerNames: LegacyAnimationTriggerNames | null;
 
   rawImports: ts.Expression | null;
   resolvedImports: Reference<ClassDeclaration>[] | null;
@@ -129,10 +129,11 @@ export interface ComponentResolutionData {
 
   /**
    * Map of all types that can be defer loaded (ts.ClassDeclaration) ->
-   * corresponding import declaration (ts.ImportDeclaration) within
-   * the current source file.
+   * corresponding import information (reflection `Import`) within
+   * the current source file. The `Import` preserves the exported name
+   * as seen by the importing module so aliasing is handled correctly.
    */
-  deferrableDeclToImportDecl: Map<ClassDeclaration, ts.ImportDeclaration>;
+  deferrableDeclToImportDecl: Map<ClassDeclaration, Import>;
 
   /**
    * Map of `@defer` blocks -> their corresponding dependencies.
@@ -152,6 +153,9 @@ export interface ComponentResolutionData {
    * defer resolver function in `PerComponent` mode.
    */
   deferPerComponentDependencies: R3DeferPerComponentDependency[];
+
+  /** Whether the component is standalone and has any directly-imported directive dependencies. */
+  hasDirectiveDependencies: boolean;
 }
 
 /**
