@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {computed, effect, Injector, signal} from '@angular/core';
+import {computed, effect, Injector, signal, WritableSignal} from '@angular/core';
 import {TestBed} from '@angular/core/testing';
 import {
   apply,
@@ -17,7 +17,6 @@ import {
   hidden,
   readonly,
   required,
-  REQUIRED,
   requiredError,
   Schema,
   schema,
@@ -121,6 +120,41 @@ describe('FieldNode', () => {
 
       f().reset();
       expect(f.a().value()).toBe(1);
+    });
+
+    it('can reset with empty string', () => {
+      const model = signal('hello');
+      const f = form(model, {injector: TestBed.inject(Injector)});
+      f().reset('');
+      expect(f().value()).toBe('');
+    });
+
+    it('can reset with false', () => {
+      const model = signal(true);
+      const f = form(model, {injector: TestBed.inject(Injector)});
+      f().reset(false);
+      expect(f().value()).toBe(false);
+    });
+
+    it('can reset with null', () => {
+      const model: WritableSignal<string | null> = signal('hello');
+      const f = form(model, {injector: TestBed.inject(Injector)});
+      f().reset(null);
+      expect(f().value()).toBeNull();
+    });
+
+    it('can reset with 0', () => {
+      const model = signal(5);
+      const f = form(model, {injector: TestBed.inject(Injector)});
+      f().reset(0);
+      expect(f().value()).toBe(0);
+    });
+
+    it('can reset with NaN', () => {
+      const model = signal(5);
+      const f = form(model, {injector: TestBed.inject(Injector)});
+      f().reset(NaN);
+      expect(f().value()).toBeNaN();
     });
   });
 
@@ -717,7 +751,7 @@ describe('FieldNode', () => {
       const a = f.a;
       expect(f().disabled()).toBe(false);
       expect(a().disabled()).toBe(true);
-      expect(a().disabledReasons()).toEqual([{field: f.a}]);
+      expect(a().disabledReasons()).toEqual([{fieldTree: f.a}]);
 
       a().value.set(2);
       expect(f().disabled()).toBe(false);
@@ -736,7 +770,7 @@ describe('FieldNode', () => {
       expect(f.a().disabled()).toBe(true);
       expect(f.a().disabledReasons()).toEqual([
         {
-          field: f.a,
+          fieldTree: f.a,
           message: 'a cannot be changed',
         },
       ]);
@@ -759,7 +793,7 @@ describe('FieldNode', () => {
       expect(f.a().disabled()).toBe(true);
       expect(f.a().disabledReasons()).toEqual([
         {
-          field: f.a,
+          fieldTree: f.a,
           message: 'a cannot be changed',
         },
       ]);
@@ -777,14 +811,14 @@ describe('FieldNode', () => {
       expect(f().disabled()).toBe(true);
       expect(f().disabledReasons()).toEqual([
         {
-          field: f,
+          fieldTree: f,
           message: 'form unavailable',
         },
       ]);
       expect(f.a().disabled()).toBe(true);
       expect(f.a().disabledReasons()).toEqual([
         {
-          field: f,
+          fieldTree: f,
           message: 'form unavailable',
         },
       ]);
@@ -802,12 +836,12 @@ describe('FieldNode', () => {
 
       expect(f.a().disabledReasons()).toEqual([
         {
-          field: f.a,
+          fieldTree: f.a,
         },
       ]);
       expect(f.b().disabledReasons()).toEqual([
         {
-          field: f.b,
+          fieldTree: f.b,
           message: 'disabled!',
         },
       ]);
@@ -869,12 +903,12 @@ describe('FieldNode', () => {
         {injector: TestBed.inject(Injector)},
       );
 
-      expect(f().metadata(REQUIRED)()).toBe(true);
+      expect(f().required()).toBe(true);
       expect(f().valid()).toBe(false);
       expect(f().readonly()).toBe(false);
 
       isReadonly.set(true);
-      expect(f().metadata(REQUIRED)()).toBe(true);
+      expect(f().required()).toBe(true);
       expect(f().valid()).toBe(true);
       expect(f().readonly()).toBe(true);
     });
@@ -901,7 +935,7 @@ describe('FieldNode', () => {
       expect(f().valid()).toBe(true);
 
       f.a().value.set(11);
-      expect(f.a().errors()).toEqual([customError({kind: 'too-damn-high', field: f.a})]);
+      expect(f.a().errors()).toEqual([customError({kind: 'too-damn-high', fieldTree: f.a})]);
       expect(f.a().valid()).toBe(false);
       expect(f().errors()).toEqual([]);
       expect(f().valid()).toBe(false);
@@ -926,8 +960,8 @@ describe('FieldNode', () => {
 
       f.a().value.set(11);
       expect(f.a().errors()).toEqual([
-        customError({kind: 'too-damn-high', field: f.a}),
-        customError({kind: 'bad', field: f.a}),
+        customError({kind: 'too-damn-high', fieldTree: f.a}),
+        customError({kind: 'bad', fieldTree: f.a}),
       ]);
       expect(f.a().valid()).toBe(false);
     });
@@ -942,15 +976,15 @@ describe('FieldNode', () => {
         {injector: TestBed.inject(Injector)},
       );
 
-      expect(f.first().errors()).toEqual([requiredError({field: f.first})]);
+      expect(f.first().errors()).toEqual([requiredError({fieldTree: f.first})]);
       expect(f.first().valid()).toBe(false);
-      expect(f.first().metadata(REQUIRED)()).toBe(true);
+      expect(f.first().required()).toBe(true);
 
       f.first().value.set('Bob');
 
       expect(f.first().errors()).toEqual([]);
       expect(f.first().valid()).toBe(true);
-      expect(f.first().metadata(REQUIRED)()).toBe(true);
+      expect(f.first().required()).toBe(true);
     });
 
     it('should validate conditionally required field', () => {
@@ -966,19 +1000,19 @@ describe('FieldNode', () => {
 
       expect(f.first().errors()).toEqual([]);
       expect(f.first().valid()).toBe(true);
-      expect(f.first().metadata(REQUIRED)()).toBe(false);
+      expect(f.first().required()).toBe(false);
 
       f.last().value.set('Loblaw');
 
-      expect(f.first().errors()).toEqual([requiredError({field: f.first})]);
+      expect(f.first().errors()).toEqual([requiredError({fieldTree: f.first})]);
       expect(f.first().valid()).toBe(false);
-      expect(f.first().metadata(REQUIRED)()).toBe(true);
+      expect(f.first().required()).toBe(true);
 
       f.first().value.set('Bob');
 
       expect(f.first().errors()).toEqual([]);
       expect(f.first().valid()).toBe(true);
-      expect(f.first().metadata(REQUIRED)()).toBe(true);
+      expect(f.first().required()).toBe(true);
     });
 
     it('should link required error messages to their predicate', () => {
@@ -1006,7 +1040,7 @@ describe('FieldNode', () => {
       expect(f.name().errors()).toEqual([
         requiredError({
           message: 'Name is required in your country',
-          field: f.name,
+          fieldTree: f.name,
         }),
       ]);
 
@@ -1014,11 +1048,11 @@ describe('FieldNode', () => {
       expect(f.name().errors()).toEqual([
         requiredError({
           message: 'Name is required in your country',
-          field: f.name,
+          fieldTree: f.name,
         }),
         requiredError({
           message: 'Name is required for large transactions',
-          field: f.name,
+          fieldTree: f.name,
         }),
       ]);
 
@@ -1026,7 +1060,7 @@ describe('FieldNode', () => {
       expect(f.name().errors()).toEqual([
         requiredError({
           message: 'Name is required for large transactions',
-          field: f.name,
+          fieldTree: f.name,
         }),
       ]);
 
@@ -1047,7 +1081,7 @@ describe('FieldNode', () => {
       expect(f.a().valid()).toBe(true);
 
       f.a().value.set(2);
-      expect(f.a().errors()).toEqual([customError({field: f.a})]);
+      expect(f.a().errors()).toEqual([customError({fieldTree: f.a})]);
       expect(f.a().valid()).toBe(false);
     });
 
@@ -1060,10 +1094,10 @@ describe('FieldNode', () => {
             validateTree(p, ({value, fieldTreeOf}) => {
               const errors: ValidationError[] = [];
               if (value().name.length > 8) {
-                errors.push(customError({kind: 'long_name', field: fieldTreeOf(p.name)}));
+                errors.push(customError({kind: 'long_name', fieldTree: fieldTreeOf(p.name)}));
               }
               if (value().age < 0) {
-                errors.push(customError({kind: 'temporal_anomaly', field: fieldTreeOf(p.age)}));
+                errors.push(customError({kind: 'temporal_anomaly', fieldTree: fieldTreeOf(p.age)}));
               }
               return errors;
             });
@@ -1077,10 +1111,12 @@ describe('FieldNode', () => {
         f.age().value.set(-10);
 
         expect(f.name().errors()).toEqual([]);
-        expect(f.age().errors()).toEqual([customError({kind: 'temporal_anomaly', field: f.age})]);
+        expect(f.age().errors()).toEqual([
+          customError({kind: 'temporal_anomaly', fieldTree: f.age}),
+        ]);
 
         cat.set({name: 'Fluffy McFluffington', age: 10});
-        expect(f.name().errors()).toEqual([customError({kind: 'long_name', field: f.name})]);
+        expect(f.name().errors()).toEqual([customError({kind: 'long_name', fieldTree: f.name})]);
         expect(f.age().errors()).toEqual([]);
       });
 
@@ -1092,10 +1128,10 @@ describe('FieldNode', () => {
             validateTree(p, ({value, fieldTreeOf}) => {
               const errors: ValidationError[] = [];
               if (value().name.length > 8) {
-                errors.push(customError({kind: 'long_name', field: fieldTreeOf(p.name)}));
+                errors.push(customError({kind: 'long_name', fieldTree: fieldTreeOf(p.name)}));
               }
               if (value().age < 0) {
-                errors.push(customError({kind: 'temporal_anomaly', field: fieldTreeOf(p.age)}));
+                errors.push(customError({kind: 'temporal_anomaly', fieldTree: fieldTreeOf(p.age)}));
               }
               return errors;
             });
@@ -1109,10 +1145,12 @@ describe('FieldNode', () => {
         f.age().value.set(-10);
 
         expect(f.name().errors()).toEqual([]);
-        expect(f.age().errors()).toEqual([customError({kind: 'temporal_anomaly', field: f.age})]);
+        expect(f.age().errors()).toEqual([
+          customError({kind: 'temporal_anomaly', fieldTree: f.age}),
+        ]);
 
         cat.set({name: 'Fluffy McFluffington', age: 10});
-        expect(f.name().errors()).toEqual([customError({kind: 'long_name', field: f.name})]);
+        expect(f.name().errors()).toEqual([customError({kind: 'long_name', fieldTree: f.name})]);
         expect(f.age().errors()).toEqual([]);
       });
     });
@@ -1136,7 +1174,7 @@ describe('FieldNode', () => {
         {injector: TestBed.inject(Injector)},
       );
 
-      expect(f().errorSummary()).toEqual([requiredError({field: f})]);
+      expect(f().errorSummary()).toEqual([requiredError({fieldTree: f})]);
     });
 
     it('should contain errors from child fields', () => {
@@ -1151,8 +1189,8 @@ describe('FieldNode', () => {
       );
 
       expect(f().errorSummary()).toEqual([
-        requiredError({field: f.first}),
-        requiredError({field: f.last}),
+        requiredError({fieldTree: f.first}),
+        requiredError({fieldTree: f.last}),
       ]);
     });
 
@@ -1173,16 +1211,16 @@ describe('FieldNode', () => {
       );
 
       expect(f.child.child().errorSummary()).toEqual([
-        customError({kind: 'grandchild', field: f.child.child}),
+        customError({kind: 'grandchild', fieldTree: f.child.child}),
       ]);
       expect(f.child().errorSummary()).toEqual([
-        customError({kind: 'child', field: f.child}),
-        customError({kind: 'grandchild', field: f.child.child}),
+        customError({kind: 'child', fieldTree: f.child}),
+        customError({kind: 'grandchild', fieldTree: f.child.child}),
       ]);
       expect(f().errorSummary()).toEqual([
-        customError({kind: 'root', field: f}),
-        customError({kind: 'child', field: f.child}),
-        customError({kind: 'grandchild', field: f.child.child}),
+        customError({kind: 'root', fieldTree: f}),
+        customError({kind: 'child', fieldTree: f.child}),
+        customError({kind: 'grandchild', fieldTree: f.child.child}),
       ]);
     });
   });
@@ -1285,7 +1323,7 @@ describe('FieldNode', () => {
         {injector: TestBed.inject(Injector)},
       );
 
-      expect(() => f().disabled()).toThrowError('Path is not part of this field tree.');
+      expect(() => f().disabled()).toThrowError(/Path is not part of this field tree\./);
     });
   });
 

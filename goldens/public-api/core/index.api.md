@@ -884,9 +884,13 @@ export const Injectable: InjectableDecorator;
 // @public
 export interface InjectableDecorator {
     (): TypeDecorator;
+    // @deprecated (undocumented)
+    (options?: {
+        providedIn: Type<any> | 'any';
+    } & InjectableProvider): TypeDecorator;
     // (undocumented)
     (options?: {
-        providedIn: Type<any> | 'root' | 'platform' | 'any' | null;
+        providedIn: 'root' | 'platform' | null;
     } & InjectableProvider): TypeDecorator;
     // (undocumented)
     new (): Injectable;
@@ -916,6 +920,11 @@ export interface InjectDecorator {
 
 // @public
 export class InjectionToken<T> {
+    // @deprecated
+    constructor(_desc: string, options: {
+        providedIn: Type<any> | 'any';
+        factory: () => T;
+    });
     constructor(_desc: string, options?: {
         providedIn?: Type<any> | 'root' | 'platform' | 'any' | null;
         factory: () => T;
@@ -1476,13 +1485,16 @@ export function provideEnvironmentInitializer(initializerFn: () => void): Enviro
 export function provideNgReflectAttributes(): EnvironmentProviders;
 
 // @public
-export function providePlatformInitializer(initializerFn: () => void): EnvironmentProviders;
+export function providePlatformInitializer(initializerFn: () => void): StaticProvider;
 
 // @public
 export type Provider = TypeProvider | ValueProvider | ClassProvider | ConstructorProvider | ExistingProvider | FactoryProvider | any[];
 
 // @public
 export type ProviderToken<T> = Type<T> | AbstractType<T> | InjectionToken<T>;
+
+// @public
+export function provideStabilityDebugging(): EnvironmentProviders;
 
 // @public
 export function provideZoneChangeDetection(options?: NgZoneOptions): EnvironmentProviders;
@@ -1670,7 +1682,13 @@ export type ResourceStreamItem<T> = {
 };
 
 // @public
-export const RESPONSE_INIT: InjectionToken<ResponseInit | null>;
+export const RESPONSE_INIT: InjectionToken<ResponseInit_2 | null>;
+
+// @public
+type ResponseInit_2 = {
+    -readonly [P in keyof globalThis.ResponseInit]: globalThis.ResponseInit[P];
+};
+export { ResponseInit_2 as ResponseInit }
 
 // @public
 export function runInInjectionContext<ReturnT>(injector: Injector, fn: () => ReturnT): ReturnT;

@@ -9,7 +9,7 @@
 import {computed, Injector, signal, type Signal} from '@angular/core';
 import {TestBed} from '@angular/core/testing';
 import {customError} from '../../public_api';
-import {disabled, validate} from '../../src/api/logic';
+import {disabled, validate} from '../../src/api/rules';
 import {applyEach, applyWhen, applyWhenValue, form, schema} from '../../src/api/structure';
 import type {FieldTree, Schema} from '../../src/api/types';
 
@@ -19,11 +19,12 @@ interface TreeData {
 }
 
 function narrowed<TModel, TNarrowed extends TModel>(
-  field: FieldTree<TModel> | undefined,
+  fieldTree: FieldTree<TModel> | undefined,
   guard: (value: TModel) => value is TNarrowed,
 ): Signal<FieldTree<TNarrowed> | undefined> {
   return computed(
-    () => field && (guard(field().value()) ? (field as FieldTree<TNarrowed>) : undefined),
+    () =>
+      fieldTree && (guard(fieldTree().value()) ? (fieldTree as FieldTree<TNarrowed>) : undefined),
   );
 }
 

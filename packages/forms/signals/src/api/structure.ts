@@ -17,6 +17,7 @@ import {FieldPathNode} from '../schema/path_node';
 import {assertPathIsCurrent, SchemaImpl} from '../schema/schema';
 import {normalizeFormArgs} from '../util/normalize_form_args';
 import {isArray} from '../util/type_guards';
+import type {ValidationError} from './rules/validation/validation_errors';
 import type {
   FieldTree,
   ItemType,
@@ -29,7 +30,6 @@ import type {
   SchemaPath,
   TreeValidationResult,
 } from './types';
-import type {ValidationError} from './validation_errors';
 
 /**
  * Options that may be specified when creating a form.
@@ -61,7 +61,7 @@ export interface FormOptions {
  * as well.
  *
  * @example
- * ```
+ * ```ts
  * const nameModel = signal({first: '', last: ''});
  * const nameForm = form(nameModel);
  * nameForm.first().value.set('John');
@@ -89,7 +89,7 @@ export function form<TModel>(model: WritableSignal<TModel>): FieldTree<TModel>;
  * as well.
  *
  * @example
- * ```
+ * ```ts
  * const nameModel = signal({first: '', last: ''});
  * const nameForm = form(nameModel);
  * nameForm.first().value.set('John');
@@ -102,7 +102,7 @@ export function form<TModel>(model: WritableSignal<TModel>): FieldTree<TModel>;
  * function that builds the schema by binding logic to a parts of the field structure.
  *
  * @example
- * ```
+ * ```ts
  * const nameForm = form(signal({first: '', last: ''}), (name) => {
  *   required(name.first);
  *   pattern(name.last, /^[a-z]+$/i, {message: 'Alphabet characters only'});
@@ -139,7 +139,7 @@ export function form<TModel>(
  * as well.
  *
  * @example
- * ```
+ * ```ts
  * const nameModel = signal({first: '', last: ''});
  * const nameForm = form(nameModel);
  * nameForm.first().value.set('John');
@@ -152,7 +152,7 @@ export function form<TModel>(
  * function that builds the schema by binding logic to a parts of the field structure.
  *
  * @example
- * ```
+ * ```ts
  * const nameForm = form(signal({first: '', last: ''}), (name) => {
  *   required(name.first);
  *   validate(name.last, ({value}) => !/^[a-z]+$/i.test(value()) ? customError({kind: 'alphabet-only'}) : undefined);
@@ -195,7 +195,7 @@ export function form<TModel>(...args: any[]): FieldTree<TModel> {
  * Applies a schema to each item of an array.
  *
  * @example
- * ```
+ * ```ts
  * const nameSchema = schema<{first: string, last: string}>((name) => {
  *   required(name.first);
  *   required(name.last);
@@ -235,7 +235,7 @@ export function applyEach<TValue extends Object>(
  * Applies a predefined schema to a given `FieldPath`.
  *
  * @example
- * ```
+ * ```ts
  * const nameSchema = schema<{first: string, last: string}>((name) => {
  *   required(name.first);
  *   required(name.last);
@@ -330,13 +330,13 @@ export function applyWhenValue(
 }
 
 /**
- * Submits a given `FieldTree` using the given action function and applies any server errors
- * resulting from the action to the field. Server errors returned by the `action` will be integrated
+ * Submits a given `FieldTree` using the given action function and applies any submission errors
+ * resulting from the action to the field. Submission errors returned by the `action` will be integrated
  * into the field as a `ValidationError` on the sub-field indicated by the `field` property of the
- * server error.
+ * submission error.
  *
  * @example
- * ```
+ * ```ts
  * async function registerNewUser(registrationForm: FieldTree<{username: string, password: string}>) {
  *   const result = await myClient.registerNewUser(registrationForm().value());
  *   if (result.errorCode === myClient.ErrorCode.USERNAME_TAKEN) {
@@ -356,7 +356,7 @@ export function applyWhenValue(
  * ```
  *
  * @param form The field to submit.
- * @param action An asynchronous action used to submit the field. The action may return server
+ * @param action An asynchronous action used to submit the field. The action may return submission
  * errors.
  * @template TModel The data type of the field being submitted.
  *
@@ -378,19 +378,19 @@ export async function submit<TModel>(
   node.submitState.selfSubmitting.set(true);
   try {
     const errors = await action(form);
-    errors && setServerErrors(node, errors);
+    errors && setSubmissionErrors(node, errors);
   } finally {
     node.submitState.selfSubmitting.set(false);
   }
 }
 
 /**
- * Sets a list of server errors to their individual fields.
+ * Sets a list of submission errors to their individual fields.
  *
  * @param submittedField The field that was submitted, resulting in the errors.
  * @param errors The errors to set.
  */
-function setServerErrors(
+function setSubmissionErrors(
   submittedField: FieldNode,
   errors: OneOrMany<ValidationError.WithOptionalField>,
 ) {
@@ -400,7 +400,7 @@ function setServerErrors(
   const errorsByField = new Map<FieldNode, ValidationError.WithField[]>();
   for (const error of errors) {
     const errorWithField = addDefaultField(error, submittedField.fieldProxy);
-    const field = errorWithField.field() as FieldNode;
+    const field = errorWithField.fieldTree() as FieldNode;
     let fieldErrors = errorsByField.get(field);
     if (!fieldErrors) {
       fieldErrors = [];
@@ -409,7 +409,7 @@ function setServerErrors(
     fieldErrors.push(errorWithField);
   }
   for (const [field, fieldErrors] of errorsByField) {
-    field.submitState.serverErrors.set(fieldErrors);
+    field.submitState.submissionErrors.set(fieldErrors);
   }
 }
 

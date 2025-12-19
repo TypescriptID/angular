@@ -196,7 +196,7 @@ To use your own library in an application:
 - In your applications, import from the library by name:
 
 ```ts
-  import { myExport } from 'my-lib';
+import {myExport} from 'my-lib';
 ```
 
 ### Building and rebuilding your library
@@ -241,7 +241,7 @@ TypeScript path mappings should _not_ point to the library source `.ts` files.
 ### Linking libraries for local development
 
 This section explains how to use your package manager's local linking feature
-(such as [`npm link`](https://pnpm.io/cli/link) or [`pnpm link`](https://pnpm.io/cli/link)) to test a standalone Angular library with an external application during
+(such as [`npm link`](https://docs.npmjs.com/cli/v11/commands/npm-link) or [`pnpm link`](https://pnpm.io/cli/link)) to test a standalone Angular library with an external application during
 local development, without relying on the monorepo workspace structure or publishing to the NPM registry.
 
 NOTE: If your library and application are in the same Angular workspace (a monorepo setup), the standard monorepo workflow automatically handles the linking and is generally more efficient. This local linking approach is best when:
@@ -277,9 +277,7 @@ To use linked libraries, you need to configure your application's `angular.json`
           "builder": "@angular-devkit/build-angular:dev-server",
           "options": {
             "prebundle": {
-              "exclude": [
-                "my-lib"
-              ]
+              "exclude": ["my-lib"]
             }
           }
         }
@@ -336,6 +334,6 @@ The Angular linker Babel plugin supports build caching, meaning that libraries o
 
 Example of integrating the plugin into a custom [webpack](https://webpack.js.org) build by registering the linker as a [Babel](https://babeljs.io) plugin using [babel-loader](https://webpack.js.org/loaders/babel-loader/#options).
 
-<docs-code header="webpack.config.mjs" path="adev/src/content/examples/angular-linker-plugin/webpack.config.mjs" visibleRegion="webpack-config"/>
+<docs-code header="webpack.config.mjs" path="adev/src/content/examples/angular-linker-plugin/webpack.config.mjs" region="webpack-config"/>
 
 HELPFUL: The Angular CLI integrates the linker plugin automatically, so if consumers of your library are using the CLI, they can install Ivy-native libraries from npm without any additional configuration.

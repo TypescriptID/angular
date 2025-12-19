@@ -37,10 +37,10 @@ Tree-shaking is especially useful for a library because the application which us
 Provide services using `providedIn` of `@Injectable()` as follows:
 
 ```ts {highlight:[4]}
-import { Injectable } from '@angular/core';
+import {Injectable} from '@angular/core';
 
 @Injectable({
-  providedIn: 'root' // <--provides this service in the root EnvironmentInjector
+  providedIn: 'root', // <--provides this service in the root EnvironmentInjector
 })
 export class ItemService {
   name = 'telephone';
@@ -109,9 +109,7 @@ You can do this to configure a non-default provider of a service that is shared 
 Here is an example of the case where the component router configuration includes a non-default [location strategy](guide/routing#location-strategy) by listing its provider in the `providers` list of the `ApplicationConfig`.
 
 ```ts
-providers: [
-  { provide: LocationStrategy, useClass: HashLocationStrategy }
-]
+providers: [{provide: LocationStrategy, useClass: HashLocationStrategy}];
 ```
 
 For `NgModule` based applications, configure app-wide providers in the `AppModule` `providers`.
@@ -171,7 +169,7 @@ HELPFUL: For `NgModule` based applications, Angular will search the `ModuleInjec
 ## Resolution modifiers
 
 Angular's resolution behavior can be modified with `optional`, `self`, `skipSelf` and `host`.
-Import each of them from `@angular/core` and use each in the `inject` configuration when you inject your service.
+Import each of them from `@angular/core` and use each in the [`inject`](/api/core/inject) configuration when you inject your service.
 
 ### Types of modifiers
 
@@ -214,7 +212,7 @@ For example, in the following `SelfNoDataComponent`, notice the injected `LeafSe
 @Component({
   selector: 'app-self-no-data',
   templateUrl: './self-no-data.component.html',
-  styleUrls: ['./self-no-data.component.css']
+  styleUrls: ['./self-no-data.component.css'],
 })
 export class SelfNoDataComponent {
   public leaf = inject(LeafService, {optional: true, self: true});
@@ -261,7 +259,7 @@ This is when you'd use `skipSelf`:
   templateUrl: './skipself.component.html',
   styleUrls: ['./skipself.component.css'],
   // Angular would ignore this LeafService instance
-  providers: [{ provide: LeafService, useValue: { emoji: '🍁' } }]
+  providers: [{provide: LeafService, useValue: {emoji: '🍁'}}],
 })
 export class SkipselfComponent {
   // Use skipSelf as inject option
@@ -280,7 +278,7 @@ In the following example, the `Person` service is injected during property initi
 
 ```ts
 class Person {
-  parent = inject(Person, {optional: true, skipSelf: true})
+  parent = inject(Person, {optional: true, skipSelf: true});
 }
 ```
 
@@ -317,7 +315,7 @@ Import each of them from `@angular/core` and use each in the component class con
 
 ```ts {header:"self-no-data.component.ts" highlight:[2]}
 export class SelfNoDataComponent {
-  constructor(@Self() @Optional() public leaf?: LeafService) { }
+  constructor(@Self() @Optional() public leaf?: LeafService) {}
 }
 ```
 
@@ -330,9 +328,7 @@ Understanding the underlying logical structure of the Angular template will give
 Components are used in your templates, as in the following example:
 
 ```html
-<app-root>
-  <app-child></app-child>;
-</app-root>
+<app-root> <app-child />; </app-root>
 ```
 
 HELPFUL: Usually, you declare the components and their templates in separate files.
@@ -387,7 +383,7 @@ The example application has a `FlowerService` provided in `root` with an `emoji`
 
 ```ts {header:"lower.service.ts"}
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class FlowerService {
   emoji = '🌺';
@@ -398,9 +394,9 @@ Consider an application with only an `AppComponent` and a `ChildComponent`.
 The most basic rendered view would look like nested HTML elements such as the following:
 
 ```html
-<app-root> <!-- AppComponent selector -->
-<app-child> <!-- ChildComponent selector -->
-</app-child>
+<app-root>
+  <!-- AppComponent selector -->
+  <app-child> <!-- ChildComponent selector --> </app-child>
 </app-root>
 ```
 
@@ -425,7 +421,7 @@ Knowledge of this structure can inform how you provide and inject your services,
 Now, consider that `<app-root>` injects the `FlowerService`:
 
 ```typescript
-export class AppComponent  {
+export class AppComponent {
   flower = inject(FlowerService);
 }
 ```
@@ -514,17 +510,18 @@ In the logical tree, this is represented as follows:
 
 ```html
 <app-root @ApplicationConfig
-@Inject(FlowerService) flower=>"🌺">
-<#VIEW>
+          @Inject(FlowerService) flower=>"🌺">
+  <#VIEW>
 
-<p>Emoji from FlowerService: {{flower.emoji}} (🌺)</p>
-<app-child @Provide(FlowerService="🌻")
-@Inject(FlowerService)=>"🌻"> <!-- search ends here -->
-<#VIEW> <!-- search starts here -->
-<h2>Child Component</h2>
-<p>Emoji from FlowerService: {{flower.emoji}} (🌻)</p>
-</#VIEW>
-</app-child>
+  <p>Emoji from FlowerService: {{flower.emoji}} (🌺)</p>
+  <app-child @Provide(FlowerService="🌻" )
+             @Inject(FlowerService)=>"🌻"> <!-- search ends here -->
+    <#VIEW> <!-- search starts here -->
+    <h2>Child Component</h2>
+    <p>Emoji from FlowerService: {{flower.emoji}} (🌻)</p>
+  </
+  #VIEW>
+  </app-child>
 </#VIEW>
 </app-root>
 ```
@@ -598,7 +595,8 @@ In the `ChildComponent` template, add the following binding:
 Additionally, add the same to the `AppComponent` template:
 
 ```html
-<p>Emoji from AnimalService: {{animal.emoji}}</p>s
+<p>Emoji from AnimalService: {{animal.emoji}}</p>
+s
 ```
 
 Now you should see both values in the browser:
@@ -615,16 +613,17 @@ The logic tree for this example of `viewProviders` is as follows:
 
 ```html
 <app-root @ApplicationConfig
-@Inject(AnimalService) animal=>"🐳">
-<#VIEW>
-<app-child>
-<#VIEW @Provide(AnimalService="🐶")
-@Inject(AnimalService=>"🐶")>
+          @Inject(AnimalService) animal=>"🐳">
+  <#VIEW>
+  <app-child>
+    <#VIEW @Provide(AnimalService="🐶")
+    @Inject(AnimalService=>"🐶")>
 
-<!-- ^^using viewProviders means AnimalService is available in <#VIEW>-->
-<p>Emoji from AnimalService: {{animal.emoji}} (🐶)</p>
-</#VIEW>
-</app-child>
+    <!-- ^^using viewProviders means AnimalService is available in <#VIEW>-->
+    <p>Emoji from AnimalService: {{animal.emoji}} (🐶)</p>
+  </
+  #VIEW>
+  </app-child>
 </#VIEW>
 </app-root>
 ```
@@ -673,11 +672,11 @@ Next, add the following to `child.component.html`:
 
 <div class="container">
   <h3>Content projection</h3>
-  <ng-content></ng-content>
+  <ng-content />
 </div>
 <h3>Inside the view</h3>
 
-<app-inspector></app-inspector>
+<app-inspector />
 ```
 
 `<ng-content>` allows you to project content, and `<app-inspector>` inside the `ChildComponent` template makes the `InspectorComponent` a child component of `ChildComponent`.
@@ -686,7 +685,7 @@ Next, add the following to `app.component.html` to take advantage of content pro
 
 ```html
 <app-child>
-  <app-inspector></app-inspector>
+  <app-inspector />
 </app-child>
 ```
 
@@ -713,29 +712,31 @@ The `AnimalService` in the logical tree would look like this:
 
 ```html
 <app-root @ApplicationConfig
-@Inject(AnimalService) animal=>"🐳">
-<#VIEW>
-<app-child>
-<#VIEW @Provide(AnimalService="🐶")
-@Inject(AnimalService=>"🐶")>
+          @Inject(AnimalService) animal=>"🐳">
+  <#VIEW>
+  <app-child>
+    <#VIEW @Provide(AnimalService="🐶")
+    @Inject(AnimalService=>"🐶")>
 
-<!-- ^^using viewProviders means AnimalService is available in <#VIEW>-->
-<p>Emoji from AnimalService: {{animal.emoji}} (🐶)</p>
+    <!-- ^^using viewProviders means AnimalService is available in <#VIEW>-->
+    <p>Emoji from AnimalService: {{animal.emoji}} (🐶)</p>
 
-        <div class="container">
-          <h3>Content projection</h3>
-          <app-inspector @Inject(AnimalService) animal=>"🐳">
-            <p>Emoji from AnimalService: {{animal.emoji}} (🐳)</p>
-          </app-inspector>
-        </div>
+    <div class="container">
+      <h3>Content projection</h3>
+      <app-inspector @Inject(AnimalService) animal=>"🐳">
+        <p>Emoji from AnimalService: {{animal.emoji}} (🐳)</p>
+      </app-inspector>
+    </div>
 
-        <app-inspector>
-          <#VIEW @Inject(AnimalService) animal=>"🐶">
-            <p>Emoji from AnimalService: {{animal.emoji}} (🐶)</p>
-          </#VIEW>
-        </app-inspector>
-      </#VIEW>
-    </app-child>
+    <app-inspector>
+      <#VIEW @Inject(AnimalService) animal=>"🐶">
+      <p>Emoji from AnimalService: {{animal.emoji}} (🐶)</p>
+    </
+    #VIEW>
+    </app-inspector>
+  </
+  #VIEW>
+  </app-child>
 
 </#VIEW>
 </app-root>
@@ -753,7 +754,7 @@ To alter where the injector starts looking for `FlowerService`, add `skipSelf` t
 This invocation is a property initializer the `<app-child>` as shown in `child.component.ts`:
 
 ```typescript
-  flower = inject(FlowerService, { skipSelf: true })
+flower = inject(FlowerService, {skipSelf: true});
 ```
 
 With `skipSelf`, the `<app-child>` injector doesn't look to itself for the `FlowerService`.
@@ -769,15 +770,16 @@ In a logical tree, this same idea might look like this:
 
 ```html
 <app-root @ApplicationConfig
-@Inject(FlowerService) flower=>"🌺">
-<#VIEW>
-<app-child @Provide(FlowerService="🌻")>
-<#VIEW @Inject(FlowerService, SkipSelf)=>"🌺">
+          @Inject(FlowerService) flower=>"🌺">
+  <#VIEW>
+  <app-child @Provide(FlowerService="🌻" )>
+    <#VIEW @Inject(FlowerService, SkipSelf)=>"🌺">
 
-<!-- With SkipSelf, the injector looks to the next injector up the tree (app-root) -->
+    <!-- With SkipSelf, the injector looks to the next injector up the tree (app-root) -->
 
-</#VIEW>
-</app-child>
+  </
+  #VIEW>
+  </app-child>
 </#VIEW>
 </app-root>
 ```
@@ -790,12 +792,13 @@ Here's the idea in the logical tree:
 
 ```html
 <app-root @ApplicationConfig
-@Inject(FlowerService) flower=>"🌺">
-<#VIEW> <!-- end search here with null-->
-<app-child @Provide(FlowerService="🌻")> <!-- start search here -->
-<#VIEW inject(FlowerService, {skipSelf: true, host: true, optional:true})=>null>
-</#VIEW>
-</app-parent>
+          @Inject(FlowerService) flower=>"🌺">
+  <#VIEW> <!-- end search here with null-->
+  <app-child @Provide(FlowerService="🌻" )> <!-- start search here -->
+    <#VIEW inject(FlowerService, {skipSelf: true, host: true, optional:true})=>null>
+  </
+  #VIEW>
+  </app-parent>
 </#VIEW>
 </app-root>
 ```
@@ -824,16 +827,17 @@ The logical tree looks like this with `skipSelf` in `<app-child>`:
 
 ```html
 <app-root @ApplicationConfig
-@Inject(AnimalService=>"🐳")>
-<#VIEW><!-- search begins here -->
-<app-child>
-<#VIEW @Provide(AnimalService="🐶")
-@Inject(AnimalService, SkipSelf=>"🐳")>
+          @Inject(AnimalService=>"🐳")>
+  <#VIEW><!-- search begins here -->
+  <app-child>
+    <#VIEW @Provide(AnimalService="🐶")
+    @Inject(AnimalService, SkipSelf=>"🐳")>
 
-<!--Add skipSelf -->
+    <!--Add skipSelf -->
 
-</#VIEW>
-</app-child>
+  </
+  #VIEW>
+  </app-child>
 </#VIEW>
 </app-root>
 ```
@@ -863,13 +867,14 @@ export class ChildComponent {
 
 ```html
 <app-root @ApplicationConfig
-@Inject(AnimalService=>"🐳")>
-<#VIEW>
-<app-child>
-<#VIEW @Provide(AnimalService="🐶")
-inject(AnimalService, {host: true}=>"🐶")> <!-- host stops search here -->
-</#VIEW>
-</app-child>
+          @Inject(AnimalService=>"🐳")>
+  <#VIEW>
+  <app-child>
+    <#VIEW @Provide(AnimalService="🐶")
+    inject(AnimalService, {host: true}=>"🐶")> <!-- host stops search here -->
+  </
+  #VIEW>
+  </app-child>
 </#VIEW>
 </app-root>
 ```
@@ -892,7 +897,7 @@ Here are `host` and `skipSelf` in the `animal` property initialization:
 
 ```typescript
 export class ChildComponent {
-  animal = inject(AnimalService, { host: true, skipSelf: true });
+  animal = inject(AnimalService, {host: true, skipSelf: true});
 }
 ```
 
@@ -909,17 +914,18 @@ The logical tree representation shows why this is:
 
 ```html
 <app-root @ApplicationConfig
-@Inject(AnimalService=>"🐳")>
-<#VIEW @Provide(AnimalService="🦔")
-@Inject(AnimalService, @Optional)=>"🦔">
+          @Inject(AnimalService=>"🐳")>
+  <#VIEW @Provide(AnimalService="🦔")
+  @Inject(AnimalService, @Optional)=>"🦔">
 
-<!-- ^^skipSelf starts here,  host stops here^^ -->
-<app-child>
-<#VIEW @Provide(AnimalService="🐶")
-inject(AnimalService, {skipSelf:true, host: true, optional: true})=>"🦔">
-<!-- Add skipSelf ^^-->
-</#VIEW>
-</app-child>
+  <!-- ^^skipSelf starts here,  host stops here^^ -->
+  <app-child>
+    <#VIEW @Provide(AnimalService="🐶")
+    inject(AnimalService, {skipSelf:true, host: true, optional: true})=>"🦔">
+    <!-- Add skipSelf ^^-->
+  </
+  #VIEW>
+  </app-child>
 </#VIEW>
 </app-root>
 ```
@@ -1076,7 +1082,7 @@ Every component would share the same service instance, and each component would 
 To prevent this, configure the component-level injector of `HeroTaxReturnComponent` to provide the service, using the `providers` property in the component metadata.
 
 ```typescript
-  providers: [HeroTaxReturnService]
+providers: [HeroTaxReturnService];
 ```
 
 The `HeroTaxReturnComponent` has its own provider of the `HeroTaxReturnService`.

@@ -46,16 +46,16 @@ Common types of services include:
 The following example declares a service named `AnalyticsLogger`:
 
 ```ts
-import { Injectable } from '@angular/core';
+import {Injectable} from '@angular/core';
 
-@Injectable({ providedIn: 'root' })
+@Injectable({providedIn: 'root'})
 export class AnalyticsLogger {
   trackEvent(category: string, value: string) {
     console.log('Analytics event logged:', {
       category,
       value,
-      timestamp: new Date().toISOString()
-    })
+      timestamp: new Date().toISOString(),
+    });
   }
 }
 ```
@@ -93,7 +93,7 @@ export class NavbarComponent {
 
 ### Where can `inject()` be used?
 
-You can inject dependencies during construction of a component, directive, or service. The call to `inject` can appear in either the `constructor` or in a field initializer. Here are some common examples:
+You can inject dependencies during construction of a component, directive, or service. The call to [`inject`](/api/core/inject) can appear in either the `constructor` or in a field initializer. Here are some common examples:
 
 ```ts
 @Component({...})
@@ -119,10 +119,10 @@ export class MyDirective {
 ```
 
 ```ts
-import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import {Injectable, inject} from '@angular/core';
+import {HttpClient} from '@angular/common/http';
 
-@Injectable({ providedIn: 'root' })
+@Injectable({providedIn: 'root'})
 export class MyService {
   // ✅ In a service
   private http = inject(HttpClient);
@@ -134,10 +134,10 @@ export const authGuard = () => {
   // ✅ In a route guard
   const auth = inject(AuthService);
   return auth.isAuthenticated();
-}
+};
 ```
 
-Angular uses the term "injection context" to describe any place in your code where you can call `inject`. While component, directive, and service construction is the most common, see [injection contexts](/guide/di/dependency-injection-context) for more details.
+Angular uses the term "injection context" to describe any place in your code where you can call [`inject`](/api/core/inject). While component, directive, and service construction is the most common, see [injection contexts](/guide/di/dependency-injection-context) for more details.
 
 For more information, see the [inject API docs](api/core/inject#usage-notes).
 

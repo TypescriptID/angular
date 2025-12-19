@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {Fragment, h} from 'preact';
+import {Fragment, h, HTMLAttributes} from 'preact';
 import {EntryType, isDocEntryWithSourceInfo, PipeEntry} from '../entities.mjs';
 import {DocEntryRenderable, PipeEntryRenderable} from '../entities/renderables.mjs';
 import {
@@ -73,7 +73,7 @@ export function HeaderApi(props: {
 }
 
 function statusTag(entry: DocEntryRenderable) {
-  let tag: h.JSX.HTMLAttributes<HTMLDivElement> | null = null;
+  let tag: HTMLAttributes<HTMLDivElement> | null = null;
 
   // Cascading Deprecated > Stable > Developer Preview > Experimental
 
@@ -121,13 +121,6 @@ function tagInVersionString(label: string, tag: {version: string | undefined} | 
   }
 
   return <>{label}</>;
-}
-
-function tagInVersionTooltip(
-  label: string,
-  tag: {version: string | undefined} | undefined,
-): string {
-  return tag?.version ? `${label} since ${tag.version}` : label;
 }
 
 function getEntryTypeDisplayName(entryType: EntryType | string): string {
